@@ -1,0 +1,9 @@
+version: "1"
+services:
+  ht_indexer_api:
+    build: .
+    image: app
+    ports:
+      - "8081:8081"
+    volumes:
+      - .:/app:ro
