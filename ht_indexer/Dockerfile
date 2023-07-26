@@ -1,5 +1,5 @@
-FROM python:3.11-slim-buster as base
-RUN mkdir app
+FROM python:3.9-slim-buster as base
+RUN mkdir /app
 WORKDIR  /app
 COPY /pyproject.toml /app
 RUN pip3 install poetry
