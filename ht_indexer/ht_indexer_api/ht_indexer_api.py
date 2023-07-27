@@ -1,9 +1,6 @@
 import os
 from pathlib import Path
-
 import requests
-
-
 from typing import Text, Dict
 import logging
 import json
@@ -13,7 +10,6 @@ import glob
 class HTSolrAPI():
 
     def __init__(self, host: Text = 'localhost', port: int = 8983):
-
         self.url = f'http://{host}:{port}/solr/#/core-x/'
 
     def get_solr_status(self):
@@ -30,8 +26,7 @@ class HTSolrAPI():
             logging.info(f'Indexing {doc}')
             with open(doc, 'rb') as xml_file:
                 data_dict = xml_file.read()
-
-                response = requests.post("http://localhost:8983/solr/core-x/update/?commit=true",
+                response = requests.post(f"{self.url.replace('#/', '')}update/?commit=true",
                                          headers={"Content-Type": "application/xml"},
                                          data=data_dict,
                                          params={'commit': 'true', }
