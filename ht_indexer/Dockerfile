@@ -13,7 +13,7 @@ ENV PYTHONUNBUFFERED=1 \
 
 ENV PATH="$POETRY_HOME/bin:$VENV_PATH/bin:$PATH"
 
-# builder-base is used to build dependencies
+# building dependencies
 FROM python-base as builder-base
 RUN apt-get update \
     && apt-get install --no-install-recommends -y \
@@ -46,4 +46,7 @@ RUN poetry install
 WORKDIR /app
 COPY . .
 
-CMD ["poetry", "run", "uvicorn", "main:app", "--reload"]
+#Use this command to load the API with uvicorn, difficult to pass parameters
+#CMD ["poetry", "run", "uvicorn", "main:app", "--reload"]
+CMD ["poetry", "run", "python", "main.py", "--host", "0.0.0.0", "--port", "8081", "--solr_host", "host.docker.internal",
+"--solr_port", "8983"]
