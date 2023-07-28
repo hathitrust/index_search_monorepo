@@ -48,5 +48,4 @@ COPY . .
 
 #Use this command to load the API with uvicorn, difficult to pass parameters
 #CMD ["poetry", "run", "uvicorn", "main:app", "--reload"]
-CMD ["poetry", "run", "python", "main.py", "--host", "0.0.0.0", "--port", "8081", "--solr_host", "host.docker.internal",
-"--solr_port", "8983"]
+CMD ["poetry", "run", "python", "main.py", "--host", "0.0.0.0", "--port", "8081", "--solr_host", "host.docker.internal", "--solr_port", "8983"]
