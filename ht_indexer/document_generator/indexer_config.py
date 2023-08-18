@@ -3,30 +3,7 @@ MYQLS_METADATA = ['coll_id', 'ht_heldby', 'ht_heldby_brlm', 'rights']
 To_CHECK = ['ht_cover_tag','ht_page_feature','ht_reading_order','ht_scanning_order','numPages',
 'numChars','charsPerPage','seq','pgnum','type_s','chunk_seq', 'mainauthor', 'timestamp',
             'ctrlnum', 'rptnum', 'isbn',
-            'language008_full', # it seems to be the same value as language field in Catalog
             'edition',
-            'author_top',
-            'author_rest',
-            'authorSort',
-            'author_sortkey',
-            'vtitle',
-            'vtitle_dv',
-            'title_c',
-            'title_c_dv',
-            'title_sortkey',
-            'title_display',
-            'title',
-            'titleSort',
-            'titleSort_dv',
-            'Vtitle',
-            'Vtitle_dv',
-            'title_ab',
-            'title_a',
-            'titleProper',
-            'title_top',
-            'title_topProper',
-            'title_restProper',
-            'title_rest',
             'fullgenre',
             'genre',
             'hlb3Str',
@@ -37,26 +14,54 @@ To_CHECK = ['ht_cover_tag','ht_page_feature','ht_reading_order','ht_scanning_ord
             'fullgeographic',
             ]
 
-CATALOG_METADATA = ['id',
-                    'ocr',
+#field catalog : field_full_text
+RENAMED_CATALOG_METADATA = {'id': 'record_no',
+                            'publishDate': 'date',
+                           'author': 'Vauthor',
+                           'title': 'Vtitle'
+                           }
+
+IDENTICAL_CATALOG_METADATA = [
+                    #'id',
+                    #'ocr',
                     'author',
                     'author2',
-                    'date',
-                    'record_no',
-                    'allfields',
+                    #'date',
+                    #'record_no',
+                    #'allfields',
                     'lccn',
                     'sdrnum',
                     'oclc',
                     'issn',
-                    'ht_id_display',
+                    'ht_id_display', # Appear in full-text search schema do we want to keep it?
                     'isn_related',
                     'callnumber',
                     'sudoc',
                     'language',
+                    'language008_full',
                     'format',
                     'htsource',
                     'publisher',
-                    'Vauthor', # eq to author
+                    #'Vauthor', # eq to author
+                    # ====Check author fields====
+                    'author_top',
+                    'author_rest',
+                    'authorSort',
+                    'author_sortkey',
+                    # ============================
+                    # ====Check title fields====
+                    'vtitle',
+                    'title_c',
+                    'title_sortkey',
+                    'title_display',
+                    'title',
+                    'titleSort',
+                    #'Vtitle', is title in Catalog
+                    'title_ab',
+                    'title_a',
+                    'title_top',
+                    'title_rest',
+                    # ============================
                     'volume_enumcron',
                     'series',
                     'series2',
@@ -69,11 +74,3 @@ CATALOG_METADATA = ['id',
                     'geographicStr',
                     'countryOfPubStr'
                     ]
-
-OTHER_METADATA = ['vol_id', 'coll_id', 'ht_cover_tag', 'ht_page_feature', 'ht_reading_order', 'ht_scanning_order',
-                  'ht_heldby', 'ht_heldby_brlm', 'numPages', 'numChars', 'charsPerPage', 'seq', 'pgnum', 'type_s',
-                  'chunk_seq', 'rights', 'mainauthor', 'author', 'author2', 'date', 'timestamp', 'record_no',
-                  'allfields', 'ctrlnum', 'rptnum', 'isbn', 'sudoc', 'edition', 'Vauthor', 'author_top', 'author_rest',
-                  'authorSort', 'author_sortkey', 'vtitle', 'title_c', 'volume_enumcron', 'Vtitle', 'series', 'series2',
-                  'fullgenre', 'genre', 'hlb3Str', 'hlb3Delimited', 'enumPublishDate', 'bothPublishDate', 'era',
-                  'geographicStr', 'fullgeographic', 'ocr']
