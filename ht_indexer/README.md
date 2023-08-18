@@ -64,4 +64,17 @@ On mac,
 
 To run testing locally you would execute `ht_indexer_api_test.py` 
 
+Reference used for python implementation
 
+Parser XML files
+https://lxml.de/tutorial.html#parsing-from-strings-and-files
+https://pymotw.com/3/xml.etree.ElementTree/parse.html
+
+MySql
+https://www.w3schools.com/python/python_mysql_join.asp
+
+SSH + python script + environment variables to pass user/password
+https://www.the-analytics.club/python-ssh-shell-commands/#google_vignette
+
+Pypairtree
+https://github.com/unt-libraries/pypairtree/tree/master
