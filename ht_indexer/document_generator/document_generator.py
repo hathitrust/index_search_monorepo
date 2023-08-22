@@ -12,7 +12,6 @@ from ht_indexer_api.ht_indexer_api import HTSolrAPI
 from indexer_config import IDENTICAL_CATALOG_METADATA, RENAMED_CATALOG_METADATA
 from lxml import etree
 from io import BytesIO
-from pathlib import Path
 
 from utils.ht_mysql import create_mysql_conn, query_mysql
 from utils.ht_pairtree import download_document_file
@@ -231,9 +230,8 @@ def main():
     query = f'ht_id:{args.doc_id}'
     doc_metadata = get_record_metadata(query)
 
-
     # Download document .zip and .mets.xml file
-    target_path = f'{Path(os.getcwd()).parent}/data/data_generator'
+    target_path = f'{os.path.dirname(os.path.abspath(__file__))}/data/data_generator'
     download_document_file(args.doc_id, target_path)
 
     print(doc_metadata)
