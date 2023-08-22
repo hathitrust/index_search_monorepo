@@ -4,8 +4,6 @@ import os
 import sys
 from pypairtree import pairtree
 
-
-
 SDR_DIR = '/sdr1'
 
 def download_document_file(doc_name: str = None, target_path: str = None):
@@ -31,6 +29,7 @@ def download_document_file(doc_name: str = None, target_path: str = None):
     except KeyError:
         logging.info(f"Please define the environment variable HOST")
         sys.exit(1)
+
 
     # Copy the file to the remote path
     for extension in ['zip','mets.xml']:

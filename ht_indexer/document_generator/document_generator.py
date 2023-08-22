@@ -4,6 +4,7 @@ import logging
 import re
 import json
 import os
+from pathlib import Path
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -12,6 +13,7 @@ from ht_indexer_api.ht_indexer_api import HTSolrAPI
 from indexer_config import IDENTICAL_CATALOG_METADATA, RENAMED_CATALOG_METADATA
 from lxml import etree
 from io import BytesIO
+
 
 from utils.ht_mysql import create_mysql_conn, query_mysql
 from utils.ht_pairtree import download_document_file
@@ -222,8 +224,8 @@ def main():
 
     args = parser.parse_args()
 
-    #db_conn = create_mysql_conn(host=args.mysql_host, user=args.mysql_user,
-    #                            password=args.mysql_pass, database=args.mysql_database)
+    db_conn = create_mysql_conn(host=args.mysql_host, user=args.mysql_user,
+                                password=args.mysql_pass, database=args.mysql_database)
 
     # Query solr index with the document id
     # query = {'ht_id': args.doc_id} #'mdp.39015084393423'
@@ -231,12 +233,9 @@ def main():
     doc_metadata = get_record_metadata(query)
 
     # Download document .zip and .mets.xml file
-    target_path = f'{os.path.dirname(os.path.abspath(__file__))}/data/data_generator'
+    target_path = f'{Path(__file__).parents[1]}/data/data_generator'
     download_document_file(args.doc_id, target_path)
 
-    print(doc_metadata)
-
-    """
     # Add Catalog fields to full-text document
     entry = create_full_text_entry(args.doc_id, doc_metadata.get('content').get('response').get('docs')[0])
 
@@ -260,7 +259,7 @@ def main():
     # tree = ET.XMl(solr_str)
     with open("../ht_indexer_api/data/add/myfirstSolrDoc.xml", "w") as f:
         f.write(solr_str)
-    """
+
 
 if __name__ == "__main__":
     main()
