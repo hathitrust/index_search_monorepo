@@ -4,7 +4,7 @@ from ht_indexer_api.ht_indexer_api import HTSolrAPI
 
 @pytest.fixture
 def get_solrAPI():
-    return HTSolrAPI(url='http://localhost:9033/solr/#/catalog/')
+    return HTSolrAPI(url='http://localhost:8983/solr/#/core-x/') #http://localhost:9033/solr/#/catalog/
 
 
 class TestHTSolrAPI():
@@ -18,7 +18,7 @@ class TestHTSolrAPI():
         assert (solr_api_status.status_code == 200)
 
     def test_index_document_add(self, get_solrAPI):
-        document_path = 'data/delete'
+        document_path = 'data/add'
         response = get_solrAPI.index_document(document_path)
         assert (response.status_code == 200)
 
@@ -28,8 +28,7 @@ class TestHTSolrAPI():
         :param get_solrAPI:
         :return:
         """
-        query = "oclc:9951274"
-        # query = f'oclc:{args.doc_id}'
+        query = "oclc:23549320"
         response = get_solrAPI.get_documents(query=query,
                                              response_format='json')
 
