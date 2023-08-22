@@ -64,6 +64,14 @@ On mac,
 
 To run testing locally you would execute `ht_indexer_api_test.py` 
 
+## Document generator
+
+Before using this script you should set up the following environment variables
+
+export HOST=something.hathitrust.org
+export USER=your_user_name
+export PUBLIC_KEY=public_key_name
+
 Reference used for python implementation
 
 Parser XML files
