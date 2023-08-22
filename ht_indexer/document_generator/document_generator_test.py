@@ -35,7 +35,7 @@ class TestDocumentGenerator:
 
     def test_full_text_field(self):
 
-        zip_path = f'{Path(os.getcwd()).parent}/data/document_generator/39015051333915.zip'
+        zip_path = f'{Path(os.getcwd()).parent}/data/document_generator/39015078560292.zip'
         full_text = get_full_text_field(zip_path)
 
         assert len(full_text) > 10
@@ -52,24 +52,6 @@ class TestDocumentGenerator:
         doc_metadata = get_record_metadata(query)
 
         assert "mdp.39015084393423" in doc_metadata.get('content').get('response').get('docs')[0].get('ht_id')
-
-        catalog_fields = []
-        catalog_non_fields = []
-        for field in ["id", "vol_id", "coll_id", "ht_cover_tag", "ht_page_feature", "ht_reading_order",
-                      "ht_scanning_order", "ht_heldby", "ht_heldby_brlm", "numPages", "numChars", "charsPerPage", "seq",
-                      "pgnum", "type_s", "chunk_seq", "title", "rights", "mainauthor", "author", "author2", "date",
-                      "timestamp", "record_no", "allfields", "lccn", "ctrlnum", "rptnum", "sdrnum", "oclc", "isbn",
-                      "issn", "ht_id_display", "isn_related", "callnumber", "sudoc", "language", "format", "htsource",
-                      "publisher", "edition", "Vauthor", "author_top", "author_rest", "authorSort", "author_sortkey",
-                      "vtitle", "title_c", "title_sortkey", "title_display", "volume_enumcron", "titleSort", "Vtitle",
-                      "title_ab", "title_a", "title_top", "title_rest", "series", "series2", "serialTitle_ab",
-                      "serialTitle_a", "serialTitle", "serialTitle_rest", "topicStr",
-                      "fullgenre", "genre", "hlb3Str", "hlb3Delimited", "publishDate", "enumPublishDate",
-                      "bothPublishDate", "era", "geographicStr", "fullgeographic", "countryOfPubStr", "ocr"]:
-            if field not in doc_metadata.get('content').get('response').get('docs')[0]:
-                catalog_non_fields.append(field)
-
-        print(catalog_fields)
 
     def test_create_solr_string(self):
 

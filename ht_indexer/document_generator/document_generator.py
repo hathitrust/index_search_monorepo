@@ -7,7 +7,7 @@ import os
 
 from typing import Dict, List
 from ht_indexer_api.ht_indexer_api import HTSolrAPI
-from document_generator.indexer_config import IDENTICAL_CATALOG_METADATA, RENAMED_CATALOG_METADATA
+from indexer_config import IDENTICAL_CATALOG_METADATA, RENAMED_CATALOG_METADATA
 from lxml import etree
 from io import BytesIO
 from pathlib import Path
@@ -66,7 +66,7 @@ def get_allfields_field(catalog_xml: str = None):
     xml_string_like_file = BytesIO(catalog_xml.encode(encoding='utf-8'))
 
     for event, element in etree.iterparse(xml_string_like_file, events=("start", "end"), ):
-        if element.tag.find("datafield") == 32:
+        if element.tag.find("datafield") > -1:
             tag_att = element.attrib.get('tag')
             try:
                 if int(tag_att) > 99 and event == "start":
@@ -137,35 +137,58 @@ Mysql queries
     SELECT sysid FROM slip_rights WHERE nid=?
 
 """
+def add_large_coll_id_field():
+
+    """
+    Get the list of coll_ids for the given id that are large so those
+    coll_ids can be added as <coll_id> fields of the Solr doc.
+
+    So, if sync-i found an id to have, erroneously, a *small* coll_id
+    field in its Solr doc and queued it for re-indexing, this routine
+    would create a Solr doc not containing that coll_id among its
+    <coll_id> fields.
+    """
 
 
 def retrieve_mysql_data(db_conn, doc_id):
     entry = {}
 
-    entry.update({'rights': add_right_field(db_conn, doc_id).get('attr')})
+    entry.update(add_right_field(db_conn, doc_id))
+    entry.update(add_ht_heldby_field())
     return entry
 
 
 def add_right_field(db_conn, doc_id) -> List[Dict]:
     query = f"SELECT * FROM slip_rights WHERE nid=\"{doc_id}\""
     slip_rights_entry = query_mysql(db_conn, query=query)
-
-    return slip_rights_entry
-
-
-def add_ht_heldby_field():
-    return {'ht_heldby': None}
+    return {'rights': slip_rights_entry.get('attr')}
 
 
-def add_add_heldby_brlm_field():
-    return {'ht_page_feature': None}
+def add_ht_heldby_field(db_conn, volume_id) -> Dict:
+
+    query = f"SELECT member_id FROM holdings_htitem_htmember WHERE volume_id ={volume_id}"
+    ht_heldby_entry = query_mysql(db_conn, query=query)
+
+    #ht_heldby is a list of institutions
+    return {'ht_heldby': ht_heldby_entry.get('member_id')}
+
+
+def add_add_heldby_brlm_field(db_conn, volume_id) -> Dict:
+
+    query = f"SELECT member_id FROM holdings_htitem_htmember WHERE volume_id={volume_id} AND access_count > 0"
+
+    ht_heldby_entry = query_mysql(db_conn, query=query)
+
+    return {'ht_heldby_brlm': ht_heldby_entry.get('member_id')}
 
 
 def add_ht_page_feature_field():
+    # Extract from MET.xml file
     pass
 
 
 def add_add_reading_order():
+    # Extract from MET.xml file
     return {'ht_reading_order': None,
             'ht_scanning_order': None,
             'ht_cover_tag': None
