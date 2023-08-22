@@ -1,13 +1,11 @@
 import logging
 import subprocess
 import os
+import sys
 from pypairtree import pairtree
 
 
-# TODO: Define environment variables instead of global variables
-HOST = 'dev-2.babel.hathitrust.org'
-USER = 'lisepul'
-PUBLIC_KEY = 'lisepul-dev-2_babel_server'
+
 SDR_DIR = '/sdr1'
 
 def download_document_file(doc_name: str = None, target_path: str = None):
@@ -18,11 +16,27 @@ def download_document_file(doc_name: str = None, target_path: str = None):
 
     source_path = f'{SDR_DIR}/obj/{namespace}/pairtree_root{doc_path}'
 
+    try:
+        public_key = os.environ['PUBLIC_KEY']
+    except KeyError:
+        print(f"Please define the environment variable PUBLIC_KEY")
+        sys.exit(1)
+    try:
+        user = os.environ['USER']
+    except KeyError:
+        logging.info(f"Please define the environment variable USER")
+        sys.exit(1)
+    try:
+        host = os.environ['HOST']
+    except KeyError:
+        logging.info(f"Please define the environment variable HOST")
+        sys.exit(1)
+
     # Copy the file to the remote path
     for extension in ['zip','mets.xml']:
         command = ["scp",
                    "-i",
-                   os.path.expanduser(f'~/.ssh/{PUBLIC_KEY}'),
-                   f"{USER}@{HOST}:{source_path}/{obj_id}.{extension}", target_path]
+                   os.path.expanduser(f"~/.ssh/{public_key}"),
+                   f"{user}@{host}:{source_path}/{obj_id}.{extension}", target_path]
         subprocess.run(command)
         logging.info(f"Download {source_path}/{obj_id}.{extension} to {target_path}")
