@@ -98,7 +98,7 @@ def get_record_metadata(query: str = None):
 
 
 def get_volume_enumcron(ht_id_display: str = None):
-    enumcron = ht_id_display.split('|')[2]
+    enumcron = ht_id_display[0].split('|')[2]
     return enumcron
 
 
@@ -123,8 +123,10 @@ def create_full_text_entry(doc_id: str, metadata: Dict) -> Dict:
         if value:
             entry[field] = value
 
-    entry['enumcron'] = get_volume_enumcron(metadata.get('ht_id_display'))
-    entry['htsource'] = get_item_htsource(doc_id, metadata.get('htsource'), field.get('ht_id'))
+    volume_enumcron = get_volume_enumcron(metadata.get('ht_id_display'))
+    if len(volume_enumcron) > 1:
+        entry['volume_enumcron'] = volume_enumcron
+    entry['htsource'] = get_item_htsource(doc_id, metadata.get('htsource'), metadata.get('ht_id'))
 
     for field in RENAMED_CATALOG_METADATA.keys():
         renamed_field = RENAMED_CATALOG_METADATA[field]
@@ -156,33 +158,45 @@ def add_large_coll_id_field():
 def retrieve_mysql_data(db_conn, doc_id):
     entry = {}
 
-    entry.update(add_right_field(db_conn, doc_id))
-    entry.update(add_ht_heldby_field())
+    # Retrieve vol_id
+    vol_id = "mdp.39015078560292"
+
+    doc_rights = add_right_field(db_conn, doc_id)
+    if doc_rights.get('attr'):
+        entry.update({'rights': doc_rights.get('attr')})
+
+    ht_heldby = add_ht_heldby_field(db_conn, vol_id)
+    if ht_heldby.get('member_id'):
+        entry.update({'ht_heldby': ht_heldby.get('member_id')})
+
+    heldby_brlm = add_add_heldby_brlm_field(db_conn, vol_id)
+    if heldby_brlm.get('member_id'):
+        entry.update({'ht_heldby_brlm': heldby_brlm.get('member_id')})
     return entry
 
 
-def add_right_field(db_conn, doc_id) -> List[Dict]:
-    query = f"SELECT * FROM slip_rights WHERE nid=\"{doc_id}\""
+def add_right_field(db_conn, doc_id) -> Dict:
+    namespace, id = doc_id.split('.')
+    query = f"SELECT * FROM rights_current WHERE namespace=\"{namespace}\" AND id=\"{id}\""
     slip_rights_entry = query_mysql(db_conn, query=query)
-    return {'rights': slip_rights_entry.get('attr')}
+    return slip_rights_entry
 
 
-def add_ht_heldby_field(db_conn, volume_id) -> Dict:
+def add_ht_heldby_field(db_conn, vol_id) -> Dict:
 
-    query = f"SELECT member_id FROM holdings_htitem_htmember WHERE volume_id ={volume_id}"
+    query = f"SELECT member_id FROM holdings_htitem_htmember WHERE volume_id=\"{vol_id}\""
+
     ht_heldby_entry = query_mysql(db_conn, query=query)
-
     #ht_heldby is a list of institutions
-    return {'ht_heldby': ht_heldby_entry.get('member_id')}
+    return ht_heldby_entry
 
 
-def add_add_heldby_brlm_field(db_conn, volume_id) -> Dict:
+def add_add_heldby_brlm_field(db_conn, vol_id="mdp.39015078560292") -> Dict:
 
-    query = f"SELECT member_id FROM holdings_htitem_htmember WHERE volume_id={volume_id} AND access_count > 0"
+    query = f"SELECT member_id FROM holdings_htitem_htmember WHERE volume_id=\"{vol_id}\" AND access_count > 0"
 
     ht_heldby_entry = query_mysql(db_conn, query=query)
-
-    return {'ht_heldby_brlm': ht_heldby_entry.get('member_id')}
+    return ht_heldby_entry
 
 
 def add_ht_page_feature_field():
@@ -232,17 +246,20 @@ def main():
     query = f'ht_id:{args.doc_id}'
     doc_metadata = get_record_metadata(query)
 
+    """
     # Download document .zip and .mets.xml file
     target_path = f'{Path(__file__).parents[1]}/data/data_generator'
     download_document_file(args.doc_id, target_path)
-
+    """
     # Add Catalog fields to full-text document
     entry = create_full_text_entry(args.doc_id, doc_metadata.get('content').get('response').get('docs')[0])
 
+    """
     # Retrieve document full-text
     obj_id = args.doc_id.split(".")[1]
     full_text = get_full_text_field(f'../data/{obj_id}.zip')  # args.zip_file_path
     entry.update({'ocr': full_text})
+    """
 
     # Get allfields entry
     full_record_entry = doc_metadata.get('content').get('response').get('docs')[0].get('fullrecord')

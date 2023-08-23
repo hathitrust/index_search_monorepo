@@ -78,3 +78,16 @@ class TestDocumentGenerator:
         assert "mdp.39015084393423" in doc_metadata.get('content').get('response').get('docs')[0].get("ht_id")
 
 
+    def test_get_volume_enumcron_empty(self):
+        # TODO: Check if is correct the generation of volume_enumcrom (line 417: https://github.com/hathitrust/slip-lib/blob/master/Document/Doc/vSolrMetadataAPI/Schema_LS_11.pm)
+        """
+        Some documents do not have the field volume_enumcrom, that is because it is an empty string in the second position.
+        Is that correct
+        :return:
+        """
+        volume_enumcrom=''
+        ht_id_display = ['mdp.39015078560292|20220910||1860|1860-1869|||RÄ\x81binsan KrÅ«so kÄ\x81 itihÄ\x81sa. The adventures of Robinson Crusoe, translated [into Hindi] by BadrÄ« LÄ\x81la, from a Bengali version ...'
+]
+        assert volume_enumcrom == ht_id_display[0].split('|')
+
+
