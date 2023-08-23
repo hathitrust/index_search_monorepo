@@ -2,8 +2,6 @@ import logging
 
 import mysql.connector
 from mysql.connector import Connect
-from sshtunnel import SSHTunnelForwarder
-import os
 
 
 def create_mysql_conn(host: str = None, user: str = None, password: str = None, database: str = None):
@@ -26,11 +24,18 @@ def create_mysql_conn(host: str = None, user: str = None, password: str = None, 
 
 def query_mysql(db_conn: Connect = None, query: str = None):
 
-    #with db_conn:
     cursor = db_conn.cursor()
     cursor.execute(query)
 
     results = cursor.fetchall()
-    return {name[0]: value for row in results for name, value in zip(cursor.description, row)}
+
+
+    list_docs = []
+    for row in results:
+        doc = {}
+        for name, value in zip(cursor.description, row):
+            doc.update({name[0]: value})
+        list_docs.append(doc)
+    return list_docs #[{name[0]: value} for row in results for name, value in zip(cursor.description, row)]
 
 

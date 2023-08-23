@@ -48,6 +48,10 @@ Use this curl command to delete the XML file
 You can also run the application from your local machine without a docker file using the following command. 
 However, you will have to set up you python environment.
 
+Use this curl command to query Sorl
+
+``curl http://localhost:9033/solr/catalog/query -d 'json={"query":"ht_id:umn.31951000662660j"}'``
+
 ``poetry run python main.py --host 0.0.0.0 --port 8081 --solr_host localhost --solr_port 8983``
 
 ## [Optional] How to set up your python environment

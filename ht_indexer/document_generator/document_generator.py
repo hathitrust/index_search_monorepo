@@ -3,8 +3,8 @@ import zipfile
 import logging
 import re
 import json
-import os
 from pathlib import Path
+from xml.sax.saxutils import quoteattr
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -24,13 +24,13 @@ solr_api = HTSolrAPI(url="http://localhost:9033/solr/#/catalog/")
 def create_solr_string(data_dic: Dict) -> str:
     solr_str = ''
     for key, values in data_dic.items():
-        if isinstance(values, str):
+        if not isinstance(values, List):
             solr_str = solr_str + f'<field name=\"{key}\">{values}</field>' + '\n'
         else:
             if values:
                 for value in values:
                     solr_str = solr_str + f'<field name=\"{key}\">{value}</field>' + '\n'
-    return f'<doc>{solr_str}</doc>'
+    return f'<add><doc>{solr_str}</doc></add>'
 
 
 def string_preparation(doc_content):
@@ -40,15 +40,23 @@ def string_preparation(doc_content):
     :return:
     """
 
-    # Convert byte to str
-    str_content = str(doc_content.decode())
+    try:
+        # Convert byte to str
+        str_content = str(doc_content.decode())
+    except Exception as e:
+        try:
+            str_content = str(doc_content.decode(encoding="latin1"))
+            logging.info(f"File encode compatible with latin1 {e}")
+        except Exception as e:
+            logging.info(f"There are especial characters on the file {e}")
+            raise Exception
 
     # Remove line breaks
     str_content = str_content.replace("\n", " ")
 
     # Remove extra white spaces
     str_content = re.sub(' +', ' ', str_content)
-    return str_content
+    return quoteattr(str_content)
 
 
 def get_full_text_field(zip_doc_path):
@@ -60,6 +68,7 @@ def get_full_text_field(zip_doc_path):
                 full_text = full_text + ' ' + string_preparation(zip_doc.read(i_file))
     except Exception as e:
         logging.ERROR(f'Something wring with your zip file {e}')
+    full_text = full_text.encode().decode()
     return full_text
 
 
@@ -83,8 +92,8 @@ def get_allfields_field(catalog_xml: str = None):
                             allfields = allfields + ' ' + str(element.text)
             except ValueError as e:
                 logging.info(f'Element tag is not an integer value {e}')
-                continue
-    return allfields
+                pass
+    return quoteattr(allfields)
 
 
 def get_record_metadata(query: str = None):
@@ -134,15 +143,7 @@ def create_full_text_entry(doc_id: str, metadata: Dict) -> Dict:
 
     return entry
 
-
-"""
-Mysql queries
-
-# Retrieve sysid for item_id and construct query, How to obtain the nid???
-    SELECT sysid FROM slip_rights WHERE nid=?
-
-"""
-def add_large_coll_id_field():
+def add_large_coll_id_field(db_conn, doc_id):
 
     """
     Get the list of coll_ids for the given id that are large so those
@@ -154,24 +155,41 @@ def add_large_coll_id_field():
     <coll_id> fields.
     """
 
+    query = f"SELECT MColl_ID FROM mb_coll_item WHERE extern_item_id=\"{doc_id}\""
+
+    coll_id_entry = query_mysql(db_conn, query=query)
+
+    return coll_id_entry
+
 
 def retrieve_mysql_data(db_conn, doc_id):
     entry = {}
 
-    # Retrieve vol_id
-    vol_id = "mdp.39015078560292"
-
     doc_rights = add_right_field(db_conn, doc_id)
-    if doc_rights.get('attr'):
-        entry.update({'rights': doc_rights.get('attr')})
 
+    # Only one element
+    if len(doc_rights) == 1:
+        entry.update({'rights': doc_rights[0].get('attr')})
+
+    # It is a list of members, if the query result is empty the field does not appear in Solr index
     ht_heldby = add_ht_heldby_field(db_conn, doc_id)
-    if ht_heldby.get('member_id'):
-        entry.update({'ht_heldby': ht_heldby.get('member_id')})
+    if len(ht_heldby) > 0:
+        list_members = [member_id.get('member_id') for member_id in ht_heldby]
+        entry.update({'ht_heldby': list_members})
 
+    # It is a list of members, if the query result is empty the field does not appear in Solr index
     heldby_brlm = add_add_heldby_brlm_field(db_conn, doc_id)
-    if heldby_brlm.get('member_id'):
-        entry.update({'ht_heldby_brlm': heldby_brlm.get('member_id')})
+    if len(heldby_brlm) > 0:
+        list_brl_members = [member_id.get('member_id') for member_id in heldby_brlm]
+        entry.update({'ht_heldby_brlm': list_brl_members})
+
+    # It is a list of coll_id, if the query result is empty, the value of this field in Solr index will be [0]
+    coll_id_result = add_large_coll_id_field(db_conn, doc_id)
+    if len(coll_id_result) > 0:
+        list_coll_ids = [coll_id.get('MColl_ID') for coll_id in coll_id_result]
+        entry.update({'coll_id': list_coll_ids})
+    else:
+        entry.update({'coll_id': [0]})
     return entry
 
 
@@ -243,35 +261,37 @@ def main():
     query = f'ht_id:{args.doc_id}'
     doc_metadata = get_record_metadata(query)
 
-
     # Download document .zip and .mets.xml file
-    target_path = f'{Path(__file__).parents[1]}/data/data_generator'
+    target_path = f'{Path(__file__).parents[1]}/data/document_generator'
     download_document_file(args.doc_id, target_path)
 
     # Add Catalog fields to full-text document
     entry = create_full_text_entry(args.doc_id, doc_metadata.get('content').get('response').get('docs')[0])
 
-
     # Retrieve document full-text
     obj_id = args.doc_id.split(".")[1]
-    full_text = get_full_text_field(f'../data/{obj_id}.zip')  # args.zip_file_path
+    full_text = get_full_text_field(f'{Path(__file__).parents[1]}/data/document_generator/{obj_id}.zip')  # args.zip_file_path
     entry.update({'ocr': full_text})
 
 
     # Get allfields entry
     full_record_entry = doc_metadata.get('content').get('response').get('docs')[0].get('fullrecord')
+
     entry['allfields'] = get_allfields_field(full_record_entry)
 
     # Extract fields from MySql database
     mysql_entry = retrieve_mysql_data(db_conn, args.doc_id)
 
-    # with open("../ht_indexer_api/data/add/full_record.xml", "w") as f:
+    entry.update(mysql_entry)
+
+    #with open("../ht_indexer_api/data/add/full_record.xml", "w") as f:
     #    f.write(doc_metadata.get('content').get('response').get('docs')[0].get('fullrecord'))
 
     solr_str = create_solr_string(entry)
 
     # tree = ET.XMl(solr_str)
-    with open("../ht_indexer_api/data/add/myfirstSolrDoc.xml", "w") as f:
+
+    with open(f'{Path(__file__).parents[1]}/ht_indexer_api/data/add/{obj_id}_solr_full_text.xml', "w") as f:
         f.write(solr_str)
 
 

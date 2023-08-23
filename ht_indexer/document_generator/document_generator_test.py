@@ -35,7 +35,7 @@ class TestDocumentGenerator:
 
     def test_full_text_field(self):
 
-        zip_path = f'{Path(os.getcwd()).parent}/data/document_generator/39015078560292.zip'
+        zip_path = f'{Path(os.getcwd()).parent}/data/document_generator/39015078560292_test.zip'
         full_text = get_full_text_field(zip_path)
 
         assert len(full_text) > 10
@@ -88,6 +88,6 @@ class TestDocumentGenerator:
         volume_enumcrom=''
         ht_id_display = ['mdp.39015078560292|20220910||1860|1860-1869|||RÄ\x81binsan KrÅ«so kÄ\x81 itihÄ\x81sa. The adventures of Robinson Crusoe, translated [into Hindi] by BadrÄ« LÄ\x81la, from a Bengali version ...'
 ]
-        assert volume_enumcrom == ht_id_display[0].split('|')
+        assert volume_enumcrom == ht_id_display[0].split('|')[2]
 
 

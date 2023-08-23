@@ -18,7 +18,10 @@ To_CHECK = ['ht_cover_tag','ht_page_feature','ht_reading_order','ht_scanning_ord
 RENAMED_CATALOG_METADATA = {'id': 'record_no',
                             'publishDate': 'date',
                            'author': 'Vauthor',
-                           'title': 'Vtitle'
+                           'title': 'Vtitle',
+                           'id': 'vol_id',
+                           'ht_id': 'id'
+
                            }
 
 IDENTICAL_CATALOG_METADATA = [
@@ -62,7 +65,7 @@ IDENTICAL_CATALOG_METADATA = [
                     'title_top',
                     'title_rest',
                     # ============================
-                    'volume_enumcron',
+                    #'volume_enumcron', field obtain using the field ht_id_display
                     'series',
                     'series2',
                     'serialTitle_ab',
