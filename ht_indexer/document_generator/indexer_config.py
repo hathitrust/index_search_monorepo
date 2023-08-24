@@ -1,3 +1,6 @@
+
+MAX_ITEM_IDS = 1000
+
 MYQLS_METADATA = ['coll_id', 'ht_heldby', 'ht_heldby_brlm', 'rights']
 
 To_CHECK = ['ht_cover_tag','ht_page_feature','ht_reading_order','ht_scanning_order','numPages',

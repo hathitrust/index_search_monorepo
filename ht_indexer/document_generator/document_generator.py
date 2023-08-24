@@ -10,7 +10,7 @@ logging.basicConfig(level=logging.DEBUG)
 
 from typing import Dict, List
 from ht_indexer_api.ht_indexer_api import HTSolrAPI
-from indexer_config import IDENTICAL_CATALOG_METADATA, RENAMED_CATALOG_METADATA
+from indexer_config import IDENTICAL_CATALOG_METADATA, RENAMED_CATALOG_METADATA, MAX_ITEM_IDS
 from lxml import etree
 from io import BytesIO
 
@@ -155,11 +155,14 @@ def add_large_coll_id_field(db_conn, doc_id):
     <coll_id> fields.
     """
 
-    query = f"SELECT MColl_ID FROM mb_coll_item WHERE extern_item_id=\"{doc_id}\""
+    query_coll_item = f"SELECT MColl_ID FROM mb_coll_item WHERE extern_item_id=\"{doc_id}\""
 
-    coll_id_entry = query_mysql(db_conn, query=query)
+    query_large_coll = f"SELECT MColl_ID FROM mb_collection WHERE num_items>{MAX_ITEM_IDS}"
 
-    return coll_id_entry
+    coll_id_entry = query_mysql(db_conn, query=query_coll_item)
+    coll_id_large_entry = query_mysql(db_conn, query=query_large_coll)
+
+    return coll_id_entry, coll_id_large_entry
 
 
 def retrieve_mysql_data(db_conn, doc_id):
@@ -184,10 +187,13 @@ def retrieve_mysql_data(db_conn, doc_id):
         entry.update({'ht_heldby_brlm': list_brl_members})
 
     # It is a list of coll_id, if the query result is empty, the value of this field in Solr index will be [0]
-    coll_id_result = add_large_coll_id_field(db_conn, doc_id)
+    coll_id_result, large_coll_id_result = add_large_coll_id_field(db_conn, doc_id)
     if len(coll_id_result) > 0:
+
         list_coll_ids = [coll_id.get('MColl_ID') for coll_id in coll_id_result]
-        entry.update({'coll_id': list_coll_ids})
+        list_large_coll_id = [coll_id.get('MColl_ID') for coll_id in large_coll_id_result]
+
+        entry.update({'coll_id': list(set(list_coll_ids) & set(list_large_coll_id))})
     else:
         entry.update({'coll_id': [0]})
     return entry
