@@ -1,10 +1,10 @@
-from lxml import etree
 import pandas as pd
+from lxml import etree
 
-#Create csv file
+# Create csv file
 catalog_csv_file = open('catalog_fields.csv', 'w', encoding='utf-8')
 
-#Read XML file
+# Read XML file
 parser = etree.XMLParser()
 tree = etree.parse('full_text_schema.xml', parser)
 
@@ -12,7 +12,6 @@ root = tree.getroot()
 
 schema_fields_dic = {}
 for field in root.findall('field'):
-
     schema_fields_dic[field.attrib['name']] = field.attrib
     schema_fields_dic[field.attrib['name']].update({'schema.xml': 'Exist'})
     schema_fields_dic[field.attrib['name']].update({'origen': ''})
