@@ -36,4 +36,13 @@
 <field name="ht_heldby">umich</field>
 <field name="coll_id">1672253456</field>
 <field name="coll_id">1117279879</field>
+<field name="ht_page_feature">IMPLICIT_PAGE_NUMBER</field>
+<field name="ht_page_feature">FIRST_CONTENT_CHAPTER_START</field>
+<field name="ht_page_feature">CHAPTER_START</field>
+<field name="ht_page_feature"> IMPLICIT_PAGE_NUMBER</field>
+<field name="ht_page_feature">UNTYPICAL_PAGE</field>
+<field name="ht_page_feature">FRONT_COVER</field>
+<field name="ht_scanning_order">left-to-right</field>
+<field name="ht_reading_order">left-to-right</field>
+<field name="ht_cover_tag">follows-reading-order</field>
 </doc></add>

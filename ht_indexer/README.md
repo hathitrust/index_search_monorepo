@@ -90,3 +90,5 @@ https://www.the-analytics.club/python-ssh-shell-commands/#google_vignette
 
 Pypairtree
 https://github.com/unt-libraries/pypairtree/tree/master
+
+Mets fields documentation: https://mets.github.io/METS_Docs/mets_xsd_Attribute_Group_ORDERLABELS.html

@@ -1,8 +1,10 @@
-from ht_indexer_api.ht_indexer_api import HTSolrAPI
-from fastapi import FastAPI
-import uvicorn
-import logging
 import argparse
+import logging
+
+import uvicorn
+from fastapi import FastAPI
+
+from ht_indexer_api.ht_indexer_api import HTSolrAPI
 
 
 def main():

@@ -1,13 +1,15 @@
+import glob
+import logging
 import os
 from pathlib import Path
-import requests
-from typing import Text, Dict
-import logging
-import json
-import glob
-#from pythantic import BaseModel
+from typing import Text
 
-#class SolrQuery(BaseModel):
+import requests
+
+
+# from pythantic import BaseModel
+
+# class SolrQuery(BaseModel):
 #     q: str
 
 class HTSolrAPI():
@@ -37,7 +39,6 @@ class HTSolrAPI():
 
                 return response
 
-
     def get_documents(self, query: str = None, response_format: Text = 'json'):
 
         data_query = {"q": "*:*"}
@@ -48,17 +49,8 @@ class HTSolrAPI():
 
         solr_headers = {'Content-type': 'application/json'}
 
-        #if query:
-
-        #    data_query = f'query={json.dumps(query)}&wt={response_format}'
-        #else:
-        #    data_query = ''
-        #response = requests.get(f"{self.url}query",
-        #                        headers={"Content-Type": "x-www-form-urlencoded"},
-        #                        data=data_query)
-
         response = requests.post(f"{self.url.replace('#/', '')}query",
-                                params=data_query,
-                                headers=solr_headers)
+                                 params=data_query,
+                                 headers=solr_headers)
 
         return response

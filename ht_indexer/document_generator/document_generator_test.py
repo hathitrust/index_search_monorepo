@@ -1,7 +1,7 @@
-import pytest
-from pytest import fixture
-from pathlib import Path
 import os
+from pathlib import Path
+
+import pytest
 
 from document_generator.document_generator import get_allfields_field, get_full_text_field, get_record_metadata, \
     create_solr_string, get_item_htsource
@@ -34,27 +34,23 @@ class TestDocumentGenerator:
         assert e.type == TypeError
 
     def test_full_text_field(self):
-
         zip_path = f'{Path(os.getcwd()).parent}/data/document_generator/39015078560292_test.zip'
         full_text = get_full_text_field(zip_path)
 
         assert len(full_text) > 10
 
     def test_create_allfields_field(self, get_fullrecord_xml, get_allfield_string):
-
         allfield = get_allfields_field(get_fullrecord_xml)
         assert len(allfield.strip()) == len(get_allfield_string.strip())
         assert allfield.strip() == get_allfield_string.strip()
 
     def test_get_records(self):
-
         query = "ht_id:mdp.39015084393423"
         doc_metadata = get_record_metadata(query)
 
         assert "mdp.39015084393423" in doc_metadata.get('content').get('response').get('docs')[0].get('ht_id')
 
     def test_create_solr_string(self):
-
         """
         Test the function that generate the string in XML format we will index in full-text search index
         :return:
@@ -63,10 +59,11 @@ class TestDocumentGenerator:
                     "title": "test XML output format"}
         solr_string = create_solr_string(data_dic)
 
-        assert len("""<doc> <field name="sdrnum">sdr-txu-1.b25999849</field> <field name="sdrnum">sdr-txu-1.b25999850</field> <field name="title">test XML output format</field></doc>""") == len(solr_string)
+        assert len(
+            """<doc> <field name="sdrnum">sdr-txu-1.b25999849</field> <field name="sdrnum">sdr-txu-1.b25999850</field> <field name="title">test XML output format</field></doc>""") == len(
+            solr_string)
 
     def test_create_entry(self):
-
         """
         Test the function that creates the entry with fields retrieved from Catalog index
         :return:
@@ -77,7 +74,6 @@ class TestDocumentGenerator:
 
         assert "mdp.39015084393423" in doc_metadata.get('content').get('response').get('docs')[0].get("ht_id")
 
-
     def test_get_volume_enumcron_empty(self):
         # TODO: Check if is correct the generation of volume_enumcrom (line 417: https://github.com/hathitrust/slip-lib/blob/master/Document/Doc/vSolrMetadataAPI/Schema_LS_11.pm)
         """
@@ -85,9 +81,8 @@ class TestDocumentGenerator:
         Is that correct
         :return:
         """
-        volume_enumcrom=''
-        ht_id_display = ['mdp.39015078560292|20220910||1860|1860-1869|||RÄ\x81binsan KrÅ«so kÄ\x81 itihÄ\x81sa. The adventures of Robinson Crusoe, translated [into Hindi] by BadrÄ« LÄ\x81la, from a Bengali version ...'
-]
+        volume_enumcrom = ''
+        ht_id_display = [
+            'mdp.39015078560292|20220910||1860|1860-1869|||RÄ\x81binsan KrÅ«so kÄ\x81 itihÄ\x81sa. The adventures of Robinson Crusoe, translated [into Hindi] by BadrÄ« LÄ\x81la, from a Bengali version ...'
+            ]
         assert volume_enumcrom == ht_id_display[0].split('|')[2]
-
-

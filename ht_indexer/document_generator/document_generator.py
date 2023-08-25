@@ -1,8 +1,8 @@
 import argparse
-import zipfile
+import json
 import logging
 import re
-import json
+import zipfile
 from pathlib import Path
 from xml.sax.saxutils import quoteattr
 
@@ -14,14 +14,22 @@ from indexer_config import IDENTICAL_CATALOG_METADATA, RENAMED_CATALOG_METADATA,
 from lxml import etree
 from io import BytesIO
 
-
 from utils.ht_mysql import create_mysql_conn, query_mysql
 from utils.ht_pairtree import download_document_file
+from mets_file_extractor import MetsAttributeExtractor
 
 solr_api = HTSolrAPI(url="http://localhost:9033/solr/#/catalog/")
 
 
 def create_solr_string(data_dic: Dict) -> str:
+
+    """
+    Function to convert a dictionary into an xml string uses for indexing a document in Solr index
+
+    :param data_dic: Dictionary with the data will be indexed in Solr
+    :return: XML String  with tag <add> for adding the document in Solr
+    """
+
     solr_str = ''
     for key, values in data_dic.items():
         if not isinstance(values, List):
@@ -33,10 +41,10 @@ def create_solr_string(data_dic: Dict) -> str:
     return f'<add><doc>{solr_str}</doc></add>'
 
 
-def string_preparation(doc_content):
+def string_preparation(doc_content: BytesIO) -> str:
     """
-    Receive a byte object and return str
-    :param doc_content:
+    Clean up a byte object and convert ir to string
+    :param doc_content: XML string
     :return:
     """
 
@@ -59,7 +67,15 @@ def string_preparation(doc_content):
     return quoteattr(str_content)
 
 
-def get_full_text_field(zip_doc_path):
+def get_full_text_field(zip_doc_path: str) :
+
+    """
+    Concatenate the content of all the .TXT files inside the input folder and return the plain string
+
+    :param zip_doc_path: Path of the folder with list of files
+    :return: String concatenated all the content of the .TXT files
+    """
+
     full_text = ''
     try:
         zip_doc = zipfile.ZipFile(zip_doc_path, mode='r')
@@ -72,7 +88,13 @@ def get_full_text_field(zip_doc_path):
     return full_text
 
 
-def get_allfields_field(catalog_xml: str = None):
+def get_allfields_field(catalog_xml: str = None) -> str:
+    """
+    Create a string using some of the values of the MARC XML file
+    :param catalog_xml: Path to the MARC XML file
+    :return:
+    """
+
     allfields = ''
 
     xml_string_like_file = BytesIO(catalog_xml.encode(encoding='utf-8'))
@@ -96,14 +118,19 @@ def get_allfields_field(catalog_xml: str = None):
     return quoteattr(allfields)
 
 
-def get_record_metadata(query: str = None):
+def get_record_metadata(query: str = None) -> Dict:
+    """
+    API call to query Solr
+    :param query: input query
+    :return dictionary with the API result
+
+    """
     response = solr_api.get_documents(query)
 
     return {'status': response.status_code,
             'description': response.headers,
             'content': json.loads(response.content.decode('utf-8'))}
 
-    return response
 
 
 def get_volume_enumcron(ht_id_display: str = None):
@@ -143,8 +170,8 @@ def create_full_text_entry(doc_id: str, metadata: Dict) -> Dict:
 
     return entry
 
-def add_large_coll_id_field(db_conn, doc_id):
 
+def add_large_coll_id_field(db_conn, doc_id):
     """
     Get the list of coll_ids for the given id that are large so those
     coll_ids can be added as <coll_id> fields of the Solr doc.
@@ -207,33 +234,18 @@ def add_right_field(db_conn, doc_id) -> Dict:
 
 
 def add_ht_heldby_field(db_conn, doc_id) -> Dict:
-
     query = f"SELECT member_id FROM holdings_htitem_htmember WHERE volume_id=\"{doc_id}\""
 
     ht_heldby_entry = query_mysql(db_conn, query=query)
-    #ht_heldby is a list of institutions
+    # ht_heldby is a list of institutions
     return ht_heldby_entry
 
 
 def add_add_heldby_brlm_field(db_conn, doc_id) -> Dict:
-
     query = f"SELECT member_id FROM holdings_htitem_htmember WHERE volume_id=\"{doc_id}\" AND access_count > 0"
 
     ht_heldby_entry = query_mysql(db_conn, query=query)
     return ht_heldby_entry
-
-
-def add_ht_page_feature_field():
-    # Extract from MET.xml file
-    pass
-
-
-def add_add_reading_order():
-    # Extract from MET.xml file
-    return {'ht_reading_order': None,
-            'ht_scanning_order': None,
-            'ht_cover_tag': None
-            }
 
 
 def main():
@@ -251,7 +263,6 @@ def main():
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--doc_id', help='document ID', required=True, default=None)
-    #parser.add_argument('--zip_file_path', help='Zip file with document files', required=True)
     parser.add_argument('--mysql_host', help='Host to connect to MySql server', required=True)
     parser.add_argument('--mysql_user', help='User to connect to MySql server', required=True)
     parser.add_argument('--mysql_pass', help='Password to connect to MySql server', required=True)
@@ -263,22 +274,21 @@ def main():
                                 password=args.mysql_pass, database=args.mysql_database)
 
     # Query solr index with the document id
-    # query = {'ht_id': args.doc_id} #'mdp.39015084393423'
     query = f'ht_id:{args.doc_id}'
     doc_metadata = get_record_metadata(query)
 
     # Download document .zip and .mets.xml file
     target_path = f'{Path(__file__).parents[1]}/data/document_generator'
-    download_document_file(args.doc_id, target_path)
+    download_document_file(doc_name=args.doc_id, target_path=target_path, extension='zip')
 
     # Add Catalog fields to full-text document
     entry = create_full_text_entry(args.doc_id, doc_metadata.get('content').get('response').get('docs')[0])
 
     # Retrieve document full-text
     obj_id = args.doc_id.split(".")[1]
-    full_text = get_full_text_field(f'{Path(__file__).parents[1]}/data/document_generator/{obj_id}.zip')  # args.zip_file_path
+    full_text = get_full_text_field(
+        f'{Path(__file__).parents[1]}/data/document_generator/{obj_id}.zip')  # args.zip_file_path
     entry.update({'ocr': full_text})
-
 
     # Get allfields entry
     full_record_entry = doc_metadata.get('content').get('response').get('docs')[0].get('fullrecord')
@@ -290,12 +300,25 @@ def main():
 
     entry.update(mysql_entry)
 
-    #with open("../ht_indexer_api/data/add/full_record.xml", "w") as f:
-    #    f.write(doc_metadata.get('content').get('response').get('docs')[0].get('fullrecord'))
+    ####### Extract fields from METS file
+
+    # Download document .zip and .mets.xml file
+    target_path = f'{Path(__file__).parents[1]}/data/document_generator'
+
+    download_document_file(doc_name=args.doc_id,
+                           target_path=target_path,
+                           extension='mets.xml')
+
+    namespace, obj_id = args.doc_id.split(".")
+
+    mets_obj = MetsAttributeExtractor(f'{target_path}/{obj_id}.mets.xml')
+
+    mets_entry = mets_obj.create_mets_entry()
+
+    entry.update({'ht_page_feature': mets_entry.get('METS_maps').get('features')})
+    entry.update(mets_entry.get('METS_maps').get('reading_orders'))
 
     solr_str = create_solr_string(entry)
-
-    # tree = ET.XMl(solr_str)
 
     with open(f'{Path(__file__).parents[1]}/ht_indexer_api/data/add/{obj_id}_solr_full_text.xml', "w") as f:
         f.write(solr_str)
