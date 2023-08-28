@@ -4,19 +4,17 @@ import mysql.connector
 from mysql.connector import Connect
 
 
-def create_mysql_conn(host: str = None, user: str = None, password: str = None, database: str = None):
+def create_mysql_conn(
+    host: str = None, user: str = None, password: str = None, database: str = None
+):
     db_conn = None
     if all([host, user, password, database]):
-
         db_conn = mysql.connector.connect(
-            host=host,
-            user=user,
-            password=password,
-            database=database
+            host=host, user=user, password=password, database=database
         )
 
     else:
-        logging.error('Please pass the valid host, user, password and database')
+        logging.error("Please pass the valid host, user, password and database")
         exit()
 
     return db_conn

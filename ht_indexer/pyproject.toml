@@ -14,6 +14,7 @@ mysql-client = "^0.0.1"
 mysql-connector-python = "^8.1.0"
 mysql = "^0.0.3"
 pypairtree = "^1.1.0"
+black = "^23.7.0"
 
 [tool.poetry.group.dev.dependencies]
 requests = "^2.31.0"
