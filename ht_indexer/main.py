@@ -17,6 +17,7 @@ def main():
     )
     # If you run main script from poetry/python solr_host = localhost
     # If you run main script from docker solr_host = host.docker.internal
+
     parser.add_argument(
         "--solr_url",
         help="",
