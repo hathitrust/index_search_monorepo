@@ -10,7 +10,7 @@ logging.basicConfig(level=logging.DEBUG)
 
 from typing import Dict, List
 from ht_indexer_api.ht_indexer_api import HTSolrAPI
-from indexer_config import (
+from document_generator.indexer_config import (
     IDENTICAL_CATALOG_METADATA,
     RENAMED_CATALOG_METADATA,
     MAX_ITEM_IDS,
@@ -20,7 +20,7 @@ from io import BytesIO
 
 from utils.ht_mysql import create_mysql_conn, query_mysql
 from utils.ht_pairtree import download_document_file
-from mets_file_extractor import MetsAttributeExtractor
+from document_generator.mets_file_extractor import MetsAttributeExtractor
 
 solr_api = HTSolrAPI(url="http://localhost:9033/solr/#/catalog/")
 
@@ -102,8 +102,8 @@ def get_allfields_field(catalog_xml: str = None) -> str:
     xml_string_like_file = BytesIO(catalog_xml.encode(encoding="utf-8"))
 
     for event, element in etree.iterparse(
-        xml_string_like_file,
-        events=("start", "end"),
+            xml_string_like_file,
+            events=("start", "end"),
     ):
         if element.tag.find("datafield") > -1:
             tag_att = element.attrib.get("tag")
@@ -145,7 +145,7 @@ def get_volume_enumcron(ht_id_display: str = None):
 
 
 def get_item_htsource(
-    id: str = None, catalog_htsource: List = None, catalog_htid: List = None
+        id: str = None, catalog_htsource: List = None, catalog_htid: List = None
 ):
     """
     In catalog it could be a list of sources, should obtain the source of an specific item
@@ -353,8 +353,8 @@ def main():
     solr_str = create_solr_string(entry)
 
     with open(
-        f"{Path(__file__).parents[1]}/ht_indexer_api/data/add/{obj_id}_solr_full_text.xml",
-        "w",
+            f"{Path(__file__).parents[1]}/ht_indexer_api/data/add/{obj_id}_solr_full_text.xml",
+            "w",
     ) as f:
         f.write(solr_str)
 

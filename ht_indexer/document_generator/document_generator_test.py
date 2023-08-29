@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 
 import pytest
+import pytest_cov
 
 from document_generator.document_generator import (
     get_allfields_field,
@@ -15,7 +16,7 @@ from document_generator.document_generator import (
 @pytest.fixture()
 def get_fullrecord_xml():
     with open(
-        f"{Path(os.getcwd()).parent}/data/document_generator/fullrecord.xml", "r"
+            f"{Path(__file__).parents[1]}/data/document_generator/fullrecord.xml", "r"
     ) as f:
         full_record_data = f.read()
     return full_record_data
@@ -23,7 +24,8 @@ def get_fullrecord_xml():
 
 @pytest.fixture()
 def get_allfield_string():
-    return """Poland one magazine. Poland one London : Polish Cultural Foundation, 1985. 1 v. : ill. ; 30 cm. Vol. 1, no. 9 (Feb. 1985)-v. 1, no. 12 (May 1985). Title from cover. Mode of access: Internet. Poland Periodicals. Polish Cultural Foundation (London, England) Poland one 0266-1993 (DLC)sn 86021892 MIU MIU 20211113 google mdp.39015061418433 v.1 no.8-12 1985 und bib non-US bib date1 >= 1928 INU INU 20220315 google inu.30000108625017 v.1,no.9-12 1985 1985 ic bib non-US serial item date >= 1928"""
+    return """Defoe, Daniel, 1661?-1731. Rābinsan Krūso kā itihāsa. The adventures of Robinson Crusoe, translated [into Hindi] by Badrī Lāla, from a Bengali version ... Benares, 1860 455 p. incl. front., illus. plates. 20 cm. Title from Catalogue of Hindi books in the British museum. Badarīnātha, pandit, tr. Robinson Crusoe. UTL 9662 SPEC HUB PR 3403 .H5 39015078560292"""
+    # """Poland one magazine. Poland one London : Polish Cultural Foundation, 1985. 1 v. : ill. ; 30 cm. Vol. 1, no. 9 (Feb. 1985)-v. 1, no. 12 (May 1985). Title from cover. Mode of access: Internet. Poland Periodicals. Polish Cultural Foundation (London, England) Poland one 0266-1993 (DLC)sn 86021892 MIU MIU 20211113 google mdp.39015061418433 v.1 no.8-12 1985 und bib non-US bib date1 >= 1928 INU INU 20220315 google inu.30000108625017 v.1,no.9-12 1985 1985 ic bib non-US serial item date >= 1928"""
 
 
 class TestDocumentGenerator:
@@ -41,7 +43,7 @@ class TestDocumentGenerator:
         assert e.type == TypeError
 
     def test_full_text_field(self):
-        zip_path = f"{Path(os.getcwd()).parent}/data/document_generator/39015078560292_test.zip"
+        zip_path = f"{Path(__file__).parents[1]}/data/document_generator/39015078560292_test.zip"
         full_text = get_full_text_field(zip_path)
 
         assert len(full_text) > 10
@@ -69,6 +71,8 @@ class TestDocumentGenerator:
             "title": "test XML output format",
         }
         solr_string = create_solr_string(data_dic)
+
+        print(solr_string)
 
         assert len(
             """<doc> <field name="sdrnum">sdr-txu-1.b25999849</field> <field name="sdrnum">sdr-txu-1.b25999850</field> <field name="title">test XML output format</field></doc>"""
