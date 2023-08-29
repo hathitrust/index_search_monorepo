@@ -6,9 +6,25 @@ services:
     #          "--host", 'localhost', "--port", "8081",
     #          "--solr_host", "host.docker.internal", "--solr_port", "8983",
     #          "--reload"]
-    command: ["poetry", "run", "python", "main.py", "--host", "0.0.0.0", "--port", "8081", "--solr_host", "host.docker.internal", "--solr_port", "8983"]
+    command: ["python", "main.py", "--host", "0.0.0.0", "--port", "8081", "--solr_host", "host.docker.internal", "--solr_port", "8983"]
     image: app
     ports:
       - "8081:8081"
     volumes:
       - .:/app
+
+  solr-lss-dev:
+    image: ghcr.io/hathitrust/lss-solr:unstable
+    ports:
+      - "8983:8983"
+
+  solr-sdr-catalog:
+    image: ghcr.io/hathitrust/catalog-solr-sample
+    ports:
+      - "9033:9033"
+
+  test:
+    build: .
+    volumes: 
+      - .:/app
+    command: ["pytest"]

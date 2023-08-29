@@ -22,7 +22,7 @@ from utils.ht_mysql import create_mysql_conn, query_mysql
 from utils.ht_pairtree import download_document_file
 from document_generator.mets_file_extractor import MetsAttributeExtractor
 
-solr_api = HTSolrAPI(url="http://localhost:9033/solr/#/catalog/")
+solr_api = HTSolrAPI(url="http://solr-sdr-catalog:9033/solr/#/catalog/")
 
 
 def create_solr_string(data_dic: Dict) -> str:
