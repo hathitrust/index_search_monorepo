@@ -15,11 +15,23 @@ services:
 
   solr-lss-dev:
     image: ghcr.io/hathitrust/lss-solr:unstable
+    healthcheck:
+      test: ["CMD", "/usr/bin/wget", "-q", "http://localhost:8983/solr/core-x/admin/ping"]
+      interval: 5s
+      timeout: 10s
+      start_period: 30s
+      retries: 5
     ports:
       - "8983:8983"
 
   solr-sdr-catalog:
     image: ghcr.io/hathitrust/catalog-solr-sample
+    healthcheck:
+      test: ["CMD", "/usr/bin/curl", "-s", "-f", "http://localhost:9033/solr/catalog/admin/ping"]
+      interval: 5s
+      timeout: 10s
+      start_period: 30s
+      retries: 5
     ports:
       - "9033:9033"
 
@@ -28,3 +40,8 @@ services:
     volumes: 
       - .:/app
     command: ["pytest"]
+    depends_on:
+      solr-lss-dev:
+        condition: service_healthy
+      solr-sdr-catalog:
+        condition: service_healthy
