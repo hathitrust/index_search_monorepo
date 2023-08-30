@@ -27,12 +27,11 @@ solr_api = HTSolrAPI(url="http://localhost:9033/solr/#/catalog/")
 
 def create_solr_string(data_dic: Dict) -> str:
     """
-    Function to convert a dictionary into an xml string uses for indexing a document in Solr index
+    Convert a dictionary into an xml string uses for indexing a document in Solr index.
 
     :param data_dic: Dictionary with the data will be indexed in Solr
     :return: XML String  with tag <add> for adding the document in Solr
     """
-
     solr_str = ""
     for key, values in data_dic.items():
         if not isinstance(values, List):
@@ -46,11 +45,11 @@ def create_solr_string(data_dic: Dict) -> str:
 
 def string_preparation(doc_content: BytesIO) -> str:
     """
-    Clean up a byte object and convert ir to string
+    Clean up a byte object and convert ir to string.
+
     :param doc_content: XML string
     :return:
     """
-
     try:
         # Convert byte to str
         str_content = str(doc_content.decode())
@@ -72,12 +71,11 @@ def string_preparation(doc_content: BytesIO) -> str:
 
 def get_full_text_field(zip_doc_path: str):
     """
-    Concatenate the content of all the .TXT files inside the input folder and return the plain string
+    Concatenate the content of all the .TXT files inside the input folder and return the plain string.
 
     :param zip_doc_path: Path of the folder with list of files
     :return: String concatenated all the content of the .TXT files
     """
-
     full_text = ""
     try:
         zip_doc = zipfile.ZipFile(zip_doc_path, mode="r")
@@ -92,11 +90,11 @@ def get_full_text_field(zip_doc_path: str):
 
 def get_allfields_field(catalog_xml: str = None) -> str:
     """
-    Create a string using some of the values of the MARC XML file
+    Create a string using some of the values of the MARC XML file.
+
     :param catalog_xml: Path to the MARC XML file
     :return:
     """
-
     allfields = ""
 
     xml_string_like_file = BytesIO(catalog_xml.encode(encoding="utf-8"))
@@ -120,15 +118,15 @@ def get_allfields_field(catalog_xml: str = None) -> str:
             except ValueError as e:
                 logging.info(f"Element tag is not an integer value {e}")
                 pass
-    return quoteattr(allfields)
+    return quoteattr(allfields.strip())
 
 
 def get_record_metadata(query: str = None) -> Dict:
     """
-    API call to query Solr
+    Query Solr using and API.
+
     :param query: input query
     :return dictionary with the API result
-
     """
     response = solr_api.get_documents(query)
 
@@ -148,7 +146,7 @@ def get_item_htsource(
         id: str = None, catalog_htsource: List = None, catalog_htid: List = None
 ):
     """
-    In catalog it could be a list of sources, should obtain the source of an specific item
+    In catalog it could be a list of sources, should obtain the source of an specific item.
     :param id: Catalod ht_id field
     :param catalog_htsource: catalog item source
     :param catalog_htid: catalog item ht_id
@@ -183,15 +181,13 @@ def create_full_text_entry(doc_id: str, metadata: Dict) -> Dict:
 
 def add_large_coll_id_field(db_conn, doc_id):
     """
-    Get the list of coll_ids for the given id that are large so those
-    coll_ids can be added as <coll_id> fields of the Solr doc.
+    Get the list of coll_ids for the given id that are large so those coll_ids can be added as <coll_id> fields of the Solr doc.
 
     So, if sync-i found an id to have, erroneously, a *small* coll_id
     field in its Solr doc and queued it for re-indexing, this routine
     would create a Solr doc not containing that coll_id among its
     <coll_id> fields.
     """
-
     query_coll_item = (
         f'SELECT MColl_ID FROM mb_coll_item WHERE extern_item_id="{doc_id}"'
     )
@@ -265,7 +261,7 @@ def add_add_heldby_brlm_field(db_conn, doc_id) -> Dict:
 
 def main():
     """
-    Receive a document id and a zip file path
+    Receive a document id and a zip file path.
     :return: XML file
 
     Steps:
@@ -275,7 +271,6 @@ def main():
     - Generate full_text field
     - Generate allfield field from MAC.xml
     """
-
     parser = argparse.ArgumentParser()
     parser.add_argument("--doc_id", help="document ID", required=True, default=None)
     parser.add_argument(

@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 import pytest_cov
+from xml.sax.saxutils import quoteattr
 
 from document_generator.document_generator import (
     get_allfields_field,
@@ -50,8 +51,8 @@ class TestDocumentGenerator:
 
     def test_create_allfields_field(self, get_fullrecord_xml, get_allfield_string):
         allfield = get_allfields_field(get_fullrecord_xml)
-        assert len(allfield.strip()) == len(get_allfield_string.strip())
-        assert allfield.strip() == get_allfield_string.strip()
+        assert len(allfield.strip()) == len(quoteattr(get_allfield_string.strip()))
+        assert allfield.strip() == quoteattr(get_allfield_string.strip())
 
     def test_get_records(self):
         query = "ht_id:mdp.39015084393423"
@@ -72,10 +73,8 @@ class TestDocumentGenerator:
         }
         solr_string = create_solr_string(data_dic)
 
-        print(solr_string)
-
         assert len(
-            """<doc> <field name="sdrnum">sdr-txu-1.b25999849</field> <field name="sdrnum">sdr-txu-1.b25999850</field> <field name="title">test XML output format</field></doc>"""
+            """<add><doc> <field name="sdrnum">sdr-txu-1.b25999849</field> <field name="sdrnum">sdr-txu-1.b25999850</field> <field name="title">test XML output format</field></doc></add>"""
         ) == len(solr_string)
 
     def test_create_entry(self):
