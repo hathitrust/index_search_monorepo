@@ -8,6 +8,15 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = "^3.11"
 typer = "^0.9.0"
+lxml = "^4.9.3"
+pandas = "^2.0.3"
+mysql-client = "^0.0.1"
+mysql-connector-python = "^8.1.0"
+mysql = "^0.0.3"
+pypairtree = "^1.1.0"
+black = "^23.7.0"
+pydocstyle = "^6.3.0"
+pytest-cov = "^4.1.0"
 
 [tool.poetry.group.dev.dependencies]
 requests = "^2.31.0"

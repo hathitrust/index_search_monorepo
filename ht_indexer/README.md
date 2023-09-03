@@ -48,6 +48,10 @@ Use this curl command to delete the XML file
 You can also run the application from your local machine without a docker file using the following command. 
 However, you will have to set up you python environment.
 
+Use this curl command to query Sorl
+
+``curl http://localhost:9033/solr/catalog/query -d 'json={"query":"ht_id:umn.31951000662660j"}'``
+
 ``poetry run python main.py --host 0.0.0.0 --port 8081 --solr_host localhost --solr_port 8983``
 
 ## [Optional] How to set up your python environment
@@ -64,4 +68,27 @@ On mac,
 
 To run testing locally you would execute `ht_indexer_api_test.py` 
 
+## Document generator
 
+Before using this script you should set up the following environment variables
+
+export HOST=something.hathitrust.org
+export USER=your_user_name
+export PUBLIC_KEY=public_key_name
+
+Reference used for python implementation
+
+Parser XML files
+https://lxml.de/tutorial.html#parsing-from-strings-and-files
+https://pymotw.com/3/xml.etree.ElementTree/parse.html
+
+MySql
+https://www.w3schools.com/python/python_mysql_join.asp
+
+SSH + python script + environment variables to pass user/password
+https://www.the-analytics.club/python-ssh-shell-commands/#google_vignette
+
+Pypairtree
+https://github.com/unt-libraries/pypairtree/tree/master
+
+Mets fields documentation: https://mets.github.io/METS_Docs/mets_xsd_Attribute_Group_ORDERLABELS.html
