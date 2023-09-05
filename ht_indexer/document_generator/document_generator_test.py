@@ -55,10 +55,10 @@ class TestDocumentGenerator:
         assert allfield.strip() == quoteattr(get_allfield_string.strip())
 
     def test_get_records(self):
-        query = "ht_id:mdp.39015084393423"
+        query = "ht_id:nyp.33433082046503"
         doc_metadata = get_record_metadata(query)
 
-        assert "mdp.39015084393423" in doc_metadata.get("content").get("response").get(
+        assert "nyp.33433082046503" in doc_metadata.get("content").get("response").get(
             "docs"
         )[0].get("ht_id")
 
@@ -83,10 +83,10 @@ class TestDocumentGenerator:
         :return:
         """
 
-        query = "ht_id:mdp.39015084393423"
+        query = "ht_id:nyp.33433082046503"
         doc_metadata = get_record_metadata(query)
 
-        assert "mdp.39015084393423" in doc_metadata.get("content").get("response").get(
+        assert "nyp.33433082046503" in doc_metadata.get("content").get("response").get(
             "docs"
         )[0].get("ht_id")
 

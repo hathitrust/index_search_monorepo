@@ -6,9 +6,8 @@ from ht_indexer_api.ht_indexer_api import HTSolrAPI
 @pytest.fixture
 def get_solrAPI():
     return HTSolrAPI(
-        url="http://localhost:8983/solr/#/core-x/"
+        url="http://solr-lss-dev:8983/solr/#/core-x/"
     )  # http://localhost:9033/solr/#/catalog/
-
 
 class TestHTSolrAPI:
     def test_connection(self, get_solrAPI):
