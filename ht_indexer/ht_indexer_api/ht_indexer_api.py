@@ -39,7 +39,7 @@ class HTSolrAPI:
                     },
                 )
 
-                return response
+        return response
 
     def get_documents(self, query: str = None, response_format: Text = "json"):
         data_query = {"q": "*:*"}
