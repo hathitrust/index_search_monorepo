@@ -36,6 +36,8 @@ RUN apk update \
 ENV POETRY_VERSION=1.5.1
 RUN curl -sSL https://install.python-poetry.org | python3 -
 
+#RUN SETUPTOOLS_USE_DISTUTILS=stdlib poetry install --no-ansi --no-interaction
+
 # We copy our Python requirements here to cache them
 # and install only runtime deps using poetry.
 # The requeriments will only be reinstall when poetry.lock or pyproject.toml files change.
@@ -50,7 +52,7 @@ COPY ./poetry.lock ./pyproject.toml ./
 # --no-interaction not to ask any interactive questions
 # --no-ansi flag to make your output more log friendly
 # I dediced to install dependencies with poetry instead than pip because pip doesn't actually solve your dependencies
-RUN poetry install $(test "$ENVIRONMENT" == production && echo "--no-dev") --no-interaction --no-ansi # respects
+RUN SETUPTOOLS_USE_DISTUTILS=stdlib poetry install $(test "$ENVIRONMENT" == production && echo "--no-dev") --no-interaction --no-ansi # respects
 
 # 'development' stage installs all dev deps and can be used to develop code.
 # For example using docker-compose to mount local volume under /app
