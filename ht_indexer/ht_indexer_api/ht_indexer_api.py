@@ -22,8 +22,9 @@ class HTSolrAPI:
         return response
 
     def index_document(self, path: Text):
+
         """Read an XML and feed into SOLR for indexing"""
-        data_path = Path(f"{os.path.dirname(__file__)}/{path}")
+        data_path = Path(path)  # Path(f"{os.path.dirname(__file__)}/{path}")
         list_documents = glob.glob(f"{data_path}/*.xml")
         for doc in list_documents:
             doc = doc.replace(" ", "+")
