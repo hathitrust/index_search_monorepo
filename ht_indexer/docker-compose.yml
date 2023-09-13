@@ -1,18 +1,25 @@
 version: "3"
 services:
-  ht_indexer_api:
+  ht_catalog_api:
     build: .
     command: [ "python", "main.py", "--host", "0.0.0.0", "--port", "8081", "--solr_url", "http://host.docker.internal:9033/solr/#/catalog/" ]
-    image: app_ht_indexer
+    image: app_ht_catalog
     ports:
       - "8081:8081"
     volumes:
       - .:/app
-
+  ht_indexer_api:
+    build: .
+    command: [ "python", "main.py", "--host", "0.0.0.0", "--port", "8082", "--solr_url", "http://host.docker.internal:8983/solr/#/core-x/" ]
+    image: app_ht_indexer
+    ports:
+      - "8082:8082"
+    volumes:
+      - .:/app
   solr-lss-dev:
     image: ghcr.io/hathitrust/lss-solr:unstable
     healthcheck:
-      test: ["CMD", "/usr/bin/wget", "-q", "http://localhost:8983/solr/core-x/admin/ping"]
+      test: [ "CMD", "/usr/bin/wget", "-q", "http://localhost:8983/solr/core-x/admin/ping" ]
       interval: 5s
       timeout: 10s
       start_period: 30s
@@ -23,7 +30,7 @@ services:
   solr-sdr-catalog:
     image: ghcr.io/hathitrust/catalog-solr-sample
     healthcheck:
-      test: ["CMD", "/usr/bin/curl", "-s", "-f", "http://localhost:9033/solr/catalog/admin/ping"]
+      test: [ "CMD", "/usr/bin/curl", "-s", "-f", "http://localhost:9033/solr/catalog/admin/ping" ]
       interval: 5s
       timeout: 10s
       start_period: 30s
@@ -33,9 +40,9 @@ services:
 
   test:
     build: .
-    volumes: 
+    volumes:
       - .:/app
-    command: ["pytest"]
+    command: [ "pytest" ]
     depends_on:
       solr-lss-dev:
         condition: service_healthy

@@ -75,3 +75,5 @@ COPY . .
 #CMD ["python", "main.py", "--host", "0.0.0.0", "--port", "8081", "--solr_host", "host.docker.internal", "--solr_port", "8983"]
 
 CMD ["python", "main.py", "--host", "0.0.0.0", "--port", "8081", "--solr_url", "http://host.docker.internal:9033/solr/#/catalog/"]
+
+CMD ["python", "main.py", "--host", "0.0.0.0", "--port", "8082", "--solr_url", "http://host.docker.internal:8983/solr/#/core-x/"]
