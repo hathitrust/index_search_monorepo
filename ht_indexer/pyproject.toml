@@ -17,6 +17,7 @@ pypairtree = "^1.1.0"
 black = "^23.7.0"
 pydocstyle = "^6.3.0"
 pytest-cov = "^4.1.0"
+cryptography = "^41.0.3"
 
 [tool.poetry.group.dev.dependencies]
 requests = "^2.31.0"
