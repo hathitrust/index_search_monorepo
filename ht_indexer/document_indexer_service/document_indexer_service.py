@@ -6,7 +6,7 @@ import argparse
 import os
 import glob
 
-CHUNK_SIZE = 100
+CHUNK_SIZE = 50
 
 from ht_indexer_api.ht_indexer_api import HTSolrAPI
 
@@ -16,16 +16,16 @@ class DocumentIndexerService:
         self.solr_api_full_text = solr_api_full_text
 
     def indexing_documents(self, path):
-
         # Call API
         response = self.solr_api_full_text.index_document(path)
         return response
 
     @staticmethod
-    def clean_up_folder(document_path, list_documents):
+    def clean_up_folder(document_path, list_ids):
         logging.info("Cleaning up .xml and .Zip files")
 
-        for id_name in list_documents:
+        for id_name in list_ids:
+            # zip file
             list_documents = glob.glob(f"{document_path}/{id_name}")
             for file in list_documents:
                 logging.info(f"Deleting file {file}")
@@ -47,7 +47,7 @@ def main():
     solr_api_full_text = HTSolrAPI(url=args.solr_indexing_api)
 
     document_indexer_service = DocumentIndexerService(solr_api_full_text)
-    document_local_path = "indexing_data"
+    document_local_path = os.path.abspath("/tmp/indexing_data/")
 
     while True:
         # Get the files for indexing

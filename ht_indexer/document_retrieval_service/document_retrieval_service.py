@@ -1,17 +1,3 @@
-import argparse
-import json
-import logging
-
-from ht_indexer_api.ht_indexer_api import HTSolrAPI
-from document_generator.document_generator import DocumentGenerator
-from utils.ht_mysql import create_mysql_conn
-from utils.text_processor import create_solr_string
-from pathlib import Path
-from typing import Dict
-import os
-import glob
-
-
 class DocumentRetrievalService:
 
     def retrieve_documents(self):
