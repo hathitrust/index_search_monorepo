@@ -1,6 +1,5 @@
 import glob
 import logging
-import os
 from pathlib import Path
 from typing import Text
 
@@ -22,7 +21,6 @@ class HTSolrAPI:
         return response
 
     def index_document(self, path: Text):
-
         """Read an XML and feed into SOLR for indexing"""
         data_path = Path(path)  # Path(f"{os.path.dirname(__file__)}/{path}")
         list_documents = glob.glob(f"{data_path}/*.xml")
@@ -42,12 +40,20 @@ class HTSolrAPI:
 
         return response
 
-    def get_documents(self, query: str = None, response_format: Text = "json"):
+    def get_documents(
+            self,
+            query: str = None,
+            response_format: Text = "json",
+            start: int = 0,
+            rows: int = 100,
+    ):
         data_query = {"q": "*:*"}
         if query:
             data_query["q"] = query
         else:
             data_query = {"q": "*:*"}
+
+        data_query.update({"start": start, "rows": rows})
 
         solr_headers = {"Content-type": "application/json"}
 
