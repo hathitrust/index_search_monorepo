@@ -26,6 +26,8 @@ services:
       retries: 5
     ports:
       - "8983:8983"
+    environment:
+      - SOLR_HEAP=2g
 
   solr-sdr-catalog:
     image: ghcr.io/hathitrust/catalog-solr-sample
