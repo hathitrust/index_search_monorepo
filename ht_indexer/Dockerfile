@@ -29,7 +29,8 @@ RUN apk update \
     && apk add curl \
     && apk add --no-cache mariadb-dev \
     && apk add pkgconfig \
-    && apk del -r /var/lib/apt/lists/*
+    && apk del -r /var/lib/apt/lists/* \
+    && apk add bash
 
 # Install Poetry - respects $POETRY_VERSION & $POETRY_HOME
 # Specify POETRY_VERSION to avoid poetry might get an update and it will break your build. Installer will respect it
@@ -46,7 +47,7 @@ WORKDIR $PYSETUP_PATH
 COPY ./poetry.lock ./pyproject.toml ./
 #RUN poetry install --no-dev  # respects
 
-#We could use the same Dockerfile for development and production.
+#We could use the same  for development and production.
 #For use it in production environment, $ENVIRONMENT will control which dependencies set
 # will be installed: all (default) or production only with --no-dev flag
 # --no-interaction not to ask any interactive questions
@@ -74,6 +75,6 @@ COPY . .
 #CMD ["poetry", "run", "uvicorn", "main:app", "--reload"]
 #CMD ["python", "main.py", "--host", "0.0.0.0", "--port", "8081", "--solr_host", "host.docker.internal", "--solr_port", "8983"]
 
-CMD ["python", "main.py", "--host", "0.0.0.0", "--port", "8081", "--solr_url", "http://host.docker.internal:9033/solr/#/catalog/"]
+#CMD ["python", "main.py", "--host", "0.0.0.0", "--port", "8081", "--solr_url", "http://host.docker.internal:9033/solr/#/catalog/"]
 
-CMD ["python", "main.py", "--host", "0.0.0.0", "--port", "8082", "--solr_url", "http://host.docker.internal:8983/solr/#/core-x/"]
+#CMD ["python", "main.py", "--host", "0.0.0.0", "--port", "8082", "--solr_url", "http://host.docker.internal:8983/solr/#/core-x/"]

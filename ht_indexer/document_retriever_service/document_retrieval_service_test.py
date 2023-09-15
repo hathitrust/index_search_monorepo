@@ -1,6 +1,6 @@
 import pytest
 from ht_indexer_api.ht_indexer_api import HTSolrAPI
-from document_retrieval_service.document_retrieval_service import (
+from document_retrieval_service import (
     DocumentRetrievalService,
 )
 

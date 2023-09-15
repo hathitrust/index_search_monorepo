@@ -1,3 +1,15 @@
+import os
+import sys
+import inspect
+
+import logging
+import argparse
+import glob
+
+currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+parentdir = os.path.dirname(currentdir)
+sys.path.insert(0, parentdir)
+
 from document_generator.document_generator import DocumentGenerator
 from catalog_retrieval_service import CatalogRetrievalService
 
@@ -5,11 +17,6 @@ from ht_indexer_api.ht_indexer_api import HTSolrAPI
 
 from utils.ht_mysql import create_mysql_conn
 from utils.text_processor import create_solr_string
-
-import logging
-import argparse
-import os
-import glob
 
 
 class FullTextSearchRetrievalService(CatalogRetrievalService):
@@ -126,6 +133,14 @@ def main():
     start = 0
     rows = 50
 
+    logging.info(args.mysql_host)
+    logging.info(args.mysql_user)
+    logging.info(args.mysql_pass)
+    logging.info(args.mysql_database)
+    for i in [1, 2, 3, 4, 5, 6]:
+        logging.info(i)
+
+    """
     for entry in document_indexer_service.generate_full_text_entry(query, start, rows, all_items=args.all_items):
         count = count + 1
         solr_str = create_solr_string(entry)
@@ -141,6 +156,7 @@ def main():
         FullTextSearchRetrievalService.clean_up_folder("/tmp", [obj_id])
         if count > 150:
             break
+    """
 
 
 if __name__ == "__main__":

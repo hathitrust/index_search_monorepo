@@ -20,6 +20,7 @@ class CatalogRetrievalService(DocumentRetrievalService):
 
         try:
             total_records = output.get("response").get("numFound")
+            logging.info(total_records)
         except Exception as e:
             logging.error(f"Solr index {self.catalogApi} seems empty {e}")
             exit()
@@ -107,7 +108,7 @@ def main():
     count = 0
     # TODO How can I paralelize the process of retrieving documents from solr Catalog?
     # Print ids
-    file_object = open("items_list.txt", "w+")
+    file_object = open("../items_list.txt", "w+")
 
     query = "*:*"
     start = 0
