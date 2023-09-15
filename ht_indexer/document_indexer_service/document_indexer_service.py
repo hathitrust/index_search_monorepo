@@ -5,6 +5,12 @@ from time import sleep
 import argparse
 import os
 import glob
+import inspect
+import sys
+
+currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+parentdir = os.path.dirname(currentdir)
+sys.path.insert(0, parentdir)
 
 CHUNK_SIZE = 50
 
@@ -47,31 +53,38 @@ def main():
     solr_api_full_text = HTSolrAPI(url=args.solr_indexing_api)
 
     document_indexer_service = DocumentIndexerService(solr_api_full_text)
-    document_local_path = os.path.abspath("/tmp/indexing_data/")
 
     while True:
-        # Get the files for indexing
-        xml_files = [
-            file
-            for file in os.listdir(document_local_path)
-            if file.lower().endswith(".xml")
-        ]
 
-        # Split the list of files in batch
-        if xml_files:
-            while xml_files:
-                chunk, xml_files = xml_files[:CHUNK_SIZE], xml_files[CHUNK_SIZE:]
+        try:
+            document_local_path = os.path.abspath("/tmp/indexing_data/")
 
-                logging.info(f"Indexing documents: {chunk}")
-                response = document_indexer_service.indexing_documents(
-                    document_local_path
-                )
+            # Get the files for indexing
+            xml_files = [
+                file
+                for file in os.listdir(document_local_path)
+                if file.lower().endswith(".xml")
+            ]
 
-                if response.status_code == 200:
-                    DocumentIndexerService.clean_up_folder(document_local_path, chunk)
+            # Split the list of files in batch
+            if xml_files:
+                while xml_files:
+                    chunk, xml_files = xml_files[:CHUNK_SIZE], xml_files[CHUNK_SIZE:]
+
+                    logging.info(f"Indexing documents: {chunk}")
+                    response = document_indexer_service.indexing_documents(
+                        document_local_path
+                    )
+
+                    if response.status_code == 200:
+                        DocumentIndexerService.clean_up_folder(document_local_path, chunk)
+
+        except Exception as e:
+            logging.info(f"/tmp/indexing_data/ does not exit {e}")
+            sleep(30)  # Wait until the folder is created
 
         logging.info(f"Processing ended, sleeping for 5 minutes")
-        sleep(300)
+        sleep(30)
 
     """
     for entry in document_indexer_service.generate_full_text_entry():
