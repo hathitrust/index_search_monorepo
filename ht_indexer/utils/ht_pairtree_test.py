@@ -8,3 +8,6 @@ def test_get_document_pair_path():
     assert path == "/39/01/50/51/33/39/15/39015051333915"
 
 # What is the path of this document? What is the right uc2.ark:/13960/t4mk66f1d
+# scp: /sdr1/obj/uc2/pairtree_root/ar/k://1/39/60//t/4m/k6/6f/1d/ark:/13960/t4mk66f1d/ark:/13960/t4mk66f1d.zip: No such file or directory
+# INFO:root:Download /sdr1/obj/uc2/pairtree_root/ar/k://1/39/60//t/4m/k6/6f/1d/ark:/13960/t4mk66f1d/ark:/13960/t4mk66f1d.zip to /tmp/
+# INFO:root:Document uc2.ark:/13960/t4mk66f1d failed 'int' object is not callable
