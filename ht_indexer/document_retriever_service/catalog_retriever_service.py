@@ -3,11 +3,11 @@ import json
 import logging
 import argparse
 
-from document_retrieval_service import DocumentRetrievalService
+from document_retriever_service.document_retriever_service import DocumentRetrieverService
 from ht_indexer_api.ht_indexer_api import HTSolrAPI
 
 
-class CatalogRetrievalService(DocumentRetrievalService):
+class CatalogRetrieverService(DocumentRetrieverService):
     def __init__(self, catalogApi=None):
         super().__init__()
 
@@ -103,7 +103,7 @@ def main():
 
     solr_api_catalog = HTSolrAPI(url=args.solr_url)
 
-    catalog_retrieval_service = CatalogRetrievalService(solr_api_catalog)
+    catalog_retrieval_service = CatalogRetrieverService(solr_api_catalog)
 
     count = 0
     # TODO How can I paralelize the process of retrieving documents from solr Catalog?
