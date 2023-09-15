@@ -9,7 +9,7 @@ services:
                "--mysql_user", "$MYSQL_USER",
                "--mysql_pass", "$MYSQL_PASS",
                "--mysql_database", "ht",
-               "--solr_url", "http://172.28.0.3:9033/solr/#/catalog/" ]
+               "--solr_url", "http://solr-sdr-catalog:9033/solr/catalog/" ]
     #http://0.0.0.0:9033/solr/#/catalog/
     #http://solr-sdr-catalog:9033/solr/#/catalog/
     #http://host.docker.internal:9033/solr/#/catalog/
@@ -17,22 +17,28 @@ services:
     volumes:
       - .:/app
       - tmp:/tmp
-
+      - ~/.ssh:/root/.ssh
+    ports:
+      - "8081:8081"
+    #expose:
+    #  - 8983
     depends_on:
-      - solr-sdr-catalog
+      solr-sdr-catalog:
+        condition: service_healthy
+
     environment:
       - HOST="$HOST"
       - USER="$USER"
       - PUBLIC_KEY="$PUBLIC_KEY"
       #- SOLR_URL=http://solr-sdr-catalog:9033/solr/#/catalog
-    networks:
-      - indexer_net
+    #networks:
+    #  - indexer_net
   document_indexer:
     container_name: document_indexer
     build:
       context: .
     command: [ "python", "document_indexer_service/document_indexer_service.py",
-               "--solr_indexing_api", "http://ht_indexer_api:8082/solrIndexing/#/core-x/",
+               "--solr_indexing_api", "http://solr-lss-dev:8983/solr/core-x/",
     ]
     volumes:
       - .:/app
@@ -40,30 +46,10 @@ services:
     depends_on:
       - solr-lss-dev
       - document_retriever
-      - ht_indexer_api
-    networks:
-      - indexer_net
-  #ht_catalog_api:
-  #  build: .
-  #  command: [ "python", "main.py", "--host", "0.0.0.0", "--port", "8081", "--solr_url", "http://host.docker.internal:9033/solr/#/catalog/" ]
-  #  image: app_ht_catalog
-  #  depends_on:
-  #    - solr-sdr-catalog
-  #  ports:
-  #    - "8081:8081"
-  #  volumes:
-  #    - .:/app
-  ht_indexer_api:
-    build: .
-    container_name: ht_indexer_api
-    command: [ "python", "main.py", "--host", "0.0.0.0", "--port", "8082", "--solr_url", "http://host.docker.internal:8983/solr/#/core-x/" ]
-    image: app_ht_indexer
-    depends_on:
-      - solr-lss-dev
+    #networks:
+    #  - indexer_net
     ports:
       - "8082:8082"
-    volumes:
-      - .:/app
   solr-lss-dev:
     image: ghcr.io/hathitrust/lss-solr:unstable
     healthcheck:
@@ -74,8 +60,12 @@ services:
       retries: 5
     ports:
       - "8983:8983"
+    expose:
+      - 8983
     environment:
       - SOLR_HEAP=2g
+    #volumes:
+    #  - solr-lss-dev:/var/solr
   solr-sdr-catalog:
     container_name: solr-sdr-catalog
     image: ghcr.io/hathitrust/catalog-solr-sample
@@ -87,10 +77,11 @@ services:
       retries: 5
     ports:
       - "9033:9033"
-    #environment:
+    expose:
+      - 9033
     #- SOLR_HOST="solr-sdr-catalog"
-    networks:
-      - indexer_net
+    #networks:
+    #  - indexer_net
     #volumes:
     #  - solr_sdr_catalog:/var/solr
   test:
@@ -106,7 +97,7 @@ services:
       solr-sdr-catalog:
         condition: service_healthy
 
-networks:
-  indexer_net:
+#networks:
+#  indexer_net:
 volumes:
   tmp:

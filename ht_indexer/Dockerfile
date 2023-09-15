@@ -30,7 +30,8 @@ RUN apk update \
     && apk add --no-cache mariadb-dev \
     && apk add pkgconfig \
     && apk del -r /var/lib/apt/lists/* \
-    && apk add bash
+    && apk add bash \
+    && apk add openssh
 
 # Install Poetry - respects $POETRY_VERSION & $POETRY_HOME
 # Specify POETRY_VERSION to avoid poetry might get an update and it will break your build. Installer will respect it
@@ -53,8 +54,8 @@ COPY ./poetry.lock ./pyproject.toml ./
 # --no-interaction not to ask any interactive questions
 # --no-ansi flag to make your output more log friendly
 # I dediced to install dependencies with poetry instead than pip because pip doesn't actually solve your dependencies
-RUN SETUPTOOLS_USE_DISTUTILS=stdlib poetry install $(test "$ENVIRONMENT" == production && echo "--no-dev") --no-interaction --no-ansi # respects
-
+#RUN SETUPTOOLS_USE_DISTUTILS=stdlib poetry install $(test "$ENVIRONMENT" == production && echo "--no-dev") --no-interaction --no-ansi # respects
+RUN poetry install -vvv
 # 'development' stage installs all dev deps and can be used to develop code.
 # For example using docker-compose to mount local volume under /app
 FROM python-base as development
