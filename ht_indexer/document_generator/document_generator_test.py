@@ -6,6 +6,7 @@ import pytest_cov
 
 from document_generator.document_generator import DocumentGenerator
 from xml.sax.saxutils import quoteattr
+from ht_indexer_api.ht_indexer_api import HTSolrAPI
 
 
 @pytest.fixture()
@@ -21,6 +22,16 @@ def get_fullrecord_xml():
 def get_allfield_string():
     return quoteattr(
         """Defoe, Daniel, 1661?-1731. Rābinsan Krūso kā itihāsa. The adventures of Robinson Crusoe, translated [into Hindi] by Badrī Lāla, from a Bengali version ... Benares, 1860 455 p. incl. front., illus. plates. 20 cm. Title from Catalogue of Hindi books in the British museum. Badarīnātha, pandit, tr. Robinson Crusoe. UTL 9662 SPEC HUB PR 3403 .H5 39015078560292""")
+
+
+@pytest.fixture()
+def get_document_generator():
+    db_conn = None
+    solr_api = HTSolrAPI(url="http://solr-sdr-catalog:9033/solr/#/catalog/")
+
+    document_generator = DocumentGenerator(db_conn, solr_api)
+
+    return document_generator
 
 
 class TestDocumentGenerator:
@@ -75,3 +86,24 @@ class TestDocumentGenerator:
             "mdp.39015078560292|20220910||1860|1860-1869|||RÄ\x81binsan KrÅ«so kÄ\x81 itihÄ\x81sa. The adventures of Robinson Crusoe, translated [into Hindi] by BadrÄ« LÄ\x81la, from a Bengali version ..."
         ]
         assert volume_enumcrom == ht_id_display[0].split("|")[2]
+
+    def test_get_records(self, get_document_generator):
+        query = "ht_id:nyp.33433082046503"
+        doc_metadata = get_document_generator.get_record_metadata(query)
+
+        assert "nyp.33433082046503" in doc_metadata.get("content").get("response").get(
+            "docs"
+        )[0].get("ht_id")
+
+    def test_create_entry(self, get_document_generator):
+        """
+        Test the function that creates the entry with fields retrieved from Catalog index
+        :return:
+        """
+
+        query = "ht_id:nyp.33433082046503"
+        doc_metadata = get_document_generator.get_record_metadata(query)
+
+        assert "nyp.33433082046503" in doc_metadata.get("content").get("response").get(
+            "docs"
+        )[0].get("ht_id")
