@@ -9,11 +9,12 @@ SDR_DIR = "/sdr1"
 
 
 def download_document_file(
-    doc_name: str = None, target_path: str = None, extension: str = "zip"
+        doc_name: str = None, target_path: str = None, extension: str = "zip"
 ):
     namespace, obj_id = doc_name.split(".")
 
-    doc_path = pairtree.get_pair_path(obj_id)
+    sanitized_str = pairtree.sanitizeString(obj_id)
+    doc_path = pairtree.get_pair_path(sanitized_str)
 
     source_path = f"{SDR_DIR}/obj/{namespace}/pairtree_root{doc_path}"
 
