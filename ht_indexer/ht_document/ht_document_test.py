@@ -19,3 +19,8 @@ def test_get_document_pait_path():
 # scp: /sdr1/obj/uc2/pairtree_root/ar/k://1/39/60//t/4m/k6/6f/1d/ark:/13960/t4mk66f1d/ark:/13960/t4mk66f1d.zip: No such file or directory
 # INFO:root:Download /sdr1/obj/uc2/pairtree_root/ar/k://1/39/60//t/4m/k6/6f/1d/ark:/13960/t4mk66f1d/ark:/13960/t4mk66f1d.zip to /tmp/
 # INFO:root:Document uc2.ark:/13960/t4mk66f1d failed 'int' object is not callable
+
+
+# scp: /sdr1/obj/uc2/pairtree_root/ar/k+/=1/39/60/=f/k6/k0/6x/f8/j/ark+=13960=fk6k06xf8j/ark:/13960/fk6k06xf8j.zip: No such file or directory
+# INFO:root:Download /sdr1/obj/uc2/pairtree_root/ar/k+/=1/39/60/=f/k6/k0/6x/f8/j/ark+=13960=fk6k06xf8j/ark:/13960/fk6k06xf8j.zip to /tmp/
+# /tmp/ark:/13960/fk6k06xf8j.zip

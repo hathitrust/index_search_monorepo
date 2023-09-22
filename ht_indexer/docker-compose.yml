@@ -1,55 +1,51 @@
 version: "3"
 services:
-  document_retriever:
-    container_name: document_retriever
-    build:
-      context: .
-    command: [ "python", "document_retriever_service/full_text_search_retriever_service.py",
-               "--mysql_host", "$MYSQL_HOST",
-               "--mysql_user", "$MYSQL_USER",
-               "--mysql_pass", "$MYSQL_PASS",
-               "--mysql_database", "ht",
-               "--solr_url", "http://solr-sdr-catalog:9033/solr/catalog/" ]
-    #http://0.0.0.0:9033/solr/#/catalog/
-    #http://solr-sdr-catalog:9033/solr/#/catalog/
-    #http://host.docker.internal:9033/solr/#/catalog/
-    #http://172.28.0.3:9033/solr/#/catalog/
-    volumes:
-      - .:/app
-      - tmp:/tmp
-      - ~/.ssh:/root/.ssh
-    ports:
-      - "8081:8081"
-    #expose:
-    #  - 8983
-    depends_on:
-      solr-sdr-catalog:
-        condition: service_healthy
-
-    environment:
-      - HOST="$HOST"
-      - USER="$USER"
-      - PUBLIC_KEY="$PUBLIC_KEY"
-      #- SOLR_URL=http://solr-sdr-catalog:9033/solr/#/catalog
-    #networks:
-    #  - indexer_net
-  document_indexer:
-    container_name: document_indexer
-    build:
-      context: .
-    command: [ "python", "document_indexer_service/document_indexer_service.py",
-               "--solr_indexing_api", "http://solr-lss-dev:8983/solr/core-x/",
-    ]
-    volumes:
-      - .:/app
-      - tmp:/tmp
-    depends_on:
-      - solr-lss-dev
-      - document_retriever
-    #networks:
-    #  - indexer_net
-    ports:
-      - "8082:8082"
+  #  document_retriever:
+  #    container_name: document_retriever
+  #    build:
+  #      context: .
+  #    command: [ "python", "document_retriever_service/full_text_search_retriever_service.py",
+  #               "--mysql_host", "$MYSQL_HOST",
+  #               "--mysql_user", "$MYSQL_USER",
+  #               "--mysql_pass", "$MYSQL_PASS",
+  #               "--mysql_database", "ht",
+  #               "--solr_url", "http://solr-sdr-catalog:9033/solr/catalog/" ]
+  #    volumes:
+  #      - .:/app
+  #      - tmp:/tmp
+  #      - ~/.ssh:/root/.ssh
+  #    ports:
+  #      - "8081:8081"
+  #    #expose:
+  #    #  - 8983
+  #    depends_on:
+  #      solr-sdr-catalog:
+  #        condition: service_healthy
+  #
+  #    environment:
+  #      - HOST="$HOST"
+  #      - USER="$USER"
+  #      - PUBLIC_KEY="$PUBLIC_KEY"
+  #      #- SOLR_URL=http://solr-sdr-catalog:9033/solr/#/catalog
+  #    #networks:
+  #    #  - indexer_net
+  #  document_indexer:
+  #    container_name: document_indexer
+  #    build:
+  #      context: .
+  #    command: [ "python", "document_indexer_service/document_indexer_service.py",
+  #               "--solr_indexing_api", "http://solr-lss-dev:8983/solr/core-x/",
+  #    ]
+  #    volumes:
+  #      - .:/app
+  #      - tmp:/tmp
+  #    depends_on:
+  #      - solr-lss-dev
+  #      - document_retriever
+  #    #networks:
+  #    #  - indexer_net
+  #    ports:
+  #      - "8082:8082"
   solr-lss-dev:
     image: ghcr.io/hathitrust/lss-solr:unstable
     healthcheck:
