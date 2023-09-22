@@ -3,29 +3,24 @@ import json
 import logging
 
 import zipfile
-from pathlib import Path
 from xml.sax.saxutils import quoteattr
 
 logging.basicConfig(level=logging.DEBUG)
 
 from typing import Dict, List
-from ht_indexer_api.ht_indexer_api import HTSolrAPI
 from document_generator.indexer_config import (
     IDENTICAL_CATALOG_METADATA,
     RENAMED_CATALOG_METADATA,
-    MAX_ITEM_IDS,
-    DOCUMENT_LOCAL_PATH,
+    MAX_ITEM_IDS
 )
 from lxml import etree
 from io import BytesIO
 
 from utils.ht_mysql import create_mysql_conn, query_mysql
-from utils.ht_pairtree import download_document_file
 from document_generator.mets_file_extractor import MetsAttributeExtractor
 from utils.text_processor import string_preparation
 
-
-# solr_api = HTSolrAPI(url="http://localhost:9033/solr/#/catalog/")
+from ht_document.ht_document import HtDocument
 
 
 class DocumentGenerator:
@@ -111,11 +106,10 @@ class DocumentGenerator:
         return entry
 
     @staticmethod
-    def create_ocr_field(doc_id) -> Dict:
+    def create_ocr_field(document_zip_path) -> Dict:
 
-        obj_id = doc_id.split(".")[1]
-        print(f"{DOCUMENT_LOCAL_PATH}{obj_id}.zip")
-        full_text = DocumentGenerator.get_full_text_field(f"{DOCUMENT_LOCAL_PATH}{obj_id}.zip"
+        logging.info(f"Reading {document_zip_path}.zip file")
+        full_text = DocumentGenerator.get_full_text_field(f"{document_zip_path}.zip"
                                                           )
         return {"ocr": full_text}
 
@@ -261,28 +255,22 @@ class DocumentGenerator:
         return quoteattr(allfields)
 
     # TODO Check exception if doc_id is None
-    def make_document(self, doc_id: str, doc_metadata: Dict) -> Dict:
+    def make_full_text_search_document(self, ht_document: HtDocument, doc_metadata: Dict) -> Dict:
 
-        # Create Solr query
-        # doc_query = DocumentGenerator.make_solr_query(doc_id)
-
-        # Retrieve document from Catalog index
-        # doc_metadata = self.get_record_metadata(doc_query)
-
-        entry = {'id': doc_id}
-
-        # Download document .zip and .mets.xml file
-        # TODO: Check if file exist
-        print(DOCUMENT_LOCAL_PATH)
-        download_document_file(
-            doc_name=doc_id, target_path=DOCUMENT_LOCAL_PATH, extension="zip"
-        )
+        """
+        Receive the ht_id and create the HtDocument entry
+        :param ht_document:
+        :param doc_id:
+        :param doc_metadata:
+        :return:
+        """
+        entry = {'id': ht_document.document_id}
 
         # Add Catalog fields to full-text document
-        entry.update(DocumentGenerator.retrieve_fields_from_Catalog_index(doc_id, doc_metadata))
+        entry.update(DocumentGenerator.retrieve_fields_from_Catalog_index(ht_document.document_id, doc_metadata))
 
         # Generate ocr field
-        entry.update(DocumentGenerator.create_ocr_field(doc_id))
+        entry.update(DocumentGenerator.create_ocr_field(ht_document.target_path))
 
         logging.info(doc_metadata)
         # Generate allfields field
@@ -290,20 +278,10 @@ class DocumentGenerator:
             doc_metadata.get("fullrecord")))
 
         # Retrieve data from MariaDB
-        entry.update(self.retrieve_mysql_data(doc_id))
+        entry.update(self.retrieve_mysql_data(ht_document.document_id))
 
-        ####### Extract fields from METS file
-
-        # Download document .zip and .mets.xml file
-        # target_path = f"{Path(__file__).parents[1]}/data/document_generator"
-
-        download_document_file(
-            doc_name=doc_id, target_path=DOCUMENT_LOCAL_PATH, extension="mets.xml"
-        )
-
-        namespace, obj_id = doc_id.split(".")
-
-        mets_obj = MetsAttributeExtractor(f"{DOCUMENT_LOCAL_PATH}{obj_id}.mets.xml")
+        # Extract fields from METS file
+        mets_obj = MetsAttributeExtractor(f"{ht_document.target_path}.mets.xml")
 
         mets_entry = mets_obj.create_mets_entry()
 
@@ -328,99 +306,6 @@ def main():
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--doc_id", help="document ID", required=True, default=None)
-    parser.add_argument(
-        "--mysql_host", help="Host to connect to MySql server", required=True
-    )
-    parser.add_argument(
-        "--mysql_user", help="User to connect to MySql server", required=True
-    )
-    parser.add_argument(
-        "--mysql_pass", help="Password to connect to MySql server", required=True
-    )
-    parser.add_argument("--mysql_database", help="MySql database", required=True)
-
-    args = parser.parse_args()
-
-    db_conn = create_mysql_conn(
-        host=args.mysql_host,
-        user=args.mysql_user,
-        password=args.mysql_pass,
-        database=args.mysql_database,
-    )
-
-    # Query solr index with the document id
-    """
-    query = f"ht_id:{args.doc_id}"
-    doc_metadata = get_record_metadata(query)
-    """
-
-    """
-    # Download document .zip and .mets.xml file
-    target_path = f"{Path(__file__).parents[1]}/data/document_generator"
-    download_document_file(
-        doc_name=args.doc_id, target_path=target_path, extension="zip"
-    )
-    """
-
-    """
-    # Add Catalog fields to full-text document
-    entry = create_full_text_entry(
-        args.doc_id, doc_metadata.get("content").get("response").get("docs")[0]
-    )
-    """
-
-    """
-    # Retrieve document full-text
-    obj_id = args.doc_id.split(".")[1]
-    full_text = get_full_text_field(
-        f"{Path(__file__).parents[1]}/data/document_generator/{obj_id}.zip"
-    )  # args.zip_file_path
-    entry.update({"ocr": full_text})
-    """
-
-    """
-    # Get allfields entry
-    full_record_entry = (
-        doc_metadata.get("content").get("response").get("docs")[0].get("fullrecord")
-    )
-
-    entry["allfields"] = get_allfields_field(full_record_entry)
-    """
-
-    """
-    # Extract fields from MySql database
-    mysql_entry = retrieve_mysql_data(db_conn, args.doc_id)
-
-    entry.update(mysql_entry)
-
-
-    ####### Extract fields from METS file
-
-    # Download document .zip and .mets.xml file
-    target_path = f"{Path(__file__).parents[1]}/data/document_generator"
-
-    download_document_file(
-        doc_name=args.doc_id, target_path=target_path, extension="mets.xml"
-    )
-
-    namespace, obj_id = args.doc_id.split(".")
-
-    mets_obj = MetsAttributeExtractor(f"{target_path}/{obj_id}.mets.xml")
-
-    mets_entry = mets_obj.create_mets_entry()
-
-    entry.update({"ht_page_feature": mets_entry.get("METS_maps").get("features")})
-    entry.update(mets_entry.get("METS_maps").get("reading_orders"))
-    """
-    # solr_str = create_solr_string(entry)
-
-    """
-    with open(
-            f"{Path(__file__).parents[1]}/ht_indexer_api/data/add/{obj_id}_solr_full_text.xml",
-            "w",
-    ) as f:
-        f.write(solr_str)
-    """
 
 
 if __name__ == "__main__":
