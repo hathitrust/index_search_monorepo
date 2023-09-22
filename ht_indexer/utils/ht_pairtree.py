@@ -5,18 +5,22 @@ import sys
 
 from pypairtree import pairtree
 
-SDR_DIR = "/sdr1"
 
+# SDR_DIR = "/sdr1"
+# translate_table = str.maketrans({"=": r"\="})
 
 def download_document_file(
-        doc_name: str = None, target_path: str = None, extension: str = "zip"
+        source_path: str = None, target_path: str = None, extension: str = "zip"
 ):
-    namespace, obj_id = doc_name.split(".")
+    # namespace, obj_id = doc_name.split(".")
 
-    sanitized_str = pairtree.sanitizeString(obj_id)
-    doc_path = pairtree.get_pair_path(sanitized_str)
+    ##sanitized_obj_id = pairtree.sanitizeString(obj_id)
+    # doc_path = pairtree.get_pair_path(sanitized_obj_id)
 
-    source_path = f"{SDR_DIR}/obj/{namespace}/pairtree_root{doc_path}"
+    # doc_translated_path = doc_path.translate(translate_table)
+    # sanitized_obj_id_translated = sanitized_obj_id.translate(translate_table)
+
+    # source_path = f"{SDR_DIR}/obj/{namespace}/pairtree_root{doc_translated_path}"
 
     try:
         public_key = os.environ["PUBLIC_KEY"]
@@ -39,8 +43,8 @@ def download_document_file(
         "scp",
         "-i",
         os.path.expanduser(f"~/.ssh/{public_key}"),
-        f"{user}@{host}:{source_path}/{obj_id}.{extension}",
-        target_path,
+        f"{user}@{host}:{source_path}.{extension}",
+        f"{target_path}.{extension}",
     ]
     subprocess.run(command)
-    logging.info(f"Download {source_path}/{obj_id}.{extension} to {target_path}")
+    logging.info(f"Download {source_path}.{extension} to {target_path}")
