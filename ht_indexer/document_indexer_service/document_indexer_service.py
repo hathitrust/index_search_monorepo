@@ -12,6 +12,12 @@ currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentfram
 parentdir = os.path.dirname(currentdir)
 sys.path.insert(0, parentdir)
 
+logging.basicConfig(filename='full_text_search_indexer_service.log', filemode='w',
+                    format='%(name)s - %(levelname)s - %(message)s')
+
+logger = logging.getLogger()
+logger.setLevel(logging.DEBUG)
+
 CHUNK_SIZE = 50
 
 from ht_indexer_api.ht_indexer_api import HTSolrAPI
@@ -28,13 +34,13 @@ class DocumentIndexerService:
 
     @staticmethod
     def clean_up_folder(document_path, list_ids):
-        logging.info("Cleaning up .xml and .Zip files")
+        logger.info("Cleaning up .xml and .zip files")
 
         for id_name in list_ids:
             # zip file
             list_documents = glob.glob(f"{document_path}/{id_name}")
             for file in list_documents:
-                logging.info(f"Deleting file {file}")
+                logger.info(f"Deleting file {file}")
                 os.remove(file)
 
 
@@ -66,24 +72,25 @@ def main():
                 if file.lower().endswith(".xml")
             ]
 
+            logger.info(f"Indexing {len(xml_files)} documents.")
             # Split the list of files in batch
             if xml_files:
                 while xml_files:
                     chunk, xml_files = xml_files[:CHUNK_SIZE], xml_files[CHUNK_SIZE:]
 
-                    logging.info(f"Indexing documents: {chunk}")
+                    logger.info(f"Indexing documents: {chunk}")
                     response = document_indexer_service.indexing_documents(
                         document_local_path
                     )
-
+                    logger.info(f"Index opperation status: {response.status_code}")
                     if response.status_code == 200:
                         DocumentIndexerService.clean_up_folder(document_local_path, chunk)
 
         except Exception as e:
-            logging.info(f"/tmp/indexing_data/ does not exit {e}")
+            logger.info(f"/tmp/indexing_data/ does not exit {e}")
             sleep(30)  # Wait until the folder is created
 
-        logging.info(f"Processing ended, sleeping for 5 minutes")
+        logger.info(f"Processing ended, sleeping for 5 minutes")
         sleep(30)
 
     """
