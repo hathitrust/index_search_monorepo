@@ -4,6 +4,20 @@ import re
 from xml.sax.saxutils import quoteattr
 from typing import Dict, List
 
+table = str.maketrans(
+    {
+        "<": "&lt;",
+        ">": "&gt;",
+        "&": "&amp;",
+        "'": "&apos;",
+        '"': "&quot;",
+    }
+)
+
+
+def xmlesc(txt):
+    return txt.translate(table)
+
 
 def string_preparation(doc_content: BytesIO) -> str:
     """
@@ -42,9 +56,23 @@ def create_solr_string(data_dic: Dict) -> str:
     solr_str = ""
     for key, values in data_dic.items():
         if not isinstance(values, List):
-            solr_str = solr_str + f'<field name="{key}">{values}</field>' + "\n"
+            if isinstance(values, str):
+                solr_str = (
+                    solr_str + f'<field name="{key}">{xmlesc(values)}</field>' + "\n"
+                )
+            else:
+                solr_str = solr_str + f'<field name="{key}">{values}</field>' + "\n"
         else:
             if values:
                 for value in values:
-                    solr_str = solr_str + f'<field name="{key}">{value}</field>' + "\n"
+                    if isinstance(value, str):
+                        solr_str = (
+                            solr_str
+                            + f'<field name="{key}">{xmlesc(value)}</field>'
+                            + "\n"
+                        )
+                    else:
+                        solr_str = (
+                            solr_str + f'<field name="{key}">{value}</field>' + "\n"
+                        )
     return f"<add><doc>{solr_str}</doc></add>"

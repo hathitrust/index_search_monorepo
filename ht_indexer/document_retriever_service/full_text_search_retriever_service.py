@@ -6,8 +6,11 @@ import logging
 import argparse
 import glob
 
-logging.basicConfig(filename='full_text_search_retriever_service.log', filemode='w',
-                    format='%(name)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    filename="full_text_search_retriever_service.log",
+    filemode="w",
+    format="%(name)s - %(levelname)s - %(message)s",
+)
 
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
@@ -28,17 +31,14 @@ from ht_document.ht_document import HtDocument
 
 
 class FullTextSearchRetrieverService(CatalogRetrieverService):
-
     def __init__(self, catalogApi=None, document_generator=None):
         super().__init__(catalogApi=catalogApi)
 
         self.document_generator = document_generator
 
     def generate_full_text_entry(self, query, start, rows, all_items):
-
         for results in self.retrieve_documents(query, start, rows):
             for record in results:
-
                 if all_items:
                     # Process all the records of a Catalog
                     total_items = len(record.get("ht_id"))
@@ -47,7 +47,6 @@ class FullTextSearchRetrieverService(CatalogRetrieverService):
                     total_items = 1
 
                 for i in range(0, total_items):
-
                     item_id = record.get("ht_id")[i]
 
                     logger.info(f"Processing document {item_id}")
@@ -59,7 +58,9 @@ class FullTextSearchRetrieverService(CatalogRetrieverService):
                     logger.info(f"Processing item {ht_document.document_id}")
 
                     try:
-                        entry = self.document_generator.make_full_text_search_document(ht_document, record)
+                        entry = self.document_generator.make_full_text_search_document(
+                            ht_document, record
+                        )
                         # yield entry
                     except Exception as e:
                         logger.info(f"Document {item_id} failed {e}")
@@ -111,6 +112,10 @@ def main():
     )
     parser.add_argument("--mysql_database", help="MySql database", required=True)
 
+    parser.add_argument(
+        "--query", help="Query used to retrieve documents", default="*:*"
+    )
+
     args = parser.parse_args()
 
     db_conn = create_mysql_conn(
@@ -124,9 +129,9 @@ def main():
 
     document_generator = DocumentGenerator(db_conn)
 
-    document_indexer_service = FullTextSearchRetrieverService(solr_api_catalog,
-                                                              document_generator
-                                                              )
+    document_indexer_service = FullTextSearchRetrieverService(
+        solr_api_catalog, document_generator
+    )
 
     document_local_path = "indexing_data"
 
@@ -137,27 +142,31 @@ def main():
         pass
 
     count = 0
-    query = "*:*"
-    # query = "id:004483341"
+    query = args.query
     start = 0
     rows = 50
 
-    for entry, file_name, namespace in document_indexer_service.generate_full_text_entry(query, start, rows,
-                                                                                         all_items=args.all_items):
+    for (
+        entry,
+        file_name,
+        namespace,
+    ) in document_indexer_service.generate_full_text_entry(
+        query, start, rows, all_items=args.all_items
+    ):
         count = count + 1
         solr_str = create_solr_string(entry)
 
         with open(
-                f"/{os.path.join(DOCUMENT_LOCAL_PATH, document_local_path)}/{namespace}{file_name}_solr_full_text.xml",
-                "w",
+            f"/{os.path.join(DOCUMENT_LOCAL_PATH, document_local_path)}/{namespace}{file_name}_solr_full_text.xml",
+            "w",
         ) as f:
             f.write(solr_str)
 
         print(count)
         # Clean up
         FullTextSearchRetrieverService.clean_up_folder(DOCUMENT_LOCAL_PATH, [file_name])
-        # if count > 150:
-        #    break
+        if count > 150:
+            break
 
 
 if __name__ == "__main__":
