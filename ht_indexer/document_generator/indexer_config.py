@@ -3,10 +3,10 @@ MAX_ITEM_IDS = 1000
 MYQLS_METADATA = ["coll_id", "ht_heldby", "ht_heldby_brlm", "rights"]
 
 # Variables to manage IO opperations (pairtree)
-DOCUMENT_LOCAL_PATH = '/tmp/'
+DOCUMENT_LOCAL_PATH = "/tmp/"
 
 SDR_DIR = "/sdr1"
-TRANSLATE_TABLE = str.maketrans({"=": r"\=", ',': r"\,"})
+TRANSLATE_TABLE = str.maketrans({"=": r"\=", ",": r"\,"})
 
 To_CHECK = [
     "ht_cover_tag",

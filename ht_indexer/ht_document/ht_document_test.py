@@ -10,7 +10,7 @@ def test_get_document_pair_path():
 
 
 def test_get_document_pairtree_path():
-    namespace, obj = "uc2.ark:/13960/t4mk66f1d".split('.')
+    namespace, obj = "uc2.ark:/13960/t4mk66f1d".split(".")
 
     sanitized_str = pairtree.sanitizeString(obj)
     path = pairtree.get_pair_path(sanitized_str)

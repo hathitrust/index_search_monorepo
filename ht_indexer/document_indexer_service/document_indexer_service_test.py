@@ -7,7 +7,6 @@ from document_indexer_service.document_indexer_service import DocumentIndexerSer
 
 
 class TestFullTextRetrieverService:
-
     def test_retrieve_xml_fields_from_directory(self):
         document_local_path = os.path.abspath("/tmp/indexing_data/")
 
@@ -20,7 +19,7 @@ class TestFullTextRetrieverService:
         assert len(xml_files) != 0
         DocumentIndexerService.clean_up_folder(document_local_path, xml_files)
 
-        assert os.path.exists('/tmp/indexing_data/fullrecord.xml') == False
+        assert os.path.exists("/tmp/indexing_data/fullrecord.xml") == False
 
     def test_delete_xml_fields_from_directory(self):
         document_local_path = os.path.abspath("/tmp/indexing_data/")
@@ -33,4 +32,4 @@ class TestFullTextRetrieverService:
 
         DocumentIndexerService.clean_up_folder(document_local_path, xml_files)
 
-        assert os.path.exists('/tmp/indexing_data/fullrecord.xml') == False
+        assert os.path.exists("/tmp/indexing_data/fullrecord.xml") == False

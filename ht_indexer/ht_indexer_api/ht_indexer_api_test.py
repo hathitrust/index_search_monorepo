@@ -37,9 +37,13 @@ class TestHTSolrAPI:
         response = get_solrAPI.get_documents(query=query, response_format="json")
 
         assert response.status_code == 200
-        assert response.headers["Content-Type"] == "text/plain;charset=utf-8"  # "application/json;charset=utf-8"
+        assert (
+                response.headers["Content-Type"] == "text/plain;charset=utf-8"
+        )  # "application/json;charset=utf-8"
 
     def test_index_document_delete(self, get_solrAPI):
-        document_path = Path(f"{os.path.dirname(__file__)}/data/delete")  # "data/delete"
+        document_path = Path(
+            f"{os.path.dirname(__file__)}/data/delete"
+        )  # "data/delete"
         response = get_solrAPI.index_document(document_path)
         assert response.status_code == 200

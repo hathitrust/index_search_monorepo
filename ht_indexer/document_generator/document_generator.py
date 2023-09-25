@@ -11,12 +11,12 @@ from typing import Dict, List
 from document_generator.indexer_config import (
     IDENTICAL_CATALOG_METADATA,
     RENAMED_CATALOG_METADATA,
-    MAX_ITEM_IDS
+    MAX_ITEM_IDS,
 )
 from lxml import etree
 from io import BytesIO
 
-from utils.ht_mysql import create_mysql_conn, query_mysql
+from utils.ht_mysql import query_mysql
 from document_generator.mets_file_extractor import MetsAttributeExtractor
 from utils.text_processor import string_preparation
 
@@ -24,7 +24,6 @@ from ht_document.ht_document import HtDocument
 
 
 class DocumentGenerator:
-
     def __init__(self, db_conn, catalogApi=None):
         self.db_conn = db_conn
         self.catalogApi = catalogApi
@@ -60,7 +59,6 @@ class DocumentGenerator:
 
     @staticmethod
     def rename_catalog_fields(metadata: Dict) -> Dict:
-
         entry = {}
         for field in RENAMED_CATALOG_METADATA.keys():
             renamed_field = RENAMED_CATALOG_METADATA[field]
@@ -74,7 +72,7 @@ class DocumentGenerator:
 
     @staticmethod
     def get_item_htsource(
-            id: str = None, catalog_htsource: List = None, catalog_htid: List = None
+        id: str = None, catalog_htsource: List = None, catalog_htid: List = None
     ):
         """
         In catalog it could be a list of sources, should obtain the source of an specific item
@@ -97,7 +95,9 @@ class DocumentGenerator:
         entry.update(DocumentGenerator.get_catalog_identical_fiels(metadata))
         entry.update(DocumentGenerator.rename_catalog_fields(metadata))
 
-        volume_enumcron = DocumentGenerator.get_volume_enumcron(metadata.get("ht_id_display"))
+        volume_enumcron = DocumentGenerator.get_volume_enumcron(
+            metadata.get("ht_id_display")
+        )
         if len(volume_enumcron) > 1:
             entry["volume_enumcron"] = volume_enumcron
         entry["htsource"] = DocumentGenerator.get_item_htsource(
@@ -107,17 +107,15 @@ class DocumentGenerator:
 
     @staticmethod
     def create_ocr_field(document_zip_path) -> Dict:
-
         logging.info(f"Reading {document_zip_path}.zip file")
-        full_text = DocumentGenerator.get_full_text_field(f"{document_zip_path}.zip"
-                                                          )
+        full_text = DocumentGenerator.get_full_text_field(f"{document_zip_path}.zip")
         return {"ocr": full_text}
 
     @staticmethod
     def create_allfields_field(fullrecord_field: str) -> Dict:
         # TODO Create a different class to manage the XML files
         allfields = DocumentGenerator.get_allfields_field(fullrecord_field)
-        return {'allfields': allfields}
+        return {"allfields": allfields}
 
     # TODO I could have a class to retrieve data from MySql
     def add_large_coll_id_field(self, doc_id):
@@ -148,12 +146,16 @@ class DocumentGenerator:
     # I can directly call query_mysql, less lines of code
     def add_right_field(self, doc_id) -> Dict:
         namespace, id = doc_id.split(".")
-        query = f'SELECT * FROM rights_current WHERE namespace="{namespace}" AND id="{id}"'
+        query = (
+            f'SELECT * FROM rights_current WHERE namespace="{namespace}" AND id="{id}"'
+        )
         slip_rights_entry = query_mysql(self.db_conn, query=query)
         return slip_rights_entry
 
     def add_ht_heldby_field(self, doc_id) -> Dict:
-        query = f'SELECT member_id FROM holdings_htitem_htmember WHERE volume_id="{doc_id}"'
+        query = (
+            f'SELECT member_id FROM holdings_htitem_htmember WHERE volume_id="{doc_id}"'
+        )
 
         ht_heldby_entry = query_mysql(self.db_conn, query=query)
         # ht_heldby is a list of institutions
@@ -194,7 +196,9 @@ class DocumentGenerator:
                 coll_id.get("MColl_ID") for coll_id in large_coll_id_result
             ]
 
-            entry.update({"coll_id": list(set(list_coll_ids) & set(list_large_coll_id))})
+            entry.update(
+                {"coll_id": list(set(list_coll_ids) & set(list_large_coll_id))}
+            )
         else:
             entry.update({"coll_id": [0]})
         return entry
@@ -209,13 +213,15 @@ class DocumentGenerator:
         """
 
         full_text = ""
-        print('=================')
+        print("=================")
         print(zip_doc_path)
         try:
             zip_doc = zipfile.ZipFile(zip_doc_path, mode="r")
             for i_file in zip_doc.namelist():
                 if zip_doc.getinfo(i_file).filename.endswith(".txt"):
-                    full_text = full_text + " " + string_preparation(zip_doc.read(i_file))
+                    full_text = (
+                        full_text + " " + string_preparation(zip_doc.read(i_file))
+                    )
         except Exception as e:
             logging.ERROR(f"Something wring with your zip file {e}")
         full_text = full_text.encode().decode()
@@ -234,8 +240,8 @@ class DocumentGenerator:
         xml_string_like_file = BytesIO(catalog_xml.encode(encoding="utf-8"))
 
         for event, element in etree.iterparse(
-                xml_string_like_file,
-                events=("start", "end"),
+            xml_string_like_file,
+            events=("start", "end"),
         ):
             if element.tag.find("datafield") > -1:
                 tag_att = element.attrib.get("tag")
@@ -255,8 +261,9 @@ class DocumentGenerator:
         return quoteattr(allfields)
 
     # TODO Check exception if doc_id is None
-    def make_full_text_search_document(self, ht_document: HtDocument, doc_metadata: Dict) -> Dict:
-
+    def make_full_text_search_document(
+        self, ht_document: HtDocument, doc_metadata: Dict
+    ) -> Dict:
         """
         Receive the ht_id and create the HtDocument entry
         :param ht_document:
@@ -264,18 +271,23 @@ class DocumentGenerator:
         :param doc_metadata:
         :return:
         """
-        entry = {'id': ht_document.document_id}
+        entry = {"id": ht_document.document_id}
 
         # Add Catalog fields to full-text document
-        entry.update(DocumentGenerator.retrieve_fields_from_Catalog_index(ht_document.document_id, doc_metadata))
+        entry.update(
+            DocumentGenerator.retrieve_fields_from_Catalog_index(
+                ht_document.document_id, doc_metadata
+            )
+        )
 
         # Generate ocr field
         entry.update(DocumentGenerator.create_ocr_field(ht_document.target_path))
 
         logging.info(doc_metadata)
         # Generate allfields field
-        entry.update(DocumentGenerator.create_allfields_field(
-            doc_metadata.get("fullrecord")))
+        entry.update(
+            DocumentGenerator.create_allfields_field(doc_metadata.get("fullrecord"))
+        )
 
         # Retrieve data from MariaDB
         entry.update(self.retrieve_mysql_data(ht_document.document_id))

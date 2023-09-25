@@ -42,14 +42,15 @@ class HtDocument:
         # Download document .zip and .mets.xml file
         # TODO: Check if file exist
         download_document_file(
-            source_path=self.source_path, target_path=self.target_path, extension="mets.xml"
+            source_path=self.source_path,
+            target_path=self.target_path,
+            extension="mets.xml",
         )
 
     @staticmethod
     def get_namespace(document_id):
-
         try:
-            namespace = document_id.split('.')[0]
+            namespace = document_id.split(".")[0]
             return namespace
         except ValueError as e:
             logging.error(f"Review the document id {document_id} {e}")
@@ -57,8 +58,10 @@ class HtDocument:
     @staticmethod
     def get_object_id(document_id):
         try:
-            obj_id = document_id.split('.')[1:]
-            return obj_id
+            obj_id = document_id.split(".")[1:]
+            if len(obj_id) > 1:  # It means the document_id contains more than one point
+                return '.'.join(obj_id)
+            return ''.join(obj_id)
         except ValueError as e:
             logging.error(f"Review the document id {document_id} {e}")
 

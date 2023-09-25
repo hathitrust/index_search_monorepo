@@ -41,11 +41,11 @@ class HTSolrAPI:
         return response
 
     def get_documents(
-            self,
-            query: str = None,
-            response_format: Text = "json",
-            start: int = 0,
-            rows: int = 100,
+        self,
+        query: str = None,
+        response_format: Text = "json",
+        start: int = 0,
+        rows: int = 100,
     ):
         data_query = {"q": "*:*"}
         if query:

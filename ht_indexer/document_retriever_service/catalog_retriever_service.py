@@ -3,7 +3,9 @@ import json
 import logging
 import argparse
 
-from document_retriever_service.document_retriever_service import DocumentRetrieverService
+from document_retriever_service.document_retriever_service import (
+    DocumentRetrieverService,
+)
 from ht_indexer_api.ht_indexer_api import HTSolrAPI
 
 
@@ -14,7 +16,6 @@ class CatalogRetrieverService(DocumentRetrieverService):
         self.catalogApi = catalogApi
 
     def retrieve_documents(self, query, start, rows):
-
         response = self.catalogApi.get_documents(query=query, start=start, rows=rows)
         output = response.json()
 
@@ -43,7 +44,6 @@ class CatalogRetrieverService(DocumentRetrieverService):
             yield results
 
     def retrieve_list_ht_ids(self, query, start, rows, all_items: bool = False):
-
         total_htid = 0
         for results in self.retrieve_documents(query, start, rows):
             for record in results:
@@ -56,7 +56,9 @@ class CatalogRetrieverService(DocumentRetrieverService):
                     try:
                         item_id = record.get("ht_id")[0]
                     except Exception as e:
-                        logging.error(f"The record {record.get('id')} does not have items.")
+                        logging.error(
+                            f"The record {record.get('id')} does not have items."
+                        )
                         continue
                     total_htid = total_htid + 1
                     logging.info(f"Processing document {item_id}")
@@ -114,7 +116,9 @@ def main():
     start = 0
     rows = 100
 
-    for ht_id in catalog_retrieval_service.retrieve_list_ht_ids(query, start, rows, all_items=args.all_items):
+    for ht_id in catalog_retrieval_service.retrieve_list_ht_ids(
+        query, start, rows, all_items=args.all_items
+    ):
         count = count + 1
         # list_ids.append(ht_id)
         logging.info(f"Item id: {ht_id}")

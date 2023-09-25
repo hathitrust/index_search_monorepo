@@ -12,8 +12,11 @@ currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentfram
 parentdir = os.path.dirname(currentdir)
 sys.path.insert(0, parentdir)
 
-logging.basicConfig(filename='full_text_search_indexer_service.log', filemode='w',
-                    format='%(name)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    filename="full_text_search_indexer_service.log",
+    filemode="w",
+    format="%(name)s - %(levelname)s - %(message)s",
+)
 
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
@@ -61,7 +64,6 @@ def main():
     document_indexer_service = DocumentIndexerService(solr_api_full_text)
 
     while True:
-
         try:
             document_local_path = os.path.abspath("/tmp/indexing_data/")
 
@@ -84,7 +86,9 @@ def main():
                     )
                     logger.info(f"Index opperation status: {response.status_code}")
                     if response.status_code == 200:
-                        DocumentIndexerService.clean_up_folder(document_local_path, chunk)
+                        DocumentIndexerService.clean_up_folder(
+                            document_local_path, chunk
+                        )
 
         except Exception as e:
             logger.info(f"/tmp/indexing_data/ does not exit {e}")
@@ -92,41 +96,6 @@ def main():
 
         logger.info(f"Processing ended, sleeping for 5 minutes")
         sleep(30)
-
-    """
-    for entry in document_indexer_service.generate_full_text_entry():
-
-        solr_str = create_solr_string(entry)
-
-        list_ids.append(obj_id)
-        with open(
-                f"/tmp/{obj_id}_solr_full_text.xml",
-                "w",
-        ) as f:
-            f.write(solr_str)
-
-        if len(list_ids) >= 10:
-            logging.info(f"Indexing documents: {list_ids}")
-            response = document_retrieval_service.indexing_documents(
-                document_local_path
-            )
-
-            if response.status_code == 200:
-                DocumentRetrievalService.clean_up_folder(document_local_path, list_ids)
-
-            list_ids = []
-    """
-
-    """
-    if len(list_ids) > 0:
-        logging.info(f"Indexing documents: {list_ids}")
-        response = document_retrieval_service.indexing_documents(document_local_path)
-
-        if response.status_code == 200:
-            DocumentRetrievalService.clean_up_folder(document_local_path, list_ids)
-
-    logging.info(f"Indexed {count} records")
-    """
 
 
 if __name__ == "__main__":

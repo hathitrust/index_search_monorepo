@@ -21,7 +21,8 @@ def get_fullrecord_xml():
 @pytest.fixture()
 def get_allfield_string():
     return quoteattr(
-        """Defoe, Daniel, 1661?-1731. Rābinsan Krūso kā itihāsa. The adventures of Robinson Crusoe, translated [into Hindi] by Badrī Lāla, from a Bengali version ... Benares, 1860 455 p. incl. front., illus. plates. 20 cm. Title from Catalogue of Hindi books in the British museum. Badarīnātha, pandit, tr. Robinson Crusoe. UTL 9662 SPEC HUB PR 3403 .H5 39015078560292""")
+        """Defoe, Daniel, 1661?-1731. Rābinsan Krūso kā itihāsa. The adventures of Robinson Crusoe, translated [into Hindi] by Badrī Lāla, from a Bengali version ... Benares, 1860 455 p. incl. front., illus. plates. 20 cm. Title from Catalogue of Hindi books in the British museum. Badarīnātha, pandit, tr. Robinson Crusoe. UTL 9662 SPEC HUB PR 3403 .H5 39015078560292"""
+    )
 
 
 @pytest.fixture()
@@ -36,26 +37,26 @@ def get_document_generator():
 
 class TestDocumentGenerator:
     def test_get_item_htsource(self):
-        htsource = DocumentGenerator.get_item_htsource("mdp.39015061418433",  # it is in solr core 7
-                                                       ["University of Michigan", "Indiana University"],
-                                                       ["mdp.39015061418433",
-                                                        "inu.30000108625017"],
-                                                       )
+        htsource = DocumentGenerator.get_item_htsource(
+            "mdp.39015061418433",  # it is in solr core 7
+            ["University of Michigan", "Indiana University"],
+            ["mdp.39015061418433", "inu.30000108625017"],
+        )
         assert htsource == "University of Michigan"
 
-        htsource = DocumentGenerator.get_item_htsource("inu.30000108625017",  # it is in solr core 7
-                                                       ["University of Michigan", "Indiana University"],
-                                                       ["mdp.39015061418433",
-                                                        "inu.30000108625017"],
-                                                       )
+        htsource = DocumentGenerator.get_item_htsource(
+            "inu.30000108625017",  # it is in solr core 7
+            ["University of Michigan", "Indiana University"],
+            ["mdp.39015061418433", "inu.30000108625017"],
+        )
         assert htsource == "Indiana University"
 
     def test_get_item_htsource_sharinghtsource(self):
-        htsource = DocumentGenerator.get_item_htsource("inu.30000108625017",  # it is in solr core 7
-                                                       ["University of Michigan"],
-                                                       ["mdp.39015061418433",
-                                                        "inu.30000108625017"],
-                                                       )
+        htsource = DocumentGenerator.get_item_htsource(
+            "inu.30000108625017",  # it is in solr core 7
+            ["University of Michigan"],
+            ["mdp.39015061418433", "inu.30000108625017"],
+        )
         assert htsource == "University of Michigan"
 
     def test_not_exist_zip_file_full_text_field(self):

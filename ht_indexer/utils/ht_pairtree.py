@@ -9,8 +9,9 @@ from pypairtree import pairtree
 # SDR_DIR = "/sdr1"
 # translate_table = str.maketrans({"=": r"\="})
 
+
 def download_document_file(
-        source_path: str = None, target_path: str = None, extension: str = "zip"
+    source_path: str = None, target_path: str = None, extension: str = "zip"
 ):
     # namespace, obj_id = doc_name.split(".")
 
