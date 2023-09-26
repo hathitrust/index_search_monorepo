@@ -147,9 +147,9 @@ def main():
     rows = 50
 
     for (
-        entry,
-        file_name,
-        namespace,
+            entry,
+            file_name,
+            namespace,
     ) in document_indexer_service.generate_full_text_entry(
         query, start, rows, all_items=args.all_items
     ):
@@ -157,16 +157,16 @@ def main():
         solr_str = create_solr_string(entry)
 
         with open(
-            f"/{os.path.join(DOCUMENT_LOCAL_PATH, document_local_path)}/{namespace}{file_name}_solr_full_text.xml",
-            "w",
+                f"/{os.path.join(DOCUMENT_LOCAL_PATH, document_local_path)}/{namespace}{file_name}_solr_full_text.xml",
+                "w",
         ) as f:
             f.write(solr_str)
 
         print(count)
         # Clean up
         FullTextSearchRetrieverService.clean_up_folder(DOCUMENT_LOCAL_PATH, [file_name])
-        if count > 150:
-            break
+        # if count > 150:
+        #    break
 
 
 if __name__ == "__main__":
