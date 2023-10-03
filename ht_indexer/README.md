@@ -109,3 +109,6 @@ Poetry & docker good reference: https://github.com/max-pfeiffer/uvicorn-gunicorn
   use this blog as a
   reference: https://medium.com/vantageai/how-to-make-your-python-docker-images-secure-fast-small-b3a6870373a0
 * See this video to reduce the size of the container: https://www.youtube.com/watch?v=kx-SeGbkNPU
+
+--solr_url http://localhost:9033/solr/#/catalog/ --mysql_host mudslide.umdl.umich.edu --mysql_user lisepul --mysql_pass
+viu8ii39hgq48axf6vzeb62mpes64buh --mysql_database ht --query id:012407877
