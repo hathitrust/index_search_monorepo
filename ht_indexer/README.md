@@ -104,6 +104,8 @@ https://stackoverflow.com/questions/53835198/integrating-python-poetry-with-dock
 https://github.com/python-poetry/poetry/issues/1178
 Poetry & docker good reference: https://github.com/max-pfeiffer/uvicorn-gunicorn-poetry/tree/main/build
 
+Recommended python image: https://pythonspeed.com/articles/base-image-python-docker-images/
+
 * Something I want to test in my Dockerfile: Use poetry for the dependency solver and then use pip for installing the
   final wheel. => Use poetry expert to generate requirements.txt file,
   use this blog as a
