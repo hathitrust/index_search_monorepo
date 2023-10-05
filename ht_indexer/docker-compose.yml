@@ -47,6 +47,7 @@ services:
   #    ports:
   #      - "8082:8082"
   solr-lss-dev:
+    container_name: solr-lss-dev
     image: ghcr.io/hathitrust/lss-solr:unstable
     healthcheck:
       test: [ "CMD", "/usr/bin/wget", "-q", "http://localhost:8983/solr/core-x/admin/ping" ]
