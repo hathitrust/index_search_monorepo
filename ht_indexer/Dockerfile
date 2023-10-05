@@ -45,6 +45,8 @@ ENV PYTHONUNBUFFERED=1\
 #    && apt-get upgrade -y \
 #    && apt-get install mariadb-server
 
+USER root
+
 WORKDIR /app
 
 COPY requirements.txt ./
@@ -118,11 +120,16 @@ ENV FASTAPI_ENV=development
 #WORKDIR $PYSETUP_PATH
 #RUN poetry install
 
-#RUN pip install
-
 WORKDIR /app
+
 COPY . .
 
+#RUN pip install
+
+#RUN mkdir -p /tmp/indexing_data
+
+#RUN chown appuser:appuser -R /tmp/indexing_data/ /app/
 USER appuser
+
 
 #RUN pip install -r requirements.txt

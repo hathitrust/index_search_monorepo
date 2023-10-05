@@ -1,12 +1,19 @@
 import os
 from pathlib import Path
 
+import sys
+import inspect
+
 import pytest
 import pytest_cov
 
 from document_generator.document_generator import DocumentGenerator
 from xml.sax.saxutils import quoteattr
 from ht_indexer_api.ht_indexer_api import HTSolrAPI
+
+currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+parentdir = os.path.dirname(currentdir)
+sys.path.insert(0, parentdir)
 
 
 @pytest.fixture()
@@ -28,7 +35,7 @@ def get_allfield_string():
 @pytest.fixture()
 def get_document_generator():
     db_conn = None
-    solr_api = HTSolrAPI(url="http://192.168.112.2:9033/solr/#/catalog/")
+    solr_api = HTSolrAPI(url="http://192.168.32.3:9033/solr/#/catalog/")
 
     document_generator = DocumentGenerator(db_conn, solr_api)
 
