@@ -128,7 +128,7 @@ COPY . .
 
 #RUN mkdir -p /tmp/indexing_data
 
-#RUN chown appuser:appuser -R /tmp/indexing_data/ /app/
+RUN chown appuser:appuser -R /tmp /app
 USER appuser
 
 
