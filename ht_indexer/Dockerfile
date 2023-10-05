@@ -28,8 +28,8 @@ COPY requirements.txt ./
 
 RUN set -ex \
     # Create a non-root user
-    && addgroup --system --gid 1001 indexergroup \
-    && adduser --system --uid 1001 --gid 1001 --no-create-home indexeruser
+    && addgroup --system --gid 1001 appgroup \
+    && adduser --system --uid 1001 --gid 1001 --no-create-home appuser
 
     # Upgrade the package index and install security upgrades
 RUN apt-get update -y \
@@ -40,7 +40,7 @@ RUN apt-get update -y \
     pkgconf \
     default-libmysqlclient-dev \
     # Install dependencies
-    && pip install -r requirements.txt #
+    && pip install -r requirements.txt \
     # Clean up
     && apt-get autoremove -y \
     && apt-get clean -y \
@@ -53,5 +53,5 @@ WORKDIR /app
 
 COPY . .
 
-RUN chown indexeruser:indexeruser -R /tmp /app
-USER indexeruser
+#RUN chown appuser:appuser -R /app
+USER appuser
