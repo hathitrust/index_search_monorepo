@@ -45,34 +45,31 @@ def string_preparation(doc_content: BytesIO) -> str:
     return quoteattr(str_content)
 
 
+def escape_values(value) -> str:
+    if isinstance(value, str):
+        return xmlesc(value)
+    else:
+        return value
+
+
+def field_tag(key, value) -> str:
+    return f'<field name="{key}">{escape_values(value)}</field>'
+
+
 def create_solr_string(data_dic: Dict) -> str:
     """
-    Function to convert a dictionary into an xml string uses for indexing a document in Solr index
+        Function to convert a dictionary into an xml string uses for indexing a document in Solr index
 
-    :param data_dic: Dictionary with the data will be indexed in Solr
-    :return: XML String  with tag <add> for adding the document in Solr
+        :param data_dic: Dictionary with the data will be indexed in Solr
+        :return: XML String  with tag <add> for adding the document in Solr
     """
+    solr_doc = []
+    nl = '\n'
+    for key, value in data_dic.items():
+        if isinstance(value, List):
+            for list_item in value:
+                solr_doc.append(field_tag(key, list_item))
+        elif value:
+            solr_doc.append(field_tag(key, value))
 
-    solr_str = ""
-    for key, values in data_dic.items():
-        if not isinstance(values, List):
-            if isinstance(values, str):
-                solr_str = (
-                    solr_str + f'<field name="{key}">{xmlesc(values)}</field>' + "\n"
-                )
-            else:
-                solr_str = solr_str + f'<field name="{key}">{values}</field>' + "\n"
-        else:
-            if values:
-                for value in values:
-                    if isinstance(value, str):
-                        solr_str = (
-                            solr_str
-                            + f'<field name="{key}">{xmlesc(value)}</field>'
-                            + "\n"
-                        )
-                    else:
-                        solr_str = (
-                            solr_str + f'<field name="{key}">{value}</field>' + "\n"
-                        )
-    return f"<add><doc>{solr_str}</doc></add>"
+    return f"<add><doc>{nl.join(solr_doc)}</doc></add>"
