@@ -36,15 +36,15 @@ RUN apt-get update -y \
     && apt-get upgrade -y \
     && apt-get -y install build-essential \
     curl \
-    gcc \
     pkgconf \
     default-libmysqlclient-dev \
-    # Install dependencies
-    && pip install -r requirements.txt \
     # Clean up
     && apt-get autoremove -y \
     && apt-get clean -y \
     && rm -rf /var/lib/apt/lists/*
+
+# Install dependencies
+RUN pip install -r requirements.txt
 
 FROM python-base as development
 ENV FASTAPI_ENV=development
