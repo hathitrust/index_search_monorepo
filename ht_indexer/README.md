@@ -7,7 +7,7 @@ This is a FastApi application for indexing XML files in a Solr server
 The application runs on http://localhost:8081. The documentation is automatically generated
 and you can check it in the http://localhost:8081/docs/.
 
-This application uses the solar server instantiated by to different Solr container for Catalog (solr-sdr-catalog) and
+This application uses the solr server instantiated by to different Solr container for Catalog (solr-sdr-catalog) and
 Full-text (solr-lss-dev) search index.
 Then, this container must be running before load the API.
 
@@ -30,8 +30,8 @@ http://localhost:8081/docs/
 ## Command to use the services for indexing documents in Full-text search index
 
 ``python document_retriever_service/full_text_search_retriever_service.py
---solr_url http://localhost:9033/solr/#/catalog/ --mysql_host mudslide.umdl.umich.edu --mysql_user lisepul
---mysql_pass viu8ii39hgq48axf6vzeb62mpes64buh --mysql_database ht --query id:hvd.hnr4tg --all_items ``
+--solr_url http://localhost:9033/solr/#/catalog/ --mysql_host mudslide.umdl.umich.edu --mysql_user user_name
+--mysql_pass pass --mysql_database ht --query id:hvd.hnr4tg --all_items ``
 
 * If --query parameter is not passed, all the record in Catalog index will be indexed in Full-text search
 * By default, only the first item of each record in Catalog are indexed in Full-text search, if --all_items parameter is
