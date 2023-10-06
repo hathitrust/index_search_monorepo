@@ -49,7 +49,7 @@ class DocumentGenerator:
         return query
 
     @staticmethod
-    def get_catalog_identical_fiels(metadata: Dict) -> Dict:
+    def get_catalog_identical_fields(metadata: Dict) -> Dict:
         entry = {}
         for field in IDENTICAL_CATALOG_METADATA:
             value = metadata.get(field)
@@ -72,7 +72,7 @@ class DocumentGenerator:
 
     @staticmethod
     def get_item_htsource(
-        id: str = None, catalog_htsource: List = None, catalog_htid: List = None
+            id: str = None, catalog_htsource: List = None, catalog_htid: List = None
     ):
         """
         In catalog it could be a list of sources, should obtain the source of an specific item
@@ -92,7 +92,7 @@ class DocumentGenerator:
     def retrieve_fields_from_Catalog_index(doc_id: str, metadata: Dict) -> Dict:
         entry = {}
 
-        entry.update(DocumentGenerator.get_catalog_identical_fiels(metadata))
+        entry.update(DocumentGenerator.get_catalog_identical_fields(metadata))
         entry.update(DocumentGenerator.rename_catalog_fields(metadata))
 
         volume_enumcron = DocumentGenerator.get_volume_enumcron(
@@ -220,7 +220,7 @@ class DocumentGenerator:
             for i_file in zip_doc.namelist():
                 if zip_doc.getinfo(i_file).filename.endswith(".txt"):
                     full_text = (
-                        full_text + " " + string_preparation(zip_doc.read(i_file))
+                            full_text + " " + string_preparation(zip_doc.read(i_file))
                     )
         except Exception as e:
             logging.ERROR(f"Something wring with your zip file {e}")
@@ -240,8 +240,8 @@ class DocumentGenerator:
         xml_string_like_file = BytesIO(catalog_xml.encode(encoding="utf-8"))
 
         for event, element in etree.iterparse(
-            xml_string_like_file,
-            events=("start", "end"),
+                xml_string_like_file,
+                events=("start", "end"),
         ):
             if element.tag.find("datafield") > -1:
                 tag_att = element.attrib.get("tag")
@@ -262,7 +262,7 @@ class DocumentGenerator:
 
     # TODO Check exception if doc_id is None
     def make_full_text_search_document(
-        self, ht_document: HtDocument, doc_metadata: Dict
+            self, ht_document: HtDocument, doc_metadata: Dict
     ) -> Dict:
         """
         Receive the ht_id and create the HtDocument entry
