@@ -1,43 +1,100 @@
 version: "3"
 services:
-  ht_indexer_api:
-    build: .
-    command: [ "python", "main.py", "--host", "0.0.0.0", "--port", "8081", "--solr_url", "http://host.docker.internal:9033/solr/#/catalog/" ]
-    image: app_ht_indexer
-    ports:
-      - "8081:8081"
-    volumes:
-      - .:/app
-
+  #  document_retriever:
+  #    container_name: document_retriever
+  #    build:
+  #      context: .
+  #    command: [ "python", "document_retriever_service/full_text_search_retriever_service.py",
+  #               "--mysql_host", "$MYSQL_HOST",
+  #               "--mysql_user", "$MYSQL_USER",
+  #               "--mysql_pass", "$MYSQL_PASS",
+  #               "--mysql_database", "ht",
+  #               "--solr_url", "http://solr-sdr-catalog:9033/solr/catalog/" ]
+  #    volumes:
+  #      - .:/app
+  #      - tmp:/tmp
+  #      - ~/.ssh:/root/.ssh
+  #    ports:
+  #      - "8081:8081"
+  #    #expose:
+  #    #  - 8983
+  #    depends_on:
+  #      solr-sdr-catalog:
+  #        condition: service_healthy
+  #
+  #    environment:
+  #      - HOST="$HOST"
+  #      - USER="$USER"
+  #      - PUBLIC_KEY="$PUBLIC_KEY"
+  #      #- SOLR_URL=http://solr-sdr-catalog:9033/solr/#/catalog
+  #    #networks:
+  #    #  - indexer_net
+  #  document_indexer:
+  #    container_name: document_indexer
+  #    build:
+  #      context: .
+  #    command: [ "python", "document_indexer_service/document_indexer_service.py",
+  #               "--solr_indexing_api", "http://solr-lss-dev:8983/solr/core-x/",
+  #    ]
+  #    volumes:
+  #      - .:/app
+  #      - tmp:/tmp
+  #    depends_on:
+  #      - solr-lss-dev
+  #      - document_retriever
+  #    #networks:
+  #    #  - indexer_net
+  #    ports:
+  #      - "8082:8082"
   solr-lss-dev:
+    container_name: solr-lss-dev
     image: ghcr.io/hathitrust/lss-solr:unstable
     healthcheck:
-      test: ["CMD", "/usr/bin/wget", "-q", "http://localhost:8983/solr/core-x/admin/ping"]
+      test: [ "CMD", "/usr/bin/wget", "-q", "http://localhost:8983/solr/core-x/admin/ping" ]
       interval: 5s
       timeout: 10s
       start_period: 30s
       retries: 5
     ports:
       - "8983:8983"
-
+    expose:
+      - 8983
+    environment:
+      - SOLR_HEAP=2g
+    #volumes:
+    #  - solr-lss-dev:/var/solr
   solr-sdr-catalog:
+    container_name: solr-sdr-catalog
     image: ghcr.io/hathitrust/catalog-solr-sample
     healthcheck:
-      test: ["CMD", "/usr/bin/curl", "-s", "-f", "http://localhost:9033/solr/catalog/admin/ping"]
+      test: [ "CMD", "/usr/bin/curl", "-s", "-f", "http://localhost:9033/solr/catalog/admin/ping" ]
       interval: 5s
       timeout: 10s
       start_period: 30s
       retries: 5
     ports:
       - "9033:9033"
-
+    expose:
+      - 9033
+    #- SOLR_HOST="solr-sdr-catalog"
+    #networks:
+    #  - indexer_net
+    #volumes:
+    #  - solr_sdr_catalog:/var/solr
   test:
+    container_name: indexing_test
     build: .
-    volumes: 
+    volumes:
       - .:/app
-    command: ["pytest"]
+      - tmp:/tmp
+    command: [ "pytest" ]
     depends_on:
       solr-lss-dev:
         condition: service_healthy
       solr-sdr-catalog:
         condition: service_healthy
+
+#networks:
+#  indexer_net:
+volumes:
+  tmp:

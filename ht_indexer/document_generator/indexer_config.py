@@ -2,6 +2,12 @@ MAX_ITEM_IDS = 1000
 
 MYQLS_METADATA = ["coll_id", "ht_heldby", "ht_heldby_brlm", "rights"]
 
+# Variables to manage IO opperations (pairtree)
+DOCUMENT_LOCAL_PATH = "/tmp/"
+
+SDR_DIR = "/sdr1"
+TRANSLATE_TABLE = str.maketrans({"=": r"\=", ",": r"\,"})
+
 To_CHECK = [
     "ht_cover_tag",
     "ht_page_feature",
@@ -36,8 +42,8 @@ RENAMED_CATALOG_METADATA = {
     "publishDate": "date",
     "author": "Vauthor",
     "title": "Vtitle",
-    "id": "vol_id",
-    "ht_id": "id",
+    "id": "vol_id"  # ,
+    # "ht_id": "id",
 }
 
 IDENTICAL_CATALOG_METADATA = [

@@ -1,17 +1,19 @@
 import os
 from pathlib import Path
 
+import sys
+import inspect
+
 import pytest
 import pytest_cov
-from xml.sax.saxutils import quoteattr
 
-from document_generator.document_generator import (
-    get_allfields_field,
-    get_full_text_field,
-    get_record_metadata,
-    create_solr_string,
-    get_item_htsource,
-)
+from document_generator.document_generator import DocumentGenerator
+from xml.sax.saxutils import quoteattr
+from ht_indexer_api.ht_indexer_api import HTSolrAPI
+
+currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+parentdir = os.path.dirname(currentdir)
+sys.path.insert(0, parentdir)
 
 
 @pytest.fixture()
@@ -25,70 +27,60 @@ def get_fullrecord_xml():
 
 @pytest.fixture()
 def get_allfield_string():
-    return """Defoe, Daniel, 1661?-1731. Rābinsan Krūso kā itihāsa. The adventures of Robinson Crusoe, translated [into Hindi] by Badrī Lāla, from a Bengali version ... Benares, 1860 455 p. incl. front., illus. plates. 20 cm. Title from Catalogue of Hindi books in the British museum. Badarīnātha, pandit, tr. Robinson Crusoe. UTL 9662 SPEC HUB PR 3403 .H5 39015078560292"""
-    # """Poland one magazine. Poland one London : Polish Cultural Foundation, 1985. 1 v. : ill. ; 30 cm. Vol. 1, no. 9 (Feb. 1985)-v. 1, no. 12 (May 1985). Title from cover. Mode of access: Internet. Poland Periodicals. Polish Cultural Foundation (London, England) Poland one 0266-1993 (DLC)sn 86021892 MIU MIU 20211113 google mdp.39015061418433 v.1 no.8-12 1985 und bib non-US bib date1 >= 1928 INU INU 20220315 google inu.30000108625017 v.1,no.9-12 1985 1985 ic bib non-US serial item date >= 1928"""
+    return quoteattr(
+        """Defoe, Daniel, 1661?-1731. Rābinsan Krūso kā itihāsa. The adventures of Robinson Crusoe, translated [into Hindi] by Badrī Lāla, from a Bengali version ... Benares, 1860 455 p. incl. front., illus. plates. 20 cm. Title from Catalogue of Hindi books in the British museum. Badarīnātha, pandit, tr. Robinson Crusoe. UTL 9662 SPEC HUB PR 3403 .H5 39015078560292"""
+    )
+
+
+@pytest.fixture()
+def get_document_generator():
+    db_conn = None
+    solr_api = HTSolrAPI(url="http://solr-sdr-catalog:9033/solr/#/catalog/")
+
+    document_generator = DocumentGenerator(db_conn, solr_api)
+
+    return document_generator
 
 
 class TestDocumentGenerator:
     def test_get_item_htsource(self):
-        htsource = get_item_htsource(
-            "mdp.39015061418433",
+        htsource = DocumentGenerator.get_item_htsource(
+            "mdp.39015061418433",  # it is in solr core 7
             ["University of Michigan", "Indiana University"],
+            ["mdp.39015061418433", "inu.30000108625017"],
+        )
+        assert htsource == "University of Michigan"
+
+        htsource = DocumentGenerator.get_item_htsource(
+            "inu.30000108625017",  # it is in solr core 7
+            ["University of Michigan", "Indiana University"],
+            ["mdp.39015061418433", "inu.30000108625017"],
+        )
+        assert htsource == "Indiana University"
+
+    def test_get_item_htsource_sharinghtsource(self):
+        htsource = DocumentGenerator.get_item_htsource(
+            "inu.30000108625017",  # it is in solr core 7
+            ["University of Michigan"],
             ["mdp.39015061418433", "inu.30000108625017"],
         )
         assert htsource == "University of Michigan"
 
     def test_not_exist_zip_file_full_text_field(self):
         with pytest.raises(Exception) as e:
-            get_full_text_field("data/test.zip")
+            DocumentGenerator.get_full_text_field("data/test.zip")
         assert e.type == TypeError
 
     def test_full_text_field(self):
         zip_path = f"{Path(__file__).parents[1]}/data/document_generator/39015078560292_test.zip"
-        full_text = get_full_text_field(zip_path)
+        full_text = DocumentGenerator.get_full_text_field(zip_path)
 
         assert len(full_text) > 10
 
     def test_create_allfields_field(self, get_fullrecord_xml, get_allfield_string):
-        allfield = get_allfields_field(get_fullrecord_xml)
-        assert len(allfield.strip()) == len(quoteattr(get_allfield_string.strip()))
-        assert allfield.strip() == quoteattr(get_allfield_string.strip())
-
-    def test_get_records(self):
-        query = "ht_id:nyp.33433082046503"
-        doc_metadata = get_record_metadata(query)
-
-        assert "nyp.33433082046503" in doc_metadata.get("content").get("response").get(
-            "docs"
-        )[0].get("ht_id")
-
-    def test_create_solr_string(self):
-        """
-        Test the function that generate the string in XML format we will index in full-text search index
-        :return:
-        """
-        data_dic = {
-            "sdrnum": ["sdr-txu-1.b25999849", "sdr-txu-1.b25999850"],
-            "title": "test XML output format",
-        }
-        solr_string = create_solr_string(data_dic)
-
-        assert len(
-            """<add><doc> <field name="sdrnum">sdr-txu-1.b25999849</field> <field name="sdrnum">sdr-txu-1.b25999850</field> <field name="title">test XML output format</field></doc></add>"""
-        ) == len(solr_string)
-
-    def test_create_entry(self):
-        """
-        Test the function that creates the entry with fields retrieved from Catalog index
-        :return:
-        """
-
-        query = "ht_id:nyp.33433082046503"
-        doc_metadata = get_record_metadata(query)
-
-        assert "nyp.33433082046503" in doc_metadata.get("content").get("response").get(
-            "docs"
-        )[0].get("ht_id")
+        allfield = DocumentGenerator.get_allfields_field(get_fullrecord_xml)
+        assert len(allfield.strip()) == len(get_allfield_string.strip())
+        assert allfield.strip() == get_allfield_string.strip()
 
     def test_get_volume_enumcron_empty(self):
         # TODO: Check if is correct the generation of volume_enumcrom (line 417: https://github.com/hathitrust/slip-lib/blob/master/Document/Doc/vSolrMetadataAPI/Schema_LS_11.pm)
@@ -102,3 +94,24 @@ class TestDocumentGenerator:
             "mdp.39015078560292|20220910||1860|1860-1869|||RÄ\x81binsan KrÅ«so kÄ\x81 itihÄ\x81sa. The adventures of Robinson Crusoe, translated [into Hindi] by BadrÄ« LÄ\x81la, from a Bengali version ..."
         ]
         assert volume_enumcrom == ht_id_display[0].split("|")[2]
+
+    def test_get_records(self, get_document_generator):
+        query = "ht_id:nyp.33433082046503"
+        doc_metadata = get_document_generator.get_record_metadata(query)
+
+        assert "nyp.33433082046503" in doc_metadata.get("content").get("response").get(
+            "docs"
+        )[0].get("ht_id")
+
+    def test_create_entry(self, get_document_generator):
+        """
+        Test the function that creates the entry with fields retrieved from Catalog index
+        :return:
+        """
+
+        query = "ht_id:nyp.33433082046503"
+        doc_metadata = get_document_generator.get_record_metadata(query)
+
+        assert "nyp.33433082046503" in doc_metadata.get("content").get("response").get(
+            "docs"
+        )[0].get("ht_id")
