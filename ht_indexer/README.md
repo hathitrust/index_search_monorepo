@@ -37,8 +37,8 @@ http://localhost:8081/docs/
 * By default, only the first item of each record in Catalog are indexed in Full-text search, if --all_items parameter is
   passed, then all the items of the record are added.
     * You can use the command below to index all the item of a specific record
-        * `` --solr_url http://localhost:9033/solr/#/catalog/ --mysql_host mudslide.umdl.umich.edu --mysql_user lisepul --mysql_pass
-          viu8ii39hgq48axf6vzeb62mpes64buh --mysql_database ht --query id:012407877 ``
+        * `` --solr_url http://localhost:9033/solr/#/catalog/ --mysql_host mudslide.umdl.umich.edu --mysql_user user_name --mysql_pass
+          pass --mysql_database ht --query id:012407877 ``
 
 Use the command below to start the service to index documents
 
