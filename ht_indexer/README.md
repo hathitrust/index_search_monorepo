@@ -68,7 +68,7 @@ On mac,
 * Usefull poetry commands (Find more information about commands [here](https://python-poetry.org/docs/cli))
     * Inside the application folder: See the virtual environment used by the application `` poetry env use python ``
     * Activate the virtual environment: ``source ~/ht-indexer-GQmvgxw4-py3.11/bin/activate``, in Mac poetry creates
-      their files in the home directory, e.g. /Users/lisepul/Library/Caches/pypoetry/..
+      their files in the home directory, e.g. /Users/user_name/Library/Caches/pypoetry/..
     * `` poetry export -f requirements.txt --output requirements.txt ``
     * Use `` poetry update `` if you change your .toml file and want to generate a new version the .lock file
 
