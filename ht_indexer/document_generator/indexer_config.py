@@ -20,7 +20,8 @@ To_CHECK = [
     "pgnum",
     "type_s",
     "chunk_seq",
-    "mainauthor",
+    # "mainauthor",
+    # Some records do not have mainauthor e.g. records with the field "format":["Serial", "Journal"] do not have mainauthor
     "timestamp",
     "ctrlnum",
     "rptnum",
@@ -30,20 +31,19 @@ To_CHECK = [
     "genre",
     "hlb3Str",
     "hlb3Delimited",
-    "enumPublishDate",
-    "bothPublishDate",
+    # "enumPublishDate", # Done
+    # "bothPublishDate", # Done
     "era",
     "fullgeographic",
 ]
 
-# field catalog : field_full_text
+# field_full_text : field catalog
 RENAMED_CATALOG_METADATA = {
-    "id": "record_no",
-    "publishDate": "date",
-    "author": "Vauthor",
-    "title": "Vtitle",
-    "id": "vol_id"  # ,
-    # "ht_id": "id",
+    "record_no": "id",
+    "date": "publishDate",
+    "Vauthor": "author",
+    "Vtitle": "title",
+    "vol_id": "id"
 }
 
 IDENTICAL_CATALOG_METADATA = [
@@ -73,6 +73,7 @@ IDENTICAL_CATALOG_METADATA = [
     "author_rest",
     "authorSort",
     "author_sortkey",
+    "mainauthor",  # This is an optional field
     # ============================
     # ====Check title fields====
     "vtitle",

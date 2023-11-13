@@ -60,15 +60,24 @@ class DocumentGenerator:
     @staticmethod
     def rename_catalog_fields(metadata: Dict) -> Dict:
         entry = {}
-        for field in RENAMED_CATALOG_METADATA.keys():
-            renamed_field = RENAMED_CATALOG_METADATA[field]
-            entry[renamed_field] = metadata.get(field)
+        for new_field in RENAMED_CATALOG_METADATA.keys():
+            catalog_field = RENAMED_CATALOG_METADATA[new_field]
+            entry[new_field] = metadata.get(catalog_field)
         return entry
 
     @staticmethod
     def get_volume_enumcron(ht_id_display: str = None):
         enumcron = ht_id_display[0].split("|")[2]
         return enumcron
+
+    @staticmethod
+    def get_data_ht_json_obj(ht_json: Dict = None):
+
+        catalog_json_data = {
+            "enumPublishDate": ht_json.get("enumPublishDate"),
+            "bothPublishDate": ht_json.get("bothPublishDate")
+        }
+        return catalog_json_data
 
     @staticmethod
     def get_item_htsource(
@@ -98,6 +107,13 @@ class DocumentGenerator:
         volume_enumcron = DocumentGenerator.get_volume_enumcron(
             metadata.get("ht_id_display")
         )
+
+        doc_json = [record for record in json.loads(metadata.get("ht_json")) if
+                    (v := record.get('enum_pubdate') and doc_id == record.get('htid'))]
+
+        if len(doc_json) > 0:
+            entry.update(DocumentGenerator.get_data_ht_json_obj(doc_json[0]))
+
         if len(volume_enumcron) > 1:
             entry["volume_enumcron"] = volume_enumcron
         entry["htsource"] = DocumentGenerator.get_item_htsource(
