@@ -8,25 +8,6 @@ DOCUMENT_LOCAL_PATH = "/tmp/"
 SDR_DIR = "/sdr1"
 TRANSLATE_TABLE = str.maketrans({"=": r"\=", ",": r"\,"})
 
-To_CHECK = [
-    "seq",
-    "pgnum",
-    "type_s",
-    "chunk_seq",
-    # "mainauthor",
-    # Some records do not have mainauthor e.g. records with the field "format":["Serial", "Journal"] do not have mainauthor
-
-    "ctrlnum",
-
-    "fullgenre",  # TO ignore
-    "hlb3Str",  # To ignore
-    "hlb3Delimited",  # To ignore
-    # "enumPublishDate", # Done
-    # "bothPublishDate", # To Check
-    "era",
-    "fullgeographic",  # To ignore
-]
-
 # field_full_text : field catalog
 RENAMED_CATALOG_METADATA = {
     "record_no": "id",
