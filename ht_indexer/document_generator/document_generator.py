@@ -74,8 +74,7 @@ class DocumentGenerator:
     def get_data_ht_json_obj(ht_json: Dict = None):
 
         catalog_json_data = {
-            "enumPublishDate": ht_json.get("enumPublishDate"),
-            "bothPublishDate": ht_json.get("bothPublishDate")
+            "enumPublishDate": ht_json.get("enumPublishDate")
         }
         return catalog_json_data
 
@@ -119,10 +118,16 @@ class DocumentGenerator:
         entry["htsource"] = DocumentGenerator.get_item_htsource(
             doc_id, metadata.get("htsource"), metadata.get("ht_id")
         )
+
+        if entry.get('date') and entry.get('enumPublishDate'):
+            entry.update({"bothPublishDate": entry.get("enumPublishDate")})
+
         return entry
 
     @staticmethod
     def create_ocr_field(document_zip_path) -> Dict:
+        # TODO: As part of this function we could extract the following attributes
+        #  numPages, numChars, charsPerPage. In the future, these attributes could be use to measure query performance
         logging.info(f"Reading {document_zip_path}.zip file")
         full_text = DocumentGenerator.get_full_text_field(f"{document_zip_path}.zip")
         return {"ocr": full_text}

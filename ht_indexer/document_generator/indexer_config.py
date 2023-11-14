@@ -9,32 +9,22 @@ SDR_DIR = "/sdr1"
 TRANSLATE_TABLE = str.maketrans({"=": r"\=", ",": r"\,"})
 
 To_CHECK = [
-    "ht_cover_tag",
-    "ht_page_feature",
-    "ht_reading_order",
-    "ht_scanning_order",
-    "numPages",
-    "numChars",
-    "charsPerPage",
     "seq",
     "pgnum",
     "type_s",
     "chunk_seq",
     # "mainauthor",
     # Some records do not have mainauthor e.g. records with the field "format":["Serial", "Journal"] do not have mainauthor
-    "timestamp",
+
     "ctrlnum",
-    "rptnum",
-    "isbn",
-    "edition",
-    "fullgenre",
-    "genre",
-    "hlb3Str",
-    "hlb3Delimited",
+
+    "fullgenre",  # TO ignore
+    "hlb3Str",  # To ignore
+    "hlb3Delimited",  # To ignore
     # "enumPublishDate", # Done
-    # "bothPublishDate", # Done
+    # "bothPublishDate", # To Check
     "era",
-    "fullgeographic",
+    "fullgeographic",  # To ignore
 ]
 
 # field_full_text : field catalog
@@ -47,17 +37,15 @@ RENAMED_CATALOG_METADATA = {
 }
 
 IDENTICAL_CATALOG_METADATA = [
-    # 'id',
-    # 'ocr',
     "author",
     "author2",
-    # 'date',
-    # 'record_no',
-    # 'allfields',
     "lccn",
     "sdrnum",
+    "rptnum",
     "oclc",
     "issn",
+    "isbn",
+    "edition",
     "ht_id_display",  # Appear in full-text search schema do we want to keep it?
     "isn_related",
     "callnumber",
@@ -99,4 +87,6 @@ IDENTICAL_CATALOG_METADATA = [
     "publishDate",
     "geographicStr",
     "countryOfPubStr",
+    "genre",
+    "era"
 ]
