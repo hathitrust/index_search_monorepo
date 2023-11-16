@@ -13,8 +13,7 @@ RENAMED_CATALOG_METADATA = {
     "record_no": "id",
     "date": "publishDate",
     "Vauthor": "author",
-    "Vtitle": "title",
-    "vol_id": "id"
+    "Vtitle": "title"
 }
 
 IDENTICAL_CATALOG_METADATA = [
@@ -27,7 +26,7 @@ IDENTICAL_CATALOG_METADATA = [
     "issn",
     "isbn",
     "edition",
-    "ht_id_display",  # Appear in full-text search schema do we want to keep it?
+    # "ht_id_display",  # Appear in full-text search schema do we want to keep it?
     "isn_related",
     "callnumber",
     "sudoc",

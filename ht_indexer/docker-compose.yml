@@ -60,7 +60,7 @@ services:
     expose:
       - 8983
     environment:
-      - SOLR_HEAP=2g
+      - SOLR_HEAP=4g
     #volumes:
     #  - solr-lss-dev:/var/solr
   solr-sdr-catalog:
@@ -76,11 +76,6 @@ services:
       - "9033:9033"
     expose:
       - 9033
-    #- SOLR_HOST="solr-sdr-catalog"
-    #networks:
-    #  - indexer_net
-    #volumes:
-    #  - solr_sdr_catalog:/var/solr
   test:
     container_name: indexing_test
     build: .
@@ -93,8 +88,5 @@ services:
         condition: service_healthy
       solr-sdr-catalog:
         condition: service_healthy
-
-#networks:
-#  indexer_net:
 volumes:
   tmp:

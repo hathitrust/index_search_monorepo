@@ -74,7 +74,7 @@ class DocumentGenerator:
     def get_data_ht_json_obj(ht_json: Dict = None):
 
         catalog_json_data = {
-            "enumPublishDate": ht_json.get("enumPublishDate")
+            "enumPublishDate": ht_json.get("enum_pubdate")
         }
         return catalog_json_data
 
@@ -122,6 +122,7 @@ class DocumentGenerator:
         if entry.get('date') and entry.get('enumPublishDate'):
             entry.update({"bothPublishDate": entry.get("enumPublishDate")})
 
+        entry["vol_id"] = doc_id
         return entry
 
     @staticmethod

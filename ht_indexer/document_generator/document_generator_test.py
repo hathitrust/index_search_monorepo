@@ -131,7 +131,6 @@ class TestDocumentGenerator:
             entry = get_document_generator.get_data_ht_json_obj(doc_json[0])
 
             assert "enumPublishDate" not in entry.keys()
-            assert "bothPublishDate" not in entry.keys()
 
     def test_extract_enumPublishDate(self, get_document_generator):
         ht_json = "[{\"htid\":\"mdp.39015082023097\",\"newly_open\":null,\"ingest\":\"20230114\",\"rights\":[\"pdus\",null],\"heldby\":[\"cornell\",\"emory\",\"harvard\",\"stanford\",\"uiowa\",\"umich\",\"umn\"],\"collection_code\":\"miu\",\"enumcron\":\"1958\",\"enum_pubdate\":\"1958\",\"enum_pubdate_range\":\"1950-1959\",\"dig_source\":\"google\"},{\"htid\":\"mdp.39015082023246\",\"newly_open\":null,\"ingest\":\"20230114\",\"rights\":[\"pdus\",null],\"heldby\":[\"cornell\",\"emory\",\"harvard\",\"stanford\",\"uiowa\",\"umich\",\"umn\"],\"collection_code\":\"miu\",\"enumcron\":\"1959\",\"enum_pubdate\":\"1959\",\"enum_pubdate_range\":\"1950-1959\",\"dig_source\":\"google\"}]"
@@ -142,4 +141,3 @@ class TestDocumentGenerator:
         if len(doc_json) > 0:
             entry = get_document_generator.get_data_ht_json_obj(doc_json[0])
             assert "enumPublishDate" in entry.keys()
-            assert "bothPublishDate" in entry.keys()
