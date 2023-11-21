@@ -36,7 +36,7 @@ class FullTextSearchRetrieverService(CatalogRetrieverService):
 
         self.document_generator = document_generator
 
-    def generate_full_text_entry(self, query, start, rows, all_items):
+    def generate_full_text_entry(self, query, start, rows, all_items, document_folder):
         for results in self.retrieve_documents(query, start, rows):
             for record in results:
                 if all_items:
@@ -52,7 +52,7 @@ class FullTextSearchRetrieverService(CatalogRetrieverService):
                     logger.info(f"Processing document {item_id}")
 
                     # Instantiate each document
-                    ht_document = HtDocument(document_id=item_id)
+                    ht_document = HtDocument(document_id=item_id, document_folder=document_folder)
 
                     # obj_id = record.get("id").split(".")[1]
                     logger.info(f"Processing item {ht_document.document_id}")
@@ -100,6 +100,12 @@ def main():
         action="store_true",
         default=False,
     )
+    parser.add_argument(
+        "--clean_up",
+        help="If store, you will delete all the input file",
+        action="store_true",
+        default=False,
+    )
 
     parser.add_argument(
         "--mysql_host", help="Host to connect to MySql server", required=True
@@ -115,6 +121,10 @@ def main():
     parser.add_argument(
         "--query", help="Query used to retrieve documents", default="*:*"
     )
+
+    parser.add_argument("--document_folder",
+                        help="Path to read files from filesystem",
+                        default=None)
 
     args = parser.parse_args()
 
@@ -151,7 +161,7 @@ def main():
             file_name,
             namespace,
     ) in document_indexer_service.generate_full_text_entry(
-        query, start, rows, all_items=args.all_items
+        query, start, rows, all_items=args.all_items, document_folder=args.document_folder
     ):
         count = count + 1
         solr_str = create_solr_string(entry)
@@ -164,7 +174,8 @@ def main():
 
         print(count)
         # Clean up
-        FullTextSearchRetrieverService.clean_up_folder(DOCUMENT_LOCAL_PATH, [file_name])
+        if args.clean_up:
+            FullTextSearchRetrieverService.clean_up_folder(DOCUMENT_LOCAL_PATH, [file_name])
         # if count > 150:
         #    break
 

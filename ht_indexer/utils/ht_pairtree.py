@@ -3,26 +3,10 @@ import os
 import subprocess
 import sys
 
-from pypairtree import pairtree
-
-
-# SDR_DIR = "/sdr1"
-# translate_table = str.maketrans({"=": r"\="})
-
 
 def download_document_file(
-    source_path: str = None, target_path: str = None, extension: str = "zip"
+        source_path: str = None, target_path: str = None, extension: str = "zip"
 ):
-    # namespace, obj_id = doc_name.split(".")
-
-    ##sanitized_obj_id = pairtree.sanitizeString(obj_id)
-    # doc_path = pairtree.get_pair_path(sanitized_obj_id)
-
-    # doc_translated_path = doc_path.translate(translate_table)
-    # sanitized_obj_id_translated = sanitized_obj_id.translate(translate_table)
-
-    # source_path = f"{SDR_DIR}/obj/{namespace}/pairtree_root{doc_translated_path}"
-
     try:
         public_key = os.environ["PUBLIC_KEY"]
     except KeyError:

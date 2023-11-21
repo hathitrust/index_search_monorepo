@@ -4,8 +4,8 @@ MYQLS_METADATA = ["coll_id", "ht_heldby", "ht_heldby_brlm", "rights"]
 
 # Variables to manage IO opperations (pairtree)
 DOCUMENT_LOCAL_PATH = "/tmp/"
+SDR_DIR = "/Users/lisepul/Documents/repositories/python/ht_indexer/document_generator/sdr1/obj"
 
-SDR_DIR = "/sdr1"
 TRANSLATE_TABLE = str.maketrans({"=": r"\=", ",": r"\,"})
 
 # field_full_text : field catalog

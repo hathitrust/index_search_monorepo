@@ -2,6 +2,7 @@ import json
 
 from pypairtree import pairtree
 from ht_document.ht_document import HtDocument
+from pathlib import Path
 
 
 def test_get_document_pair_path():
@@ -41,3 +42,15 @@ def test_document_several_points():
 
 def test_pairpath_document_several_points():
     assert "miun,adh1541,0001,001" == pairtree.sanitizeString("miun.adh1541.0001.001")
+
+
+def test_document_filesystem_folder():
+    data_folder = f"{Path(__file__).parents[1]}/data/document_generator"
+    ht_doc = HtDocument(document_id="mb.39015078560292_test", document_folder=data_folder)
+
+    # assert ht_doc.source_path == f"{Path(__file__).parents[1]}/data/document_generator"
+    assert ht_doc.obj_id == "39015078560292_test"
+    assert ht_doc.target_path == "/tmp/39015078560292_test"
+    assert ht_doc.namespace == "mb"
+    assert ht_doc.file_name == "39015078560292_test"
+    assert ht_doc.source_path == f"{data_folder}/{ht_doc.file_name}"

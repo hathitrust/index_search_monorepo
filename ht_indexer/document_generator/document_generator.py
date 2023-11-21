@@ -303,7 +303,7 @@ class DocumentGenerator:
         )
 
         # Generate ocr field
-        entry.update(DocumentGenerator.create_ocr_field(ht_document.target_path))
+        entry.update(DocumentGenerator.create_ocr_field(ht_document.source_path))
 
         logging.info(doc_metadata)
         # Generate allfields field
@@ -315,7 +315,7 @@ class DocumentGenerator:
         entry.update(self.retrieve_mysql_data(ht_document.document_id))
 
         # Extract fields from METS file
-        mets_obj = MetsAttributeExtractor(f"{ht_document.target_path}.mets.xml")
+        mets_obj = MetsAttributeExtractor(f"{ht_document.source_path}.mets.xml")
 
         mets_entry = mets_obj.create_mets_entry()
 
