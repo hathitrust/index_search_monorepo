@@ -73,7 +73,7 @@ class TestDocumentGenerator:
         assert e.type == TypeError
 
     def test_full_text_field(self):
-        zip_path = f"{Path(__file__).parents[1]}/data/document_generator/39015078560292_test.zip"
+        zip_path = f"{Path(__file__).parents[1]}/data/document_generator/mb.39015078560292_test.zip"
         full_text = DocumentGenerator.get_full_text_field(zip_path)
 
         assert len(full_text) > 10
