@@ -2,18 +2,12 @@ import os
 import sys
 import inspect
 
-import logging
 import argparse
 import glob
 
-logging.basicConfig(
-    filename="full_text_search_retriever_service.log",
-    filemode="w",
-    format="%(name)s - %(levelname)s - %(message)s",
-)
+from utils.ht_logger import HTLogger
 
-logger = logging.getLogger()
-logger.setLevel(logging.DEBUG)
+logger = HTLogger(name=__file__)
 
 currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 parentdir = os.path.dirname(currentdir)
@@ -52,7 +46,9 @@ class FullTextSearchRetrieverService(CatalogRetrieverService):
                     logger.info(f"Processing document {item_id}")
 
                     # Instantiate each document
-                    ht_document = HtDocument(document_id=item_id, document_folder=document_folder)
+                    ht_document = HtDocument(
+                        document_id=item_id, document_folder=document_folder
+                    )
 
                     # obj_id = record.get("id").split(".")[1]
                     logger.info(f"Processing item {ht_document.document_id}")
@@ -87,12 +83,43 @@ class FullTextSearchRetrieverService(CatalogRetrieverService):
 def main():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument(
-        "--solr_url",
-        help="",
-        required=True,
-        default="http://localhost:8082/solrIndexing/#/core-x/",
+    # parser.add_argument("--mysql_database", help="MySql database", required=True, default='ht')
+
+    # Catalog Solr server
+    try:
+        solr_url = os.environ["SOLR_URL"]
+    except KeyError:
+        logger.error("Error: `API_KEY` environment variable required")
+        sys.exit(1)
+
+    solr_api_catalog = HTSolrAPI(url=solr_url)
+
+    # MySql connection
+    try:
+        mysql_host = os.environ["MYSQL_HOST"]
+    except KeyError:
+        logger.error("Error: `MYSQL_HOST` environment variable required")
+        sys.exit(1)
+
+    try:
+        mysql_user = os.environ["MYSQL_USER"]
+    except KeyError:
+        logger.error("Error: `MYSQL_USER` environment variable required")
+        sys.exit(1)
+
+    try:
+        mysql_pass = os.environ["MYSQL_PASS"]
+    except KeyError:
+        logger.error("Error: `MYSQL_USER` environment variable required")
+        sys.exit(1)
+
+    db_conn = create_mysql_conn(
+        host=mysql_host,
+        user=mysql_user,
+        password=mysql_pass,
+        database=os.environ.get("MYSQL_DATABASE", "ht"),
     )
+    logger.info("Access by default to `ht` Mysql database")
 
     parser.add_argument(
         "--all_items",
@@ -108,34 +135,14 @@ def main():
     )
 
     parser.add_argument(
-        "--mysql_host", help="Host to connect to MySql server", required=True
-    )
-    parser.add_argument(
-        "--mysql_user", help="User to connect to MySql server", required=True
-    )
-    parser.add_argument(
-        "--mysql_pass", help="Password to connect to MySql server", required=True
-    )
-    parser.add_argument("--mysql_database", help="MySql database", required=True)
-
-    parser.add_argument(
         "--query", help="Query used to retrieve documents", default="*:*"
     )
 
-    parser.add_argument("--document_folder",
-                        help="Path to read files from filesystem",
-                        default=None)
-
-    args = parser.parse_args()
-
-    db_conn = create_mysql_conn(
-        host=args.mysql_host,
-        user=args.mysql_user,
-        password=args.mysql_pass,
-        database=args.mysql_database,
+    parser.add_argument(
+        "--document_folder", help="Path to read files from filesystem", default=None
     )
 
-    solr_api_catalog = HTSolrAPI(url=args.solr_url)
+    args = parser.parse_args()
 
     document_generator = DocumentGenerator(db_conn)
 
@@ -157,27 +164,31 @@ def main():
     rows = 50
 
     for (
-            entry,
-            file_name,
-            namespace,
+        entry,
+        file_name,
+        namespace,
     ) in document_indexer_service.generate_full_text_entry(
-        query, start, rows, all_items=args.all_items, document_folder=args.document_folder
+        query,
+        start,
+        rows,
+        all_items=args.all_items,
+        document_folder=args.document_folder,
     ):
         count = count + 1
         solr_str = create_solr_string(entry)
 
         with open(
-                f"/{os.path.join(DOCUMENT_LOCAL_PATH, document_local_path)}/{namespace}{file_name}_solr_full_text.xml",
-                "w",
+            f"/{os.path.join(DOCUMENT_LOCAL_PATH, document_local_path)}/{namespace}{file_name}_solr_full_text.xml",
+            "w",
         ) as f:
             f.write(solr_str)
 
-        print(count)
+        logger.info(count)
         # Clean up
         if args.clean_up:
-            FullTextSearchRetrieverService.clean_up_folder(DOCUMENT_LOCAL_PATH, [file_name])
-        # if count > 150:
-        #    break
+            FullTextSearchRetrieverService.clean_up_folder(
+                DOCUMENT_LOCAL_PATH, [file_name]
+            )
 
 
 if __name__ == "__main__":
