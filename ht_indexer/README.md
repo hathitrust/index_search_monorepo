@@ -27,6 +27,15 @@ If everything works well, in your browser you will access to the API documentati
 
 http://localhost:8081/docs/
 
+This application access to MariaDB database and to Solr, then you should set the following environment variables:
+
+```bash
+  export SOLR_URL = http://localhost:9033
+  export MySQL_HOST = mysqlserver.umich.edu
+  export MySQL_USER = mysql_user
+  export MySQL_PASS = mysql_pass
+```
+
 ## Command to use the services for indexing documents in Full-text search index
 
 ``python document_retriever_service/full_text_search_retriever_service.py
