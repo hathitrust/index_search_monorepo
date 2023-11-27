@@ -38,6 +38,7 @@ RUN apt-get update -y \
     curl \
     pkgconf \
     default-libmysqlclient-dev \
+    git \
     # Clean up
     && apt-get autoremove -y \
     && apt-get clean -y \
@@ -52,6 +53,10 @@ ENV FASTAPI_ENV=development
 WORKDIR /app
 
 COPY . .
+
+COPY sample_data_creator.sh /sample-data/sample_data_creator.sh
+RUN chmod +x /sample-data/sample_data_creator.sh
+ENTRYPOINT ["/sample-data/sample_data_creator.sh"]
 
 #RUN chown appuser:appuser -R /app
 USER appuser

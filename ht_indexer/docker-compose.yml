@@ -107,3 +107,4 @@ services:
 volumes:
   tmp:
   solr_data:
+  sample-data:
