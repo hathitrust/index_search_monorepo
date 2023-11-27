@@ -1,6 +1,5 @@
 import pytest
 import os
-import shutil
 import inspect
 import sys
 

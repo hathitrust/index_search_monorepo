@@ -1,15 +1,12 @@
 import glob
-import logging
 from pathlib import Path
 from typing import Text
 
 import requests
 
+from utils.ht_logger import HTLogger
 
-# from pythantic import BaseModel
-
-# class SolrQuery(BaseModel):
-#     q: str
+logger = HTLogger(name=__file__)
 
 
 class HTSolrAPI:
@@ -26,7 +23,7 @@ class HTSolrAPI:
         list_documents = glob.glob(f"{data_path}/*.xml")
         for doc in list_documents:
             doc = doc.replace(" ", "+")
-            logging.info(f"Indexing {doc}")
+            logger.info(f"Indexing {doc}")
             with open(doc, "rb") as xml_file:
                 data_dict = xml_file.read()
                 response = requests.post(

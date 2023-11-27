@@ -1,11 +1,15 @@
 import argparse
-import logging
+
 from pathlib import Path
 from typing import Dict
 
 from lxml import etree
 
 from utils.ht_pairtree import download_document_file
+
+from utils.ht_logger import HTLogger
+
+logger = HTLogger(name=__file__)
 
 
 class MetsAttributeExtractor:
@@ -63,13 +67,13 @@ class MetsAttributeExtractor:
         return list(set(all_features))
 
     def create_mets_entry(self):
-        logging.info("Creating METS map")
+        logger.info("Creating METS map")
         mets_map = self.create_METS_map()
 
-        logging.info("Creating METS entry")
+        logger.info("Creating METS entry")
         features = MetsAttributeExtractor.get_unique_features(mets_map)
 
-        logging.info("Retrieving document orders")
+        logger.info("Retrieving document orders")
         reading_order = self.get_reading_order()
 
         return {
@@ -107,7 +111,7 @@ def main():
 
     mets_entry = mets_obj.create_mets_entry()
 
-    print(mets_entry.get("METS_maps").get("ht_page_feature"))
+    logger.info(mets_entry.get("METS_maps").get("ht_page_feature"))
 
 
 if __name__ == "__main__":

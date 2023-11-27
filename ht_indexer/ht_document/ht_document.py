@@ -1,6 +1,4 @@
-import logging
 from typing import Text
-from utils.ht_pairtree import download_document_file
 from document_generator.indexer_config import (
     DOCUMENT_LOCAL_PATH,
     SDR_DIR,
@@ -8,6 +6,10 @@ from document_generator.indexer_config import (
 )
 
 from pypairtree import pairtree
+
+from utils.ht_logger import HTLogger
+
+logger = HTLogger(name=__file__)
 
 
 class HtDocument:
@@ -30,7 +32,9 @@ class HtDocument:
         self.file_name = pairtree.sanitizeString(self.obj_id)
 
         # By default path files are in /sdr1/obj
-        self.source_path = f"{SDR_DIR}/{self.namespace}/{self.get_document_pairtree_path()}"
+        self.source_path = (
+            f"{SDR_DIR}/{self.namespace}/{self.get_document_pairtree_path()}"
+        )
 
         if document_folder:
             # path should be configurable, a folder to store the files
@@ -61,17 +65,17 @@ class HtDocument:
             namespace = document_id.split(".")[0]
             return namespace
         except ValueError as e:
-            logging.error(f"Review the document id {document_id} {e}")
+            logger.error(f"Review the document id {document_id} {e}")
 
     @staticmethod
     def get_object_id(document_id):
         try:
             obj_id = document_id.split(".")[1:]
             if len(obj_id) > 1:  # It means the document_id contains more than one point
-                return '.'.join(obj_id)
-            return ''.join(obj_id)
+                return ".".join(obj_id)
+            return "".join(obj_id)
         except ValueError as e:
-            logging.error(f"Review the document id {document_id} {e}")
+            logger.error(f"Review the document id {document_id} {e}")
 
     def get_document_pairtree_path(self):
         """
