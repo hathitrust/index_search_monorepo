@@ -7,9 +7,9 @@ from document_generator.indexer_config import (
 
 from pypairtree import pairtree
 
-from utils.ht_logger import HTLogger
+from utils.ht_logger import get_ht_logger
 
-logger = HTLogger(name=__file__)
+logger = get_ht_logger(name=__name__)
 
 
 class HtDocument:

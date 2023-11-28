@@ -1,7 +1,9 @@
 import argparse
 import json
 
-from utils.ht_logger import HTLogger
+from utils.ht_logger import get_ht_logger
+
+logger = get_ht_logger(name=__name__)
 
 import zipfile
 from xml.sax.saxutils import quoteattr
@@ -21,9 +23,9 @@ from utils.text_processor import string_preparation
 
 from ht_document.ht_document import HtDocument
 
-from utils.ht_logger import HTLogger
+from utils.ht_logger import get_ht_logger
 
-logger = HTLogger(name=__file__)
+logger = get_ht_logger(name=__name__)
 
 
 class DocumentGenerator:
@@ -248,7 +250,7 @@ class DocumentGenerator:
                             full_text + " " + string_preparation(zip_doc.read(i_file))
                     )
         except Exception as e:
-            logger.ERROR(f"Something wring with your zip file {e}")
+            logger.error(f"Something wring with your zip file {e}")
         full_text = full_text.encode().decode()
         return full_text
 

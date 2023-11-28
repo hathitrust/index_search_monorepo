@@ -5,9 +5,9 @@ import inspect
 import argparse
 import glob
 
-from utils.ht_logger import HTLogger
+from utils.ht_logger import get_ht_logger
 
-logger = HTLogger(name=__file__)
+logger = get_ht_logger(name=__name__)
 
 currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 parentdir = os.path.dirname(currentdir)
@@ -59,7 +59,7 @@ class FullTextSearchRetrieverService(CatalogRetrieverService):
                         )
                         # yield entry
                     except Exception as e:
-                        logger.info(f"Document {item_id} failed {e}")
+                        logger.error(f"Document {item_id} failed {e}")
                         continue
 
                     yield entry, ht_document.file_name, ht_document.namespace
@@ -164,9 +164,9 @@ def main():
     rows = 50
 
     for (
-        entry,
-        file_name,
-        namespace,
+            entry,
+            file_name,
+            namespace,
     ) in document_indexer_service.generate_full_text_entry(
         query,
         start,
@@ -178,8 +178,8 @@ def main():
         solr_str = create_solr_string(entry)
 
         with open(
-            f"/{os.path.join(DOCUMENT_LOCAL_PATH, document_local_path)}/{namespace}{file_name}_solr_full_text.xml",
-            "w",
+                f"/{os.path.join(DOCUMENT_LOCAL_PATH, document_local_path)}/{namespace}{file_name}_solr_full_text.xml",
+                "w",
         ) as f:
             f.write(solr_str)
 
