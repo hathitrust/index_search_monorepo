@@ -8,57 +8,25 @@ DOCUMENT_LOCAL_PATH = "/tmp/"
 SDR_DIR = "/sdr1"
 TRANSLATE_TABLE = str.maketrans({"=": r"\=", ",": r"\,"})
 
-To_CHECK = [
-    "ht_cover_tag",
-    "ht_page_feature",
-    "ht_reading_order",
-    "ht_scanning_order",
-    "numPages",
-    "numChars",
-    "charsPerPage",
-    "seq",
-    "pgnum",
-    "type_s",
-    "chunk_seq",
-    "mainauthor",
-    "timestamp",
-    "ctrlnum",
-    "rptnum",
-    "isbn",
-    "edition",
-    "fullgenre",
-    "genre",
-    "hlb3Str",
-    "hlb3Delimited",
-    "enumPublishDate",
-    "bothPublishDate",
-    "era",
-    "fullgeographic",
-]
-
-# field catalog : field_full_text
+# field_full_text : field catalog
 RENAMED_CATALOG_METADATA = {
-    "id": "record_no",
-    "publishDate": "date",
-    "author": "Vauthor",
-    "title": "Vtitle",
-    "id": "vol_id"  # ,
-    # "ht_id": "id",
+    "record_no": "id",
+    "date": "publishDate",
+    "Vauthor": "author",
+    "Vtitle": "title"
 }
 
 IDENTICAL_CATALOG_METADATA = [
-    # 'id',
-    # 'ocr',
     "author",
     "author2",
-    # 'date',
-    # 'record_no',
-    # 'allfields',
     "lccn",
     "sdrnum",
+    "rptnum",
     "oclc",
     "issn",
-    "ht_id_display",  # Appear in full-text search schema do we want to keep it?
+    "isbn",
+    "edition",
+    # "ht_id_display",  # Appear in full-text search schema do we want to keep it?
     "isn_related",
     "callnumber",
     "sudoc",
@@ -73,6 +41,7 @@ IDENTICAL_CATALOG_METADATA = [
     "author_rest",
     "authorSort",
     "author_sortkey",
+    "mainauthor",  # This is an optional field
     # ============================
     # ====Check title fields====
     "vtitle",
@@ -98,4 +67,6 @@ IDENTICAL_CATALOG_METADATA = [
     "publishDate",
     "geographicStr",
     "countryOfPubStr",
+    "genre",
+    "era"
 ]

@@ -3,6 +3,7 @@ from pathlib import Path
 
 import sys
 import inspect
+import json
 
 import pytest
 import pytest_cov
@@ -115,3 +116,28 @@ class TestDocumentGenerator:
         assert "nyp.33433082046503" in doc_metadata.get("content").get("response").get(
             "docs"
         )[0].get("ht_id")
+
+    # def test_not_mainauthor_document():
+    #    "ht_id" = ["mdp.39015064339677",
+    # "umn.31951000740320m"]
+
+    def test_missed_enumPublishDate(self, get_document_generator):
+        ht_json = "[{\"htid\":\"nyp.33433069877805\",\"newly_open\":null,\"ingest\":\"20220501\",\"rights\":[\"pdus\",null],\"heldby\":[\"nypl\"],\"collection_code\":\"nyp\",\"enumcron\":\"v. 1\",\"dig_source\":\"google\"}]"
+
+        doc_json = [record for record in json.loads(ht_json) if
+                    (v := record.get('enum_pubdate') and "nyp.33433069877805" == record.get('htid'))]
+
+        if len(doc_json) > 0:
+            entry = get_document_generator.get_data_ht_json_obj(doc_json[0])
+
+            assert "enumPublishDate" not in entry.keys()
+
+    def test_extract_enumPublishDate(self, get_document_generator):
+        ht_json = "[{\"htid\":\"mdp.39015082023097\",\"newly_open\":null,\"ingest\":\"20230114\",\"rights\":[\"pdus\",null],\"heldby\":[\"cornell\",\"emory\",\"harvard\",\"stanford\",\"uiowa\",\"umich\",\"umn\"],\"collection_code\":\"miu\",\"enumcron\":\"1958\",\"enum_pubdate\":\"1958\",\"enum_pubdate_range\":\"1950-1959\",\"dig_source\":\"google\"},{\"htid\":\"mdp.39015082023246\",\"newly_open\":null,\"ingest\":\"20230114\",\"rights\":[\"pdus\",null],\"heldby\":[\"cornell\",\"emory\",\"harvard\",\"stanford\",\"uiowa\",\"umich\",\"umn\"],\"collection_code\":\"miu\",\"enumcron\":\"1959\",\"enum_pubdate\":\"1959\",\"enum_pubdate_range\":\"1950-1959\",\"dig_source\":\"google\"}]"
+
+        doc_json = [record for record in json.loads(ht_json) if
+                    (v := record.get('enum_pubdate') and "mdp.39015082023097" == record.get('htid'))]
+
+        if len(doc_json) > 0:
+            entry = get_document_generator.get_data_ht_json_obj(doc_json[0])
+            assert "enumPublishDate" in entry.keys()
