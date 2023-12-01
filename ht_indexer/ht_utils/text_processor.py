@@ -1,8 +1,9 @@
 from io import BytesIO
-import logging
+
 import re
 from xml.sax.saxutils import quoteattr
 from typing import Dict, List
+from ht_utils.ht_logger import get_ht_logger
 
 table = str.maketrans(
     {
@@ -13,6 +14,8 @@ table = str.maketrans(
         '"': "&quot;",
     }
 )
+
+logger = get_ht_logger(name=__name__)
 
 
 def xmlesc(txt):
@@ -32,9 +35,9 @@ def string_preparation(doc_content: BytesIO) -> str:
     except Exception as e:
         try:
             str_content = str(doc_content.decode(encoding="latin1"))
-            logging.info(f"File encode compatible with latin1 {e}")
+            logger.info(f"File encode compatible with latin1 {e}")
         except Exception as e:
-            logging.info(f"There are especial characters on the file {e}")
+            logger.info(f"There are especial characters on the file {e}")
             raise Exception
 
     # Remove line breaks
@@ -58,13 +61,13 @@ def field_tag(key, value) -> str:
 
 def create_solr_string(data_dic: Dict) -> str:
     """
-        Function to convert a dictionary into an xml string uses for indexing a document in Solr index
+    Function to convert a dictionary into an xml string uses for indexing a document in Solr index
 
-        :param data_dic: Dictionary with the data will be indexed in Solr
-        :return: XML String  with tag <add> for adding the document in Solr
+    :param data_dic: Dictionary with the data will be indexed in Solr
+    :return: XML String  with tag <add> for adding the document in Solr
     """
     solr_doc = []
-    nl = '\n'
+    nl = "\n"
     for key, value in data_dic.items():
         if isinstance(value, List):
             for list_item in value:

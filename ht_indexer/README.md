@@ -11,30 +11,47 @@ This application uses the solr server instantiated by to different Solr containe
 Full-text (solr-lss-dev) search index.
 Then, this container must be running before load the API.
 
-## Setting up the API
+## Data preparation
+
+Create a container with a volume with the documents to process
+`docker run -d --rm --name data_creator -v sample_data:/sdr1 alpine tail -f /dev/null`
+
+Use the container to populate the volume with local data
+`docker cp ../sample_data/sdr1 data_creator:/sdr1`
+
+Stop the container and the volume will persist
+`docker stop data_creator`
+
+## Setting up ht_indexer
 
 1. Clone the repository in your working environment
 
-``git clone git@github.com:hathitrust/ht_indexer.git``
+```git clone git@github.com:hathitrust/ht_indexer.git```
 
 2. Then, go to the folder ``cd ht_indexer``
 
-3. In your workdir:
+3. In your workdir, download a sample data for running the application using this data. It will create a sample_data
+   directory in the parent folder of ht_indexer folder
 
-```docker-compose up -d```
+```./sample_data_creator.sh```
 
-If everything works well, in your browser you will access to the API documentation
+4. In your workdir, create and image for running the python application
 
-http://localhost:8081/docs/
+   ```docker build -t retriever_system .```
 
 This application access to MariaDB database and to Solr, then you should set the following environment variables:
 
 ```bash
-  export SOLR_URL = http://localhost:9033
-  export MySQL_HOST = mysqlserver.umich.edu
   export MySQL_USER = mysql_user
   export MySQL_PASS = mysql_pass
 ```
+
+4. In your workdir:
+
+```docker-compose up -d```
+
+If everything works well, in your browser you will access to the API documentation http://localhost:8081/docs/. You will
+also find the indexed documents in http://localhost:8983/solr/#/core-x/query?q=*:*&q.op=OR&indent=true
 
 ## Command to use the services for indexing documents in Full-text search index
 

@@ -1,7 +1,7 @@
 import argparse
 import json
 
-from utils.ht_logger import get_ht_logger
+from ht_utils.ht_logger import get_ht_logger
 
 logger = get_ht_logger(name=__name__)
 
@@ -17,13 +17,13 @@ from document_generator.indexer_config import (
 from lxml import etree
 from io import BytesIO
 
-from utils.ht_mysql import query_mysql
+from ht_utils.ht_mysql import query_mysql
 from document_generator.mets_file_extractor import MetsAttributeExtractor
-from utils.text_processor import string_preparation
+from ht_utils.text_processor import string_preparation
 
 from ht_document.ht_document import HtDocument
 
-from utils.ht_logger import get_ht_logger
+from ht_utils.ht_logger import get_ht_logger
 
 logger = get_ht_logger(name=__name__)
 
@@ -82,7 +82,7 @@ class DocumentGenerator:
 
     @staticmethod
     def get_item_htsource(
-            id: str = None, catalog_htsource: List = None, catalog_htid: List = None
+        id: str = None, catalog_htsource: List = None, catalog_htid: List = None
     ):
         """
         In catalog it could be a list of sources, should obtain the source of an specific item
@@ -240,17 +240,17 @@ class DocumentGenerator:
         """
 
         full_text = ""
-        print("=================")
-        print(zip_doc_path)
+        logger.info("=================")
+        logger.info(f"Document path {zip_doc_path}")
         try:
             zip_doc = zipfile.ZipFile(zip_doc_path, mode="r")
             for i_file in zip_doc.namelist():
                 if zip_doc.getinfo(i_file).filename.endswith(".txt"):
                     full_text = (
-                            full_text + " " + string_preparation(zip_doc.read(i_file))
+                        full_text + " " + string_preparation(zip_doc.read(i_file))
                     )
         except Exception as e:
-            logger.error(f"Something wring with your zip file {e}")
+            logger.error(f"Something wrong with your zip file {e}")
         full_text = full_text.encode().decode()
         return full_text
 
@@ -267,8 +267,8 @@ class DocumentGenerator:
         xml_string_like_file = BytesIO(catalog_xml.encode(encoding="utf-8"))
 
         for event, element in etree.iterparse(
-                xml_string_like_file,
-                events=("start", "end"),
+            xml_string_like_file,
+            events=("start", "end"),
         ):
             if element.tag.find("datafield") > -1:
                 tag_att = element.attrib.get("tag")
@@ -289,7 +289,7 @@ class DocumentGenerator:
 
     # TODO Check exception if doc_id is None
     def make_full_text_search_document(
-            self, ht_document: HtDocument, doc_metadata: Dict
+        self, ht_document: HtDocument, doc_metadata: Dict
     ) -> Dict:
         """
         Receive the ht_id and create the HtDocument entry
@@ -315,6 +315,8 @@ class DocumentGenerator:
         entry.update(
             DocumentGenerator.create_allfields_field(doc_metadata.get("fullrecord"))
         )
+
+        logger.info(entry)
 
         # Retrieve data from MariaDB
         entry.update(self.retrieve_mysql_data(ht_document.document_id))

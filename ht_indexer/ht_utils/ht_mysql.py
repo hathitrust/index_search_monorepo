@@ -1,7 +1,9 @@
-import logging
-
 import mysql.connector
 from mysql.connector import Connect
+
+from ht_utils.ht_logger import get_ht_logger
+
+logger = get_ht_logger(name=__name__)
 
 
 def create_mysql_conn(
@@ -14,7 +16,7 @@ def create_mysql_conn(
         )
 
     else:
-        logging.error("Please pass the valid host, user, password and database")
+        logger.error("Please pass the valid host, user, password and database")
         exit()
 
     return db_conn

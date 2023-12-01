@@ -4,7 +4,7 @@ from typing import Text
 
 import requests
 
-from utils.ht_logger import get_ht_logger
+from ht_utils.ht_logger import get_ht_logger
 
 logger = get_ht_logger(name=__name__)
 
@@ -38,11 +38,11 @@ class HTSolrAPI:
         return response
 
     def get_documents(
-            self,
-            query: str = None,
-            response_format: Text = "json",
-            start: int = 0,
-            rows: int = 100,
+        self,
+        query: str = None,
+        response_format: Text = "json",
+        start: int = 0,
+        rows: int = 100,
     ):
         data_query = {"q": "*:*"}
         if query:

@@ -1,11 +1,14 @@
-import logging
 import os
 import subprocess
 import sys
 
+from ht_utils.ht_logger import get_ht_logger
+
+logger = get_ht_logger(name=__name__)
+
 
 def download_document_file(
-        source_path: str = None, target_path: str = None, extension: str = "zip"
+    source_path: str = None, target_path: str = None, extension: str = "zip"
 ):
     try:
         public_key = os.environ["PUBLIC_KEY"]
@@ -15,12 +18,12 @@ def download_document_file(
     try:
         user = os.environ["USER"]
     except KeyError:
-        logging.info(f"Please define the environment variable USER")
+        logger.info(f"Please define the environment variable USER")
         sys.exit(1)
     try:
         host = os.environ["HOST"]
     except KeyError:
-        logging.info(f"Please define the environment variable HOST")
+        logger.info(f"Please define the environment variable HOST")
         sys.exit(1)
 
     # Copy the file from remote path
@@ -32,4 +35,4 @@ def download_document_file(
         f"{target_path}.{extension}",
     ]
     subprocess.run(command)
-    logging.info(f"Download {source_path}.{extension} to {target_path}")
+    logger.info(f"Download {source_path}.{extension} to {target_path}")

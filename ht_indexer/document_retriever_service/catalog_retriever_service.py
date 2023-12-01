@@ -7,7 +7,7 @@ from document_retriever_service.document_retriever_service import (
 )
 from ht_indexer_api.ht_indexer_api import HTSolrAPI
 
-from utils.ht_logger import get_ht_logger
+from ht_utils.ht_logger import get_ht_logger
 
 logger = get_ht_logger(name=__name__)
 
@@ -102,7 +102,7 @@ def main():
     rows = 100
 
     for ht_id in catalog_retrieval_service.retrieve_list_ht_ids(
-            query, start, rows, all_items=args.all_items
+        query, start, rows, all_items=args.all_items
     ):
         count = count + 1
         # list_ids.append(ht_id)

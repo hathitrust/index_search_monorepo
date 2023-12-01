@@ -1,10 +1,12 @@
+import os
+
 MAX_ITEM_IDS = 1000
 
 MYQLS_METADATA = ["coll_id", "ht_heldby", "ht_heldby_brlm", "rights"]
 
 # Variables to manage IO opperations (pairtree)
 DOCUMENT_LOCAL_PATH = "/tmp/"
-SDR_DIR = "/Users/lisepul/Documents/repositories/python/ht_indexer/document_generator/sdr1/obj"
+# os.environ["SDR_DIR"] = "/Users/lisepul/Documents/repositories/python/sdr1/obj"
 
 TRANSLATE_TABLE = str.maketrans({"=": r"\=", ",": r"\,"})
 
@@ -13,7 +15,7 @@ RENAMED_CATALOG_METADATA = {
     "record_no": "id",
     "date": "publishDate",
     "Vauthor": "author",
-    "Vtitle": "title"
+    "Vtitle": "title",
 }
 
 IDENTICAL_CATALOG_METADATA = [
@@ -68,5 +70,5 @@ IDENTICAL_CATALOG_METADATA = [
     "geographicStr",
     "countryOfPubStr",
     "genre",
-    "era"
+    "era",
 ]

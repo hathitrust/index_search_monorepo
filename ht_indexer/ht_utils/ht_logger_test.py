@@ -1,9 +1,9 @@
-from utils.ht_logger import get_ht_logger
+from ht_utils.ht_logger import get_ht_logger
 
 logger = get_ht_logger(name=__name__)
 
 
-class TestHTLogger():
+class TestHTLogger:
     def test_info_log_stdout(self, caplog):
         caplog.set_level("INFO", logger="my_log")
         my_log = get_ht_logger(name="my_log", log_level="INFO")

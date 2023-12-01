@@ -5,16 +5,13 @@ from typing import Dict
 
 from lxml import etree
 
-from utils.ht_pairtree import download_document_file
-
-from utils.ht_logger import get_ht_logger
+from ht_utils.ht_logger import get_ht_logger
 
 logger = get_ht_logger(name=__name__)
 
 
 class MetsAttributeExtractor:
     def __init__(self, path):
-        # parser = etree.XMLParser(remove_blank_text=True)
         self.tree = etree.parse(path)
         self.namespace = self.tree.getroot().nsmap
 
@@ -100,10 +97,6 @@ def main():
 
     # Download document .zip and .mets.xml file
     target_path = f"{Path(__file__).parents[1]}/data/document_generator"
-
-    download_document_file(
-        doc_name=args.doc_id, target_path=target_path, extension="mets.xml"
-    )
 
     namespace, obj_id = args.doc_id.split(".")
 

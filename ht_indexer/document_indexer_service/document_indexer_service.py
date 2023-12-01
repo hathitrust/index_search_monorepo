@@ -7,9 +7,9 @@ import glob
 import inspect
 import sys
 
-from utils.ht_logger import HTLogger
+from ht_utils.ht_logger import get_ht_logger
 
-logger = HTLogger(name=__file__)
+logger = get_ht_logger(name=__name__)
 
 currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 parentdir = os.path.dirname(currentdir)

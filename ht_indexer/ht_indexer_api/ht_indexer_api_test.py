@@ -38,7 +38,7 @@ class TestHTSolrAPI:
 
         assert response.status_code == 200
         assert (
-                response.headers["Content-Type"] == "text/plain;charset=utf-8"
+            response.headers["Content-Type"] == "text/plain;charset=utf-8"
         )  # "application/json;charset=utf-8"
 
     def test_index_document_delete(self, get_solrAPI):

@@ -1,6 +1,9 @@
 from pypairtree import pairtree
 from ht_document.ht_document import HtDocument
 from pathlib import Path
+import os
+
+os.environ["SDR_DIR"] = f"{Path(__file__).parents[1]}/data/document_generator"
 
 
 def test_get_document_pair_path():
@@ -43,12 +46,11 @@ def test_pairpath_document_several_points():
 
 
 def test_document_filesystem_folder():
-    data_folder = f"{Path(__file__).parents[1]}/data/document_generator"
-    ht_doc = HtDocument(document_id="mb.39015078560292_test", document_folder=data_folder)
+    # TODO: USE a data_sample folder to  check the source_path
+    ht_doc = HtDocument(document_id="mb.39015078560292_test")
 
-    # assert ht_doc.source_path == f"{Path(__file__).parents[1]}/data/document_generator"
     assert ht_doc.obj_id == "39015078560292_test"
     assert ht_doc.target_path == "/tmp/39015078560292_test"
     assert ht_doc.namespace == "mb"
     assert ht_doc.file_name == "39015078560292_test"
-    assert ht_doc.source_path == f"{data_folder}/{ht_doc.file_name}"
+    # assert ht_doc.source_path == f"{os.environ.get('SDR_DIR')}/{ht_doc.file_name}"

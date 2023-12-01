@@ -24,6 +24,8 @@ USER root
 
 WORKDIR /app
 
+ENV PYTHONPATH "${PYTHONPATH}:/app"
+
 COPY requirements.txt ./
 
 RUN set -ex \
@@ -40,12 +42,15 @@ RUN apt-get update -y \
     default-libmysqlclient-dev \
     git \
     # Clean up
-    && apt-get autoremove -y \
-    && apt-get clean -y \
+    && apt-get -y autoremove \
+    && apt-get -y clean \
     && rm -rf /var/lib/apt/lists/*
 
 # Install dependencies
-RUN pip install -r requirements.txt
+#RUN pip install -r requirements.txt
+
+RUN  python3.11 -m pip install --upgrade pip
+RUN  python3.11 -m pip install -r requirements.txt
 
 FROM python-base as development
 ENV FASTAPI_ENV=development
@@ -54,9 +59,4 @@ WORKDIR /app
 
 COPY . .
 
-#COPY sample_data_creator.sh /sample-data/sample_data_creator.sh
-#RUN chmod +x /sample-data/sample_data_creator.sh
-#ENTRYPOINT ["/sample-data/sample_data_creator.sh"]
-
-#RUN chown appuser:appuser -R /app
 USER appuser

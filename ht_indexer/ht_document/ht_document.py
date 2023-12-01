@@ -1,13 +1,13 @@
+import os
 from typing import Text
 from document_generator.indexer_config import (
     DOCUMENT_LOCAL_PATH,
-    SDR_DIR,
     TRANSLATE_TABLE,
 )
 
 from pypairtree import pairtree
 
-from utils.ht_logger import get_ht_logger
+from ht_utils.ht_logger import get_ht_logger
 
 logger = get_ht_logger(name=__name__)
 
@@ -21,7 +21,11 @@ class HtDocument:
     * Rename the files of the document if the id has the following pattern: uc2.ark:/13960/t4mk66f1d
     """
 
-    def __init__(self, document_id: Text = None, document_folder: Text = None):
+    def __init__(self, document_id: Text = None):
+        # TODO: I should create two classes one a document retrieved from pairtree-based repo
+        #  and other one a document retrieve for any folder, so pass the attribute , source_file: Text = None
+        # Right now this class only retrieve documents from a pairtree-based repo
+
         self.document_id = document_id
 
         self.namespace = HtDocument.get_namespace(document_id)
@@ -32,32 +36,8 @@ class HtDocument:
         self.file_name = pairtree.sanitizeString(self.obj_id)
 
         # By default path files are in /sdr1/obj
-        self.source_path = (
-            f"{SDR_DIR}/{self.namespace}/{self.get_document_pairtree_path()}"
-        )
-
-        if document_folder:
-            # path should be configurable, a folder to store the files
-            self.source_path = f"{document_folder}/{self.file_name}"
-
+        self.source_path = f"{os.environ.get('SDR_DIR')}/{self.namespace}/pairtree_root{self.get_document_pairtree_path()}"
         self.target_path = f"{DOCUMENT_LOCAL_PATH}{self.file_name}"
-
-        """
-        if remote_file:
-            # Download document .zip and .mets.xml file
-            # TODO: Check if file exist
-            download_document_file(
-                source_path=self.source_path, target_path=self.target_path, extension="zip"
-            )
-
-            # Download document .zip and .mets.xml file
-            # TODO: Check if file exist
-            download_document_file(
-                source_path=self.source_path,
-                target_path=self.target_path,
-                extension="mets.xml",
-            )
-        """
 
     @staticmethod
     def get_namespace(document_id):
@@ -93,6 +73,6 @@ class HtDocument:
         sanitized_obj_id_translated = self.file_name.translate(TRANSLATE_TABLE)
 
         # source_path = f"{SDR_DIR}/{self.namespace}/pairtree_root{doc_translated_path}/{sanitized_obj_id_translated}"
-        doc_path = f"pairtree_root{doc_translated_path}/{sanitized_obj_id_translated}"
+        doc_path = f"{doc_translated_path}/{sanitized_obj_id_translated}"
 
         return doc_path
