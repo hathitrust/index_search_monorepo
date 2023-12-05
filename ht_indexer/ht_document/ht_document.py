@@ -3,6 +3,7 @@ from typing import Text
 from document_generator.indexer_config import (
     DOCUMENT_LOCAL_PATH,
     TRANSLATE_TABLE,
+    LOCAL_DOCUMENT_FOLDER
 )
 
 from pypairtree import pairtree
@@ -21,7 +22,7 @@ class HtDocument:
     * Rename the files of the document if the id has the following pattern: uc2.ark:/13960/t4mk66f1d
     """
 
-    def __init__(self, document_id: Text = None):
+    def __init__(self, document_id: Text = None, document_repository: Text = 'local'):  # pairtree or local
         # TODO: I should create two classes one a document retrieved from pairtree-based repo
         #  and other one a document retrieve for any folder, so pass the attribute , source_file: Text = None
         # Right now this class only retrieve documents from a pairtree-based repo
@@ -34,9 +35,15 @@ class HtDocument:
         # If there is special characters in the document_id, the file will be load in the local
         # environment with a different name
         self.file_name = pairtree.sanitizeString(self.obj_id)
+        self.sanitized_obj_id_translated = self.file_name.translate(TRANSLATE_TABLE)
 
         # By default path files are in /sdr1/obj
-        self.source_path = f"{os.environ.get('SDR_DIR')}/{self.namespace}/pairtree_root{self.get_document_pairtree_path()}"
+        if document_repository == 'pairtree':
+            self.source_path = f"/sdr1/obj/{self.namespace}/pairtree_root{self.get_document_pairtree_path()}"  # {os.environ.get('SDR_DIR')}
+        else:
+            # A sample_data will be in the same folder of the repository
+            self.source_path = f"{LOCAL_DOCUMENT_FOLDER}/{self.sanitized_obj_id_translated}"
+
         self.target_path = f"{DOCUMENT_LOCAL_PATH}{self.file_name}"
 
     @staticmethod
@@ -70,9 +77,9 @@ class HtDocument:
 
         # Escape special characters from the file of the path and the object name
         doc_translated_path = doc_pairtree_path.translate(TRANSLATE_TABLE)
-        sanitized_obj_id_translated = self.file_name.translate(TRANSLATE_TABLE)
+        # sanitized_obj_id_translated = self.file_name.translate(TRANSLATE_TABLE)
 
         # source_path = f"{SDR_DIR}/{self.namespace}/pairtree_root{doc_translated_path}/{sanitized_obj_id_translated}"
-        doc_path = f"{doc_translated_path}/{sanitized_obj_id_translated}"
+        doc_path = f"{doc_translated_path}/{self.sanitized_obj_id_translated}"
 
         return doc_path

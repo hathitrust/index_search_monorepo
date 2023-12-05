@@ -31,13 +31,21 @@ Stop the container and the volume will persist
 2. Then, go to the folder ``cd ht_indexer``
 
 3. In your workdir, download a sample data for running the application using this data. It will create a sample_data
-   directory in the parent folder of ht_indexer folder
+   directory in the parent folder of ht_indexer folder, by default will use 1% of the data in Catalog image
 
-```./sample_data_creator.sh```
+export SDR_DIR=/sdr1/obj
+export HT_REPO_HOST=some.host.hathitrust.org
+
+```./ht_utils/sample_data/sample_data_creator.sh```
+
+## Run the services for retrieving and indexing data
+
+1. ```bash run_retriever_processor.sh```
+2.
 
 4. In your workdir, create and image for running the python application
 
-   ```docker build -t retriever_system .```
+   ```docker build -t document_generator .```
 
 This application access to MariaDB database and to Solr, then you should set the following environment variables:
 
@@ -53,7 +61,7 @@ This application access to MariaDB database and to Solr, then you should set the
 If everything works well, in your browser you will access to the API documentation http://localhost:8081/docs/. You will
 also find the indexed documents in http://localhost:8983/solr/#/core-x/query?q=*:*&q.op=OR&indent=true
 
-## Command to use the services for indexing documents in Full-text search index
+## Python command to use the services for indexing documents in Full-text search index
 
 ``python document_retriever_service/full_text_search_retriever_service.py
 --solr_url http://localhost:9033/solr/#/catalog/ --mysql_host mudslide.umdl.umich.edu --mysql_user user_name

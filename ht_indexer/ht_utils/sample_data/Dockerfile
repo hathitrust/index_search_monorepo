@@ -26,7 +26,7 @@ WORKDIR /app
 
 ENV PYTHONPATH "${PYTHONPATH}:/app"
 
-COPY requirements.txt ./
+COPY ../../requirements.txt ./
 
 RUN set -ex \
     # Create a non-root user
@@ -37,31 +37,20 @@ RUN set -ex \
 RUN apt-get update -y \
     && apt-get upgrade -y \
     && apt-get -y install build-essential \
-    curl \
     pkgconf \
     default-libmysqlclient-dev \
-    git \
     # Clean up
     && apt-get -y autoremove \
     && apt-get -y clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Install dependencies
-#RUN pip install -r requirements.txt
-
 RUN  python3.11 -m pip install --upgrade pip
 RUN  python3.11 -m pip install -r requirements.txt
 
-FROM python-base as development
-ENV FASTAPI_ENV=development
-
 WORKDIR /app
 
-COPY . .
+COPY --chown=appuser:appuser ../../. .
 
-CMD /bin/bash
-
-#ENTRYPOINT ["python3", "document_retriever_service/full_text_search_retriever_service.py"]
-CMD ["python3"]
+ENTRYPOINT ["python3", "ht_utils/sample_data/sample_data_generator.py"]
 
 USER appuser

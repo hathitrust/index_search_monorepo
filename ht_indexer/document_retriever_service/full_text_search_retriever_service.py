@@ -29,7 +29,7 @@ class FullTextSearchRetrieverService(CatalogRetrieverService):
 
         self.document_generator = document_generator
 
-    def generate_full_text_entry(self, query, start, rows, all_items):
+    def generate_full_text_entry(self, query, start, rows, all_items, document_repository):
         for results in self.retrieve_documents(query, start, rows):
             for record in results:
                 if all_items:
@@ -46,21 +46,29 @@ class FullTextSearchRetrieverService(CatalogRetrieverService):
                     logger.info(f"Processing document {item_id}")
 
                     # Instantiate each document
-                    ht_document = HtDocument(document_id=item_id)
+                    ht_document = HtDocument(document_id=item_id, document_repository=document_repository)
 
-                    # obj_id = record.get("id").split(".")[1]
-                    logger.info(f"Processing item {ht_document.document_id}")
+                    logger.info(f"Checking path {ht_document.source_path}")
 
-                    try:
-                        entry = self.document_generator.make_full_text_search_document(
-                            ht_document, record
-                        )
-                        # yield entry
-                    except Exception as e:
-                        logger.error(f"Document {item_id} failed {e}")
+                    # TODO: Temporal local for testing using a sample of files
+                    #  Checking if the file exist, otherwise go to the next
+                    if os.path.isfile(f"{ht_document.source_path}.zip"):
+
+                        logger.info(f"Processing item {ht_document.document_id}")
+
+                        try:
+                            entry = self.document_generator.make_full_text_search_document(
+                                ht_document, record
+                            )
+                            # yield entry
+                        except Exception as e:
+                            logger.error(f"Document {item_id} failed {e}")
+                            continue
+
+                        yield entry, ht_document.file_name, ht_document.namespace
+                    else:
+                        logger.info(f"{ht_document.document_id} does not exist")
                         continue
-
-                    yield entry, ht_document.file_name, ht_document.namespace
 
 
 def main():
@@ -112,6 +120,9 @@ def main():
     parser.add_argument(
         "--query", help="Query used to retrieve documents", default="*:*"
     )
+    parser.add_argument(
+        "--document_repository", help="Could be pairtree or local", default="local"
+    )
 
     args = parser.parse_args()
 
@@ -135,21 +146,22 @@ def main():
     rows = 50
 
     for (
-        entry,
-        file_name,
-        namespace,
+            entry,
+            file_name,
+            namespace,
     ) in document_indexer_service.generate_full_text_entry(
         query,
         start,
         rows,
         all_items=args.all_items,
+        document_repository=args.document_repository
     ):
         count = count + 1
         solr_str = create_solr_string(entry)
         logger.info(f"Creating XML file to index")
         with open(
-            f"/{os.path.join(DOCUMENT_LOCAL_PATH, document_local_path)}/{namespace}{file_name}_solr_full_text.xml",
-            "w",
+                f"/{os.path.join(DOCUMENT_LOCAL_PATH, document_local_path)}/{namespace}{file_name}_solr_full_text.xml",
+                "w",
         ) as f:
             f.write(solr_str)
 
