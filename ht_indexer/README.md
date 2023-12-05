@@ -11,17 +11,6 @@ This application uses the solr server instantiated by to different Solr containe
 Full-text (solr-lss-dev) search index.
 Then, this container must be running before load the API.
 
-## Data preparation
-
-Create a container with a volume with the documents to process
-`docker run -d --rm --name data_creator -v sample_data:/sdr1 alpine tail -f /dev/null`
-
-Use the container to populate the volume with local data
-`docker cp ../sample_data/sdr1 data_creator:/sdr1`
-
-Stop the container and the volume will persist
-`docker stop data_creator`
-
 ## Setting up ht_indexer
 
 1. Clone the repository in your working environment
@@ -30,23 +19,20 @@ Stop the container and the volume will persist
 
 2. Then, go to the folder ``cd ht_indexer``
 
-3. In your workdir, download a sample data for running the application using this data. It will create a sample_data
-   directory in the parent folder of ht_indexer folder, by default will use 1% of the data in Catalog image
-
-export SDR_DIR=/sdr1/obj
-export HT_REPO_HOST=some.host.hathitrust.org
+3. In your workdir, create a sample data. It will generate the folder /sdr1/obj and will download .zip and .mets.xml
+   file for a list of records.
+   The sample data folder is created in the parent folder of ht_indexer repository. By default, 1% of the documents
+   indexed in Catalog image will be added to the sample data.
+4. Set up environment variables ```export HT_REPO_HOST=some.host.hathitrust.org```. If you want to add more documents to
+   your sample you should define the variable SAMPLE_PERCENTAGE, that represents the percentage of data to retrieve e.g:
+   0,5
 
 ```./ht_utils/sample_data/sample_data_creator.sh```
 
 ## Run the services for retrieving and indexing data
 
-1. ```bash run_retriever_processor.sh```
-2.
-
-4. In your workdir, create and image for running the python application
-
-   ```docker build -t document_generator .```
-
+In your workdir, run te scripts belows. They will use the data sample for generating the documents you will want to
+index in full-text search index.
 This application access to MariaDB database and to Solr, then you should set the following environment variables:
 
 ```bash
@@ -54,9 +40,9 @@ This application access to MariaDB database and to Solr, then you should set the
   export MySQL_PASS = mysql_pass
 ```
 
-4. In your workdir:
-
-```docker-compose up -d```
+1. Retrieving data: ```bash run_retriever_processor.sh```
+2. Indexing data: ```bash run_retriever_processor.sh```
+    3. ```docker compose exec document_indexer python document_indexer_service/document_indexer_service.py --solr_indexing_api http://solr-lss-dev:8983/solr/#/core-x/```
 
 If everything works well, in your browser you will access to the API documentation http://localhost:8081/docs/. You will
 also find the indexed documents in http://localhost:8983/solr/#/core-x/query?q=*:*&q.op=OR&indent=true
@@ -83,6 +69,17 @@ python document_indexer_service/document_indexer_service.py --solr_indexing_api 
 To run testing locally you would execute `ht_indexer_api_test.py`
 
 Inside the project folder run `python -m pytest` or `pytest`
+
+## [Optional] Data preparation
+
+Create a container with a volume with the documents to process
+`docker run -d --rm --name data_creator -v sample_data:/sdr1 alpine tail -f /dev/null`
+
+Use the container to populate the volume with local data
+`docker cp ../sample_data/sdr1 data_creator:/sdr1`
+
+Stop the container and the volume will persist
+`docker stop data_creator`
 
 ## [Optional] How to set up your python environment
 

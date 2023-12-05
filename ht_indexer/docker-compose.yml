@@ -2,10 +2,7 @@ version: "3"
 services:
   document_retriever:
     container_name: document_retriever
-    #build:
-    #  context: .
     image: document_generator
-    #command: [ "python", "document_retriever_service/full_text_search_retriever_service.py", "--query", "*:*", "--all_items" ]
     volumes:
       - ../tmp:/tmp:rm
       - ../sample_data/sdr1/obj:/sdr1/obj
@@ -63,8 +60,6 @@ services:
         condition: service_healthy
   document_indexer:
     container_name: document_indexer
-    #build:
-    #  context: .
     image: document_generator
     volumes:
       - ../tmp:/tmp:rm

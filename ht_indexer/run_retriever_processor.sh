@@ -5,16 +5,16 @@ docker build -t document_generator .
 echo "Setting up document_retriever"
 
 docker compose build document_retriever
-docker compose build document_indexer
+#docker compose build document_indexer
 
 #echo "Starting document indexer service"
-docker compose up document_indexer -d
+docker compose up document_retriever
 
 #parentdir="$(dirname "$PWD")"
 #docker compose exec document_indexer document_indexer_service/document_indexer_service.py --solr_indexing_api http://solr-lss-dev:8983/solr/#/core-x/
 
 echo "Starting document retriever service"
-docker compose up document_retriever -d
+docker compose up document_retriever
 
 
 for line in $(cat "$PWD/ht_utils/sample_data/sample_data_ht_ids.txt")
