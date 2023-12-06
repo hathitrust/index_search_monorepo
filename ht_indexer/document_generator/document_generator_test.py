@@ -22,7 +22,7 @@ sys.path.insert(0, parentdir)
 @pytest.fixture()
 def get_fullrecord_xml():
     with open(
-        f"{Path(__file__).parents[1]}/data/document_generator/fullrecord.xml", "r"
+            f"{Path(__file__).parents[1]}/data/document_generator/fullrecord.xml", "r"
     ) as f:
         full_record_data = f.read()
     return full_record_data
@@ -131,7 +131,7 @@ class TestDocumentGenerator:
             for record in json.loads(ht_json)
             if (
                 v := record.get("enum_pubdate")
-                and "nyp.33433069877805" == record.get("htid")
+                     and "nyp.33433069877805" == record.get("htid")
             )
         ]
 
@@ -148,7 +148,7 @@ class TestDocumentGenerator:
             for record in json.loads(ht_json)
             if (
                 v := record.get("enum_pubdate")
-                and "mdp.39015082023097" == record.get("htid")
+                     and "mdp.39015082023097" == record.get("htid")
             )
         ]
 

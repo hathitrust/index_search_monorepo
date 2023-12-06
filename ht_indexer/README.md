@@ -59,6 +59,8 @@ also find the indexed documents in http://localhost:8983/solr/#/core-x/query?q=*
     * You can use the command below to index all the item of a specific record
         * `` --solr_url http://localhost:9033/solr/#/catalog/ --mysql_host mudslide.umdl.umich.edu --mysql_user user_name --mysql_pass
           pass --mysql_database ht --query id:012407877 ``
+          Use this command to run solr container
+        * ```docker-compose up -d solr-sdr-catalog solr-lss-dev test```
 
 Use the command below to start the service to index documents
 
