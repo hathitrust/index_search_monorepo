@@ -22,7 +22,7 @@ services:
     tty: true
     stdin_open: true
   solr-lss-dev:
-    image: ghcr.io/hathitrust/full-text-search-embedded_zoo
+    image: ghcr.io/hathitrust/full-text-search-embedded_zoo:example-8.11
     container_name: solr-lss-dev
     ports:
       - "8983:8983"
@@ -57,6 +57,8 @@ services:
     command: [ "pytest" ]
     depends_on:
       solr-sdr-catalog:
+        condition: service_healthy
+      solr-lss-dev:
         condition: service_healthy
   document_indexer:
     container_name: document_indexer
