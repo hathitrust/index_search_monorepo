@@ -39,7 +39,7 @@ class HtDocument:
 
         # By default path files are in /sdr1/obj
         if document_repository == 'pairtree':
-            self.source_path = f"/sdr1/obj/{self.namespace}/pairtree_root{self.get_document_pairtree_path()}"  # {os.environ.get('SDR_DIR')}
+            self.source_path = f"{os.environ.get('SDR_DIR')}/{self.namespace}/pairtree_root{self.get_document_pairtree_path()}"  # /sdr1/obj/
         else:
             # A sample_data will be in the same folder of the repository
             self.source_path = f"{LOCAL_DOCUMENT_FOLDER}/{self.sanitized_obj_id_translated}"

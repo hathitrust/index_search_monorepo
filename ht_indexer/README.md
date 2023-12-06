@@ -23,9 +23,11 @@ Then, this container must be running before load the API.
    file for a list of records.
    The sample data folder is created in the parent folder of ht_indexer repository. By default, 1% of the documents
    indexed in Catalog image will be added to the sample data.
-4. Set up environment variables ```export HT_REPO_HOST=some.host.hathitrust.org```. If you want to add more documents to
-   your sample you should define the variable SAMPLE_PERCENTAGE, that represents the percentage of data to retrieve e.g:
-   0,5
+    4. Set up environment variables ```export HT_REPO_HOST=some.host.hathitrust.org```
+       and  ```export SDR_DIR=/sdr1/obj```. If you want to add more documents to
+       your sample you should define the variable SAMPLE_PERCENTAGE, that represents the percentage of data to retrieve
+       e.g:
+       0,5
 
 ```./ht_utils/sample_data/sample_data_creator.sh```
 

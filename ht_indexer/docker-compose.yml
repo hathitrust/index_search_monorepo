@@ -5,7 +5,7 @@ services:
     image: document_generator
     volumes:
       - ../tmp:/tmp:rm
-      - ../sample_data/sdr1/obj:/sdr1/obj
+      - ../sdr1/obj:/sdr1/obj
       #- ../sample_data/sdr1/obj:/sample_data
     ports:
       - "8081:8081"
