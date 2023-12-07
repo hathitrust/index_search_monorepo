@@ -15,7 +15,7 @@ currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentfram
 def get_percentage(lst: List, percentage: float):
     shuffle(lst)
     result = []
-    for _ in range(int(len(lst) * percentage)):
+    for _ in range(int(len(lst) * float(percentage))):
         result.append(lst.pop())
     return result
 
@@ -81,6 +81,10 @@ def generate_sample_data(percentage=0.010, all_items: bool = False):
 
 
 if __name__ == "__main__":
+    from dotenv import load_dotenv
+
+    load_dotenv(".env")
+
     generate_sample_data(
         percentage=os.environ.get("SAMPLE_PERCENTAGE", 0.01),
         all_items=os.environ.get("ALL_ITEMS", False)
