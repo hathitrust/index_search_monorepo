@@ -110,6 +110,8 @@ def main():
     )
     logger.info("Access by default to `ht` Mysql database")
 
+    # By default, only the first item of each record is process
+    # If ALL_ITEMS=True, then all the items per record will be processed
     parser.add_argument(
         "--all_items",
         help="If store, you will obtain all the items of record, otherwise you will retrieve only the first item",

@@ -16,6 +16,9 @@ SAMPLE_PERCENTAGE="${arg1_percentage:-0.01}"
 arg2_folder="$2"
 SDR_DIR="${arg2_folder:-/sdr1/obj}"
 
+arg3_items="$3"
+ALL_ITEMS="${arg3_folder:-False}"
+
 if [ -f .env ]
 then
   echo "Creating .env file to store python environment variables"
@@ -28,7 +31,7 @@ fi
 # The script creates a file with the path of the file to download
 # A volume is used to be able to read the created file to download the documents via scp
 
-docker run -e SAMPLE_PERCENTAGE=$SAMPLE_PERCENTAGE -e ALL_ITEMS -e SDR_DIR=$SDR_DIR -v $(PWD)/ht_utils/sample_data:/app/ht_utils/sample_data --name=data_generation data_generator:2 ht_utils/sample_data/sample_data_generator.py
+docker run -e SAMPLE_PERCENTAGE=$SAMPLE_PERCENTAGE -e ALL_ITEMS=$ALL_ITEMS -e SDR_DIR=$SDR_DIR -v $(PWD)/ht_utils/sample_data:/app/ht_utils/sample_data --name=data_generation data_generator:2 ht_utils/sample_data/sample_data_generator.py
 
 parentdir="$(dirname "$PWD")"
 
@@ -53,6 +56,6 @@ do
 
 done
 
-#rm ht_utils/sample_data/.env
+rm ht_utils/sample_data/.env
 
 echo "🎉 Done!"
