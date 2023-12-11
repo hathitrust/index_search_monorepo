@@ -48,7 +48,7 @@ def main():
         "--solr_indexing_api",
         help="",
         required=True,
-        default="http://localhost:8082/solrIndexing/#/core-x/",
+        default="http://solr-lss-dev:8983/solr/#/core-x/",
     )
 
     args = parser.parse_args()
