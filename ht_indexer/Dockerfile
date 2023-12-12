@@ -46,8 +46,9 @@ RUN apt-get update -y \
     && apt-get -y clean \
     && rm -rf /var/lib/apt/lists/*
 
+RUN for i in $(seq 1 24); do ln -s /sdr/$i /sdr$i; done
+
 # Install dependencies
-#RUN pip install -r requirements.txt
 
 RUN  python3.11 -m pip install --upgrade pip
 RUN  python3.11 -m pip install -r requirements.txt
@@ -59,9 +60,6 @@ WORKDIR /app
 
 COPY . .
 
-CMD /bin/bash
-
-#ENTRYPOINT ["python3", "document_retriever_service/full_text_search_retriever_service.py"]
 CMD ["python3"]
 
 USER appuser
