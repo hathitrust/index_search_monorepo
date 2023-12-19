@@ -19,6 +19,8 @@ services:
     depends_on:
       solr-sdr-catalog:
         condition: service_healthy
+      solr-lss-dev:
+        condition: service_healthy
     tty: true
     stdin_open: true
   solr-lss-dev:

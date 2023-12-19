@@ -48,7 +48,7 @@ In your workdir,
 
 3. ###### Indexing service: Run de services for indexing documents
 
-In your workdir, run the script: ```bash run_retriever_processor.sh```
+In your workdir, run the script: ```bash run_indexer_processor.sh```
 
 ## Data Sampling:
 
