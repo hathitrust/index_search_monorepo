@@ -1,10 +1,12 @@
 import argparse
-import logging
 
 import uvicorn
 from fastapi import FastAPI
 
 from ht_indexer_api.ht_indexer_api import HTSolrAPI
+from ht_utils.ht_logger import get_ht_logger
+
+logger = get_ht_logger(name=__name__)
 
 
 def main():
@@ -32,7 +34,7 @@ def main():
         """
         Startup the API to index documents in Solr
         """
-        logging.info("Connecting with Solr server")
+        logger.info("Connecting with Solr server")
 
         global solr_api
         solr_api = HTSolrAPI(url=args.solr_url)

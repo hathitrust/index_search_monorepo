@@ -1,16 +1,17 @@
 import argparse
-import logging
+
 from pathlib import Path
 from typing import Dict
 
 from lxml import etree
 
-from utils.ht_pairtree import download_document_file
+from ht_utils.ht_logger import get_ht_logger
+
+logger = get_ht_logger(name=__name__)
 
 
 class MetsAttributeExtractor:
     def __init__(self, path):
-        # parser = etree.XMLParser(remove_blank_text=True)
         self.tree = etree.parse(path)
         self.namespace = self.tree.getroot().nsmap
 
@@ -63,13 +64,13 @@ class MetsAttributeExtractor:
         return list(set(all_features))
 
     def create_mets_entry(self):
-        logging.info("Creating METS map")
+        logger.info("Creating METS map")
         mets_map = self.create_METS_map()
 
-        logging.info("Creating METS entry")
+        logger.info("Creating METS entry")
         features = MetsAttributeExtractor.get_unique_features(mets_map)
 
-        logging.info("Retrieving document orders")
+        logger.info("Retrieving document orders")
         reading_order = self.get_reading_order()
 
         return {
@@ -97,17 +98,13 @@ def main():
     # Download document .zip and .mets.xml file
     target_path = f"{Path(__file__).parents[1]}/data/document_generator"
 
-    download_document_file(
-        doc_name=args.doc_id, target_path=target_path, extension="mets.xml"
-    )
-
     namespace, obj_id = args.doc_id.split(".")
 
     mets_obj = MetsAttributeExtractor(f"{target_path}/{obj_id}.mets.xml")
 
     mets_entry = mets_obj.create_mets_entry()
 
-    print(mets_entry.get("METS_maps").get("ht_page_feature"))
+    logger.info(mets_entry.get("METS_maps").get("ht_page_feature"))
 
 
 if __name__ == "__main__":

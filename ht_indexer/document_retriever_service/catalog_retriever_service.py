@@ -1,12 +1,15 @@
 # from document_retrieval_service.document_retrieval_service import DocumentRetrievalService
 import json
-import logging
 import argparse
 
 from document_retriever_service.document_retriever_service import (
     DocumentRetrieverService,
 )
 from ht_indexer_api.ht_indexer_api import HTSolrAPI
+
+from ht_utils.ht_logger import get_ht_logger
+
+logger = get_ht_logger(name=__name__)
 
 
 class CatalogRetrieverService(DocumentRetrieverService):
@@ -21,9 +24,9 @@ class CatalogRetrieverService(DocumentRetrieverService):
 
         try:
             total_records = output.get("response").get("numFound")
-            logging.info(total_records)
+            logger.info(total_records)
         except Exception as e:
-            logging.error(f"Solr index {self.catalogApi} seems empty {e}")
+            logger.error(f"Solr index {self.catalogApi} seems empty {e}")
             exit()
         count_records = 0
         while count_records < total_records:
@@ -38,9 +41,9 @@ class CatalogRetrieverService(DocumentRetrieverService):
                 count_records = count_records + 1
                 results.append(record)
 
-            logging.info(f"Batch documents {count_records}")
+            logger.info(f"Batch documents {count_records}")
             start += rows
-            logging.info(f"Result lenght {len(results)}")
+            logger.info(f"Result lenght {len(results)}")
             yield results
 
     def retrieve_list_ht_ids(self, query, start, rows, all_items: bool = False):
@@ -50,40 +53,22 @@ class CatalogRetrieverService(DocumentRetrieverService):
                 if all_items:
                     for item_id in record.get("ht_id"):
                         total_htid = total_htid + 1
-                        logging.info(f"Processing document {item_id}")
+                        logger.info(f"Processing document {item_id}")
                         yield item_id
                 else:
                     try:
                         item_id = record.get("ht_id")[0]
                     except Exception as e:
-                        logging.error(
+                        logger.error(
                             f"The record {record.get('id')} does not have items."
                         )
                         continue
                     total_htid = total_htid + 1
-                    logging.info(f"Processing document {item_id}")
+                    logger.info(f"Processing document {item_id}")
                     yield item_id
                     continue
 
-            logging.info(f"Total of items (ht_id) {total_htid}")
-
-    """
-    def make_full_text_search_document(self):
-
-        query = "*:*"
-        start = 0
-        rows = 100
-
-        total_htid = 0
-        for results in self.retrieve_documents(query, start, rows):
-
-            for record in results:
-                for item_id in record.get("ht_id"):
-                    total_htid = total_htid + 1
-                    logging.info(f"Processing document {item_id}")
-                    yield item_id
-            logging.info(f"Total of items (ht_id) {total_htid}")
-    """
+            logger.info(f"Total of items (ht_id) {total_htid}")
 
 
 def main():
@@ -121,11 +106,11 @@ def main():
     ):
         count = count + 1
         # list_ids.append(ht_id)
-        logging.info(f"Item id: {ht_id}")
+        logger.info(f"Item id: {ht_id}")
         file_object.write(f"{ht_id}\n")
 
     file_object.close()
-    logging.info(count)
+    logger.info(count)
 
 
 if __name__ == "__main__":

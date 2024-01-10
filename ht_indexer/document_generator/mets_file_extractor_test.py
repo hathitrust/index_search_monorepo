@@ -8,7 +8,7 @@ from document_generator.mets_file_extractor import MetsAttributeExtractor
 class TestMETSFileExtractor:
     @pytest.fixture()
     def metsAttrExtractorObj(self):
-        path = f"{Path(__file__).parents[1]}/data/document_generator/39015078560292.mets_test.xml"
+        path = f"{Path(__file__).parents[1]}/data/document_generator/mb.39015078560292.mets_test.xml"
         mets_obj = MetsAttributeExtractor(path)
         return mets_obj
 

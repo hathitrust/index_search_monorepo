@@ -1,6 +1,5 @@
 # Read from a folder, index documents to solr and delete the content of the sercer
 
-import logging
 from time import sleep
 import argparse
 import os
@@ -8,18 +7,13 @@ import glob
 import inspect
 import sys
 
+from ht_utils.ht_logger import get_ht_logger
+
+logger = get_ht_logger(name=__name__)
+
 currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 parentdir = os.path.dirname(currentdir)
 sys.path.insert(0, parentdir)
-
-logging.basicConfig(
-    filename="full_text_search_indexer_service.log",
-    filemode="w",
-    format="%(name)s - %(levelname)s - %(message)s",
-)
-
-logger = logging.getLogger()
-logger.setLevel(logging.DEBUG)
 
 CHUNK_SIZE = 50
 
@@ -54,7 +48,7 @@ def main():
         "--solr_indexing_api",
         help="",
         required=True,
-        default="http://localhost:8082/solrIndexing/#/core-x/",
+        default="http://solr-lss-dev:8983/solr/#/core-x/",
     )
 
     args = parser.parse_args()
@@ -84,7 +78,7 @@ def main():
                     response = document_indexer_service.indexing_documents(
                         document_local_path
                     )
-                    logger.info(f"Index opperation status: {response.status_code}")
+                    logger.info(f"Index operation status: {response.status_code}")
                     if response.status_code == 200:
                         DocumentIndexerService.clean_up_folder(
                             document_local_path, chunk

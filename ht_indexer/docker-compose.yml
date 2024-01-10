@@ -1,84 +1,42 @@
 version: "3"
 services:
-  #  document_retriever:
-  #    container_name: document_retriever
-  #    build:
-  #      context: .
-  #    command: [ "python", "document_retriever_service/full_text_search_retriever_service.py",
-  #               "--mysql_host", "$MYSQL_HOST",
-  #               "--mysql_user", "$MYSQL_USER",
-  #               "--mysql_pass", "$MYSQL_PASS",
-  #               "--mysql_database", "ht",
-  #               "--solr_url", "http://solr-sdr-catalog:9033/solr/catalog/" ]
-  #    volumes:
-  #      - .:/app
-  #      - tmp:/tmp
-  #      - ~/.ssh:/root/.ssh
-  #    ports:
-  #      - "8081:8081"
-  #    #expose:
-  #    #  - 8983
-  #    depends_on:
-  #      solr-sdr-catalog:
-  #        condition: service_healthy
-  #
-  #    environment:
-  #      - HOST="$HOST"
-  #      - USER="$USER"
-  #      - PUBLIC_KEY="$PUBLIC_KEY"
-  #      #- SOLR_URL=http://solr-sdr-catalog:9033/solr/#/catalog
-  #    #networks:
-  #    #  - indexer_net
-  #  document_indexer:
-  #    container_name: document_indexer
-  #    build:
-  #      context: .
-  #    command: [ "python", "document_indexer_service/document_indexer_service.py",
-  #               "--solr_indexing_api", "http://solr-lss-dev:8983/solr/core-x/",
-  #    ]
-  #    volumes:
-  #      - .:/app
-  #      - tmp:/tmp
-  #    depends_on:
-  #      - solr-lss-dev
-  #      - document_retriever
-  #    #networks:
-  #    #  - indexer_net
-  #    ports:
-  #      - "8082:8082"
-  #solr6 image
+  document_retriever:
+    container_name: document_retriever
+    image: document_generator
+    volumes:
+      - ../tmp:/tmp:rm
+      - ../sdr1/obj:/sdr1/obj
+      #- ../sample_data/sdr1/obj:/sample_data
+    ports:
+      - "8081:8081"
+    environment:
+      - SOLR_URL=http://solr-sdr-catalog:9033/solr/#/catalog/
+      - MYSQL_HOST=mudslide.umdl.umich.edu
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASS=${MYSQL_PASS}
+      - MYSQL_DATABASE=ht
+      - SDR_DIR=/sdr1/obj
+    depends_on:
+      solr-sdr-catalog:
+        condition: service_healthy
+      solr-lss-dev:
+        condition: service_healthy
+    tty: true
+    stdin_open: true
   solr-lss-dev:
+    image: ghcr.io/hathitrust/full-text-search-embedded_zoo:example-8.11
     container_name: solr-lss-dev
-    image: ghcr.io/hathitrust/lss-solr:unstable
+    ports:
+      - "8983:8983"
+    volumes:
+      - solr_data:/var/solr/data
+    command: solr-foreground -c
     healthcheck:
-      test: [ "CMD", "/usr/bin/wget", "-q", "http://localhost:8983/solr/core-x/admin/ping" ]
+      test: [ "CMD-SHELL", "solr healthcheck -c core-x" ]
       interval: 5s
       timeout: 10s
       start_period: 30s
       retries: 5
-    ports:
-      - "8983:8983"
-    expose:
-      - 8983
-    environment:
-      - SOLR_HEAP=4g
-    #volumes:
-    #  - solr-lss-dev:/var/solr
-  #Solr8 cloud mode, see lss_solr_configs repository if you want to add dataLoader service
-  #solr-lss-dev:
-  #  image: ghcr.io/hathitrust/full-text-search-embedded_zoo:example-8.11
-  #  container_name: solr-lss-dev
-  #  ports:
-  #    - "8983:8983"
-  #  volumes:
-  #    - solr_data:/var/solr/data
-  #  command: solr-foreground -c
-  #  healthcheck:
-  #    test: [ "CMD-SHELL", "solr healthcheck -c core-x" ]
-  #    interval: 5s
-  #    timeout: 10s
-  #    start_period: 30s
-  #    retries: 5
   solr-sdr-catalog:
     container_name: solr-sdr-catalog
     image: ghcr.io/hathitrust/catalog-solr-sample
@@ -97,13 +55,25 @@ services:
     build: .
     volumes:
       - .:/app
-      - tmp:/tmp
+      - ../tmp:/tmp
     command: [ "pytest" ]
+    depends_on:
+      solr-sdr-catalog:
+        condition: service_healthy
+      solr-lss-dev:
+        condition: service_healthy
+  document_indexer:
+    container_name: document_indexer
+    image: document_generator
+    volumes:
+      - ../tmp:/tmp:rm
+    ports:
+      - "8082:8082"
     depends_on:
       solr-lss-dev:
         condition: service_healthy
-      solr-sdr-catalog:
-        condition: service_healthy
+    tty: true
+    stdin_open: true
 volumes:
-  tmp:
   solr_data:
+

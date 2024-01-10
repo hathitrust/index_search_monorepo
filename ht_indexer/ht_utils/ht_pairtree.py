@@ -1,28 +1,15 @@
-import logging
 import os
 import subprocess
 import sys
 
-from pypairtree import pairtree
+from ht_utils.ht_logger import get_ht_logger
 
-
-# SDR_DIR = "/sdr1"
-# translate_table = str.maketrans({"=": r"\="})
+logger = get_ht_logger(name=__name__)
 
 
 def download_document_file(
     source_path: str = None, target_path: str = None, extension: str = "zip"
 ):
-    # namespace, obj_id = doc_name.split(".")
-
-    ##sanitized_obj_id = pairtree.sanitizeString(obj_id)
-    # doc_path = pairtree.get_pair_path(sanitized_obj_id)
-
-    # doc_translated_path = doc_path.translate(translate_table)
-    # sanitized_obj_id_translated = sanitized_obj_id.translate(translate_table)
-
-    # source_path = f"{SDR_DIR}/obj/{namespace}/pairtree_root{doc_translated_path}"
-
     try:
         public_key = os.environ["PUBLIC_KEY"]
     except KeyError:
@@ -31,12 +18,12 @@ def download_document_file(
     try:
         user = os.environ["USER"]
     except KeyError:
-        logging.info(f"Please define the environment variable USER")
+        logger.info(f"Please define the environment variable USER")
         sys.exit(1)
     try:
         host = os.environ["HOST"]
     except KeyError:
-        logging.info(f"Please define the environment variable HOST")
+        logger.info(f"Please define the environment variable HOST")
         sys.exit(1)
 
     # Copy the file from remote path
@@ -48,4 +35,4 @@ def download_document_file(
         f"{target_path}.{extension}",
     ]
     subprocess.run(command)
-    logging.info(f"Download {source_path}.{extension} to {target_path}")
+    logger.info(f"Download {source_path}.{extension} to {target_path}")

@@ -1,11 +1,12 @@
 import argparse
 import json
-import logging
+
+from ht_utils.ht_logger import get_ht_logger
+
+logger = get_ht_logger(name=__name__)
 
 import zipfile
 from xml.sax.saxutils import quoteattr
-
-logging.basicConfig(level=logging.DEBUG)
 
 from typing import Dict, List
 from document_generator.indexer_config import (
@@ -16,9 +17,9 @@ from document_generator.indexer_config import (
 from lxml import etree
 from io import BytesIO
 
-from utils.ht_mysql import query_mysql
+from ht_utils.ht_mysql import query_mysql
 from document_generator.mets_file_extractor import MetsAttributeExtractor
-from utils.text_processor import string_preparation
+from ht_utils.text_processor import string_preparation
 
 from ht_document.ht_document import HtDocument
 
@@ -72,10 +73,7 @@ class DocumentGenerator:
 
     @staticmethod
     def get_data_ht_json_obj(ht_json: Dict = None):
-
-        catalog_json_data = {
-            "enumPublishDate": ht_json.get("enum_pubdate")
-        }
+        catalog_json_data = {"enumPublishDate": ht_json.get("enum_pubdate")}
         return catalog_json_data
 
     @staticmethod
@@ -107,8 +105,11 @@ class DocumentGenerator:
             metadata.get("ht_id_display")
         )
 
-        doc_json = [record for record in json.loads(metadata.get("ht_json")) if
-                    (v := record.get('enum_pubdate') and doc_id == record.get('htid'))]
+        doc_json = [
+            record
+            for record in json.loads(metadata.get("ht_json"))
+            if (v := record.get("enum_pubdate") and doc_id == record.get("htid"))
+        ]
 
         if len(doc_json) > 0:
             entry.update(DocumentGenerator.get_data_ht_json_obj(doc_json[0]))
@@ -119,7 +120,7 @@ class DocumentGenerator:
             doc_id, metadata.get("htsource"), metadata.get("ht_id")
         )
 
-        if entry.get('date') and entry.get('enumPublishDate'):
+        if entry.get("date") and entry.get("enumPublishDate"):
             entry.update({"bothPublishDate": entry.get("enumPublishDate")})
 
         entry["vol_id"] = doc_id
@@ -129,7 +130,7 @@ class DocumentGenerator:
     def create_ocr_field(document_zip_path) -> Dict:
         # TODO: As part of this function we could extract the following attributes
         #  numPages, numChars, charsPerPage. In the future, these attributes could be use to measure query performance
-        logging.info(f"Reading {document_zip_path}.zip file")
+        logger.info(f"Reading {document_zip_path}.zip file")
         full_text = DocumentGenerator.get_full_text_field(f"{document_zip_path}.zip")
         return {"ocr": full_text}
 
@@ -191,7 +192,7 @@ class DocumentGenerator:
 
     def retrieve_mysql_data(self, doc_id):
         entry = {}
-        logging.info((f"Retrieving data from MySql {doc_id}"))
+        logger.info((f"Retrieving data from MySql {doc_id}"))
         doc_rights = self.add_right_field(doc_id)
 
         # Only one element
@@ -235,8 +236,8 @@ class DocumentGenerator:
         """
 
         full_text = ""
-        print("=================")
-        print(zip_doc_path)
+        logger.info("=================")
+        logger.info(f"Document path {zip_doc_path}")
         try:
             zip_doc = zipfile.ZipFile(zip_doc_path, mode="r")
             for i_file in zip_doc.namelist():
@@ -245,7 +246,7 @@ class DocumentGenerator:
                             full_text + " " + string_preparation(zip_doc.read(i_file))
                     )
         except Exception as e:
-            logging.ERROR(f"Something wring with your zip file {e}")
+            logger.error(f"Something wrong with your zip file {e}")
         full_text = full_text.encode().decode()
         return full_text
 
@@ -278,7 +279,7 @@ class DocumentGenerator:
                             if element.text:
                                 allfields = allfields.strip() + " " + str(element.text)
                 except ValueError as e:
-                    logging.info(f"Element tag is not an integer value {e}")
+                    logger.info(f"Element tag is not an integer value {e}")
                     pass
         return quoteattr(allfields)
 
@@ -303,19 +304,21 @@ class DocumentGenerator:
         )
 
         # Generate ocr field
-        entry.update(DocumentGenerator.create_ocr_field(ht_document.target_path))
+        entry.update(DocumentGenerator.create_ocr_field(ht_document.source_path))
 
-        logging.info(doc_metadata)
+        logger.info(doc_metadata)
         # Generate allfields field
         entry.update(
             DocumentGenerator.create_allfields_field(doc_metadata.get("fullrecord"))
         )
 
+        logger.info(entry)
+
         # Retrieve data from MariaDB
         entry.update(self.retrieve_mysql_data(ht_document.document_id))
 
         # Extract fields from METS file
-        mets_obj = MetsAttributeExtractor(f"{ht_document.target_path}.mets.xml")
+        mets_obj = MetsAttributeExtractor(f"{ht_document.source_path}.mets.xml")
 
         mets_entry = mets_obj.create_mets_entry()
 
