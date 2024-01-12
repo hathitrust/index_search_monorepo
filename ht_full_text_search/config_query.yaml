@@ -1,0 +1,47 @@
+# This config file contains the parameters used for creating the Solr query
+
+all:
+  pf:
+    - [title_ab, 10000]
+    - [title_a, 8000]
+    - [titleProper, 1500]
+    - [title_topProper, 1000]
+    - [title_restProper, 800]
+    - [series, 100]
+    - [series2, 100]
+    - [author, 1600]
+    - [author2, 800]
+    - [author_top, 100]
+    - [author_rest, 50]
+    - [topicProper, 200]
+    - [allfieldsProper, 100]
+  qf:
+    - [allfieldsProper, 2]
+    - [allfields, 1]
+    - [titleProper, 50]
+    - [title_topProper, 30]
+    - [title_restProper, 15]
+    - [title, 10]
+    - [title_top, 5]
+    - [title_rest, 2]
+    - [series, 5]
+    - [series2, 5]
+    - [author, 80]
+    - [author2, 50]
+    - [author_top, 30]
+    - [author_rest, 15]
+    - [issn, 1]
+    - [isbn, 1]
+    - [lccn, 1]
+    - [oclc, 1]
+    - [sdrnum, 1]
+    - [ht_id, 1]
+    - [isn_related, 1]
+    - [rptnum, 1]
+    - [topicProper, 2]
+    - [topic, 1]
+    - [era, 1]
+  mm: "100%"
+  tie: 0.5
+  parser: "edismax"
+  debug: "all"

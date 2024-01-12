@@ -1,0 +1,23 @@
+all:
+  facet:
+    - facet.mincount: 1
+    - facet: "on"
+    - facet.limit: 30
+    - facet.field: [ "topicStr",
+                     "authorStr",
+                     "language008_full",
+                     "countryOfPubStr",
+                     "bothPublishDateRange",
+                     "format",
+                     "htsource"]
+
+  fl: [ "id",
+        "title",
+        "authorStr",
+        "topicStr",
+        "language008_full",
+        "countryOfPubStr",
+        "bothPublishDateRange",
+        "format",
+        "htsource",
+        "score"]

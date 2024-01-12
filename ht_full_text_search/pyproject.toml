@@ -1,0 +1,20 @@
+[tool.poetry]
+name = "ht-full-text-search"
+version = "0.1.0"
+description = "Repository for full-text search in Solr"
+authors = ["y"]
+readme = "README.md"
+packages = [{include = "ht_full_text_search"}]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+pytest = "^7.4.3"
+requests = "^2.31.0"
+black = "^23.12.0"
+pandas = "^2.1.4"
+pyyaml = "^6.0.1"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
