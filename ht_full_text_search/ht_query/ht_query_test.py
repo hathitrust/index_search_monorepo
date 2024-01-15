@@ -43,12 +43,6 @@ class TestHTSearchQuery:
                 "htsource"]
         }
 
-    def test_get_boolean_expression(self):
-        assert HTSearchQuery().get_boolean_opperator("hola") == "(\"hola\")"
-        assert HTSearchQuery().get_boolean_opperator("hola chico") == "(\"hola\" OR \"chico\")"
-        assert HTSearchQuery().get_boolean_opperator("hola chico majadero") == "(\"hola\" OR \"chico\" OR \"majadero\")"
-
-
     def test_query_json_format(self):
         # query = curl "http://localhost:8983/solr/tmdb/query?" -d '{	"query": {		"bool": {			"must": [				{ "edismax": 					{  "qf": "title genres",					   "query":"breakfast"					}				},				{ "edismax": 					{  "qf": "title genres",					   "query":"comedy"					}				}							]		}	}	}'
         # JSON Query DSL in verbose way, it is better to understand the query

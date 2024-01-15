@@ -513,6 +513,17 @@ files = [
 ]
 
 [[package]]
+name = "solrq"
+version = "1.1.2"
+description = "Python Solr query utility"
+optional = false
+python-versions = "*"
+files = [
+    {file = "solrq-1.1.2-py2.py3-none-any.whl", hash = "sha256:7fa57431d8a26955be91733c999266ec204b6f28cbea0eb45d21e6d282b00ff8"},
+    {file = "solrq-1.1.2.tar.gz", hash = "sha256:9ddd607ebb5f4521f925f10fcaae444f861c0a83862f47154efa8d14c173cc41"},
+]
+
+[[package]]
 name = "tzdata"
 version = "2023.4"
 description = "Provider of IANA time zone data"
@@ -542,4 +553,4 @@ zstd = ["zstandard (>=0.18.0)"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "04a77e4cefc5cd629985dbf38ab65b53afab6e52d042c254382129c5bbb925c3"
+content-hash = "9637f93547b440c5cbb6571136781ebcd23e5132e1e8ae411be65ee75582293c"

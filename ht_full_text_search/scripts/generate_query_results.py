@@ -1,4 +1,5 @@
 from ht_searcher.ht_searcher import HTSearcher
+from ht_query.ht_query import HTSearchQuery
 import pandas as pd
 
 def clean_up_score_string(score_string):
@@ -17,11 +18,26 @@ if __name__ == "__main__":
 
     for query_string in ["Natural history", "26th Regiment of Foot"]:
         fl = ["author", "id", "title"]
-        #query_string = 'q=_query_:"{!dismax qf=ocr}health"&fl=author,id,title'
 
-        ht_search = HTSearcher(solr_url)
-        solr_output = ht_search.solr_result(url=solr_url, query_string=query_string, fl=fl)
+        # Use all fields for query
+        #Q = HTSearchQuery(conf_query="all", conf_query_fields="all")
 
+        # Use only ocr field for query
+        Q =HTSearchQuery(conf_query="ocr", config_facet_field=None)
+
+        ht_search = HTSearcher(solr_url, ht_search_query=Q)
+        #All of the words
+        #solr_output = ht_search.solr_result(url=solr_url, query_string=query_string, fl=fl, operator='AND')
+
+        #Any of the words
+        #solr_output = ht_search.solr_result(url=solr_url, query_string=query_string, fl=fl, operator='OR')
+
+        #Exact match
+        solr_output = ht_search.solr_result(url=solr_url, query_string=query_string, fl=fl, operator=None)
+
+        if solr_output['response']['numFound'] == 0:
+            print(f'No results found for query {query_string}')
+            continue
         df = pd.DataFrame(solr_output['response']['docs'])
 
         doc_score_dict = create_doc_score_dataframe(solr_output['debug']['explain'])

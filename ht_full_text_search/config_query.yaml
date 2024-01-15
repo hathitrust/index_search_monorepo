@@ -1,7 +1,7 @@
 # This config file contains the parameters used for creating the Solr query
 
 all:
-  pf:
+  pf: # Fields used for boosting results
     - [title_ab, 10000]
     - [title_a, 8000]
     - [titleProper, 1500]
@@ -15,7 +15,7 @@ all:
     - [author_rest, 50]
     - [topicProper, 200]
     - [allfieldsProper, 100]
-  qf:
+  qf: # Fields used to find the results
     - [allfieldsProper, 2]
     - [allfields, 1]
     - [titleProper, 50]
@@ -45,3 +45,51 @@ all:
   tie: 0.5
   parser: "edismax"
   debug: "all"
+
+ocronly:
+  parser: "edismax"
+  debug: "all"
+  qf:
+    - [ocr, 500000]
+  mm: "100%"
+  tie: 0.9
+
+ocr:
+  parser: "edismax"
+  debug: "all"
+  pf:
+    - [title_ab, 10000]
+    - [titleProper, 1500]
+    - [title_topProper, 1000]
+    - [title_restProper, 800]
+    - [series, 100]
+    - [series2, 100]
+    - [author, 1600]
+    - [author2, 800]
+    - [topicProper, 200]
+    - [allfieldsProper, 100]
+  qf:
+    - [ocr, 50000]
+    - [allfieldsProper, 2]
+    - [allfields, 1]
+    - [titleProper, 50]
+    - [title_topProper, 30]
+    - [title_restProper, 15]
+    - [title, 10]
+    - [title_top, 5]
+    - [title_rest, 2]
+    - [series, 5]
+    - [series2, 5]
+    - [author, 80]
+    - [author2, 50]
+    - [issn, 1]
+    - [isbn, 1]
+    - [oclc, 1]
+    - [sdrnum, 1]
+    - [id, 1]
+    - [rptnum, 1]
+    - [topicProper, 2]
+    - [topic, 1]
+    - [era, 1]
+  mm: "100%"
+  tie: 0.9

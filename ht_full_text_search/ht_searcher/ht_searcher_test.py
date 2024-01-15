@@ -82,9 +82,13 @@ class TestHTSearcher():
 
     def test_get_query_response(self, ht_searcher_fixture):
 
-        url = "http://localhost:8983/solr/core-x/select"
-        query_string = "indent=on&q=date:1874&wt=json"
-        code, content, status_line, x = ht_searcher_fixture.get_query_response("C", None, url, query_string)
+        url = "http://localhost:8983/solr/core-x/"
+        query_string = "?q=*:*&q.op=OR&indent=true" #"indent=on&q=date:1874&wt=json"
+
+        "query?q=*:*&q.op=OR&indent=true"
+        "http://localhost:8983/solr/#/core-x/query?q=*:*&q.op=OR&indent=true"
+        #query_dict = {"indent": "on", "q": {"date":"1874"}, "wt": "json"}
+        code, content, status_line, x = ht_searcher_fixture.get_query_response(None, url, query_dict=query_string)
 
         assert content is not None
         assert 200 == code
