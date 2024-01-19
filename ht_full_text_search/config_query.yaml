@@ -35,7 +35,7 @@ all:
     - [lccn, 1]
     - [oclc, 1]
     - [sdrnum, 1]
-    - [ht_id, 1]
+    #- [ht_id, 1]
     - [isn_related, 1]
     - [rptnum, 1]
     - [topicProper, 2]

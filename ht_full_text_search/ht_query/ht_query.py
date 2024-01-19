@@ -158,7 +158,7 @@ class HTSearchQuery:
             else [],
             "indent": "on",
             "debug": self.solr_parameters.get("debug"),
-            # "mm": self.solr_parameters.get("mm"),  # 100 % 25,  # mm = minimum match
+            "mm": self.solr_parameters.get("mm"),  # 100 % 25,  # mm = minimum match
             "tie": self.solr_parameters.get("tie"),  # "0.9",  # tie = tie breaker
             "qf": HTSearchQuery.create_boost_query_fields(
                 self.solr_parameters.get("qf")

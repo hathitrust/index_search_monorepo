@@ -16,14 +16,43 @@ if __name__ == "__main__":
     # input:
     solr_url = "http://localhost:8983/solr/#/core-x/"
 
-    for query_string in ["Natural history", "26th Regiment of Foot"]:
+    #majority of the votes
+    #chief justice
+    #Natural history
+
+    list_queries = []
+    # Generating the list of queries
+    for input_query in ["majority of the votes", "chief justice", "Natural history", "S-350 anti-drone",
+    "Shell Recharge cybersecurity",
+    "Charge point software cybersecurity",
+    "Shell Recharge software cybersecurity",
+    "panama",
+    "Network Rail cybersecurity",
+    "National Grid cybersecurity",
+    "26th Regiment",
+    "wind farm operator cybersecurity",
+    "cell",
+    "Chile",
+    "Culture in History: Essays in Honor of Paul Radin",
+    "S-350 anti-satellite",
+    "Genealogy"]:
+        for type_query in ["ocronly", "all"]:
+            for op_type in ["AND", "OR", None]:
+                list_queries.append({
+                    "query_fields": type_query,
+                    "query_string": input_query,
+                    "operator": op_type
+                })
+
+    for query in list_queries:
         fl = ["author", "id", "title"]
+        print(f"Solr query {query['query_string']} with operator {query['operator']}")
 
         # Use all fields for query
         #Q = HTSearchQuery(conf_query="all", conf_query_fields="all")
 
         # Use only ocr field for query
-        Q =HTSearchQuery(conf_query="ocr", config_facet_field=None)
+        Q =HTSearchQuery(conf_query=query['query_fields'], config_facet_field=None)
 
         ht_search = HTSearcher(solr_url, ht_search_query=Q)
         #All of the words
@@ -33,10 +62,10 @@ if __name__ == "__main__":
         #solr_output = ht_search.solr_result(url=solr_url, query_string=query_string, fl=fl, operator='OR')
 
         #Exact match
-        solr_output = ht_search.solr_result(url=solr_url, query_string=query_string, fl=fl, operator=None)
+        solr_output = ht_search.solr_result(url=solr_url, query_string=query["query_string"], fl=fl, operator=query["operator"])
 
         if solr_output['response']['numFound'] == 0:
-            print(f'No results found for query {query_string}')
+            print(f'No results found for query {query["query_string"]}')
             continue
         df = pd.DataFrame(solr_output['response']['docs'])
 
@@ -44,4 +73,4 @@ if __name__ == "__main__":
 
         df['score'] = df['id'].map(doc_score_dict)
 
-        df.to_csv(path_or_buf=f'{query_string}_solr6_ClassicSimilarity.csv', index=False, sep='\t')
+        df.to_csv(path_or_buf=f'{query["query_fields"]}_{query["query_string"]}_{query["operator"]}_solr6.csv', index=False, sep='\t')

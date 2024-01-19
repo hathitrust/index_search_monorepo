@@ -94,12 +94,8 @@ class HTSearcher:
         # req = requests.get(url=url, params=query_dict, headers=self.headers)
         print(url)
         print(f"{url.replace('#/', '')}query")
-        #response = requests.post(
-        #    url=f"{url.replace('#/', '')}query", params=query_dict, headers=self.headers
-        #)
-
         response = requests.post(
-            url=f"{url}query", data=query_dict, headers=self.headers
+            url=f"{url.replace('#/', '')}query", params=query_dict, headers=self.headers
         )
 
         # res = ua.request(req)
@@ -216,13 +212,15 @@ if __name__ == "__main__":
     # input:
     solr_url = "http://localhost:8983/solr/#/core-x/"
 
-    query_string = "Natural history"
+    query_string = "chief justice"
     fl = ["author", "id", "title"]
 
     # Create query object
-    Q = HTSearchQuery(conf_query="all")
+    Q = HTSearchQuery(conf_query="ocronly")
 
     ht_search = HTSearcher(solr_url, ht_search_query=Q)
     solr_output = ht_search.solr_result(
-        url=solr_url, query_string=query_string, fl=fl, operator=None
+        url=solr_url, query_string=query_string, fl=fl, operator="AND"
     )
+
+    print(solr_output)
