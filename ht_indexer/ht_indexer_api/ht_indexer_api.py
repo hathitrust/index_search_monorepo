@@ -17,14 +17,14 @@ class HTSolrAPI:
         response = requests.get(self.url)
         return response
 
-    def index_document(self, path: Text):
+    def index_document(self, path: Path, list_documents: list = None):
         """Read an XML and feed into SOLR for indexing"""
-        data_path = Path(path)  # Path(f"{os.path.dirname(__file__)}/{path}")
-        list_documents = glob.glob(f"{data_path}/*.xml")
+        data_path = Path(path)
         for doc in list_documents:
-            doc = doc.replace(" ", "+")
-            logger.info(f"Indexing {doc}")
-            with open(doc, "rb") as xml_file:
+            doc_path = f"{data_path}/{doc}"
+            doc_path = doc_path.replace(" ", "+")
+            logger.info(f"Indexing {doc_path}")
+            with open(doc_path, "rb") as xml_file:
                 data_dict = xml_file.read()
                 response = requests.post(
                     f"{self.url.replace('#/', '')}update/?commit=true",
@@ -38,11 +38,11 @@ class HTSolrAPI:
         return response
 
     def get_documents(
-        self,
-        query: str = None,
-        response_format: Text = "json",
-        start: int = 0,
-        rows: int = 100,
+            self,
+            query: str = None,
+            response_format: Text = "json",
+            start: int = 0,
+            rows: int = 100,
     ):
         data_query = {"q": "*:*"}
         if query:

@@ -15,7 +15,8 @@ currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentfram
 parentdir = os.path.dirname(currentdir)
 sys.path.insert(0, parentdir)
 
-CHUNK_SIZE = 50
+CHUNK_SIZE = 500
+DOCUMENT_LOCAL_PATH = "/tmp/indexing_data/"
 
 from ht_indexer_api.ht_indexer_api import HTSolrAPI
 
@@ -24,9 +25,9 @@ class DocumentIndexerService:
     def __init__(self, solr_api_full_text=None):
         self.solr_api_full_text = solr_api_full_text
 
-    def indexing_documents(self, path):
+    def indexing_documents(self, path, list_documents=None):
         # Call API
-        response = self.solr_api_full_text.index_document(path)
+        response = self.solr_api_full_text.index_document(path, list_documents=list_documents)
         return response
 
     @staticmethod
@@ -51,6 +52,14 @@ def main():
         default="http://solr-lss-dev:8983/solr/#/core-x/",
     )
 
+    # Path to the folder where the documents are stored. This parameter is useful for runing the script locally
+    parser.add_argument(
+        "--document_local_path",
+        help="Path of the folder where the documents are stored.",
+        required=False,
+        default=None
+    )
+
     args = parser.parse_args()
 
     solr_api_full_text = HTSolrAPI(url=args.solr_indexing_api)
@@ -59,7 +68,10 @@ def main():
 
     while True:
         try:
-            document_local_path = os.path.abspath("/tmp/indexing_data/")
+            if args.document_local_path:
+                document_local_path = os.path.abspath(args.document_local_path)
+            else:
+                document_local_path = os.path.abspath(DOCUMENT_LOCAL_PATH)
 
             # Get the files for indexing
             xml_files = [
@@ -76,7 +88,7 @@ def main():
 
                     logger.info(f"Indexing documents: {chunk}")
                     response = document_indexer_service.indexing_documents(
-                        document_local_path
+                        document_local_path, list_documents=chunk
                     )
                     logger.info(f"Index operation status: {response.status_code}")
                     if response.status_code == 200:
@@ -85,7 +97,7 @@ def main():
                         )
 
         except Exception as e:
-            logger.info(f"/tmp/indexing_data/ does not exit {e}")
+            logger.info(f"{document_local_path} does not exit {e}")
             sleep(30)  # Wait until the folder is created
 
         logger.info(f"Processing ended, sleeping for 5 minutes")
