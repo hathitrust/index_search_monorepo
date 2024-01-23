@@ -1,13 +1,25 @@
 import pytest
 
-from ht_query.ht_query import HTSearchQuery, QUERY_PARAMETER_CONFIG_FILE, FACET_FILTERS_CONFIG_FILE
+from ht_query.ht_query import HTSearchQuery
+from config_search import QUERY_PARAMETER_CONFIG_FILE, FACET_FILTERS_CONFIG_FILE
 
+def ht_search_query_object():
+    """
+    Fixture that instantiates the HTFullTextQuery class
+    :return:
+    """
+
+    return HTSearchQuery(
+        config_query="all",
+        config_query_path=QUERY_PARAMETER_CONFIG_FILE,
+        user_id=None,
+        config_facet_field="all",
+        config_facet_field_path=FACET_FILTERS_CONFIG_FILE,
+    )
 
 class TestHTSearchQuery:
     def test_query_string_to_dict(self):
-        assert HTSearchQuery().query_string_to_dict(
-            "q=*:*&start=0&rows=10&fl=id&indent=on"
-        ) == {"q": "*:*", "start": "0", "rows": "10", "fl": "id", "indent": "on"}
+        assert HTSearchQuery.query_string_to_dict("q=*:*&start=0&rows=10&fl=id&indent=on") == {"q": "*:*", "start": "0", "rows": "10", "fl": "id", "indent": "on"}
 
     def test_query_key_keep_string(self):
         assert HTSearchQuery().query_string_to_dict(
@@ -17,7 +29,7 @@ class TestHTSearchQuery:
             "start": "0",
             "rows": "10",
             "fl": "id",
-            "indent": "on",
+            "indent": "on"
         }
 
     def test_create_boost_query_fields(self):
@@ -64,7 +76,7 @@ class TestHTSearchQuery:
 
     def test_make_exact_phrase_query_string(self):
         query_string = "information retrieval"
-        assert '"information retrieval"' == HTSearchQuery.get_exact_phrase_query(query_string) #'"'.join(("", query_string, ""))
+        assert '"information retrieval"' == HTSearchQuery.get_exact_phrase_query(query_string)
 
     def test_makey_any_work_query_string(self):
         query_string = "information retrieval"

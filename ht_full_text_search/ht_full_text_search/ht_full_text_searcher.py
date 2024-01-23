@@ -1,4 +1,12 @@
-from ht_searcher import HTSearcher
+from ht_searcher.ht_searcher import HTSearcher
+from ht_full_text_search.ht_full_text_query import HTFullTextQuery
+from config_search import SOLR_URL, FULL_TEXT_SEARCH_SHARDS
+from typing import Text
+
+from argparse import ArgumentParser
+import os
+
+
 
 """
 LS::Operation::Search ==> it contains all the logic about interleaved adn A/B tests
@@ -6,21 +14,28 @@ LS::Operation::Search ==> it contains all the logic about interleaved adn A/B te
 
 class HTFullTextSearcher(HTSearcher):
 
-    def __init__(self, C, act):
-        self.C = C
-        self.act = act
+    def __init__(self, engine_uri: Text = None,
+                 timeout: int = None,
+                 ht_search_query: HTFullTextQuery = None,
+                 use_shards: bool= False):
 
+        super().__init__(engine_uri=engine_uri, timeout=timeout,
+                         ht_search_query=ht_search_query,
+                         use_shards=use_shards)
+        # TODO implement the of AB test and interleave
+        """
         self.AB_config = C.get_object('AB_test_config')
         self.use_interleave = self.AB_config['_']['use_interleave']
         self.use_B_query = self.AB_config['_']['use_B_query']
         self.N_Interleaved = self.AB_config['_']['Num_Interleaved_Results']
-
+        """
+    """
     def do_query(self, C, searcher, user_query_string, query_type, start_row, num_rows, AB):
 
-        """Note that this code assumes that you have the necessary Python modules/packages installed
-        (LS.Query.Facets, LS.Result.JSON.Facets, etc.). You may need to install them if you haven't done so already.
-        Let me know if you need any further assistance!
-        """
+        #Note that this code assumes that you have the necessary Python modules/packages installed
+        #(LS.Query.Facets, LS.Result.JSON.Facets, etc.). You may need to install them if you haven't done so already.
+        #Let me know if you need any further assistance!
+        
 
         Q = LS.Query.Facets(C, user_query_string, None, {
             'solr_start_row': start_row,
@@ -223,3 +238,47 @@ class HTFullTextSearcher(HTSearcher):
         a_result_data['a_rs']['result_ids'] = result_ids
 
         return a_result_data
+    """
+
+if __name__ == "__main__":
+
+    parser = ArgumentParser()
+    parser.add_argument("--env", default=os.environ.get("HT_ENVIRONMENT", "dev"))
+    parser.add_argument("--query_string", help="Query string", default=None)
+    parser.add_argument("--fl", help="Fields to return", default=["author", "id", "title"])
+    parser.add_argument("--solr_url", help="Solr url", default=None)
+    parser.add_argument("--operator", help="Operator", default="AND")
+    parser.add_argument("--query_config", help="Type of query acronly or all", default="all")
+    parser.add_argument("--use_shards", help="If the query should include shards", default=False)
+
+
+    # input:
+    args = parser.parse_args()
+
+    # Receive as a parameter an specific solr url
+    if args.solr_url:
+        solr_url = args.solr_url
+    else: # Use the default solr url, depending on the environment. If prod environment, use shards
+        solr_url = SOLR_URL[args.env]
+
+    query_string = "chief justice"
+    fl = ["author", "id", "title"]
+    use_shards = False
+
+    if args.env == "prod":
+        use_shards = FULL_TEXT_SEARCH_SHARDS
+    else:
+        use_shards = args.use_shards # By default is False
+
+    # Create query object
+    Q = HTFullTextQuery(config_query="all")
+
+    # Create full text searcher object
+    ht_full_search = HTFullTextSearcher(engine_uri=solr_url,
+                                        ht_search_query=Q,
+                                        use_shards=use_shards)
+    solr_output = ht_full_search.solr_result(
+        url=solr_url, query_string=query_string, fl=fl, operator="AND"
+    )
+
+    print(solr_output)

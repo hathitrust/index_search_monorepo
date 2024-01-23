@@ -5,18 +5,10 @@
 # from Access import Rights
 
 import os
-import sys
-import inspect
 
 from ht_query.ht_query import HTSearchQuery
-
-
-currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-parentdir = os.path.dirname(currentdir)
-sys.path.insert(0, parentdir)
-
-
-
+from typing import Text
+from config_search import QUERY_PARAMETER_CONFIG_FILE, FACET_FILTERS_CONFIG_FILE
 
 class HTFullTextQuery(HTSearchQuery):
 
@@ -26,17 +18,33 @@ class HTFullTextQuery(HTSearchQuery):
     Query parser, query attributes and returns
     """
 
-    def __init__(self, query_string, internal):
-        self.cached_solr_query_string = False  # TODO Use Case: Keep the query on cache for avoiding repeat MySql queries
-        self.query_configuration = { # TODO Retrieve this parameters from a Config file
-            "solr_num_rows": 100,
-            "solr_start_row": 0,
-            "full_text_query": True
-        }
-        super().__init__(query_string=query_string, internal=internal)
+    def __init__(
+        self,
+        config_query: Text = "all",
+        config_query_path: Text = QUERY_PARAMETER_CONFIG_FILE,
+        user_id: Text = None,
+        config_facet_field: Text = None,
+        config_facet_field_path: Text = FACET_FILTERS_CONFIG_FILE,
+    ):
+        """
+        Constructor to create the Solr query
+        :param config_query: Name of the query defined in the config_query.yaml file
+        :param config_query_path: Path to the config_query.yaml file
+        :param user_id: Use to set up the filters
+        :param config_facet_field: Name of the entry with facets and filters in config_facet_field.yaml file.
+        If None, then not facet or filter will be used in the query
+        :param config_facet_field_path: Path to the config_facet_field.yaml file
+        """
 
-    # def AFTER_Query_initialize(self, C, internal, config_hashref):
-    #    self.query_configuration = config_hashref
+        self.cached_solr_query_string = False  # TODO Use Case: Keep the query on cache for avoiding repeat MySql queries
+
+        super().__init__(
+            config_query=config_query,
+            config_query_path=config_query_path,
+            user_id=user_id,
+            config_facet_field=config_facet_field,
+            config_facet_field_path=config_facet_field_path,
+        )
 
     def get_id_arr_ref(self):
         return self.id_arr_ref
@@ -118,6 +126,11 @@ if __name__ == "__main__":
     # Example usage
     query_string = "example query"
     internal = [[1, 234, 4, 456, 563456, 43563, 3456345634]]
-    Q = HTFullTextQuery(query_string, internal)
-    solr_query_string = Q.get_solr_query_string("C")
-    print(solr_query_string)
+    Q = HTFullTextQuery(config_query="all",
+                        config_query_path=QUERY_PARAMETER_CONFIG_FILE,
+                        config_facet_field=None,
+                        config_facet_field_path=FACET_FILTERS_CONFIG_FILE)
+
+    solr_query = Q.make_solr_query(query_string=query_string, operator="OR")
+
+    print(solr_query)

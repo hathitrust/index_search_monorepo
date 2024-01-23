@@ -3,6 +3,8 @@ import json
 from ht_query.ht_query import HTSearchQuery
 from typing import Text, List
 
+from config_search import SOLR_URL
+
 
 """
 Perl
@@ -31,10 +33,14 @@ class HTSearcher:
 
     """
 
-    def __init__(self, engine_uri, timeout=None, ht_search_query: HTSearchQuery = None):
+    def __init__(self, engine_uri: Text = None,
+                 timeout: int = None,
+                 ht_search_query: HTSearchQuery = None,
+                 use_shards: bool= False):
+
         self.engine_uri = engine_uri
         self.timeout = timeout
-        self.use_ls_shards = False  # Not sure if we need it right now
+        self.use_shards = use_shards  # Not sure if we need it right now
         self.query_maker = ht_search_query
 
         # TODO HTTP request string and JSON object. We should transform the query string into a JSON object
@@ -46,7 +52,7 @@ class HTSearcher:
         return self.solr_result(C, url)
 
     def solr_result(
-        self, url, query_string: Text = None, fl: List = None, operator: Text = None,
+        self, url, query_string: Text = None, fl: List = None, operator: Text = None
     ):
         """
 
@@ -72,6 +78,9 @@ class HTSearcher:
         query_dict = self.query_maker.make_solr_query(
             query_string=query_string, operator=operator, fl=fl
         )
+
+        if self.use_shards:
+            query_dict["shards"] = self.use_shards
 
         query_response = self.get_query_response(ua, url, query_dict)
 
@@ -180,6 +189,7 @@ class HTSearcher:
         return req
     """
 
+    """
     def __get_solr_select_url(self, C, query_string):
         # Add your implementation here
         pass
@@ -206,21 +216,40 @@ class HTSearcher:
         ):
             # Add your implementation here
             pass
-
-
+    """
+"""
 if __name__ == "__main__":
+
+    parser = ArgumentParser()
+    parser.add_argument("--env", default=os.environ.get("HT_ENVIRONMENT", "dev"))
+    parser.add_argument("--query_string", help="Query string", default=None)
+    parser.add_argument("--fl", help="Fields to return", default=None)
+    parser.add_argument("--solr_url", help="Solr url", default=["author", "id", "title"])
+    parser.add_argument("--operator", help="Operator", default="AND")
+    parser.add_argument("--query_config", help="Type of query acronly or all", default="all")
+
+
     # input:
-    solr_url = "http://localhost:8983/solr/#/core-x/"
+    args = parser.parse_args()
+
+    # Receive as a parameter an specific solr url
+    if args.solr_url:
+        solr_url = args.solr_url
+    else: # Use the default solr url, depending on the environment. If prod environment, use shards
+        solr_url = SOLR_URL[args.env]
 
     query_string = "chief justice"
     fl = ["author", "id", "title"]
 
     # Create query object
     Q = HTSearchQuery(conf_query="ocronly")
+    if args.env == "prod":
+        Q = HTSearchQuery(conf_query="acronly")
 
-    ht_search = HTSearcher(solr_url, ht_search_query=Q)
+    ht_search = HTSearcher(solr_url, ht_search_query=Q, use_shards=False)
     solr_output = ht_search.solr_result(
         url=solr_url, query_string=query_string, fl=fl, operator="AND"
     )
 
     print(solr_output)
+"""

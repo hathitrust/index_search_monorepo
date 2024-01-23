@@ -1,17 +1,9 @@
-# import Utils
-# import Utils.Time
-# import Utils.Logger
-# import Debug.DUtils
-# import time
-# import datetime
 
 import re
-import ast
 import yaml
 from typing import Text, List, Dict
 from functools import reduce
-import os
-import inspect
+
 from ht_utils.ht_access_rights import (
     get_fulltext_attr_list,
     g_access_requires_holdings_attribute_values,
@@ -20,44 +12,49 @@ from ht_utils.ht_access_rights import (
     g_access_requires_brittle_holdings_attribute_value,
 )
 
-currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-parentdir = os.path.dirname(currentdir)
-
-QUERY_PARAMETER_CONFIG_FILE = "/".join([parentdir, "config_query.yaml"])
-FACET_FILTERS_CONFIG_FILE = "/".join([parentdir, "config_facet_filters.yaml"])
-print(QUERY_PARAMETER_CONFIG_FILE)
-print(FACET_FILTERS_CONFIG_FILE)
-
 
 class HTSearchQuery:
     def __init__(
         self,
-        conf_query: Text = "all",
+        config_query: Text = "all",
+        config_query_path: Text = None,
         user_id: Text = None,
         config_facet_field: Text = None,
-        internal=None,
+        config_facet_field_path: Text = None
     ):
         """
         Constructor to create the Solr query
-        :param query_string: Name of the query defined in the config_query.yaml file
+        :param config_query: Name of the query defined in the config_query.yaml file
+        :param config_query_path: Path to the config_query.yaml file
         :param user_id: Use to set up the filters
         :param config_facet_field: Name of the entry with facets and filters in config_facet_field.yaml file.
         If None, then not facet or filter will be used in the query
+        :param config_facet_field_path: Path to the config_facet_field.yaml file
         :param internal: # TODO Parameter extracted from the perl code. I should check if it is necessary
         """
 
         # TODO: Define default values to initialize the query
         # self.query_string = query_string
-        self.conf_query = conf_query
-        self.solr_parameters = HTSearchQuery.initialize_solr_query(
-            QUERY_PARAMETER_CONFIG_FILE, self.conf_query
-        )
-        self.solr_facet_filters = None
-        if config_facet_field:
-            self.solr_facet_filters = HTSearchQuery.initialize_solr_query(
-                FACET_FILTERS_CONFIG_FILE, config_facet_field
+        self.config_query = config_query
+
+        try:
+            self.solr_parameters = HTSearchQuery.initialize_solr_query(
+                config_query_path, self.config_query
             )
+        except Exception as e:
+            print(f"File {config_query_path} does not exist")
+            self.solr_parameters = {} # Empty dictionary
+        try:
+            self.solr_facet_filters = HTSearchQuery.initialize_solr_query(
+                config_facet_field_path, config_facet_field
+            )
+        except Exception as e:
+            print(f"File {config_facet_field} does not exist")
+            self.solr_facet_filters = {}  # Empty dictionary
+            pass
+
         self.user_id = user_id  # parameter used to set up the filters
+
 
     # TODO: perl method that probably we will remove
     @staticmethod
@@ -68,7 +65,8 @@ class HTSearchQuery:
         return data[conf_query]
 
     # Function to convert a string in a dictionary
-    def query_string_to_dict(self, string_query):
+    @staticmethod
+    def query_string_to_dict(string_query):
         return dict(
             qc.split("=") if qc[0] != "q" else [qc[0], "=".join(qc.split("=")[1:])]
             for qc in string_query.split("&")
@@ -117,7 +115,7 @@ class HTSearchQuery:
         return '"'.join(("", query_string, ""))
 
     @staticmethod
-    def manage_string_query(input_phrase: Text, opperator: Text = None) -> Dict:
+    def manage_string_query(input_phrase: Text, operator: Text = None) -> Dict:
         """
         This function transform a query_string in Solr string format
 
@@ -125,16 +123,16 @@ class HTSearchQuery:
         e.g. '"information issue"' # exact phrase query
         e.g. "information issue" # all these words
         :param input_phrase:
-        :param opperator: It could be, all, exact_match or boolean_opperator
+        :param operator: It could be, all, exact_match or boolean_opperator
         :return:
         """
 
         query_string_dict = {"q": HTSearchQuery.get_exact_phrase_query(input_phrase)}
 
-        if opperator == "OR":
-            query_string_dict = {"q": input_phrase, "q.op": opperator}
-        elif opperator == "AND":
-            query_string_dict = {"q": input_phrase, "q.op": opperator}
+        if operator == "OR":
+            query_string_dict = {"q": input_phrase, "q.op": operator}
+        elif operator == "AND":
+            query_string_dict = {"q": input_phrase, "q.op": operator}
         return query_string_dict
 
     def make_solr_query(
@@ -366,7 +364,7 @@ if __name__ == "__main__":
     # Example usage
     query_string = "Natural history"
     # internal = [[1, 234, 4, 456, 563456, 43563, 3456345634]]
-    Q = HTSearchQuery(conf_query="all")
+    Q = HTSearchQuery(config_query="all")
     solr_query = Q.make_solr_query(query_string=query_string, operator="OR")
 
     print(solr_query)

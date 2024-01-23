@@ -1,0 +1,5 @@
+version: "3"
+services:
+  document_retriever:
+    container_name: full_text_searcher
+    image: full_text_search
