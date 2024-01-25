@@ -57,6 +57,8 @@ WORKDIR /app
 
 COPY . .
 
-ENTRYPOINT ["python3", "ht_full_text_search/ht_full_text_searcher.py", "--env", "dev", "--query_string", "\"chief justice\"", "--operator", "AND", "--query_config", "all"]
+#ENTRYPOINT ["python3", "ht_full_text_search/ht_full_text_searcher.py"]
+#
+CMD ["python3"]
 
 USER appuser

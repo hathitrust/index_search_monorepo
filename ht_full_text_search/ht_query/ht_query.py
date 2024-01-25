@@ -1,4 +1,3 @@
-
 import re
 import yaml
 from typing import Text, List, Dict
@@ -20,7 +19,7 @@ class HTSearchQuery:
         config_query_path: Text = None,
         user_id: Text = None,
         config_facet_field: Text = None,
-        config_facet_field_path: Text = None
+        config_facet_field_path: Text = None,
     ):
         """
         Constructor to create the Solr query
@@ -43,7 +42,7 @@ class HTSearchQuery:
             )
         except Exception as e:
             print(f"File {config_query_path} does not exist")
-            self.solr_parameters = {} # Empty dictionary
+            self.solr_parameters = {}  # Empty dictionary
         try:
             self.solr_facet_filters = HTSearchQuery.initialize_solr_query(
                 config_facet_field_path, config_facet_field
@@ -54,7 +53,6 @@ class HTSearchQuery:
             pass
 
         self.user_id = user_id  # parameter used to set up the filters
-
 
     # TODO: perl method that probably we will remove
     @staticmethod

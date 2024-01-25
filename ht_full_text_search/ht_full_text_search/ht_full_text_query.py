@@ -10,6 +10,7 @@ from ht_query.ht_query import HTSearchQuery
 from typing import Text
 from config_search import QUERY_PARAMETER_CONFIG_FILE, FACET_FILTERS_CONFIG_FILE
 
+
 class HTFullTextQuery(HTSearchQuery):
 
     """
@@ -126,10 +127,12 @@ if __name__ == "__main__":
     # Example usage
     query_string = "example query"
     internal = [[1, 234, 4, 456, 563456, 43563, 3456345634]]
-    Q = HTFullTextQuery(config_query="all",
-                        config_query_path=QUERY_PARAMETER_CONFIG_FILE,
-                        config_facet_field=None,
-                        config_facet_field_path=FACET_FILTERS_CONFIG_FILE)
+    Q = HTFullTextQuery(
+        config_query="all",
+        config_query_path=QUERY_PARAMETER_CONFIG_FILE,
+        config_facet_field=None,
+        config_facet_field_path=FACET_FILTERS_CONFIG_FILE,
+    )
 
     solr_query = Q.make_solr_query(query_string=query_string, operator="OR")
 

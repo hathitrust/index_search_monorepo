@@ -3,10 +3,19 @@ Implement here the function to check the access rights of the user.
 We should include this feature to the full-text search query
 """
 
-#Variable copy from mdp-lib/RightsGlobals.pm
-g_access_requires_holdings_attribute_values = (2, 3, 4, 5, 6, 16) # SSD only, if institution holds
+# Variable copy from mdp-lib/RightsGlobals.pm
+g_access_requires_holdings_attribute_values = (
+    2,
+    3,
+    4,
+    5,
+    6,
+    16,
+)  # SSD only, if institution holds
 SSD_USER = 3
-g_access_requires_brittle_holdings_attribute_value = 3 # Some users, if institution holds
+g_access_requires_brittle_holdings_attribute_value = (
+    3  # Some users, if institution holds
+)
 
 
 def get_fulltext_attr_list(C):
@@ -17,7 +26,8 @@ def get_fulltext_attr_list(C):
     :param C:
     :return:
     """
-    return C.get_config('fulltext_attr_list')
+    return C.get_config("fulltext_attr_list")
+
 
 def get_access_type_determination(C):
     """
@@ -27,4 +37,4 @@ def get_access_type_determination(C):
     :param C:
     :return:
     """
-    return C.get_config('access_type_determination')
+    return C.get_config("access_type_determination")

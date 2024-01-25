@@ -3,6 +3,7 @@ import pytest
 from ht_query.ht_query import HTSearchQuery
 from config_search import QUERY_PARAMETER_CONFIG_FILE, FACET_FILTERS_CONFIG_FILE
 
+
 def ht_search_query_object():
     """
     Fixture that instantiates the HTFullTextQuery class
@@ -17,9 +18,12 @@ def ht_search_query_object():
         config_facet_field_path=FACET_FILTERS_CONFIG_FILE,
     )
 
+
 class TestHTSearchQuery:
     def test_query_string_to_dict(self):
-        assert HTSearchQuery.query_string_to_dict("q=*:*&start=0&rows=10&fl=id&indent=on") == {"q": "*:*", "start": "0", "rows": "10", "fl": "id", "indent": "on"}
+        assert HTSearchQuery.query_string_to_dict(
+            "q=*:*&start=0&rows=10&fl=id&indent=on"
+        ) == {"q": "*:*", "start": "0", "rows": "10", "fl": "id", "indent": "on"}
 
     def test_query_key_keep_string(self):
         assert HTSearchQuery().query_string_to_dict(
@@ -29,19 +33,25 @@ class TestHTSearchQuery:
             "start": "0",
             "rows": "10",
             "fl": "id",
-            "indent": "on"
+            "indent": "on",
         }
 
     def test_create_boost_query_fields(self):
+        data = HTSearchQuery.initialize_solr_query(
+            QUERY_PARAMETER_CONFIG_FILE, conf_query="all"
+        )
 
-        data = HTSearchQuery.initialize_solr_query(QUERY_PARAMETER_CONFIG_FILE, conf_query="all")
-
-        assert HTSearchQuery().create_boost_query_fields(data['qf'])[0:3] == ["allfieldsProper^2", "allfields^1", "titleProper^50"]
+        assert HTSearchQuery().create_boost_query_fields(data["qf"])[0:3] == [
+            "allfieldsProper^2",
+            "allfields^1",
+            "titleProper^50",
+        ]
 
     def test_facet_creator(self):
-
-        data = HTSearchQuery.initialize_solr_query(FACET_FILTERS_CONFIG_FILE, conf_query="all")
-        assert HTSearchQuery().facet_creator(data['facet']) == {
+        data = HTSearchQuery.initialize_solr_query(
+            FACET_FILTERS_CONFIG_FILE, conf_query="all"
+        )
+        assert HTSearchQuery().facet_creator(data["facet"]) == {
             "facet.mincount": 1,
             "facet": "on",
             "facet.limit": 30,
@@ -52,7 +62,8 @@ class TestHTSearchQuery:
                 "countryOfPubStr",
                 "bothPublishDateRange",
                 "format",
-                "htsource"]
+                "htsource",
+            ],
         }
 
     def test_query_json_format(self):
@@ -76,7 +87,9 @@ class TestHTSearchQuery:
 
     def test_make_exact_phrase_query_string(self):
         query_string = "information retrieval"
-        assert '"information retrieval"' == HTSearchQuery.get_exact_phrase_query(query_string)
+        assert '"information retrieval"' == HTSearchQuery.get_exact_phrase_query(
+            query_string
+        )
 
     def test_makey_any_work_query_string(self):
         query_string = "information retrieval"
@@ -106,9 +119,9 @@ class TestHTSearchQuery:
             14,
             17,
             22,
-            12
+            12,
         ]
 
-        assert expected_filter == HTSearchQuery().query_filter_creator(filter_name, filter_value)
-
-
+        assert expected_filter == HTSearchQuery().query_filter_creator(
+            filter_name, filter_value
+        )

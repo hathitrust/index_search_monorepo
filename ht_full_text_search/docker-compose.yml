@@ -1,5 +1,49 @@
 version: "3"
 services:
-  document_retriever:
+  full_text_searcher:
     container_name: full_text_searcher
-    image: full_text_search
+    image: full-text-searcher
+    depends_on:
+      solr-lss-dev:
+        condition: service_healthy
+    tty: true
+  test:
+    container_name: full_text_searcher_test
+    build: .
+    volumes:
+      - .:/app
+      #- ../tmp:/tmp
+    command: [ "pytest" ]
+    depends_on:
+      solr-lss-dev:
+        condition: service_healthy
+  solr-lss-dev:
+    image: ghcr.io/hathitrust/full-text-search-embedded_zoo_data_sampling:example-8.11
+    container_name: solr-lss-dev
+    ports:
+        - "8983:8983"
+    volumes:
+        - solr_data:/var/solr/data
+    command: solr-foreground -c
+    healthcheck:
+        test: [ "CMD-SHELL", "solr healthcheck -c core-x" ]
+        interval: 5s
+        timeout: 10s
+        start_period: 30s
+        retries: 5
+  data_loader: # It is probably for this application I should create the image first
+    image: ghcr.io/hathitrust/lss_solr_configs-data_loader:data_sampling
+      #context: .
+      #dockerfile: ./solr8.11.2_files/Dockerfile
+      #target: embedded_zookeeper
+    entrypoint: [ "/bin/sh", "-c" ,"indexing_data.sh http://solr-lss-dev:8983" ]
+    volumes:
+      - solr_data:/var/solr/data
+      #- .:/app
+    depends_on:
+      solr-lss-dev:
+        condition: service_healthy
+volumes:
+    solr_data:
+    app:
+    #tmp:
