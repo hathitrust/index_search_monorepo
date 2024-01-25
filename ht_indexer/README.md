@@ -61,12 +61,11 @@ FY: This logic was adopted because is complex to set up permission in the docker
 scp
 
 Find this module in: `ht_indexer/ht_utils/sample_data/`. All the logic is implemented in the
-script `sample_data_creator.py`
+script `sample_data_creator.sh`.
 The script will use the JSON file `full-output-catalog-index.json`, that contains an extract of the Catalog Solr index
 to generate the list of items to index. The file `sample_data_ht_ids.txt` is generated to load the list of items.
-The file `sample_data_path.txt`  is also generated with the list of paths. We decided to obtain the pair-tree path using
-python
-and use shell script to download the documents via scp.
+The file `sample_data_path.txt` is also generated with the list of paths. We decided to obtain the pair-tree path using
+python and use shell script to download the documents via scp.
 
 The script will generate the folder /sdr1/obj to download the .zip and .mets.xml file for the list of records.
 The folder will be created in the parent directory of ht_indexer repository.
@@ -80,10 +79,23 @@ The folder will be created in the parent directory of ht_indexer repository.
   argument
 * sdr_dir=/sdr1/obj, you can also change this value passing a different argument.
 
+I have had some issues running the python script with the docker (line 34 of `sample_data_creator.sh`). It seems python
+is not able to receive the arguments defined as environment variables in the console.
+
+To overcome it, I recommend to use the python script directly to create the sample of data and before that you should
+define the environment variables SAMPLE_PERCENTAGE and ALL_ITEMS.
+
+``python ht_indexer/ht_utils/sample_data/sample_data_generator.py``
+
+Once you have the list of documents you want to include in the sample, comment the line 34 of
+the `sample_data_creator.sh`
+script and run it to download the files through scp protocol.
+
 ## Run the services for retrieving and indexing data
 
 In your workdir, run te scripts `run_retriever_processor.sh`  to generate the XML file to index in full-text search
 index.
+
 This services access to MariaDB database and Solr to obtain the metadata of each item.
 It also extracts metadata from .zip and .mets.xml files
 In the docker-compose.yml file, you will find all the environment variables used by this component.
@@ -92,12 +104,16 @@ It should access to `/sdr1/obj` folder to retrieve the .zip and mets.xml and it 
 component are stored in `/tmp/indexing_data` folder.
 
 To use in Kubernetes:
-Service retriever is able to retrieve the documents to process from Catalog (catalog) index.
+**Service retriever** is able to retrieve the documents to process from Catalog (catalog) index.
 In this case, it must access to a paitree-based repository to retrieve the files of the selected items.
 
 To use in your local environment:
-Service retriever is able to retrieve the items to process from a local file with the list of items to process.
-In this case, all the files have to be in a folder in your local environment.
+**Service retriever** is able to retrieve the items to process from a local file with the list of items to process.
+In this case, all the files have to be in a folder in your local environment (`/sdr1/obj`).
+
+As a parameter to the script `full_text_search_retriever_service.py`, you can use `--document_local_path` to
+define the folder to store the generated XML files. This parameter is manly used for testing purposes in your local
+environment.
 
 2. Indexing data: ```bash run_retriever_processor.sh```
     3. ```docker compose exec document_indexer python document_indexer_service/document_indexer_service.py --solr_indexing_api http://solr-lss-dev:8983/solr/#/core-x/```
@@ -105,7 +121,7 @@ In this case, all the files have to be in a folder in your local environment.
 If everything works well, in your browser you will access to the API documentation http://localhost:8081/docs/. You will
 also find the indexed documents in http://localhost:8983/solr/#/core-x/query?q=*:*&q.op=OR&indent=true
 
-## Python command to use the services for indexing documents in Full-text search index
+## Python command to use the services for indexing documents in Full-text search index (local environment)
 
 ``python document_retriever_service/full_text_search_retriever_service.py
 --solr_url http://localhost:9033/solr/#/catalog/ --mysql_host mudslide.umdl.umich.edu --mysql_user user_name
@@ -120,10 +136,20 @@ also find the indexed documents in http://localhost:8983/solr/#/core-x/query?q=*
           Use this command to run solr container
         * ```docker-compose up -d solr-sdr-catalog solr-lss-dev test```
 
+* To run it locally, you should pass the path to the folder with the XML files to index
+    * ``python document_retriever_service/full_text_search_retriever_service.py --document_local_path /User/..../tmp``
+
 Use the command below to start the service to index documents
 
 ``
 python document_indexer_service/document_indexer_service.py --solr_indexing_api http://localhost:8983/solr/#/core-x/
+``
+
+* To run it locally, you should pass the path to the folder with the XML files to index.
+
+``
+python document_indexer_service/document_indexer_service.py --solr_indexing_api http://localhost:8983/solr/#/core-x/
+--document_local_path /User/..../tmp
 ``
 
 To run testing locally you would execute `ht_indexer_api_test.py`

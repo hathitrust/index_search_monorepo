@@ -126,6 +126,14 @@ def main():
         "--document_repository", help="Could be pairtree or local", default="local"
     )
 
+    # Path to the folder where the documents are stored. This parameter is useful for runing the script locally
+    parser.add_argument(
+        "--document_local_path",
+        help="Path of the folder where the documents (.xml file to index) are stored.",
+        required=False,
+        default=None
+    )
+
     args = parser.parse_args()
 
     document_generator = DocumentGenerator(db_conn)
@@ -134,11 +142,15 @@ def main():
         solr_api_catalog, document_generator
     )
 
-    document_local_path = "indexing_data"
+    document_local_folder = "indexing_data"
+    document_local_path = DOCUMENT_LOCAL_PATH
 
     # Create the directory to load the xml files if it does not exit
+
     try:
-        os.makedirs(os.path.join(DOCUMENT_LOCAL_PATH, document_local_path))
+        if args.document_local_path:
+            document_local_path = os.path.abspath(args.document_local_path)
+        os.makedirs(os.path.join(document_local_path, document_local_folder))
     except FileExistsError:
         pass
 
@@ -162,7 +174,7 @@ def main():
         solr_str = create_solr_string(entry)
         logger.info(f"Creating XML file to index")
         with open(
-                f"/{os.path.join(DOCUMENT_LOCAL_PATH, document_local_path)}/{namespace}{file_name}_solr_full_text.xml",
+                f"/{os.path.join(document_local_path, document_local_folder)}/{namespace}{file_name}_solr_full_text.xml",
                 "w",
         ) as f:
             f.write(solr_str)
