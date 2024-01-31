@@ -29,45 +29,60 @@ class FullTextSearchRetrieverService(CatalogRetrieverService):
 
         self.document_generator = document_generator
 
-    def generate_full_text_entry(self, query, start, rows, all_items, document_repository):
+    def generate_full_text_entry(self, query, start, rows, all_items, document_repository, chunk=None):
+
+        # TODO: Split the logic of retrieve_documents and generate_full_text_entry. The function that generates the entry
+        # should receive the ht_id to process and their metadata.
+        # The logic to retrieve from Catalog (all fields or only the first one) should be in the retrieve_documents function
+        # Right now the logic is too complex because if I want to retrieve all the items of a record, then in the query I should I the id
+        # but if I want to retrieve an specific item (ht_id), then I should use the ht_id field in the query
+        # This is not intuitive and it is not clear
+        # An issue of the current implementation is that we are processing the first element of the record and not the
+        # ht_id passed as a parameter
+
         for results in self.retrieve_documents(query, start, rows):
             for record in results:
+                """
                 if all_items:
                     # Process all the records of a Catalog
                     total_items = len(record.get("ht_id"))
                 else:
                     # Process the first item of the Catalog record
                     total_items = 1
+                """
+                for i in range(0, len(record.get("ht_id"))):
+                    current_ht_id = record.get("ht_id")[i]
+                    if current_ht_id in chunk:
+                        item_id = record.get("ht_id")[i]
+                        logger.info(f"Item ID {item_id}")
 
-                for i in range(0, total_items):
-                    item_id = record.get("ht_id")[i]
-                    logger.info(f"Item ID {item_id}")
+                        logger.info(f"Processing document {item_id}")
 
-                    logger.info(f"Processing document {item_id}")
+                        # Instantiate each document
+                        ht_document = HtDocument(document_id=item_id, document_repository=document_repository)
 
-                    # Instantiate each document
-                    ht_document = HtDocument(document_id=item_id, document_repository=document_repository)
+                        logger.info(f"Checking path {ht_document.source_path}")
 
-                    logger.info(f"Checking path {ht_document.source_path}")
+                        # TODO: Temporal local for testing using a sample of files
+                        #  Checking if the file exist, otherwise go to the next
+                        if os.path.isfile(f"{ht_document.source_path}.zip"):
 
-                    # TODO: Temporal local for testing using a sample of files
-                    #  Checking if the file exist, otherwise go to the next
-                    if os.path.isfile(f"{ht_document.source_path}.zip"):
+                            logger.info(f"Processing item {ht_document.document_id}")
 
-                        logger.info(f"Processing item {ht_document.document_id}")
+                            try:
+                                entry = self.document_generator.make_full_text_search_document(
+                                    ht_document, record
+                                )
+                                # yield entry
+                            except Exception as e:
+                                logger.error(f"Document {item_id} failed {e}")
+                                continue
 
-                        try:
-                            entry = self.document_generator.make_full_text_search_document(
-                                ht_document, record
-                            )
-                            # yield entry
-                        except Exception as e:
-                            logger.error(f"Document {item_id} failed {e}")
+                            yield entry, ht_document.file_name, ht_document.namespace
+                        else:
+                            logger.info(f"{ht_document.document_id} does not exist")
                             continue
-
-                        yield entry, ht_document.file_name, ht_document.namespace
                     else:
-                        logger.info(f"{ht_document.document_id} does not exist")
                         continue
 
 
@@ -134,6 +149,13 @@ def main():
         default=None
     )
 
+    parser.add_argument(
+        "--list_ids_path",
+        help="Path of the TXT files with the list of id to generate",
+        required=False,
+        default=None
+    )
+
     args = parser.parse_args()
 
     document_generator = DocumentGenerator(db_conn)
@@ -157,29 +179,65 @@ def main():
     count = 0
     query = args.query
     start = 0
-    rows = 50
+    rows = 100
 
-    for (
-            entry,
-            file_name,
-            namespace,
-    ) in document_indexer_service.generate_full_text_entry(
-        query,
-        start,
-        rows,
-        all_items=args.all_items,
-        document_repository=args.document_repository
-    ):
-        count = count + 1
-        solr_str = create_solr_string(entry)
-        logger.info(f"Creating XML file to index")
-        with open(
-                f"/{os.path.join(document_local_path, document_local_folder)}/{namespace}{file_name}_solr_full_text.xml",
-                "w",
-        ) as f:
-            f.write(solr_str)
+    if args.list_ids_path:
+        # If a document with the list of id to process is received as a parameter, then create batch of queries
+        with open(args.list_ids_path) as f:
+            list_ids = f.read().splitlines()
 
-        logger.info(count)
+            while list_ids:
+                chunk, list_ids = list_ids[:100], list_ids[100:]
+                values = "\" OR \"".join(chunk)
+                values = '"'.join(("", values, ""))
+                query = f"ht_id:({values})"
+                # query = f"ht_id:({' OR '.join(chunk)})"
+
+                for (
+                        entry,
+                        file_name,
+                        namespace,
+                ) in document_indexer_service.generate_full_text_entry(
+                    query,
+                    start,
+                    rows,
+                    all_items=args.all_items,
+                    document_repository=args.document_repository,
+                    chunk=chunk
+                ):
+                    count = count + 1
+                    solr_str = create_solr_string(entry)
+                    logger.info(f"Creating XML file to index")
+                    with open(
+                            f"/{os.path.join(document_local_path, document_local_folder)}/{namespace}{file_name}_solr_full_text.xml",
+                            "w",
+                    ) as f:
+                        f.write(solr_str)
+
+                    logger.info(count)
+
+    else:
+        for (
+                entry,
+                file_name,
+                namespace,
+        ) in document_indexer_service.generate_full_text_entry(
+            query,
+            start,
+            rows,
+            all_items=args.all_items,
+            document_repository=args.document_repository
+        ):
+            count = count + 1
+            solr_str = create_solr_string(entry)
+            logger.info(f"Creating XML file to index")
+            with open(
+                    f"/{os.path.join(document_local_path, document_local_folder)}/{namespace}{file_name}_solr_full_text.xml",
+                    "w",
+            ) as f:
+                f.write(solr_str)
+
+            logger.info(count)
 
 
 if __name__ == "__main__":
