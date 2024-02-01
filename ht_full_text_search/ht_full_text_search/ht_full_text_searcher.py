@@ -7,21 +7,25 @@ from argparse import ArgumentParser
 import os
 
 
-
 """
 LS::Operation::Search ==> it contains all the logic about interleaved adn A/B tests
 """
 
+
 class HTFullTextSearcher(HTSearcher):
-
-    def __init__(self, engine_uri: Text = None,
-                 timeout: int = None,
-                 ht_search_query: HTFullTextQuery = None,
-                 use_shards: bool= False):
-
-        super().__init__(engine_uri=engine_uri, timeout=timeout,
-                         ht_search_query=ht_search_query,
-                         use_shards=use_shards)
+    def __init__(
+        self,
+        engine_uri: Text = None,
+        timeout: int = None,
+        ht_search_query: HTFullTextQuery = None,
+        use_shards: bool = False,
+    ):
+        super().__init__(
+            engine_uri=engine_uri,
+            timeout=timeout,
+            ht_search_query=ht_search_query,
+            use_shards=use_shards,
+        )
         # TODO implement the of AB test and interleave
         """
         self.AB_config = C.get_object('AB_test_config')
@@ -29,6 +33,7 @@ class HTFullTextSearcher(HTSearcher):
         self.use_B_query = self.AB_config['_']['use_B_query']
         self.N_Interleaved = self.AB_config['_']['Num_Interleaved_Results']
         """
+
     """
     def do_query(self, C, searcher, user_query_string, query_type, start_row, num_rows, AB):
 
@@ -240,17 +245,22 @@ class HTFullTextSearcher(HTSearcher):
         return a_result_data
     """
 
-if __name__ == "__main__":
 
+if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("--env", default=os.environ.get("HT_ENVIRONMENT", "dev"))
-    parser.add_argument("--query_string", help="Query string", default=None)
-    parser.add_argument("--fl", help="Fields to return", default=["author", "id", "title"])
+    parser.add_argument("--query_string", help="Query string", default="*:*")
+    parser.add_argument(
+        "--fl", help="Fields to return", default=["author", "id", "title"]
+    )
     parser.add_argument("--solr_url", help="Solr url", default=None)
     parser.add_argument("--operator", help="Operator", default="AND")
-    parser.add_argument("--query_config", help="Type of query acronly or all", default="all")
-    parser.add_argument("--use_shards", help="If the query should include shards", default=False)
-
+    parser.add_argument(
+        "--query_config", help="Type of query ocronly or all", default="all"
+    )
+    parser.add_argument(
+        "--use_shards", help="If the query should include shards", default=False
+    )
 
     # input:
     args = parser.parse_args()
@@ -258,27 +268,27 @@ if __name__ == "__main__":
     # Receive as a parameter an specific solr url
     if args.solr_url:
         solr_url = args.solr_url
-    else: # Use the default solr url, depending on the environment. If prod environment, use shards
+    else:  # Use the default solr url, depending on the environment. If prod environment, use shards
         solr_url = SOLR_URL[args.env]
 
-    query_string = "chief justice"
-    fl = ["author", "id", "title"]
+    query_string = args.query_string
+    fl = args.fl
     use_shards = False
 
     if args.env == "prod":
         use_shards = FULL_TEXT_SEARCH_SHARDS
     else:
-        use_shards = args.use_shards # By default is False
+        use_shards = args.use_shards  # By default is False
 
     # Create query object
-    Q = HTFullTextQuery(config_query="all")
+    Q = HTFullTextQuery(config_query=args.query_config)
 
     # Create full text searcher object
-    ht_full_search = HTFullTextSearcher(engine_uri=solr_url,
-                                        ht_search_query=Q,
-                                        use_shards=use_shards)
+    ht_full_search = HTFullTextSearcher(
+        engine_uri=solr_url, ht_search_query=Q, use_shards=use_shards
+    )
     solr_output = ht_full_search.solr_result(
-        url=solr_url, query_string=query_string, fl=fl, operator="AND"
+        url=solr_url, query_string=query_string, fl=fl, operator=args.operator
     )
 
     print(solr_output)

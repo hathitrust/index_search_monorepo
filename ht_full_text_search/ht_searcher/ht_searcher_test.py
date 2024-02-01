@@ -61,16 +61,21 @@ url=http://solr-lss-dev:8983/solr/core-x?q=+_query_:"{!edismax+qf='ocr^50000+all
 """
 
 from ht_searcher.ht_searcher import HTSearcher
+
+
 @pytest.fixture(scope="module", autouse=True)
 def ht_searcher_fixture():
-    '''
+    """
     Fixture that instantiates the HTSearcher class
     :return:
-    '''
+    """
 
-    return HTSearcher(engine_uri="http://localhost:8983/solr/#/core-x/", timeout=None) #solr-lss-dev
+    return HTSearcher(
+        engine_uri="http://localhost:8983/solr/#/core-x/", timeout=None
+    )  # solr-lss-dev
 
-class TestHTSearcher():
+
+class TestHTSearcher:
 
     """
     def test_get_request_object(self, ht_searcher_fixture):
@@ -81,14 +86,15 @@ class TestHTSearcher():
     """
 
     def test_get_query_response(self, ht_searcher_fixture):
-
         url = "http://localhost:8983/solr/core-x/"
-        query_string = "?q=*:*&q.op=OR&indent=true" #"indent=on&q=date:1874&wt=json"
+        query_string = "?q=*:*&q.op=OR&indent=true"  # "indent=on&q=date:1874&wt=json"
 
         "query?q=*:*&q.op=OR&indent=true"
         "http://localhost:8983/solr/#/core-x/query?q=*:*&q.op=OR&indent=true"
-        #query_dict = {"indent": "on", "q": {"date":"1874"}, "wt": "json"}
-        code, content, status_line, x = ht_searcher_fixture.get_query_response(None, url, query_dict=query_string)
+        # query_dict = {"indent": "on", "q": {"date":"1874"}, "wt": "json"}
+        code, content, status_line, x = ht_searcher_fixture.get_query_response(
+            None, url, query_dict=query_string
+        )
 
         assert content is not None
         assert 200 == code
@@ -99,5 +105,4 @@ class TestHTSearcher():
         query_string = "indent=on&q=date:1874&wt=json"
         output = ht_searcher_fixture.solr_result(url, query_string)
 
-        assert output.get("response").get("numFound")  == 34
-
+        assert output.get("response").get("numFound") == 34

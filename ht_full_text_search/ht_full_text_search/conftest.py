@@ -20,12 +20,13 @@ FACET_FILTERS_CONFIG_FILE = "/".join(
 
 from ht_full_text_search.ht_full_text_query import HTFullTextQuery
 
+
 @pytest.fixture
 def ht_full_text_query_default_values():
-    '''
+    """
     Fixture that instantiates the HT Full Text Query class
     :return:
-    '''
+    """
 
     return HTFullTextQuery(config_query="all")
 
@@ -33,18 +34,18 @@ def ht_full_text_query_default_values():
 # General objects
 @pytest.fixture
 def ht_full_text_query():
-    '''
+    """
     Fixture that instantiates the HT Full Text Query class
     :return:
-    '''
+    """
 
-    return HTFullTextQuery(config_query="all",
-                           config_query_path=QUERY_PARAMETER_CONFIG_FILE,
-                           user_id=None,
-                           config_facet_field="all",
-                           config_facet_field_path=FACET_FILTERS_CONFIG_FILE)
-
-
+    return HTFullTextQuery(
+        config_query="all",
+        config_query_path=QUERY_PARAMETER_CONFIG_FILE,
+        user_id=None,
+        config_facet_field="all",
+        config_facet_field_path=FACET_FILTERS_CONFIG_FILE,
+    )
 
 
 @pytest.fixture

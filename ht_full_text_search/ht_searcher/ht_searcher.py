@@ -33,11 +33,13 @@ class HTSearcher:
 
     """
 
-    def __init__(self, engine_uri: Text = None,
-                 timeout: int = None,
-                 ht_search_query: HTSearchQuery = None,
-                 use_shards: bool= False):
-
+    def __init__(
+        self,
+        engine_uri: Text = None,
+        timeout: int = None,
+        ht_search_query: HTSearchQuery = None,
+        use_shards: bool = False,
+    ):
         self.engine_uri = engine_uri
         self.timeout = timeout
         self.use_shards = use_shards  # Not sure if we need it right now
@@ -217,39 +219,3 @@ class HTSearcher:
             # Add your implementation here
             pass
     """
-"""
-if __name__ == "__main__":
-
-    parser = ArgumentParser()
-    parser.add_argument("--env", default=os.environ.get("HT_ENVIRONMENT", "dev"))
-    parser.add_argument("--query_string", help="Query string", default=None)
-    parser.add_argument("--fl", help="Fields to return", default=None)
-    parser.add_argument("--solr_url", help="Solr url", default=["author", "id", "title"])
-    parser.add_argument("--operator", help="Operator", default="AND")
-    parser.add_argument("--query_config", help="Type of query acronly or all", default="all")
-
-
-    # input:
-    args = parser.parse_args()
-
-    # Receive as a parameter an specific solr url
-    if args.solr_url:
-        solr_url = args.solr_url
-    else: # Use the default solr url, depending on the environment. If prod environment, use shards
-        solr_url = SOLR_URL[args.env]
-
-    query_string = "chief justice"
-    fl = ["author", "id", "title"]
-
-    # Create query object
-    Q = HTSearchQuery(conf_query="ocronly")
-    if args.env == "prod":
-        Q = HTSearchQuery(conf_query="acronly")
-
-    ht_search = HTSearcher(solr_url, ht_search_query=Q, use_shards=False)
-    solr_output = ht_search.solr_result(
-        url=solr_url, query_string=query_string, fl=fl, operator="AND"
-    )
-
-    print(solr_output)
-"""
