@@ -5,6 +5,7 @@ import inspect
 import argparse
 
 from ht_utils.ht_logger import get_ht_logger
+from ht_status_retriever_service import get_non_processed_ids
 
 logger = get_ht_logger(name=__name__)
 
@@ -78,7 +79,7 @@ class FullTextSearchRetrieverService(CatalogRetrieverService):
                                 logger.error(f"Document {item_id} failed {e}")
                                 continue
 
-                            yield entry, ht_document.file_name, ht_document.namespace
+                            yield entry, ht_document.file_name, ht_document.namespace, item_id
                         else:
                             logger.info(f"{ht_document.document_id} does not exist")
                             continue
@@ -181,22 +182,28 @@ def main():
     start = 0
     rows = 100
 
+    status_file = os.path.join(parentdir, "document_retriever_status.txt")
+
     if args.list_ids_path:
         # If a document with the list of id to process is received as a parameter, then create batch of queries
         with open(args.list_ids_path) as f:
             list_ids = f.read().splitlines()
 
-            while list_ids:
-                chunk, list_ids = list_ids[:100], list_ids[100:]
+            ids2process = get_non_processed_ids(status_file, list_ids)
+
+            logger.info(f"Total of items to process {len(ids2process)}")
+
+            while ids2process:
+                chunk, ids2process = ids2process[:100], ids2process[100:]
                 values = "\" OR \"".join(chunk)
                 values = '"'.join(("", values, ""))
                 query = f"ht_id:({values})"
-                # query = f"ht_id:({' OR '.join(chunk)})"
 
                 for (
                         entry,
                         file_name,
                         namespace,
+                        item_id
                 ) in document_indexer_service.generate_full_text_entry(
                     query,
                     start,
@@ -214,6 +221,9 @@ def main():
                     ) as f:
                         f.write(solr_str)
 
+                    with open(status_file, "a+") as file:
+                        file.write(item_id + "\n")
+                    
                     logger.info(count)
 
     else:
