@@ -1,7 +1,7 @@
 import requests
 import json
 from ht_query.ht_query import HTSearchQuery
-from typing import Text, List
+from typing import Text, List, Dict
 
 from config_search import SOLR_URL
 
@@ -54,10 +54,14 @@ class HTSearcher:
         return self.solr_result(C, url)
 
     def solr_result(
-        self, url, query_string: Text = None, fl: List = None, operator: Text = None
+        self, url, query_string: Text = None, fl: List = None, operator: Text = None, query_filter: bool = False,
+            filter_dict: Dict = None
     ):
         """
 
+        :param filter_dict:
+        :param operator:
+        :param query_filter:
         :param url:
         :param query_string:
         :param fl:
@@ -78,7 +82,7 @@ class HTSearcher:
         #    DEBUG('query', f"Query URL: {d}")
         # query_dict = self.query_maker.make_solr_query(query_string=query_string, fl=fl)
         query_dict = self.query_maker.make_solr_query(
-            query_string=query_string, operator=operator, fl=fl
+            query_string=query_string, operator=operator, fl=fl, query_filter=query_filter, filter_dict=filter_dict
         )
 
         if self.use_shards:
@@ -156,7 +160,7 @@ class HTSearcher:
             "code": code,
             "content": content,
             "status": status_line,
-            "failed_HTTP_dump": failed_HTTP_dump,
+            "failed_HTTP_dump": failed_HTTP_dump
         }
 
     """

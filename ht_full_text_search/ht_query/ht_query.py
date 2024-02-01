@@ -98,13 +98,27 @@ class HTSearchQuery:
     def facet_creator(self, facet_dictionary: Dict = None) -> Dict:
         return reduce(lambda key, value: {**key, **value}, facet_dictionary)
 
-    def query_filter_creator(self, filter_name, filter_value):
+    def query_filter_creator_string(self, filter_name, filter_value):
+
+        #'\\"dog food\\" OR prices OR \\"good eats\\"'
+        # This is the way of creating a list of string query filters
+        filter_string = (
+            "\" OR \"".join(map(str, filter_value))
+            if isinstance(filter_value, list)
+            else filter_value
+        )
+        filter_string = '"'.join(("", filter_string, ""))
+        query_filters = f"{filter_name}:({filter_string})"
+        return query_filters
+
+    def query_filter_creator_rights(self, filter_name, filter_value):
+
+        #This is the way of creating a list of integer query filters
         filter_string = (
             " OR ".join(map(str, filter_value))
             if isinstance(filter_value, list)
             else filter_value
         )
-
         query_filters = f"{filter_name}:({filter_string})"
         return query_filters
 
@@ -141,8 +155,10 @@ class HTSearchQuery:
         rows: int = 15,
         fl: List = None,
         pf: bool = True,  # It is False for Only Text query
-        filter: bool = False,  # If the query is using filter, then use config_facet_filters.yaml to create the fq parameter
+        query_filter: bool = False,  # If the query is using filter, then use config_facet_filters.yaml to create the fq parameter
+        filter_dict: Dict = None # Pass as a parameter or use the config_facet_filters.yaml if filter is True. It should have this format: {"id": [1,2,3,4,5]}
     ):
+
         query_dict = {
             "defType": self.solr_parameters.get("parser")
             if self.solr_parameters.get("parser")
@@ -178,33 +194,17 @@ class HTSearchQuery:
             query_dict.update({"fl": fl})
 
         # Add the filter query
-        if filter:
-            query_dict.update(
-                {
-                    "fq": self.query_filter_creator(
-                        "rights",
-                        [
-                            25,
-                            15,
-                            18,
-                            1,
-                            21,
-                            23,
-                            19,
-                            13,
-                            11,
-                            20,
-                            7,
-                            10,
-                            24,
-                            14,
-                            17,
-                            22,
-                            12,
-                        ],
-                    )
-                }
-            )
+        #query_dict.update({"fq": 'id:(msu.31293021774280 OR uc1.32106012252521)'}) # TODO: Remove this line and uncomment the next one
+
+        if query_filter:
+            if filter_dict:
+                query_dict.update({"fq": self.query_filter_creator_string("id",
+                                                                   filter_dict.get("id"))})
+            else: # Will retrive the default filters defined in config_facet_filters.yaml
+                query_dict.update(
+                    {"fq": self.query_filter_creator_rights("rights",
+                                                     [25, 15, 18, 1, 21, 23, 19, 13, 11, 20, 7, 10, 24, 14, 17, 22, 12])})
+
         return query_dict
 
     def AFTER_Query_initialize(self):

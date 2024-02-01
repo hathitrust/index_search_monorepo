@@ -14,3 +14,12 @@ class TestHTFullTextQuery:
         )
         assert query_dict.get("defType") == "edismax"
         assert query_dict.get("tie") == 0.5
+
+    def test_full_text_search_query_parameters_with_filters(self, ht_full_text_query):
+        query_dict = ht_full_text_query.make_solr_query(
+            query_string="query_example", operator="AND", query_filter=True, filter_dict={"id": ["umn.31951002065930r",
+                                                                                           "umn.31951d031321278"]}
+        )
+        assert query_dict.get("defType") == "edismax"
+        assert query_dict.get("tie") == 0.5
+        assert query_dict.get("fq") == 'id:(umn.31951002065930r OR umn.31951d031321278)'

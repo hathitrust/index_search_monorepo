@@ -1,3 +1,5 @@
+import json
+
 from ht_searcher.ht_searcher import HTSearcher
 from ht_full_text_search.ht_full_text_query import HTFullTextQuery
 from config_search import SOLR_URL, FULL_TEXT_SEARCH_SHARDS
@@ -261,6 +263,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "--use_shards", help="If the query should include shards", default=False
     )
+    parser.add_argument(
+        "--filter_path", help="Path of a JSON file used to filter Solr results", default=None
+    )
 
     # input:
     args = parser.parse_args()
@@ -287,8 +292,38 @@ if __name__ == "__main__":
     ht_full_search = HTFullTextSearcher(
         engine_uri=solr_url, ht_search_query=Q, use_shards=use_shards
     )
-    solr_output = ht_full_search.solr_result(
-        url=solr_url, query_string=query_string, fl=fl, operator=args.operator
-    )
 
-    print(solr_output)
+    filter_dict = {}
+    query_filter = False
+
+    if args.filter_path:
+
+        # Generate filter dictionary from JSON file
+        filter_json_file = open(args.filter_path, "r")
+        filter_dict = json.loads(filter_json_file.read())
+        query_filter = True
+
+        total_found = 0
+
+        list_ids = filter_dict[0].get('id')
+        # Processing long queries
+        if len(list_ids) > 100:
+            #processing the query in batches
+            while list_ids:
+                chunk, list_ids = list_ids[:100], list_ids[100:]
+
+                solr_output = ht_full_search.solr_result(
+                    url=solr_url, query_string=query_string, fl=fl, operator=args.operator, filter_dict={"id": chunk},
+                    query_filter=query_filter
+                )
+                print(f"One batch of results {len(chunk)}")
+                print(solr_output)
+                total_found += solr_output["response"]["numFound"]
+        else:
+            solr_output = ht_full_search.solr_result(
+                url=solr_url, query_string=query_string, fl=fl, operator=args.operator, filter_dict={"id": list_ids},
+                query_filter=query_filter
+            )
+            total_found += solr_output["response"]["numFound"]
+            print(solr_output)
+        print(f"Total found {total_found}")
