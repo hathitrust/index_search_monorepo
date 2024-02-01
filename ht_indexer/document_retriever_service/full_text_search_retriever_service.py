@@ -189,9 +189,14 @@ def main():
         with open(args.list_ids_path) as f:
             list_ids = f.read().splitlines()
 
-            ids2process = get_non_processed_ids(status_file, list_ids)
+            ids2process, processed_ids = get_non_processed_ids(status_file, list_ids)
 
             logger.info(f"Total of items to process {len(ids2process)}")
+
+            tmp_file_status = open(os.path.join(document_local_path, "document_retriever_status.txt"), "w+")
+            for doc in processed_ids:
+                tmp_file_status.write(doc + "\n")
+            tmp_file_status.close()
 
             while ids2process:
                 chunk, ids2process = ids2process[:100], ids2process[100:]
@@ -221,9 +226,9 @@ def main():
                     ) as f:
                         f.write(solr_str)
 
-                    with open(status_file, "a+") as file:
+                    with open(os.path.join(document_local_path, 'document_retriever_status.txt'), "a+") as file:
                         file.write(item_id + "\n")
-                    
+
                     logger.info(count)
 
     else:
