@@ -99,10 +99,10 @@ def main():
 
         except Exception as e:
             logger.info(f"{document_local_path} does not exit {e}")
-            sleep(30)  # Wait until the folder is created
+            sleep(3)  # Wait until the folder is created
 
         logger.info(f"Processing ended, sleeping for 5 minutes")
-        sleep(30)
+        sleep(3)
 
 
 if __name__ == "__main__":
