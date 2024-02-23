@@ -1,11 +1,3 @@
-import pytest
-import os
-import inspect
-import sys
-
-from document_indexer_service.document_indexer_service import DocumentIndexerService
-
-
 class TestFullTextRetrieverService:
     """
     def test_retrieve_xml_fields_from_directory(self):
