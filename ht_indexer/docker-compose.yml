@@ -11,7 +11,7 @@ services:
       - "8081:8081"
     environment:
       - SOLR_URL=http://solr-sdr-catalog:9033/solr/#/catalog/
-      - MYSQL_HOST=mudslide.umdl.umich.edu
+      - MYSQL_HOST=macc-ht-mysql-ro.umdl.umich.edu
       - MYSQL_USER=${MYSQL_USER}
       - MYSQL_PASS=${MYSQL_PASS}
       - MYSQL_DATABASE=ht

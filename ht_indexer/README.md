@@ -222,6 +222,25 @@ On mac,
     * `` poetry export -f requirements.txt --output requirements.txt ``
     * Use `` poetry update `` if you change your .toml file and want to generate a new version the .lock file
 
+## How to test locally indexer service
+
+In your workdir:
+
+Step 1. Create /sdr1/obj directory
+`mkdir ../sdr1/obj`
+
+Step 2. Retrieve from pairtree repository data for testing
+`scp $HT_SSH_HOST:/sdr1/obj/umn/pairtree_root/31/95/1d/03/01/41/20/v/31951d03014120v/31951d03014120v{.zip,mets.xml} ../sdr1/obj`
+
+Step 3. Create the image
+`docker build -t document_generator . docker compose up document_retriever -d`
+
+Step 4. export MYSQL_USER=
+export MYSQL_PASS=
+
+Step 5. Generate document
+`docker exec document_retriever python document_retriever_service/full_text_search_retriever_service.py --query ht_id:mb.39015078560292 --document_local_path /Users/lisepul/Documents/repositories/python/tmp --document_repository local`
+
 ## DockerFile explanations
 
 **What is the best python Docker image to use?**
