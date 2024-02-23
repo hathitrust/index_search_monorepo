@@ -1,8 +1,8 @@
-from io import BytesIO
-
 import re
-from xml.sax.saxutils import quoteattr
+from io import BytesIO
 from typing import Dict, List
+from xml.sax.saxutils import quoteattr
+
 from ht_utils.ht_logger import get_ht_logger
 
 table = str.maketrans(

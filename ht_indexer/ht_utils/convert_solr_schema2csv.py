@@ -23,7 +23,7 @@ for field in root.findall("copyField"):
             {"origen": f"copyField by {field.attrib['source']}"}
         )
 
-schema_fields_list = list(schema_fields_dic.values())
+schema_fields_list = dict(schema_fields_dic.values())
 df = pd.DataFrame.from_dict(schema_fields_list, orient="columns")
 
 df.to_csv(sep="\t", path_or_buf="full_text_fields.csv", encoding="utf-8")

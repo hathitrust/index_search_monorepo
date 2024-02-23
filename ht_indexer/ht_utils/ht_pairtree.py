@@ -8,22 +8,22 @@ logger = get_ht_logger(name=__name__)
 
 
 def download_document_file(
-    source_path: str = None, target_path: str = None, extension: str = "zip"
+        source_path: str = None, target_path: str = None, extension: str = "zip"
 ):
     try:
         public_key = os.environ["PUBLIC_KEY"]
     except KeyError:
-        print(f"Please define the environment variable PUBLIC_KEY")
+        print("Please define the environment variable PUBLIC_KEY")
         sys.exit(1)
     try:
         user = os.environ["USER"]
     except KeyError:
-        logger.info(f"Please define the environment variable USER")
+        logger.info("Please define the environment variable USER")
         sys.exit(1)
     try:
         host = os.environ["HOST"]
     except KeyError:
-        logger.info(f"Please define the environment variable HOST")
+        logger.info("Please define the environment variable HOST")
         sys.exit(1)
 
     # Copy the file from remote path

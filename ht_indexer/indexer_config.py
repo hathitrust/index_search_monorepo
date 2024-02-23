@@ -7,7 +7,7 @@ MYQLS_METADATA = ["coll_id", "ht_heldby", "ht_heldby_brlm", "rights"]
 DOCUMENT_LOCAL_PATH = "/tmp/"
 
 # Variables to manage IO operations, local folder with files
-LOCAL_DOCUMENT_FOLDER = f"{Path(__file__).parents[2]}/sdr1/obj"
+LOCAL_DOCUMENT_FOLDER = f"{Path(__file__).parents[1]}/sdr1/obj"
 
 TRANSLATE_TABLE = str.maketrans({"=": r"\=", ",": r"\,"})
 
@@ -72,4 +72,5 @@ IDENTICAL_CATALOG_METADATA = [
     "countryOfPubStr",
     "genre",
     "era",
+    "fullrecord"
 ]
