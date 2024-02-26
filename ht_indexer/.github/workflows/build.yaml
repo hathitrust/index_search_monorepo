@@ -39,7 +39,7 @@ jobs:
       - name: Build Image
         uses: hathitrust/github_actions/build@action-updates
         with:
-          image: ghcr.io/${{ github.repository }}
+          image: ghcr.io/hathitrust/ht-indexer
           dockerfile: Dockerfile
           tag: ${{ env.tag }}
           push_latest: ${{ env.push_latest}}
