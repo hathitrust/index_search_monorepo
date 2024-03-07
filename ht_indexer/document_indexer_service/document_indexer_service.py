@@ -80,7 +80,6 @@ def main():
             ]
 
             logger.info(f"Indexing {len(xml_files)} documents.")
-            logger.info("Testing a new image in Kubernetes!!!!")
             # Split the list of files in batch
             if xml_files:
                 while xml_files:
