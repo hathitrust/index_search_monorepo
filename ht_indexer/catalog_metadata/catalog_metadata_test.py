@@ -65,11 +65,10 @@ class TestCatalogMetadata:
         assert htsource == "University of Michigan"
 
     def test_get_volume_enumcron_empty(self):
-        # TODO: Check if is correct the generation of volume_enumcrom (line 417:
-        #  https://github.com/hathitrust/slip-lib/blob/master/Document/Doc/vSolrMetadataAPI/Schema_LS_11.pm)
         """
         Some documents do not have the field volume_enumcrom, that is because it is an empty string in the second position.
-        Is that correct
+        See here https://github.com/hathitrust/hathitrust_catalog_indexer/blob/main/indexers/common_ht.rb#L50 how this
+        field is generated.
         :return:
         """
         volume_enumcrom = ""
