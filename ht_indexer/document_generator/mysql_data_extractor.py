@@ -5,6 +5,28 @@ import indexer_config
 logger = get_ht_logger(name=__name__)
 
 
+def create_coll_id_field(coll_id_result, large_coll_id_result) -> dict:
+    if len(coll_id_result) > 0:
+        list_coll_ids = [coll_id.get("MColl_ID") for coll_id in coll_id_result]
+        list_large_coll_id = [
+            coll_id.get("MColl_ID") for coll_id in large_coll_id_result
+        ]
+
+        return {"coll_id": list(set(list_coll_ids) & set(list_large_coll_id))}
+    else:
+        return {"coll_id": [0]}
+
+
+def create_ht_heldby_brlm_field(heldby_brlm) -> dict:
+    list_brl_members = [member_id.get("member_id") for member_id in heldby_brlm]
+    return {"ht_heldby_brlm": list_brl_members}
+
+
+def create_ht_heldby_field(heldby_brlm) -> dict:
+    list_brl_members = [member_id.get("member_id") for member_id in heldby_brlm]
+    return {"ht_heldby": list_brl_members}
+
+
 class MysqlMetadataExtractor:
     def __init__(self, db_conn: HtMysql):
         self.mysql_obj = db_conn
@@ -78,26 +100,16 @@ class MysqlMetadataExtractor:
         # It is a list of members, if the query result is empty the field does not appear in Solr index
         ht_heldby = self.add_ht_heldby_field(doc_id)
         if len(ht_heldby) > 0:
-            list_members = [member_id.get("member_id") for member_id in ht_heldby]
-            entry.update({"ht_heldby": list_members})
+            entry.update(create_ht_heldby_field(ht_heldby))
 
         # It is a list of members, if the query result is empty the field does not appear in Solr index
         heldby_brlm = self.add_add_heldby_brlm_field(doc_id)
+
         if len(heldby_brlm) > 0:
-            list_brl_members = [member_id.get("member_id") for member_id in heldby_brlm]
-            entry.update({"ht_heldby_brlm": list_brl_members})
+            entry.update(create_ht_heldby_brlm_field(heldby_brlm))
 
         # It is a list of coll_id, if the query result is empty, the value of this field in Solr index will be [0]
         coll_id_result, large_coll_id_result = self.add_large_coll_id_field(doc_id)
-        if len(coll_id_result) > 0:
-            list_coll_ids = [coll_id.get("MColl_ID") for coll_id in coll_id_result]
-            list_large_coll_id = [
-                coll_id.get("MColl_ID") for coll_id in large_coll_id_result
-            ]
+        entry.update(create_coll_id_field(coll_id_result, large_coll_id_result))
 
-            entry.update(
-                {"coll_id": list(set(list_coll_ids) & set(list_large_coll_id))}
-            )
-        else:
-            entry.update({"coll_id": [0]})
         return entry
