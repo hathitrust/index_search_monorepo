@@ -12,10 +12,9 @@ from document_generator.document_generator import DocumentGenerator
 from document_retriever_service.catalog_retriever_service import CatalogRetrieverService
 from document_retriever_service.full_text_search_retriever_service import FullTextSearchRetrieverService
 from document_retriever_service.ht_status_retriever_service import get_non_processed_ids
+from document_retriever_service.retriever_arguments import RetrieverServiceArgumentsByFile
 from ht_document.ht_document import logger
 from ht_indexer_api.ht_indexer_api import HTSolrAPI
-import ht_utils.ht_mysql
-from indexer_config import DOCUMENT_LOCAL_PATH
 
 current = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 parent = os.path.dirname(current)
@@ -84,95 +83,27 @@ class FullTextSearchRetrieverServiceByFile(FullTextSearchRetrieverService):
 
 def main():
     parser = argparse.ArgumentParser()
+    init_args_obj = RetrieverServiceArgumentsByFile(parser)
 
-    # Catalog Solr server
-    try:
-        solr_url = os.environ["SOLR_URL"]
-    except KeyError:
-        logger.error("Error: `SOLR_URL` environment variable required")
-        sys.exit(1)
-
-    # MySql connection
-    try:
-        mysql_host = os.environ["MYSQL_HOST"]
-    except KeyError:
-        logger.error("Error: `MYSQL_HOST` environment variable required")
-        sys.exit(1)
-
-    try:
-        mysql_user = os.environ["MYSQL_USER"]
-    except KeyError:
-        logger.error("Error: `MYSQL_USER` environment variable required")
-        sys.exit(1)
-
-    try:
-        mysql_pass = os.environ["MYSQL_PASS"]
-    except KeyError:
-        logger.error("Error: `MYSQL_PASS` environment variable required")
-        sys.exit(1)
-
-    ht_mysql = ht_utils.ht_mysql.HtMysql(
-        host=mysql_host,
-        user=mysql_user,
-        password=mysql_pass,
-        database=os.environ.get("MYSQL_DATABASE", "ht")
-    )
-
-    logger.info("Access by default to `ht` Mysql database")
-
-    parser.add_argument(
-        "--document_repository", help="Could be pairtree or local", default="local"
-    )
-
-    # Path to the folder where the documents are stored. This parameter is useful for runing the script locally
-    parser.add_argument(
-        "--document_local_path",
-        help="Path of the folder where the documents (.xml file to index) are stored.",
-        required=False,
-        default=None
-    )
-
-    parser.add_argument(
-        "--list_ids_path",
-        help="Path of the TXT files with the list of id to generate",
-        required=False,
-        default=None
-    )
-
-    args = parser.parse_args()
-
-    # Create the CatalogRetrieverService object
-    # catalog_retriever_service = CatalogRetrieverService(solr_api_catalog)
-
-    document_generator = DocumentGenerator(ht_mysql)
-
-    document_local_folder = "indexing_data"
-    document_local_path = DOCUMENT_LOCAL_PATH
-
-    solr_api_catalog = HTSolrAPI(url=solr_url)
-
-    document_indexer_service = FullTextSearchRetrieverServiceByFile(solr_api_catalog,
-                                                                    document_generator,
-                                                                    document_local_path,
-                                                                    document_local_folder)
-
-    # TODO: Add start and rows to a configuration file
-    start = 0
-    rows = 100
+    document_indexer_service = FullTextSearchRetrieverServiceByFile(init_args_obj.solr_api_catalog,
+                                                                    init_args_obj.document_generator,
+                                                                    init_args_obj.document_local_path,
+                                                                    init_args_obj.document_local_folder)
 
     # TODO: Review the logic of the status file
     status_file = os.path.join(parent, "document_retriever_status.txt")
 
-    if args.list_ids_path:
+    if init_args_obj.list_ids_path:
         # If a document with the list of id to process is received as a parameter, then create batch of queries
-        with open(args.list_ids_path) as f:
+        with open(init_args_obj.list_ids_path) as f:
             list_ids = f.read().splitlines()
 
             ids2process, processed_ids = get_non_processed_ids(status_file, list_ids)
 
             logger.info(f"Total of items to process {len(ids2process)}")
 
-            tmp_file_status = open(os.path.join(document_local_path, "document_retriever_status.txt"), "w+")
+            tmp_file_status = open(os.path.join(init_args_obj.document_local_path, "document_retriever_status.txt"),
+                                   "w+")
             for doc in processed_ids:
                 tmp_file_status.write(doc + "\n")
             tmp_file_status.close()
@@ -186,9 +117,9 @@ def main():
                 # Create queries that contain a list of ht_id
                 document_indexer_service.full_text_search_retriever_service(
                     query,
-                    start,
-                    rows,
-                    document_repository=args.document_repository)
+                    init_args_obj.start,
+                    init_args_obj.rows,
+                    document_repository=init_args_obj.document_repository)
     else:
         logger.info("Provide the file with the list of ids to process is a required parameter")
         exit()
