@@ -68,7 +68,7 @@ class MysqlMetadataExtractor:
 
         return coll_id_entry, coll_id_large_entry
 
-    def add_right_field(self, doc_id) -> list[tuple]:
+    def add_rights_field(self, doc_id) -> list[tuple]:
         namespace, _id = doc_id.split(".")
         query = (
             f'SELECT * FROM rights_current WHERE namespace="{namespace}" AND id="{_id}"'
@@ -82,7 +82,7 @@ class MysqlMetadataExtractor:
         # ht_heldby is a list of institutions
         return self.mysql_obj.query_mysql(query)
 
-    def add_add_heldby_brlm_field(self, doc_id) -> list[tuple]:
+    def add_heldby_brlm_field(self, doc_id) -> list[tuple]:
         query = f'SELECT member_id FROM holdings_htitem_htmember WHERE volume_id="{doc_id}" AND access_count > 0'
 
         return self.mysql_obj.query_mysql(query)
@@ -91,7 +91,7 @@ class MysqlMetadataExtractor:
         entry = {}
         logger.info(f"Retrieving data from MySql {doc_id}")
 
-        doc_rights = self.add_right_field(doc_id)
+        doc_rights = self.add_rights_field(doc_id)
 
         # Only one element
         if len(doc_rights) == 1:
@@ -103,7 +103,7 @@ class MysqlMetadataExtractor:
             entry.update(create_ht_heldby_field(ht_heldby))
 
         # It is a list of members, if the query result is empty the field does not appear in Solr index
-        heldby_brlm = self.add_add_heldby_brlm_field(doc_id)
+        heldby_brlm = self.add_heldby_brlm_field(doc_id)
 
         if len(heldby_brlm) > 0:
             entry.update(create_ht_heldby_brlm_field(heldby_brlm))
