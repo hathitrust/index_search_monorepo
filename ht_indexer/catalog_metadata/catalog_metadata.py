@@ -7,100 +7,99 @@ class CatalogRecordMetadata:
     """This class is used to retrieve the metadata of a specific item in the Catalog"""
 
     def __init__(self, record: dict):
-        self.metadata = self.get_metadata(record)
+        self.record = record
+        self.metadata = self.get_metadata()
 
-    def get_metadata(self, record: dict) -> dict:
+    def get_metadata(self) -> dict:
 
+        """Create a dictionary with the fulltext fields extracted from catalog metadata"""
         metadata = {}
 
-        metadata.update(CatalogRecordMetadata.get_catalog_identical_fields(record))
-        metadata.update(CatalogRecordMetadata.rename_catalog_fields(record))
+        metadata.update(self.get_catalog_identical_fields())
+        metadata.update(self.rename_catalog_fields())
 
         # Create bothPublishDate field
-        if record.get("date") and record.get("enumPublishDate"):
-            metadata.update({"bothPublishDate": record.get("enumPublishDate")})
+        if self.record.get("date") and self.record.get("enumPublishDate"):
+            metadata.update({"bothPublishDate": self.record.get("enumPublishDate")})
 
         return metadata
 
-    @staticmethod
-    def get_catalog_identical_fields(metadata: dict) -> dict:
+    def get_catalog_identical_fields(self) -> dict:
+
+        """Retrieve the fields that have identical names in the catalog and fulltext documents."""
         entry = {}
         for field in IDENTICAL_CATALOG_METADATA:
-            value = metadata.get(field)
+            value = self.record.get(field)
             if value:
                 entry[field] = value
         return entry
 
-    @staticmethod
-    def rename_catalog_fields(metadata: dict) -> dict:
+    def rename_catalog_fields(self) -> dict:
+        """Rename the fields from the catalog to the ones used in the fulltext documents."""
         entry = {}
         for new_field in RENAMED_CATALOG_METADATA.keys():
             catalog_field = RENAMED_CATALOG_METADATA[new_field]
-            entry[new_field] = metadata.get(catalog_field)
+            entry[new_field] = self.record.get(catalog_field)
         return entry
 
 
 class CatalogItemMetadata:
     """This class is used to retrieve the metadata of a specific item in the Catalog"""
 
-    def __init__(self, record: dict, ht_id: str, record_metadata: CatalogRecordMetadata = None):
+    def __init__(self, ht_id: str, record_metadata: CatalogRecordMetadata = None):
 
+        self.record_metadata = record_metadata
         self.ht_id = ht_id
-        metadata = self.get_metadata(record)
+        metadata = self.get_metadata()
 
         # Merge both dictionaries
-        self.metadata = {**record_metadata.metadata, **metadata}
+        self.metadata = {**self.record_metadata.metadata, **metadata}
 
-    @staticmethod
-    def get_volume_enumcron(ht_id_display: str = None):
-        # TODO REVIEW THIS METHOD
-        enumcron = ht_id_display[0].split("|")[2]
-        return enumcron
+    def get_volume_enumcron(self) -> list:
+        try:
+            return self.record_metadata.record.get("ht_id_display")[0].split("|")[2]
+        except IndexError:
+            return []
 
-    def get_metadata(self, record: dict) -> dict:
+    def get_metadata(self) -> dict:
 
         metadata = {}
-        volume_enumcron = CatalogItemMetadata.get_volume_enumcron(record.get("ht_id_display"))
 
-        metadata.update({"volume_enumcron": volume_enumcron})
+        volume_enumcron = self.get_volume_enumcron()
 
-        doc_json = [
-            item
-            for item in json.loads(record.get("ht_json"))
-            if (_v := item.get("enum_pubdate") and self.ht_id == item.get("htid"))
-        ]
+        doc_json = self.get_data_ht_json_obj()
 
         if len(doc_json) > 0:
-            metadata.update(CatalogItemMetadata.get_data_ht_json_obj(doc_json[0]))
+            metadata["enumPublishDate"] = doc_json[0].get("ht_json")
 
         if len(volume_enumcron) > 1:
             metadata["volume_enumcron"] = volume_enumcron
-        metadata["htsource"] = CatalogItemMetadata.get_item_htsource(
-            self.ht_id, record.get("htsource"), record.get("ht_id")
-        )
+        metadata["htsource"] = self.get_item_htsource()
 
         metadata["vol_id"] = self.ht_id
         return metadata
 
-    @staticmethod
-    def get_data_ht_json_obj(ht_json: dict = None) -> dict:
-        catalog_json_data = {"enumPublishDate": ht_json.get("enum_pubdate")}
-        return catalog_json_data
+    def get_data_ht_json_obj(self) -> list:
+        """Obtain the publication data of a specific item in the catalog."""
+        doc_json = [
+            item
+            for item in json.loads(self.record_metadata.record.get("ht_json"))
+            if (_v := item.get("enum_pubdate") and self.ht_id == item.get("htid"))
+        ]
 
-    @staticmethod
-    def get_item_htsource(
-            id: str = None, catalog_htsource: list = None, catalog_htid: list = None
-    ) -> str:
+        return doc_json
+
+    def get_item_htsource(self) -> str:
         """
-        In catalog it could be a list of sources, should obtain the source of an specific item
+        In catalog it could be a list of sources, should obtain the source of a specific item
         :param id: Catalod ht_id field
         :param catalog_htsource: catalog item source
         :param catalog_htid: catalog item ht_id
         :return:
         """
-        item_position = catalog_htid.index(id)
+        item_position = self.record_metadata.record.get("ht_id").index(self.ht_id)
         try:
-            htsource = catalog_htsource[item_position]
+            htsource = self.record_metadata.record.get("htsource")[item_position]
         except IndexError:
-            htsource = catalog_htsource[0]
+            htsource = self.record_metadata.record.get("htsource")[0]
         return htsource

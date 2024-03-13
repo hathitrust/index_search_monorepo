@@ -72,8 +72,7 @@ class FullTextSearchRetrieverServiceByFile(FullTextSearchRetrieverService):
 
                 for item_id in record.get('ht_id'):  # Append list of CatalogMetadata object
                     if item_id in list_ids:
-                        results.append(CatalogRetrieverService.get_catalog_object(record, item_id,
-                                                                                  catalog_record_metadata))
+                        results.append(CatalogRetrieverService.get_catalog_object(item_id, catalog_record_metadata))
 
             logger.info(f"Batch documents {count_records}")
             start += rows
