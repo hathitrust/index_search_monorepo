@@ -17,7 +17,7 @@ sys.path.insert(0, parent)
 def get_solr_api():
     # Catalog Solr server
     try:
-        solr_url = os.environ["SOLR_URL"]
+        solr_url = os.getenv("SOLR_URL")
     except KeyError:
         logger.error("Error: `SOLR_URL` environment variable required")
         sys.exit(1)
@@ -28,19 +28,19 @@ def get_solr_api():
 def get_mysql_conn():
     # MySql connection
     try:
-        mysql_host = os.environ["MYSQL_HOST"]
+        mysql_host = os.getenv("MYSQL_HOST", "mysql-sdr")  # os.environ["MYSQL_HOST"]
     except KeyError:
         logger.error("Error: `MYSQL_HOST` environment variable required")
         sys.exit(1)
 
     try:
-        mysql_user = os.environ["MYSQL_USER"]
+        mysql_user = os.getenv("MYSQL_USER", "mdp-lib")  # os.environ["MYSQL_USER"]
     except KeyError:
         logger.error("Error: `MYSQL_USER` environment variable required")
         sys.exit(1)
 
     try:
-        mysql_pass = os.environ["MYSQL_PASS"]
+        mysql_pass = os.getenv("MYSQL_PASS", "mdp-lib")  # os.environ["MYSQL_PASS"]
     except KeyError:
         logger.error("Error: `MYSQL_PASS` environment variable required")
         sys.exit(1)
@@ -49,7 +49,7 @@ def get_mysql_conn():
         host=mysql_host,
         user=mysql_user,
         password=mysql_pass,
-        database=os.environ.get("MYSQL_DATABASE", "ht")
+        database=os.getenv("MYSQL_DATABASE", "ht")
     )
 
     logger.info("Access by default to `ht` Mysql database")
