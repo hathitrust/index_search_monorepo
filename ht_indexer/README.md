@@ -233,7 +233,8 @@ Step 2. Retrieve from pairtree repository data for testing
 `scp $HT_SSH_HOST:/sdr1/obj/umn/pairtree_root/31/95/1d/03/01/41/20/v/31951d03014120v/31951d03014120v{.zip,mets.xml} ../sdr1/obj`
 
 Step 3. Create the image
-`docker build -t document_generator . docker compose up document_retriever -d`
+`docker build -t document_generator .
+docker compose up document_retriever -d`
 
 Step 4. export MYSQL_USER=
 export MYSQL_PASS=
