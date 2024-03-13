@@ -5,24 +5,20 @@ import indexer_config
 logger = get_ht_logger(name=__name__)
 
 
-def create_coll_id_field(coll_id_result, large_coll_id_result) -> dict:
-    if len(coll_id_result) > 0:
-        list_coll_ids = [coll_id.get("MColl_ID") for coll_id in coll_id_result]
-        list_large_coll_id = [
-            coll_id.get("MColl_ID") for coll_id in large_coll_id_result
-        ]
-
-        return {"coll_id": list(set(list_coll_ids) & set(list_large_coll_id))}
+def create_coll_id_field(large_coll_id_result: dict) -> dict:
+    if len(large_coll_id_result) > 0:
+        # Obtain the list with the unique coll_id from the result
+        return {"coll_id": set(list(large_coll_id_result.get("MColl_ID").values()))}
     else:
         return {"coll_id": [0]}
 
 
-def create_ht_heldby_brlm_field(heldby_brlm) -> dict:
+def create_ht_heldby_brlm_field(heldby_brlm: dict) -> dict:
     list_brl_members = [member_id.get("member_id") for member_id in heldby_brlm]
     return {"ht_heldby_brlm": list_brl_members}
 
 
-def create_ht_heldby_field(heldby_brlm) -> dict:
+def create_ht_heldby_field(heldby_brlm: dict) -> dict:
     list_brl_members = [member_id.get("member_id") for member_id in heldby_brlm]
     return {"ht_heldby": list_brl_members}
 
@@ -44,7 +40,7 @@ class MysqlMetadataExtractor:
 
         return list_docs
 
-    def add_large_coll_id_field(self, doc_id: str) -> [dict, dict]:
+    def add_large_coll_id_field(self, doc_id: str) -> [dict]:
         """
         Get the list of coll_ids for the given id that are large so those
         coll_ids can be added as <coll_id> fields of the Solr doc.
@@ -55,18 +51,14 @@ class MysqlMetadataExtractor:
         <coll_id> fields.
         """
 
-        query_coll_item = (
-            f'SELECT MColl_ID FROM mb_coll_item WHERE extern_item_id="{doc_id}"'
-        )
+        query_item_in_large_coll = (f'SELECT mb_item.MColl_ID '
+                                    f'FROM mb_coll_item mb_item, mb_collection mb_coll '
+                                    f'WHERE mb_item.extern_item_id="{doc_id}" '
+                                    f'AND mb_coll.num_items > {indexer_config.MAX_ITEM_IDS} ')
 
-        query_large_coll = (
-            f"SELECT MColl_ID FROM mb_collection WHERE num_items>{indexer_config.MAX_ITEM_IDS}"
-        )
+        large_collection_id = self.mysql_obj.query_mysql(query_item_in_large_coll)
 
-        coll_id_entry = self.mysql_obj.query_mysql(query_coll_item)
-        coll_id_large_entry = self.mysql_obj.query_mysql(query_large_coll)
-
-        return coll_id_entry, coll_id_large_entry
+        return large_collection_id
 
     def add_rights_field(self, doc_id) -> list[tuple]:
         namespace, _id = doc_id.split(".")
@@ -109,7 +101,7 @@ class MysqlMetadataExtractor:
             entry.update(create_ht_heldby_brlm_field(heldby_brlm))
 
         # It is a list of coll_id, if the query result is empty, the value of this field in Solr index will be [0]
-        coll_id_result, large_coll_id_result = self.add_large_coll_id_field(doc_id)
-        entry.update(create_coll_id_field(coll_id_result, large_coll_id_result))
+        large_coll_id_result = self.add_large_coll_id_field(doc_id)
+        entry.update(create_coll_id_field(large_coll_id_result))
 
         return entry
