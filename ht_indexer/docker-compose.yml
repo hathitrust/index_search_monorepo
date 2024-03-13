@@ -27,7 +27,7 @@ services:
       - mysql_sdr_data:/var/lib/mysql
     restart: always
     ports:
-      - "3307:3306"
+      - "3306:3306"
     environment:
       - MYSQL_HOST=mysql-sdr
       - MYSQL_USER=mdp-lib
@@ -42,8 +42,7 @@ services:
           "CMD",
           "healthcheck.sh",
           "--su-mysql",
-          "--connect",
-          "--innodb_initialized"
+          "--connect"
         ]
       timeout: 30s
   solr-lss-dev:
