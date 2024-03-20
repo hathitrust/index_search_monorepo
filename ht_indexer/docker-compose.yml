@@ -1,4 +1,5 @@
 version: "3"
+
 services:
   document_retriever:
     container_name: document_retriever
@@ -6,23 +7,44 @@ services:
     volumes:
       - ../tmp:/tmp:rm
       - ../sdr1/obj:/sdr1/obj
-      #- ../sample_data/sdr1/obj:/sample_data
     ports:
       - "8081:8081"
     environment:
       - SOLR_URL=http://solr-sdr-catalog:9033/solr/#/catalog/
-      - MYSQL_HOST=mudslide.umdl.umich.edu
-      - MYSQL_USER=${MYSQL_USER}
-      - MYSQL_PASS=${MYSQL_PASS}
-      - MYSQL_DATABASE=ht
       - SDR_DIR=/sdr1/obj
     depends_on:
       solr-sdr-catalog:
         condition: service_healthy
       solr-lss-dev:
         condition: service_healthy
+      mysql-sdr:
+        condition: service_healthy
     tty: true
     stdin_open: true
+  mysql-sdr:
+    image: ghcr.io/hathitrust/db-image
+    volumes:
+      - mysql_sdr_data:/var/lib/mysql
+    restart: always
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_HOST=mysql-sdr
+      - MYSQL_USER=mdp-lib
+      - MYSQL_PASS=mdp-lib
+      - MYSQL_DATABASE=ht
+      - MYSQL_RANDOM_ROOT_PASSWORD=1
+    healthcheck:
+      interval: 30s
+      retries: 3
+      test:
+        [
+          "CMD",
+          "healthcheck.sh",
+          "--su-mysql",
+          "--connect"
+        ]
+      timeout: 30s
   solr-lss-dev:
     image: ghcr.io/hathitrust/full-text-search-embedded_zoo:example-8.11
     container_name: solr-lss-dev
@@ -76,4 +98,5 @@ services:
     stdin_open: true
 volumes:
   solr_data:
+  mysql_sdr_data:
 

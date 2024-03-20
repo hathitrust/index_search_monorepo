@@ -1,14 +1,14 @@
 import os
 from typing import Text
-from document_generator.indexer_config import (
-    DOCUMENT_LOCAL_PATH,
-    TRANSLATE_TABLE,
-    LOCAL_DOCUMENT_FOLDER
-)
 
 from pypairtree import pairtree
 
 from ht_utils.ht_logger import get_ht_logger
+from indexer_config import (
+    DOCUMENT_LOCAL_PATH,
+    TRANSLATE_TABLE,
+    LOCAL_DOCUMENT_FOLDER
+)
 
 logger = get_ht_logger(name=__name__)
 

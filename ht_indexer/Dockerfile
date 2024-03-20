@@ -60,6 +60,6 @@ WORKDIR /app
 
 COPY . .
 
-CMD ["python3"]
+CMD ["tail", "-f", "/dev/null"]
 
 USER appuser

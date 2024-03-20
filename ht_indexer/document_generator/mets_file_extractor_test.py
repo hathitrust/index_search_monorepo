@@ -16,9 +16,9 @@ class TestMETSFileExtractor:
         mets_map = metsAttrExtractorObj.create_METS_map()
 
         assert (
-            mets_map.get("488").get("features") == "CHAPTER_START, IMPLICIT_PAGE_NUMBER"
+                mets_map.get("488").get("features") == "CHAPTER_START, IMPLICIT_PAGE_NUMBER"
         )
-        assert mets_map.get("488").get("pgnum") == None
+        assert mets_map.get("488").get("pgnum") is None
         assert mets_map.get("488").get("filename") == [
             "IMG00000488",
             "HTML00000488",

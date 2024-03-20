@@ -1,0 +1,114 @@
+{
+  "id": "001417961",
+  "id_int": 1417961,
+  "format": [
+    "Book"
+  ],
+  "oclc": [
+    "23549320"
+  ],
+  "oclc_search": [
+    "23549320"
+  ],
+  "sdrnum": [
+    "sdr-miu.990014179610106381"
+  ],
+  "mainauthor": [
+    "Defoe, Daniel, 1661?-1731."
+  ],
+  "mainauthor_just_name": [
+    "Defoe, Daniel,"
+  ],
+  "author": [
+    "Defoe, Daniel, 1661?-1731.",
+    "Badarīnātha, pandit,"
+  ],
+  "authorStr": [
+    "Defoe, Daniel, 1661?-1731.",
+    "Badarīnātha, pandit,"
+  ],
+  "author2": [
+    "Badarīnātha, pandit,"
+  ],
+  "author_top": [
+    "Defoe, Daniel, 1661?-1731.",
+    "translated [into Hindi] by Badrī Lāla, from a Bengali version ...",
+    "Badarīnātha, pandit, tr."
+  ],
+  "author_sortkey": "defoe, daniel 1661 1731",
+  "title": [
+    "Rābinsan Krūso kā itihāsa. The adventures of Robinson Crusoe"
+  ],
+  "title_a": [
+    "Rābinsan Krūso kā itihāsa"
+  ],
+  "title_ab": [
+    "Rābinsan Krūso kā itihāsa. The adventures of Robinson Crusoe"
+  ],
+  "title_c": [
+    "translated [into Hindi] by Badrī Lāla, from a Bengali version ..."
+  ],
+  "title_top": [
+    "Rābinsan Krūso kā itihāsa. The adventures of Robinson Crusoe,"
+  ],
+  "title_rest": [
+    "Robinson Crusoe."
+  ],
+  "title_display": "Rābinsan Krūso kā itihāsa. The adventures of Robinson Crusoe, translated [into Hindi] by Badrī Lāla, from a Bengali version ...",
+  "titleSort": "Rābinsan Krūso kā itihāsa. The adventures of Robinson Crusoe",
+  "title_sortkey": "rābinsan krūso kā itihāsa the adventures of robinson crusoe",
+  "countryOfPubStr": [
+    "India"
+  ],
+  "place_of_publication": [
+    "India"
+  ],
+  "publishDate": [
+    "1860"
+  ],
+  "publishDateRange": [
+    "1860",
+    "1860-1869"
+  ],
+  "display_date": "1860",
+  "language": [
+    "Hindi",
+    "English"
+  ],
+  "language008": "hin",
+  "ht_availability": [
+    "Full text"
+  ],
+  "ht_availability_intl": [
+    "Full text"
+  ],
+  "ht_count": 1,
+  "ht_id": [
+    "mdp.39015078560292"
+  ],
+  "ht_id_display": [
+    "mdp.39015078560292|20220910||1860|1860-1869|||Rābinsan Krūso kā itihāsa. The adventures of Robinson Crusoe, translated [into Hindi] by Badrī Lāla, from a Bengali version ..."
+  ],
+  "ht_id_update": [
+    20220910
+  ],
+  "ht_rightscode": [
+    "pd"
+  ],
+  "htsource": [
+    "University of Michigan"
+  ],
+  "ht_json": "[{\"htid\":\"mdp.39015078560292\",\"newly_open\":null,\"ingest\":\"20220910\",\"rights\":[\"pd\",null],\"heldby\":[\"umich\"],\"collection_code\":\"miu\",\"enum_pubdate\":\"1860\",\"enum_pubdate_range\":\"1860-1869\",\"dig_source\":\"lit-dlps-dc\"}]",
+  "ht_searchonly": false,
+  "ht_searchonly_intl": false,
+  "language008_full": "Hindi",
+  "print_holdings": [
+    "umich"
+  ],
+  "deleted": false,
+  "time_of_index": "2024-02-03T05:11:08.372Z",
+  "fullrecord": "<?xml version=\"1.0\" encoding=\"UTF-8\"?><collection xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns=\"http://www.loc.gov/MARC21/slim\" xsi:schemaLocation=\"http://www.loc.gov/MARC21/slim http://www.loc.gov/standards/marcxml/schema/MARC21slim.xsd\"><record><leader>00967nam a22002651  4500</leader><controlfield tag=\"001\">001417961</controlfield><controlfield tag=\"003\">MiAaHDL</controlfield><controlfield tag=\"005\">20220910000000.0</controlfield><controlfield tag=\"006\">m        d        </controlfield><controlfield tag=\"007\">cr bn ---auaua</controlfield><controlfield tag=\"008\">890828s1860    ii |||||||||||||||||hin|d</controlfield><datafield tag=\"035\" ind1=\" \" ind2=\" \"><subfield code=\"a\">(MiU)990014179610106381</subfield></datafield><datafield tag=\"035\" ind1=\" \" ind2=\" \"><subfield code=\"a\">sdr-miu.990014179610106381</subfield></datafield><datafield tag=\"035\" ind1=\" \" ind2=\" \"><subfield code=\"z\">(MiU)MIU01000000000000001417961-goog</subfield></datafield><datafield tag=\"035\" ind1=\" \" ind2=\" \"><subfield code=\"a\">(OCoLC)23549320</subfield></datafield><datafield tag=\"035\" ind1=\" \" ind2=\" \"><subfield code=\"a\">(SAZTEC)097201870</subfield></datafield><datafield tag=\"035\" ind1=\" \" ind2=\" \"><subfield code=\"a\">(CaOTULAS)176405114</subfield></datafield><datafield tag=\"035\" ind1=\" \" ind2=\" \"><subfield code=\"z\">(MiU)Aleph001417961</subfield></datafield><datafield tag=\"040\" ind1=\" \" ind2=\" \"><subfield code=\"c\">SAZTEC</subfield></datafield><datafield tag=\"041\" ind1=\"1\" ind2=\" \"><subfield code=\"a\">hineng</subfield><subfield code=\"h\">ben</subfield></datafield><datafield tag=\"100\" ind1=\"1\" ind2=\" \"><subfield code=\"a\">Defoe, Daniel,</subfield><subfield code=\"d\">1661?-1731.</subfield></datafield><datafield tag=\"245\" ind1=\"1\" ind2=\"0\"><subfield code=\"a\">Rābinsan Krūso kā itihāsa.</subfield><subfield code=\"b\">The adventures of Robinson Crusoe,</subfield><subfield code=\"c\">translated [into Hindi] by Badrī Lāla, from a Bengali version ...</subfield></datafield><datafield tag=\"260\" ind1=\" \" ind2=\" \"><subfield code=\"a\">Benares,</subfield><subfield code=\"c\">1860</subfield></datafield><datafield tag=\"300\" ind1=\" \" ind2=\" \"><subfield code=\"a\">455 p. incl. front., illus. plates.</subfield><subfield code=\"c\">20 cm.</subfield></datafield><datafield tag=\"500\" ind1=\" \" ind2=\" \"><subfield code=\"a\">Title from Catalogue of Hindi books in the British museum.</subfield></datafield><datafield tag=\"538\" ind1=\" \" ind2=\" \"><subfield code=\"a\">Mode of access: Internet.</subfield></datafield><datafield tag=\"700\" ind1=\"1\" ind2=\" \"><subfield code=\"a\">Badarīnātha, pandit,</subfield><subfield code=\"e\">tr.</subfield></datafield><datafield tag=\"740\" ind1=\"0\" ind2=\" \"><subfield code=\"a\">Robinson Crusoe.</subfield></datafield><datafield tag=\"899\" ind1=\" \" ind2=\" \"><subfield code=\"a\">39015078560292</subfield></datafield><datafield tag=\"CID\" ind1=\" \" ind2=\" \"><subfield code=\"a\">001417961</subfield></datafield><datafield tag=\"DAT\" ind1=\"0\" ind2=\" \"><subfield code=\"a\">19890828000000.0</subfield><subfield code=\"b\">20220910000000.0</subfield></datafield><datafield tag=\"DAT\" ind1=\"1\" ind2=\" \"><subfield code=\"a\">20220910060531.0</subfield><subfield code=\"b\">2022-09-10T14:33:44Z</subfield></datafield><datafield tag=\"DAT\" ind1=\"2\" ind2=\" \"><subfield code=\"a\">2020-04-22T17:30:02Z</subfield></datafield><datafield tag=\"CAT\" ind1=\" \" ind2=\" \"><subfield code=\"a\">SDR-MIU</subfield><subfield code=\"d\">ALMA</subfield><subfield code=\"l\">prepare.pl-004-008</subfield></datafield><datafield tag=\"FMT\" ind1=\" \" ind2=\" \"><subfield code=\"a\">BK</subfield></datafield><datafield tag=\"HOL\" ind1=\" \" ind2=\" \"><subfield code=\"0\">sdr-miu.990014179610106381</subfield><subfield code=\"a\">MiU</subfield><subfield code=\"b\">SDR</subfield><subfield code=\"c\">MIU</subfield><subfield code=\"p\">mdp.39015078560292</subfield><subfield code=\"s\">MIU</subfield><subfield code=\"1\">990014179610106381</subfield></datafield><datafield tag=\"974\" ind1=\" \" ind2=\" \"><subfield code=\"b\">MIU</subfield><subfield code=\"c\">MIU</subfield><subfield code=\"d\">20220910</subfield><subfield code=\"s\">lit-dlps-dc</subfield><subfield code=\"u\">mdp.39015078560292</subfield><subfield code=\"y\">1860</subfield><subfield code=\"r\">pd</subfield><subfield code=\"q\">bib</subfield><subfield code=\"t\">non-US bib date1 &lt; 1899</subfield></datafield></record></collection>",
+  "country_of_pub_facet": [
+    "India"
+  ]
+}

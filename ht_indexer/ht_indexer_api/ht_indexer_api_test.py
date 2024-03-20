@@ -1,6 +1,7 @@
-import pytest
-from pathlib import Path
 import os
+from pathlib import Path
+
+import pytest
 
 from ht_indexer_api.ht_indexer_api import HTSolrAPI
 

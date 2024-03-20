@@ -1,7 +1,9 @@
-from pypairtree import pairtree
-from ht_document.ht_document import HtDocument
-from pathlib import Path
 import os
+from pathlib import Path
+
+from pypairtree import pairtree
+
+from ht_document.ht_document import HtDocument
 
 os.environ["SDR_DIR"] = f"{Path(__file__).parents[1]}/data/document_generator"
 

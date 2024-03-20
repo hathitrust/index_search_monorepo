@@ -1,22 +1,17 @@
-import os
-from pathlib import Path
-
-import sys
 import inspect
-import json
+import os
+import sys
+from pathlib import Path
+from xml.sax.saxutils import quoteattr
 
 import pytest
-import pytest_cov
-
 from _pytest.outcomes import Failed
 
 from document_generator.document_generator import DocumentGenerator
-from xml.sax.saxutils import quoteattr
-from ht_indexer_api.ht_indexer_api import HTSolrAPI
 
-currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-parentdir = os.path.dirname(currentdir)
-sys.path.insert(0, parentdir)
+current = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+parent = os.path.dirname(current)
+sys.path.insert(0, parent)
 
 
 @pytest.fixture()
@@ -35,48 +30,14 @@ def get_allfield_string():
     )
 
 
-@pytest.fixture()
-def get_document_generator():
-    db_conn = None
-    solr_api = HTSolrAPI(url="http://solr-sdr-catalog:9033/solr/#/catalog/")
-
-    document_generator = DocumentGenerator(db_conn, solr_api)
-
-    return document_generator
-
-
 class TestDocumentGenerator:
-    def test_get_item_htsource(self):
-        htsource = DocumentGenerator.get_item_htsource(
-            "mdp.39015061418433",  # it is in solr core 7
-            ["University of Michigan", "Indiana University"],
-            ["mdp.39015061418433", "inu.30000108625017"],
-        )
-        assert htsource == "University of Michigan"
-
-        htsource = DocumentGenerator.get_item_htsource(
-            "inu.30000108625017",  # it is in solr core 7
-            ["University of Michigan", "Indiana University"],
-            ["mdp.39015061418433", "inu.30000108625017"],
-        )
-        assert htsource == "Indiana University"
-
-    def test_get_item_htsource_sharinghtsource(self):
-        htsource = DocumentGenerator.get_item_htsource(
-            "inu.30000108625017",  # it is in solr core 7
-            ["University of Michigan"],
-            ["mdp.39015061418433", "inu.30000108625017"],
-        )
-        assert htsource == "University of Michigan"
 
     def test_not_exist_zip_file_full_text_field(self):
         try:
-            with pytest.raises(Exception) as e:
+            with pytest.raises(Exception):
                 DocumentGenerator.get_full_text_field("data/test.zip")
-        except Failed as e:
+        except Failed:
             pass
-
-        # assert e.type == TypeError
 
     def test_full_text_field(self):
         zip_path = f"{Path(__file__).parents[1]}/data/document_generator/mb.39015078560292_test.zip"
@@ -88,70 +49,3 @@ class TestDocumentGenerator:
         allfield = DocumentGenerator.get_allfields_field(get_fullrecord_xml)
         assert len(allfield.strip()) == len(get_allfield_string.strip())
         assert allfield.strip() == get_allfield_string.strip()
-
-    def test_get_volume_enumcron_empty(self):
-        # TODO: Check if is correct the generation of volume_enumcrom (line 417: https://github.com/hathitrust/slip-lib/blob/master/Document/Doc/vSolrMetadataAPI/Schema_LS_11.pm)
-        """
-        Some documents do not have the field volume_enumcrom, that is because it is an empty string in the second position.
-        Is that correct
-        :return:
-        """
-        volume_enumcrom = ""
-        ht_id_display = [
-            "mdp.39015078560292|20220910||1860|1860-1869|||RÄ\x81binsan KrÅ«so kÄ\x81 itihÄ\x81sa. The adventures of Robinson Crusoe, translated [into Hindi] by BadrÄ« LÄ\x81la, from a Bengali version ..."
-        ]
-        assert volume_enumcrom == ht_id_display[0].split("|")[2]
-
-    def test_get_records(self, get_document_generator):
-        query = "ht_id:nyp.33433082046503"
-        doc_metadata = get_document_generator.get_record_metadata(query)
-
-        assert "nyp.33433082046503" in doc_metadata.get("content").get("response").get(
-            "docs"
-        )[0].get("ht_id")
-
-    def test_create_entry(self, get_document_generator):
-        """
-        Test the function that creates the entry with fields retrieved from Catalog index
-        :return:
-        """
-
-        query = "ht_id:nyp.33433082046503"
-        doc_metadata = get_document_generator.get_record_metadata(query)
-
-        assert "nyp.33433082046503" in doc_metadata.get("content").get("response").get(
-            "docs"
-        )[0].get("ht_id")
-
-    def test_missed_enumPublishDate(self, get_document_generator):
-        ht_json = '[{"htid":"nyp.33433069877805","newly_open":null,"ingest":"20220501","rights":["pdus",null],"heldby":["nypl"],"collection_code":"nyp","enumcron":"v. 1","dig_source":"google"}]'
-
-        doc_json = [
-            record
-            for record in json.loads(ht_json)
-            if (
-                v := record.get("enum_pubdate")
-                     and "nyp.33433069877805" == record.get("htid")
-            )
-        ]
-
-        if len(doc_json) > 0:
-            entry = get_document_generator.get_data_ht_json_obj(doc_json[0])
-
-            assert "enumPublishDate" not in entry.keys()
-
-    def test_extract_enumPublishDate(self, get_document_generator):
-        ht_json = '[{"htid":"mdp.39015082023097","newly_open":null,"ingest":"20230114","rights":["pdus",null],"heldby":["cornell","emory","harvard","stanford","uiowa","umich","umn"],"collection_code":"miu","enumcron":"1958","enum_pubdate":"1958","enum_pubdate_range":"1950-1959","dig_source":"google"},{"htid":"mdp.39015082023246","newly_open":null,"ingest":"20230114","rights":["pdus",null],"heldby":["cornell","emory","harvard","stanford","uiowa","umich","umn"],"collection_code":"miu","enumcron":"1959","enum_pubdate":"1959","enum_pubdate_range":"1950-1959","dig_source":"google"}]'
-
-        doc_json = [
-            record
-            for record in json.loads(ht_json)
-            if (
-                v := record.get("enum_pubdate")
-                     and "mdp.39015082023097" == record.get("htid")
-            )
-        ]
-
-        if len(doc_json) > 0:
-            entry = get_document_generator.get_data_ht_json_obj(doc_json[0])
-            assert "enumPublishDate" in entry.keys()

@@ -9,6 +9,39 @@ This application instantiates two solr servers, through docker containers. Catal
 documents and Full-text (solr-lss-dev) search index for indexing them.
 Both containers, must be running before load the API, so the docker-compose.yml file takes care of it.
 
+## Use cases
+
+For all the use cases, the query look like:
+
+``` --query id:100673101 
+    --query ht_id:umn.31951d01828300z
+    --query *:* default query to retrieve all the documents in Catalog
+```
+
+1- Create a TXT file listing ht_id from Catalog index
+`python ht_indexer/document_retriever_service/catalog_retriever_service.py --query id:100673101
+--output_file ~/tmp/ht_ids.txt`
+
+* By default, the file will be created in the folder the root of the project
+
+2- Generate full-text search documents for all the items in Catalog index
+`python ht_indexer/document_retriever_service/full_text_search_retriever_service.py --query id:100673101
+--document_local_path ~/tmp`
+
+* The query parameter could be *:* to retrieve all the documents in Catalog index
+
+3- Generate full-text search documents given ht_id
+`python ht_indexer/document_retriever_service/full_text_search_retriever_service.py --query ht_id:umn.31951d01828300z
+--document_local_path ~/tmp`
+
+4- Retrieve files from pairtree-based repository
+`python ~/ht_indexer/document_retriever_service/full_text_search_retriever_by_file.py
+--list_ids_path /Users/lisepul/Documents/repositories/python/ht_indexer/filter_ids.txt`
+
+4- Index the documents in full-text search index
+`python3 ~/ht_indexer/document_indexer_service/document_indexer_service.py --solr_indexing_api
+http://localhost:8983/solr/#/core-x/ --document_local_path ~/tmp/indexing_data`
+
 ## Setting up ht_indexer
 
 1. Clone the repository in your working environment
@@ -189,6 +222,26 @@ On mac,
     * `` poetry export -f requirements.txt --output requirements.txt ``
     * Use `` poetry update `` if you change your .toml file and want to generate a new version the .lock file
 
+## How to test locally indexer service
+
+In your workdir:
+
+Step 1. Create /sdr1/obj directory
+`mkdir ../sdr1/obj`
+
+Step 2. Retrieve from pairtree repository data for testing
+`scp $HT_SSH_HOST:/sdr1/obj/umn/pairtree_root/31/95/1d/03/01/41/20/v/31951d03014120v/31951d03014120v{.zip,mets.xml} ../sdr1/obj`
+
+Step 3. Create the image
+`docker build -t document_generator .
+docker compose up document_retriever -d`
+
+Step 4. export MYSQL_USER=
+export MYSQL_PASS=
+
+Step 5. Generate document
+`docker exec document_retriever python document_retriever_service/full_text_search_retriever_service.py --query ht_id:mb.39015078560292 --document_local_path /Users/lisepul/Documents/repositories/python/tmp --document_repository local`
+
 ## DockerFile explanations
 
 **What is the best python Docker image to use?**
@@ -227,6 +280,10 @@ export PUBLIC_KEY=public_key_name
 
 Reference used for python implementation
 
+Python Linter:
+Ruff: https://astral.sh/ruff
+Enhancing Python Code Quality: A Comprehensive Guide to Linting with
+Ruff: https://dev.to/ken_mwaura1/enhancing-python-code-quality-a-comprehensive-guide-to-linting-with-ruff-3d6g
 Parser XML files
 https://lxml.de/tutorial.html#parsing-from-strings-and-files
 https://pymotw.com/3/xml.etree.ElementTree/parse.html

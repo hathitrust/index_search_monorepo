@@ -1,24 +1,23 @@
 # Read from a folder, index documents to solr and delete the content of the sercer
 
-from time import sleep
 import argparse
-import os
 import glob
 import inspect
+import os
 import sys
+from time import sleep
 
 from ht_utils.ht_logger import get_ht_logger
+from ht_indexer_api.ht_indexer_api import HTSolrAPI
 
 logger = get_ht_logger(name=__name__)
 
-currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-parentdir = os.path.dirname(currentdir)
-sys.path.insert(0, parentdir)
+current = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+parent = os.path.dirname(current)
+sys.path.insert(0, parent)
 
 CHUNK_SIZE = 500
 DOCUMENT_LOCAL_PATH = "/tmp/indexing_data/"
-
-from ht_indexer_api.ht_indexer_api import HTSolrAPI
 
 
 class DocumentIndexerService:
@@ -98,10 +97,10 @@ def main():
 
         except Exception as e:
             logger.info(f"{document_local_path} does not exit {e}")
-            sleep(30)  # Wait until the folder is created
+            sleep(3)  # Wait until the folder is created
 
-        logger.info(f"Processing ended, sleeping for 5 minutes")
-        sleep(30)
+        logger.info("Processing ended, sleeping for 5 minutes")
+        sleep(3)
 
 
 if __name__ == "__main__":

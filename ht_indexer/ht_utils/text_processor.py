@@ -1,8 +1,8 @@
-from io import BytesIO
-
 import re
-from xml.sax.saxutils import quoteattr
+from io import BytesIO
 from typing import Dict, List
+from xml.sax.saxutils import quoteattr
+
 from ht_utils.ht_logger import get_ht_logger
 
 table = str.maketrans(
@@ -33,12 +33,8 @@ def string_preparation(doc_content: BytesIO) -> str:
         # Convert byte to str
         str_content = str(doc_content.decode())
     except Exception as e:
-        try:
-            str_content = str(doc_content.decode(encoding="latin1"))
-            logger.info(f"File encode compatible with latin1 {e}")
-        except Exception as e:
-            logger.info(f"There are especial characters on the file {e}")
-            raise Exception
+        logger.info(f"File encode incompatible with UTF-8 {e}")
+        raise Exception
 
     # Remove line breaks
     str_content = str_content.replace("\n", " ")

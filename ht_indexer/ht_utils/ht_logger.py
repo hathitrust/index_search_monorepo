@@ -1,4 +1,5 @@
-import logging, sys
+import logging
+import sys
 
 
 def get_ht_logger(name=__name__, log_level=logging.INFO):
