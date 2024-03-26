@@ -339,3 +339,5 @@ Use this curl command to query Sorl
 ``curl http://localhost:9033/solr/catalog/query -d 'json={"query":"ht_id:umn.31951000662660j"}'``
 
 ``poetry run python main.py --host 0.0.0.0 --port 8081 --solr_host localhost --solr_port 8983``
+
+# Another temporary change to remove
