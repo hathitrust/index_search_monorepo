@@ -26,7 +26,8 @@ class TestHTSolrAPI:
     def test_index_document_add(self, get_solrAPI):
         document_path = Path(f"{os.path.dirname(__file__)}/data/add")
         list_documents = ["39015078560292_solr_full_text.xml"]
-        response = get_solrAPI.index_document(document_path, list_documents=list_documents)
+        response = get_solrAPI.index_documents(document_path, list_documents=list_documents, solr_url_json="update/",
+                                               headers={"Content-Type": "application/xml"})
         assert response.status_code == 200
 
     def test_query_by_id(self, get_solrAPI):
@@ -48,5 +49,6 @@ class TestHTSolrAPI:
             f"{os.path.dirname(__file__)}/data/delete"
         )  # "data/delete"
         list_documents = ["39015078560292-1-1-flat.solr_delete.xml"]
-        response = get_solrAPI.index_document(document_path, list_documents=list_documents)
+        response = get_solrAPI.index_documents(document_path, list_documents=list_documents, solr_url_json="update/",
+                                               headers={"Content-Type": "application/xml"})
         assert response.status_code == 200

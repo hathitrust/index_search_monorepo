@@ -7,7 +7,7 @@ from xml.sax.saxutils import quoteattr
 import pytest
 from _pytest.outcomes import Failed
 
-from document_generator.document_generator import DocumentGenerator
+from document_generator.full_text_document_generator import DocumentGenerator
 
 current = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 parent = os.path.dirname(current)

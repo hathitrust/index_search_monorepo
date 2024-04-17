@@ -1,11 +1,11 @@
 import argparse
 import zipfile
+import time
 
-from catalog_metadata.catalog_metadata import CatalogItemMetadata
+from document_generator.mysql_data_extractor import MysqlMetadataExtractor
 from ht_utils.ht_mysql import HtMysql
 from ht_utils.ht_logger import get_ht_logger
 from ht_utils.text_processor import string_preparation
-from document_generator.mysql_data_extractor import MysqlMetadataExtractor
 
 import xml.sax.saxutils
 
@@ -19,9 +19,9 @@ logger = get_ht_logger(name=__name__)
 
 
 class DocumentGenerator:
-    def __init__(self, db_conn: HtMysql, catalog_api=None):
+
+    def __init__(self, db_conn: HtMysql):
         self.mysql_data_extractor = MysqlMetadataExtractor(db_conn)
-        self.catalogApi = catalog_api
 
     @staticmethod
     def create_ocr_field(document_zip_path: str) -> dict:
@@ -95,7 +95,7 @@ class DocumentGenerator:
         return xml.sax.saxutils.quoteattr(allfields)
 
     def make_full_text_search_document(self, ht_document: ht_document.ht_document.HtDocument,
-                                       doc_metadata: CatalogItemMetadata) -> dict:
+                                       doc_metadata: dict) -> dict:
         # TODO Check exception if doc_id is None
         """
         Receive the HtDocument object and the metadata from the Catalog API and generate the full text search entry
@@ -105,6 +105,8 @@ class DocumentGenerator:
         """
         entry = {"id": ht_document.document_id}
 
+        start = time.time()
+
         # Generate ocr field
         entry.update(DocumentGenerator.create_ocr_field(ht_document.source_path))
 
@@ -112,17 +114,23 @@ class DocumentGenerator:
         # This field is in Catalog object, we process it here and after that we delete because it is not
         # necessary to be in Solr index
         entry.update(
-            DocumentGenerator.create_allfields_field(doc_metadata.metadata.get("fullrecord"))
+            DocumentGenerator.create_allfields_field(doc_metadata.get("fullrecord"))
         )
 
-        doc_metadata.metadata.pop("fullrecord")
+        doc_metadata.pop("fullrecord")
+
+        logger.info(f"Time to generate OCR field {ht_document.document_id} {time.time() - start}")
 
         # Add Catalog fields to full-text document
-        entry.update(doc_metadata.metadata)
+        entry.update(doc_metadata)
 
+        start = time.time()
         # Retrieve data from MariaDB
         entry.update(self.mysql_data_extractor.retrieve_mysql_data(ht_document.document_id))
 
+        logger.info(f"Time to generate MySQL fields {ht_document.document_id} {time.time() - start}")
+
+        start = time.time()
         # Extract fields from METS file
         mets_obj = document_generator.mets_file_extractor.MetsAttributeExtractor(f"{ht_document.source_path}.mets.xml")
 
@@ -130,7 +138,8 @@ class DocumentGenerator:
 
         entry.update({"ht_page_feature": mets_entry.get("METS_maps").get("features")})
         entry.update(mets_entry.get("METS_maps").get("reading_orders"))
-
+        logger.info(f"Time to generate METS fields {ht_document.document_id} {time.time() - start}")
+        entry.pop("ht_id")
         return entry
 
 

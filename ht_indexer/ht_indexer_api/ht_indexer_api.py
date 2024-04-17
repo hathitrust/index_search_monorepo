@@ -16,7 +16,26 @@ class HTSolrAPI:
         response = requests.get(self.url)
         return response
 
-    def index_document(self, path: Path, list_documents: list = None):
+    def index_document(self, xml_data: dict, content_type: Text = "application/json"):
+        """Feed a JSON object, create an XML string to  index the document into SOLR
+        "Content-Type": "application/json"
+        """
+        try:
+            response = requests.post(
+                f"{self.url.replace('#/', '')}update/json/docs",
+                headers={"Content-Type": content_type},
+                json=xml_data,
+                params={
+                    "commit": "true",
+                }, )
+            response.raise_for_status()
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Error in indexing document: {e}")
+            raise e
+        return response
+
+    def index_documents(self, path: Path, list_documents: list = None, solr_url_json: str = 'update/json/docs',
+                        headers: dict = {"Content-Type": "application/json"}):
         """Read an XML and feed into SOLR for indexing"""
         data_path = Path(path)
         for doc in list_documents:
@@ -26,8 +45,8 @@ class HTSolrAPI:
             with open(doc_path, "rb") as xml_file:
                 data_dict = xml_file.read()
                 response = requests.post(
-                    f"{self.url.replace('#/', '')}update/?commit=true",
-                    headers={"Content-Type": "application/xml"},
+                    f"{self.url.replace('#/', '')}{solr_url_json}?commit=true",
+                    headers=headers,
                     data=data_dict,
                     params={
                         "commit": "true",

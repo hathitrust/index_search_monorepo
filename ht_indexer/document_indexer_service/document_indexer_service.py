@@ -1,12 +1,11 @@
 # Read from a folder, index documents to solr and delete the content of the sercer
 
 import argparse
-import glob
 import inspect
 import os
 import sys
-from time import sleep
 
+from ht_queue_service.queue_consumer import QueueConsumer
 from ht_utils.ht_logger import get_ht_logger
 from ht_indexer_api.ht_indexer_api import HTSolrAPI
 
@@ -16,91 +15,41 @@ current = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()
 parent = os.path.dirname(current)
 sys.path.insert(0, parent)
 
-CHUNK_SIZE = 500
-DOCUMENT_LOCAL_PATH = "/tmp/indexing_data/"
 
-
-class DocumentIndexerService:
-    def __init__(self, solr_api_full_text=None):
+class DocumentIndexerQueueService:
+    def __init__(self, solr_api_full_text: HTSolrAPI,
+                 queue_consumer: QueueConsumer):
         self.solr_api_full_text = solr_api_full_text
+        self.queue_consumer = queue_consumer
 
-    def indexing_documents(self, path, list_documents=None):
+    def storage_document(self, json_object: dict = None):
+
         # Call API
-        response = self.solr_api_full_text.index_document(path, list_documents=list_documents)
+        response = self.solr_api_full_text.index_document(content_type="application/json", xml_data=json_object)
         return response
 
-    @staticmethod
-    def clean_up_folder(document_path, list_ids):
-        logger.info("Cleaning up .xml and .zip files")
+    def indexer_service(self):
+        # Get ten messages and break out
+        for message in self.queue_consumer.consume_message():
 
-        for id_name in list_ids:
-            # zip file
-            list_documents = glob.glob(f"{document_path}/{id_name}")
-            for file in list_documents:
-                logger.info(f"Deleting file {file}")
-                os.remove(file)
+            try:
+                response = self.storage_document(json_object=message)
+                logger.info(f"Index operation status: {response.status_code}")
+
+            except Exception as e:
+                logger.info(f"Something went wrong with Solr {e}")
 
 
 def main():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument(
-        "--solr_indexing_api",
-        help="",
-        required=True,
-        default="http://solr-lss-dev:8983/solr/#/core-x/",
-    )
+    from document_indexer_service.indexer_arguments import IndexerServiceArguments
+    init_args_obj = IndexerServiceArguments(parser)
 
-    # Path to the folder where the documents are stored. This parameter is useful for runing the script locally
-    parser.add_argument(
-        "--document_local_path",
-        help="Path of the folder where the documents are stored.",
-        required=False,
-        default=None
-    )
+    document_indexer_queue_service = DocumentIndexerQueueService(init_args_obj.solr_api_full_text,
+                                                                 init_args_obj.queue_consumer)
 
-    args = parser.parse_args()
-
-    solr_api_full_text = HTSolrAPI(url=args.solr_indexing_api)
-
-    document_indexer_service = DocumentIndexerService(solr_api_full_text)
-
-    while True:
-        try:
-            if args.document_local_path:
-                document_local_path = os.path.abspath(args.document_local_path)
-            else:
-                document_local_path = os.path.abspath(DOCUMENT_LOCAL_PATH)
-
-            # Get the files for indexing
-            xml_files = [
-                file
-                for file in os.listdir(document_local_path)
-                if file.lower().endswith(".xml")
-            ]
-
-            logger.info(f"Indexing {len(xml_files)} documents.")
-            # Split the list of files in batch
-            if xml_files:
-                while xml_files:
-                    chunk, xml_files = xml_files[:CHUNK_SIZE], xml_files[CHUNK_SIZE:]
-
-                    logger.info(f"Indexing documents: {chunk}")
-                    response = document_indexer_service.indexing_documents(
-                        document_local_path, list_documents=chunk
-                    )
-                    logger.info(f"Index operation status: {response.status_code}")
-                    if response.status_code == 200:
-                        DocumentIndexerService.clean_up_folder(
-                            document_local_path, chunk
-                        )
-
-        except Exception as e:
-            logger.info(f"{document_local_path} does not exit {e}")
-            sleep(3)  # Wait until the folder is created
-
-        logger.info("Processing ended, sleeping for 5 minutes")
-        sleep(3)
+    document_indexer_queue_service.indexer_service()
 
 
 if __name__ == "__main__":

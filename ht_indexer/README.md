@@ -3,20 +3,110 @@
 Application for indexing (add) documents in Solr server
 
 This is a Python application, running within a Docker environment.
-The application contains a component based on FastAPI for indexing XML files in a Solr server
+The application contains a component based on FastAPI for indexing JSON files in a Solr server
 
 This application instantiates two solr servers, through docker containers. Catalog (solr-sdr-catalog), for retrieving
 documents and Full-text (solr-lss-dev) search index for indexing them.
-Both containers, must be running before load the API, so the docker-compose.yml file takes care of it.
+
+The application integrates a queue system to manage the flow of documents to be indexed in Full-text search index.
+
+Three services are available in the application:
+
+* document_retriever_service: Load an API to retrieve documents from Catalog index.
+* document_generator: Use the Catalog metadata and the files storage on pairtree-based repository to generate the JSON.
+* document_indexer_service: Load the API to index the documents in Full-text search index.
+
+Two queues are available in the application:
+queue_retriever: Queue to manage the flow of documents to be retrieved from Catalog index.
+queue_indexer: Queue to manage the flow of documents to be indexed in Full-text search index.
 
 ## Use cases
 
-For all the use cases, the query look like:
+For all the use cases, a list of documents is received. This workflow retrieve metadata from Catalog index, then a
+parameter is received indicating the catalog solr field to query. The Solr query can contain the field id or ht_id.
 
-``` --query id:100673101 
-    --query ht_id:umn.31951d01828300z
+The field id is used if you want to process all the items on
+a record. The ht_id is used when a specific item of a Catalog record will be processed.
+
+The Solr query will look like this: `id:100673101` or `ht_id:umn.31951d01828300z`
+
+Not implemented yet: If the list of documents is empty, them do a query=*:* and the query_field will be id to retrieve
+all the documents in Catalog index.
+
+``` 
     --query *:* default query to retrieve all the documents in Catalog
 ```
+
+**Use case 1: Generating and indexing one or N items retrieved from Catalog in Full-text search index:**
+The application receives a list of ids and a parameter that indicates if all the items in a record will be processed
+or only one item. Three different components/client are involved in this process and the communication among them
+is using a queue system.
+
+**Use case 1.1: The list of documents is retrieved from a file:**
+This is use is used to process a batch of documents selected from production. It is used to test the
+application in Kubernetes and considering production data.
+
+**Use case 2: Generating and indexing long documents in Full-text search index:**
+There are some documents that exceed the maximum size of message allowing by the queue system. In this case, only a
+queue containing the metadata extracted from Catalog index is used. After that, the components for generating and
+indexing the documents are used in sequence in a local environment.
+
+## How to test locally indexer service
+
+In your workdir:
+
+Step 1. Create /sdr1/obj directory
+`mkdir ../sdr1/obj`
+
+Step 2. Retrieve from pairtree repository data for testing
+`scp $HT_SSH_HOST:/sdr1/obj/umn/pairtree_root/31/95/1d/03/01/41/20/v/31951d03014120v/31951d03014120v{.zip,mets.xml} ../sdr1/obj`
+
+Step 3. Create the image
+`docker build -t document_generator .`
+
+Step 4. Run the container
+`docker compose up document_retriever -d`
+
+## Retriever, Generator and indexer complete queue message system
+
+### Run retriever service
+
+```docker compose exec document_retriever python document_retriever_service/full_text_search_retriever_service.py
+--list_documents
+chi.096189208,iau.31858049957305,hvd.32044106262314,chi.096415811,hvd.32044020307005,hvd.32044092647320,iau.31858042938971
+--query_field item
+```
+
+### Generator service
+
+```docker compose exec document_indexer python document_generator/document_generator_service.py```
+
+### Indexer service
+
+```docker compose exec document_indexer python document_indexer_service/document_indexer_service.py --solr_indexing_api http://solr-lss-dev:8983/solr/#/core-x/```
+
+## Retriever used a queue and Generator and indexer run in sequence in the same environment
+
+### Retriever service = receive a list of documents
+
+```docker compose exec document_retriever python document_retriever_service/full_text_search_retriever_service.py --list_documents chi.096189208,iau.31858049957305,hvd.32044106262314,chi.096415811,hvd.32044020307005,hvd.32044092647320,iau.31858042938971 --query_field item```
+
+### Generator service Locally
+
+```docker compose exec document_generator python document_generator/document_generator_service_local.py --document_local_path /tmp --document_repository local```
+
+### Indexer service Locally
+
+```docker compose exec document_indexer python document_indexer_service/document_indexer_local_service.py --solr_indexing_api http://solr-lss-dev:8983/solr/#/core-x/ --document_local_path /tmp/indexing_data```
+
+## Use case for processing documents retrieved from a file
+
+The file is created using the Catalog index. The file contains the list of documents to be processed and it is stored
+in the root of this repository by default. e.g. ~/ht_indexer/filter_ids.txt
+
+```docker compose exec document_retriever python run_retriever_service_by_file.py```
+
+## Other usefull scripts
 
 1- Create a TXT file listing ht_id from Catalog index
 `python ht_indexer/document_retriever_service/catalog_retriever_service.py --query id:100673101
@@ -24,17 +114,7 @@ For all the use cases, the query look like:
 
 * By default, the file will be created in the folder the root of the project
 
-2- Generate full-text search documents for all the items in Catalog index
-`python ht_indexer/document_retriever_service/full_text_search_retriever_service.py --query id:100673101
---document_local_path ~/tmp`
-
-* The query parameter could be *:* to retrieve all the documents in Catalog index
-
-3- Generate full-text search documents given ht_id
-`python ht_indexer/document_retriever_service/full_text_search_retriever_service.py --query ht_id:umn.31951d01828300z
---document_local_path ~/tmp`
-
-4- Retrieve files from pairtree-based repository
+2- Retrieve files from pairtree-based repository
 `python ~/ht_indexer/document_retriever_service/full_text_search_retriever_by_file.py
 --list_ids_path /Users/lisepul/Documents/repositories/python/ht_indexer/filter_ids.txt`
 
@@ -61,27 +141,6 @@ http://localhost:8983/solr/#/core-x/ --document_local_path ~/tmp/indexing_data`
            ```./ht_utils/sample_data/sample_data_creator.sh```
         5. Passing arguments to generate the sample of data:
            ```./ht_utils/sample_data/sample_data_creator.sh 0.0011 /sdr1/obj```
-
-###### 2. Retriever service: Run the services for retrieving and generating documents
-
-In your workdir,
-
-1. Set up environment variable,
-
-```bash
-          export MySQL_USER = mysql_user
-          export MySQL_PASS = mysql_pass
-```
-
-2. Retrieving data:
-
-    3. Locally, ```bash run_retriever_processor.sh local```. You must run the script to generate the sample of data
-    4. Kubernetes, ```bash run_retriever_processor.sh```
-
-
-3. ###### Indexing service: Run de services for indexing documents
-
-In your workdir, run the script: ```bash run_indexer_processor.sh```
 
 ## Data Sampling:
 
@@ -221,26 +280,6 @@ On mac,
       their files in the home directory, e.g. /Users/user_name/Library/Caches/pypoetry/..
     * `` poetry export -f requirements.txt --output requirements.txt ``
     * Use `` poetry update `` if you change your .toml file and want to generate a new version the .lock file
-
-## How to test locally indexer service
-
-In your workdir:
-
-Step 1. Create /sdr1/obj directory
-`mkdir ../sdr1/obj`
-
-Step 2. Retrieve from pairtree repository data for testing
-`scp $HT_SSH_HOST:/sdr1/obj/umn/pairtree_root/31/95/1d/03/01/41/20/v/31951d03014120v/31951d03014120v{.zip,mets.xml} ../sdr1/obj`
-
-Step 3. Create the image
-`docker build -t document_generator .
-docker compose up document_retriever -d`
-
-Step 4. export MYSQL_USER=
-export MYSQL_PASS=
-
-Step 5. Generate document
-`docker exec document_retriever python document_retriever_service/full_text_search_retriever_service.py --query ht_id:mb.39015078560292 --document_local_path /Users/lisepul/Documents/repositories/python/tmp --document_repository local`
 
 ## DockerFile explanations
 

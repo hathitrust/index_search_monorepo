@@ -12,12 +12,18 @@ services:
     environment:
       - SOLR_URL=http://solr-sdr-catalog:9033/solr/#/catalog/
       - SDR_DIR=/sdr1/obj
+      - QUEUE_HOST=rabbitmq
+      - QUEUE_NAME=retriever_queue
+      - QUEUE_PASS=guest
+      - QUEUE_USER=guest
     depends_on:
       solr-sdr-catalog:
         condition: service_healthy
       solr-lss-dev:
         condition: service_healthy
       mysql-sdr:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     tty: true
     stdin_open: true
@@ -84,6 +90,28 @@ services:
         condition: service_healthy
       solr-lss-dev:
         condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+  document_generator:
+    container_name: document_generator
+    image: document_generator
+    volumes:
+      - ../tmp:/tmp:rm
+      - ../sdr1/obj:/sdr1/obj
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    tty: true
+    stdin_open: true
+    environment:
+      - SRC_QUEUE_HOST=rabbitmq
+      - SRC_QUEUE_NAME=retriever_queue
+      - SRC_QUEUE_PASS=guest
+      - SRC_QUEUE_USER=guest
+      - TGT_QUEUE_HOST=rabbitmq
+      - TGT_QUEUE_NAME=indexer_queue
+      - TGT_QUEUE_PASS=guest
+      - TGT_QUEUE_USER=guest
   document_indexer:
     container_name: document_indexer
     image: document_generator
@@ -94,8 +122,30 @@ services:
     depends_on:
       solr-lss-dev:
         condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     tty: true
     stdin_open: true
+    environment:
+      - QUEUE_HOST=rabbitmq
+      - QUEUE_NAME=indexer_queue
+      - QUEUE_PASS=guest
+      - QUEUE_USER=guest
+  rabbitmq:
+    container_name: rabbitmq
+    image: rabbitmq:3.13-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    healthcheck:
+      test: [ "CMD", "rabbitmqctl", "status" ]
+      interval: 5s
+      timeout: 10s
+      start_period: 30s
+      retries: 5
 volumes:
   solr_data:
   mysql_sdr_data:

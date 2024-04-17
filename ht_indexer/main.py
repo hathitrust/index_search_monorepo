@@ -47,7 +47,7 @@ def main():
     @app.post("/solrIndexing/")
     def solr_indexing(path, list_documents: list = None):
         """Read an XML and feed into SOLR for indexing"""
-        response = solr_api.index_document(path, list_documents=list_documents)
+        response = solr_api.index_documents(path, list_documents=list_documents)
         return {"status": response.status_code, "description": response.headers}
 
     @app.post("/solrQuery/")
