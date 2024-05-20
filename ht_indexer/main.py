@@ -52,7 +52,7 @@ def main():
 
     @app.post("/solrQuery/")
     def solr_query_id(query):
-        response = solr_api.get_documents(query)
+        response = solr_api.get_documents(query, response_format="json")
         return {"status": response.status_code, "description": response.headers}
 
     uvicorn.run(app, host=args.host, port=int(args.port))

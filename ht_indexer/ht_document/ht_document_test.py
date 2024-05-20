@@ -43,6 +43,13 @@ def test_document_several_points():
     assert obj_id == "adh1541.0001.001"
 
 
+def test_raise_document_id_exception():
+    try:
+        HtDocument.get_object_id("miun")
+    except ValueError as e:
+        assert str(e) == "Review the document id miun not enough values to unpack (expected at least 2, got 1)"
+
+
 def test_pairpath_document_several_points():
     assert "miun,adh1541,0001,001" == pairtree.sanitizeString("miun.adh1541.0001.001")
 

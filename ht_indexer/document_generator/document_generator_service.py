@@ -1,12 +1,14 @@
 import time
 import os
 import argparse
+import json
 
-from document_generator.full_text_document_generator import DocumentGenerator
+from document_generator.full_text_document_generator import FullTextDocumentGenerator
 from ht_document.ht_document import HtDocument
 from document_generator.generator_arguments import GeneratorServiceArguments
-from ht_queue_service.queue_consumer import QueueConsumer
+from ht_queue_service.queue_consumer import QueueConsumer, positive_acknowledge
 from ht_queue_service.queue_producer import QueueProducer
+import ht_utils.ht_utils
 
 from ht_utils.ht_logger import get_ht_logger
 
@@ -24,19 +26,19 @@ class DocumentGeneratorService:
         This class is responsible to retrieve from the queue a message with metadata at item level and generate
         the full text search entry and publish the document in a queue
 
-        :param db_conn: Mysql connection
-        :param src_queue_consumer: Connection of the queue to read the messages
-        :param tgt_queue_producer: Connection of the queue to publish the messages
-        :param not_required_tgt_queue: Parameter to define if the generated documents will be published in a queue
-        :param document_repository: Parameter to know if the plain text of the items is in the local or remote repository
+        :param db_conn: MySql connection
+        :param src_queue_consumer: Retrieving messages from the queue
+        :param tgt_queue_producer: Publishing messages to the queue
+        :param not_required_tgt_queue: Indicates if the document will be published in a queue or locally
+        :param document_repository: Parameter to know if the plain text of the items is in the local or remote
+        repository
         """
 
-        self.document_generator = DocumentGenerator(db_conn)
+        # Instantiate the document generator object
+        self.document_generator = FullTextDocumentGenerator(db_conn)
 
         self.src_queue_consumer = src_queue_consumer
-
         self.document_repository = document_repository
-
         if not not_required_tgt_queue:
             self.tgt_queue_producer = tgt_queue_producer
 
@@ -48,7 +50,7 @@ class DocumentGeneratorService:
         # Instantiate each document
         ht_document = HtDocument(document_id=item_id, document_repository=document_repository)
 
-        logger.info(f"Checking path {ht_document.source_path}")
+        logger.info(f"Checking if {ht_document.source_path} exists!")
 
         # TODO: Temporal local for testing using a sample of files
         #  Checking if the file exist, otherwise go to the next
@@ -57,13 +59,15 @@ class DocumentGeneratorService:
             try:
                 entry = self.document_generator.make_full_text_search_document(ht_document, record)
             except Exception as e:
-                raise e
+                raise Exception(f"Document {ht_document.document_id} could not be generated: Error - {e}")
             logger.info(
                 f"Time to generate full-text search {ht_document.document_id} document {time.time() - start_time:.10f}")
+            return entry
         else:
-            logger.info(f"{ht_document.document_id} does not exist")
-
-        return entry
+            # The message is rejected because the file with the text of the document does not exist
+            # then, entry dictionary could not be generated
+            logger.info(f"The file of the document {ht_document.document_id} does not exist")
+            raise FileNotFoundError(f"File {ht_document.source_path}.zip not found")
 
     def publish_document(self, content: dict = None):
         """
@@ -73,25 +77,44 @@ class DocumentGeneratorService:
         logger.info(f"Sending message to queue {content.get('id')}")
         self.tgt_queue_producer.publish_messages(message)
 
-    def generate_document(self):
+    def log_error_document_generator_service(self, e, document, delivery_tag):
+        """
+        Log the error message when the document could not be generated and reject the message requeeing the message
+        to the dead letter queue
+        """
+        error_info = ht_utils.ht_utils.get_error_message_by_document("DocumentGeneratorService",
+                                                                     e, document)
 
-        for message in self.src_queue_consumer.consume_message():
+        logger.error(f"Document {document.get('ht_id')} failed {error_info}")
+        self.src_queue_consumer.reject_message(self.src_queue_consumer.conn.ht_channel,
+                                               delivery_tag)
 
-            item_id = message.get("ht_id")
+    def consume_messages(self):
+        try:
+            for method_frame, properties, body in self.src_queue_consumer.consume_message():
+                message = json.loads(body.decode('utf-8'))
+                self.generate_document(message, method_frame.delivery_tag)
+        except Exception as e:
+            logger.error(f"There is something wrong with the queue connection: "
+                         f"{ht_utils.ht_utils.get_general_error_message('DocumentGeneratorService', e)}")
 
-            # TODO: Return the message to the queue if the process fails for any reason, for example,
-            #  if the document does not exist
-            try:
-                full_text_document = self.generate_full_text_entry(item_id, message, self.document_repository)
+    def generate_document(self, message: dict, delivery_tag: int):
 
-                try:
-                    self.publish_document(full_text_document)
-                except Exception as e:
-                    logger.error(f"Something wrong sending {item_id} to the queue {e}")
-                    continue
-            except Exception as e:
-                logger.error(f"Document {item_id} failed {e}")
-                continue
+        item_id = message.get("ht_id")
+
+        # try to generate the full text entry dictionary, if it fails, the message is rejected
+        try:
+            full_text_document = self.generate_full_text_entry(item_id, message, self.document_repository)
+
+            # try to publish the full text entry dictionary in the queue, if it fails, the message is
+            # rejected
+            self.publish_document(full_text_document)
+            # Acknowledge the message to src_queue if the message is processed successfully and published in
+            # the other queue
+            positive_acknowledge(self.src_queue_consumer.conn.ht_channel,
+                                 delivery_tag)
+        except Exception as e:
+            self.log_error_document_generator_service(e, message, delivery_tag)
 
 
 def main():
@@ -104,7 +127,7 @@ def main():
                                                           init_args_obj.document_repository,
                                                           not_required_tgt_queue=init_args_obj.not_required_tgt_queue
                                                           )
-    document_generator_service.generate_document()
+    document_generator_service.consume_messages()
 
 
 if __name__ == "__main__":

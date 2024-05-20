@@ -15,7 +15,7 @@ logger = get_ht_logger(name=__name__)
 
 class HtDocument:
     """
-    This class manage the basic information we need to process a document
+    The class manages the basic information we need to process a document
     * ht_id
     * make sure the document have .zip and mets file
     * Download the fields and load their path
@@ -32,7 +32,7 @@ class HtDocument:
         self.namespace = HtDocument.get_namespace(document_id)
         self.obj_id = HtDocument.get_object_id(document_id)
 
-        # If there is special characters in the document_id, the file will be load in the local
+        # If there are special characters in the document_id, the file will be load in the local
         # environment with a different name
         self.file_name = pairtree.sanitizeString(self.obj_id)
         self.sanitized_obj_id_translated = self.file_name.translate(TRANSLATE_TABLE)
@@ -62,7 +62,7 @@ class HtDocument:
                 return ".".join(obj_id)
             return "".join(obj_id)
         except ValueError as e:
-            logger.error(f"Review the document id {document_id} {e}")
+            raise ValueError(f"Review the document id {document_id} {e}")
 
     def get_document_pairtree_path(self):
         """

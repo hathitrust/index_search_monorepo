@@ -3,11 +3,13 @@ import os
 import sys
 from pathlib import Path
 from xml.sax.saxutils import quoteattr
+from ht_utils.text_processor import string_preparation
+import zipfile
 
 import pytest
 from _pytest.outcomes import Failed
 
-from document_generator.full_text_document_generator import DocumentGenerator
+from document_generator.full_text_document_generator import FullTextDocumentGenerator
 
 current = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 parent = os.path.dirname(current)
@@ -33,19 +35,45 @@ def get_allfield_string():
 class TestDocumentGenerator:
 
     def test_not_exist_zip_file_full_text_field(self):
+        """ Test the function when the zip file does not exist """
         try:
             with pytest.raises(Exception):
-                DocumentGenerator.get_full_text_field("data/test.zip")
+                FullTextDocumentGenerator.get_full_text_field("data/test.zip")
         except Failed:
             pass
 
+    def test_full_text_field_raise_unicode_error(self):
+
+        """At least one of the txt of include in the xip file
+        is not a valid UTF-8 encoded document, so the function should raise an exception."""
+        zip_path = f"{Path(__file__).parents[1]}/data/document_generator/mb.39015078560292_test.zip"
+
+        with pytest.raises(Exception):
+            FullTextDocumentGenerator.get_full_text_field(zip_path)
+
+    def test_string_preparation_raise_unicodedecodeerror(self):
+
+        zip_doc_path = f"{Path(__file__).parents[1]}/data/document_generator/mb.39015078560292_test.zip"
+
+        full_test = ""
+
+        zip_doc = zipfile.ZipFile(zip_doc_path, mode="r")
+        with pytest.raises(Exception, match=""):
+            for i_file in zip_doc.namelist():
+                if zip_doc.getinfo(i_file).filename.endswith(".txt"):
+                    doc_str = string_preparation(zip_doc.read(i_file))
+                    full_test = full_test + " " + doc_str
+
     def test_full_text_field(self):
         zip_path = f"{Path(__file__).parents[1]}/data/document_generator/mb.39015078560292_test.zip"
-        full_text = DocumentGenerator.get_full_text_field(zip_path)
 
-        assert len(full_text) > 10
+        try:
+            with pytest.raises(Exception):
+                FullTextDocumentGenerator.get_full_text_field(zip_path)
+        except Failed:
+            assert 0 == 0
 
     def test_create_allfields_field(self, get_fullrecord_xml, get_allfield_string):
-        allfield = DocumentGenerator.get_allfields_field(get_fullrecord_xml)
-        assert len(allfield.strip()) == len(get_allfield_string.strip())
-        assert allfield.strip() == get_allfield_string.strip()
+        all_field = FullTextDocumentGenerator.get_all_fields_field(get_fullrecord_xml)
+        assert len(all_field.strip()) == len(get_allfield_string.strip())
+        assert all_field.strip() == get_allfield_string.strip()

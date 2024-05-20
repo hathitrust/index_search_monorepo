@@ -5,6 +5,7 @@ import sys
 import time
 import multiprocessing
 
+import ht_utils.ht_utils
 from document_retriever_service.catalog_retriever_service import CatalogRetrieverService
 from document_retriever_service.retriever_arguments import RetrieverServiceArguments
 from ht_utils.ht_logger import get_ht_logger
@@ -24,7 +25,7 @@ def publish_document(queue_producer, content: dict = None):
     Publish the document in a queue
     """
     message = content
-    logger.info(f"Sending message to queue {content.get('ht_id')}")
+    logger.info(f"Sending message with id {content.get('ht_id')} to queue {queue_producer.queue_name}")
     queue_producer.publish_messages(message)
 
 
@@ -43,48 +44,95 @@ class FullTextSearchRetrieverQueueService:
                  solr_api_url,
                  queue_name: str = 'retriever_queue', queue_host: str = None,
                  queue_user: str = None,
-                 queue_password: str = None):
+                 queue_password: str = None,
+                 dead_letter_queue: bool = False):
 
         self.solr_api_url = solr_api_url
         self.queue_name = queue_name
         self.queue_host = queue_host
         self.queue_user = queue_user
         self.queue_password = queue_password
+        self.dead_letter_queue = dead_letter_queue
 
     def full_text_search_retriever_service(self, initial_documents, start, rows, by_field: str = 'item'):
         """
         This method is used to retrieve the documents from the Catalog and generate the full text search entry
+        If the Solr is not available, an error will be raised, and the process will be stopped
         """
-        # Create a connection to the queue and Solr Api
+        # Create a connection to Solr Api
         catalog_retriever = CatalogRetrieverService(self.solr_api_url)
-        queue_producer = QueueProducer(self.queue_user, self.queue_password, self.queue_host, self.queue_name)
 
-        total_documents = catalog_retriever.count_documents(initial_documents, start, rows, by_field)
+        try:
+            # Create a connection to the queue
+            queue_producer = QueueProducer(self.queue_user, self.queue_password, self.queue_host, self.queue_name,
+                                           self.dead_letter_queue)
+        except Exception as e:
+            logger.error(f"Environment variables required: "
+                         f"{ht_utils.ht_utils.get_general_error_message('DocumentGeneratorService', e)}")
+        try:
+            total_documents = catalog_retriever.count_documents(initial_documents, start, rows, by_field)
+        except Exception as e:
+            error_info = ht_utils.ht_utils.get_general_error_message("FullTextSearchRetrieverQueueService",
+                                                                     e)
+
+            logger.error(f"Error in getting documents from Solr {error_info}")
+            exit(1)
 
         count_records = 0
         while count_records < total_documents:
             chunk = initial_documents[count_records:count_records + rows]
-            result = catalog_retriever.retrieve_documents(chunk, start, rows, by_field=by_field)
+
+            try:
+                result = catalog_retriever.retrieve_documents(chunk, start, rows, by_field=by_field)
+            except Exception as e:
+                error_info = ht_utils.ht_utils.get_general_error_message("FullTextSearchRetrieverQueueService",
+                                                                         e)
+
+                logger.error(f"Error in getting documents from Solr {error_info}")
+                continue
 
             for record in result:
                 item_id = record.ht_id
                 logger.info(f"Processing document {item_id}")
+
                 # publish the document in a queue
                 item_metadata = record.metadata
                 item_metadata['ht_id'] = item_id
-                logger.info(f"Publishing document {item_id} count={count_records}")
-                publish_document(queue_producer, item_metadata)
+                logger.info(f"Publishing document {item_id}")
+
+                # Try to publish the document in the queue, if an error occurs, log the error and continue to the next
+                # TODO: Add a mechanism to send the message to a dead letter queue
+                try:
+                    publish_document(queue_producer, item_metadata)
+                except Exception as e:
+                    error_info = ht_utils.ht_utils.get_error_message_by_document("FullTextSearchRetrieverQueueService",
+                                                                                 e, item_metadata)
+
+                    logger.error(f"Error in publishing document {item_id} {error_info}")
+                    continue
 
             count_records += len(result)
             logger.info(f"Total of processed items {count_records}")
 
 
-def run_retriever_service(parallelize, nthreads, total_documents, list_documents, by_field, document_indexer_service,
+def run_retriever_service(parallelize, num_threads, total_documents, list_documents, by_field, document_indexer_service,
                           init_args_obj):
+    """
+    Run the retriever service
+
+    :param parallelize:
+    :param num_threads:
+    :param total_documents:
+    :param list_documents:
+    :param by_field:
+    :param document_indexer_service:
+    :param init_args_obj:
+    """
+
     if parallelize:
 
-        if nthreads:
-            n_cores = nthreads
+        if num_threads:
+            n_cores = num_threads
         else:
             n_cores = multiprocessing.cpu_count()
 
@@ -127,7 +175,8 @@ def main():
         init_args_obj.queue_name,
         init_args_obj.queue_host,
         init_args_obj.queue_user,
-        init_args_obj.queue_password)
+        init_args_obj.queue_password,
+        init_args_obj.dead_letter_queue)
 
     by_field = init_args_obj.query_field
     list_documents = init_args_obj.list_documents

@@ -11,16 +11,6 @@ from ht_utils.query_maker import make_query
 logger = get_ht_logger(name=__name__)
 
 
-def get_specific_item_id(query):
-    # Process a specific item of a record
-    try:
-        item_id = query.split(':')[1]
-    except Exception as e:
-        logger.error(f"Query {query} does not have a valid format {e}")
-        exit()
-    return [item_id]
-
-
 def create_catalog_object_by_record_id(record, catalog_record_metadata, results):
     for item_id in record.get('ht_id'):  # Append list of CatalogMetadata object
         results.append(CatalogRetrieverService.get_catalog_object(item_id, catalog_record_metadata))
@@ -37,6 +27,14 @@ def create_catalog_object_by_item_id(list_documents, record, catalog_record_meta
 
 
 class CatalogRetrieverService:
+    """
+    This class is used to retrieve the documents from the Catalog index
+    It uses the HTSolrAPI to retrieve the documents from the Catalog index
+    It accepts queries considering the field 'item' or 'record'. The default field is 'item'
+    item is used to retrieve at ht_id level
+    record is used to retrieve at id level, that means all the ht_id from a record
+    """
+
     def __init__(self, catalog_api=None):
 
         self.catalog_api = HTSolrAPI(catalog_api)
@@ -53,18 +51,24 @@ class CatalogRetrieverService:
         """
         This method is used to load the list of ht_id from the Catalog index
         """
-        # Build query to know the total of documents to process
+        # Build the query to retrieve the total of documents to process
         query = make_query(list_documents, by_field)
 
-        response = self.catalog_api.get_documents(query=query, start=start, rows=rows)
-        output = response.json()
         try:
+            response = self.catalog_api.get_documents(query=query, response_format="json", start=start, rows=rows)
+            output = response.json()
+
             total_records = output.get("response").get("numFound")
             logger.info(f" Total of records {total_records}")
+
+            if total_records:
+                return total_records
+            else:
+                return 0
+
         except Exception as e:
-            logger.error(f"Solr index {self.catalog_api} seems empty {e}")
-            exit()
-        return total_records
+            logger.error(f"Error in getting documents from Solr {e}")
+            raise e
 
     def retrieve_documents(self, list_documents: list[str], start: int, rows: int, by_field: str = 'item'):
 
@@ -84,21 +88,27 @@ class CatalogRetrieverService:
 
         results = []
 
-        response = self.catalog_api.get_documents(
-            query=make_query(list_documents, by_field), start=start, rows=rows
-        )
+        # try ... except block to catch any exception raised by the Solr connection
+        try:
+            response = self.catalog_api.get_documents(
+                query=make_query(list_documents, by_field), start=start, rows=rows
+            )
 
-        output = json.loads(response.content.decode("utf-8"))
+            output = json.loads(response.content.decode("utf-8"))
 
-        # TODO: Add a check to verify if the response is empty
+        except Exception as e:
+            logger.error(f"Error in getting documents from Solr {e}")
+            raise e
 
+        # If no documents are found, output.get("response").get("docs") is an empty list
+        logger.info(f" {output.get('response').get('numFound')} documents found in Solr to process")
         for record in output.get("response").get("docs"):
             count_records = count_records + 1
 
             catalog_record_metadata = CatalogRecordMetadata(record)
             start_time = time.time()
             if by_field == 'item':
-                # Validate query field = ht_id, list_documents could contain 1 or more items but they probably are form
+                # Validate query field = ht_id, list_documents could contain 1 or more items, but they probably are from
                 # different records
                 # Process a specific item of a record
                 results = create_catalog_object_by_item_id(list_documents, record, catalog_record_metadata, results)
@@ -110,7 +120,7 @@ class CatalogRetrieverService:
             logger.info(f"Time to retrieve document metadata {time.time() - start_time}")
         logger.info(f"Batch documents {count_records}")
         start += rows
-        logger.info(f"Result lenght {len(results)}")
+        logger.info(f"Result length {len(results)}")
         return results
 
 
@@ -146,6 +156,7 @@ def main():
     start = 0
     rows = 100
 
+    # TODO Implement the use case that retrieve documents accept a query instead of a list of documents
     for result in catalog_retrieval_service.retrieve_documents(start, rows):
         for record in result:
             item_id = record.ht_id

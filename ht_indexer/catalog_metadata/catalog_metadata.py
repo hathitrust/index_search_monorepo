@@ -56,6 +56,9 @@ class CatalogItemMetadata:
         self.metadata = {**self.record_metadata.metadata, **metadata}
 
     def get_volume_enumcron(self) -> list:
+        """Obtain the volume and enumcron of a specific item in the catalog.
+        If the field is not present, return an empty list.
+        """
         try:
             return self.record_metadata.record.get("ht_id_display")[0].split("|")[2]
         except IndexError:
@@ -91,15 +94,13 @@ class CatalogItemMetadata:
 
     def get_item_htsource(self) -> str:
         """
-        In catalog it could be a list of sources, should obtain the source of a specific item
-        :param id: Catalod ht_id field
-        :param catalog_htsource: catalog item source
-        :param catalog_htid: catalog item ht_id
+        In catalog, it could be a list of sources, should obtain the source of a specific item
+        If there are no sources, return the first source in the list
         :return:
         """
         item_position = self.record_metadata.record.get("ht_id").index(self.ht_id)
         try:
-            htsource = self.record_metadata.record.get("htsource")[item_position]
+            ht_source = self.record_metadata.record.get("htsource")[item_position]
         except IndexError:
-            htsource = self.record_metadata.record.get("htsource")[0]
-        return htsource
+            ht_source = self.record_metadata.record.get("htsource")[0]
+        return ht_source

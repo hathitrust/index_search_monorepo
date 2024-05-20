@@ -24,17 +24,18 @@ def xmlesc(txt):
 
 def string_preparation(doc_content: BytesIO) -> str:
     """
-    Clean up a byte object and convert ir to string
+    Clean up a byte object and convert it to string
     :param doc_content: XML string
     :return:
     """
 
+    # Make sure you will be able to convert the byte the full text
     try:
         # Convert byte to str
         str_content = str(doc_content.decode())
     except Exception as e:
-        logger.info(f"File encode incompatible with UTF-8 {e}")
-        raise Exception
+        logger.error(f"File encode incompatible with UTF-8 {e}")
+        raise UnicodeDecodeError
 
     # Remove line breaks
     str_content = str_content.replace("\n", " ")

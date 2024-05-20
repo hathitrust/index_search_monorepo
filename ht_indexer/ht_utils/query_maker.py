@@ -1,3 +1,8 @@
+from ht_utils.ht_logger import get_ht_logger
+
+logger = get_ht_logger(name=__name__)
+
+
 def make_query(list_documents: list[str], by_field: str = 'item') -> str:
     """
     Receives a list of ht_id and returns a query to retrieve the documents from the Catalog
@@ -25,5 +30,5 @@ def make_query(list_documents: list[str], by_field: str = 'item') -> str:
         values = "\" OR \"".join(list_documents)
         values = '"'.join(("", values, ""))
         query = f"{query_field}:({values})"
-
+    logger.info(f"Query to retrieve the documents: {query}")
     return query

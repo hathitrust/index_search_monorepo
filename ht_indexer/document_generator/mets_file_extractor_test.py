@@ -7,13 +7,13 @@ from document_generator.mets_file_extractor import MetsAttributeExtractor
 
 class TestMETSFileExtractor:
     @pytest.fixture()
-    def metsAttrExtractorObj(self):
+    def mets_attr_extractor_obj(self):
         path = f"{Path(__file__).parents[1]}/data/document_generator/mb.39015078560292.mets_test.xml"
         mets_obj = MetsAttributeExtractor(path)
         return mets_obj
 
-    def test_create_METS_map(self, metsAttrExtractorObj):
-        mets_map = metsAttrExtractorObj.create_METS_map()
+    def test_create_mets_map(self, mets_attr_extractor_obj):
+        mets_map = mets_attr_extractor_obj.create_mets_map()
 
         assert (
                 mets_map.get("488").get("features") == "CHAPTER_START, IMPLICIT_PAGE_NUMBER"
@@ -25,14 +25,14 @@ class TestMETSFileExtractor:
             "TXT00000488",
         ]
 
-    def test_get_reading_order(self, metsAttrExtractorObj):
-        reading_order = metsAttrExtractorObj.get_reading_order()
+    def test_get_reading_order(self, mets_attr_extractor_obj):
+        reading_order = mets_attr_extractor_obj.get_reading_order()
         assert reading_order.get("scanningOrder") == "left-to-right"
         assert reading_order.get("readingOrder") == "left-to-right"
         assert reading_order.get("coverTag") == "follows-reading-order"
 
-    def test_get_unique_features(self, metsAttrExtractorObj):
-        mets_map = metsAttrExtractorObj.create_METS_map()
+    def test_get_unique_features(self, mets_attr_extractor_obj):
+        mets_map = mets_attr_extractor_obj.create_mets_map()
 
         assert sorted(
             [

@@ -15,7 +15,7 @@ class MetsAttributeExtractor:
         self.tree = etree.parse(path)
         self.namespace = self.tree.getroot().nsmap
 
-    def create_METS_map(self) -> Dict:
+    def create_mets_map(self) -> Dict:
         mets_map = {}
 
         # TODO Remove hardcode Use the namespace dictionary to find the element
@@ -65,7 +65,7 @@ class MetsAttributeExtractor:
 
     def create_mets_entry(self):
         logger.info("Creating METS map")
-        mets_map = self.create_METS_map()
+        mets_map = self.create_mets_map()
 
         logger.info("Creating METS entry")
         features = MetsAttributeExtractor.get_unique_features(mets_map)

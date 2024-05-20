@@ -112,6 +112,7 @@ services:
       - TGT_QUEUE_NAME=indexer_queue
       - TGT_QUEUE_PASS=guest
       - TGT_QUEUE_USER=guest
+    command: [ "python", "document_generator/document_generator_service.py" ]
   document_indexer:
     container_name: document_indexer
     image: document_generator
@@ -131,6 +132,7 @@ services:
       - QUEUE_NAME=indexer_queue
       - QUEUE_PASS=guest
       - QUEUE_USER=guest
+    command: [ "python", "document_indexer_service/document_indexer_service.py", "--solr_indexing_api", "http://solr-lss-dev:8983/solr/#/core-x/" ]
   rabbitmq:
     container_name: rabbitmq
     image: rabbitmq:3.13-management

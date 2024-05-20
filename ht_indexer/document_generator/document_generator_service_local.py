@@ -24,13 +24,14 @@ class DocumentGeneratorServiceLocal(DocumentGeneratorService):
         the full text search entry and publish the document in a local folder
 
         :param db_conn: Mysql connection
-        :param src_queue_consumer: Connection of the queue to read the messages
+        :param src_queue_consumer: Connection of the queue to read the message
         :param document_local_path: Path of the folder where the documents (.xml file to index) are stored.
         :param document_local_folder: Folder where the documents are stored
-        :param document_repository: Parameter to know if the plain text of the items is in the local or remote repository
+        :param document_repository: The plain text of the item is in the local or remote repository
         """
 
-        super().__init__(db_conn, src_queue_consumer=src_queue_consumer,
+        super().__init__(db_conn, src_queue_consumer,
+                         None,
                          document_repository=document_repository,
                          not_required_tgt_queue=not_required_tgt_queue
                          )
@@ -76,7 +77,7 @@ def main():
                                                                document_repository=init_args_obj.document_repository,
                                                                document_local_folder="indexing_data",
                                                                not_required_tgt_queue=init_args_obj.not_required_tgt_queue)
-    document_generator_service.generate_document()
+    document_generator_service.consume_messages()
 
 
 if __name__ == "__main__":

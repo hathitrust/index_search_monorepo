@@ -13,12 +13,12 @@ def create_coll_id_field(large_coll_id_result: dict) -> dict:
         return {"coll_id": [0]}
 
 
-def create_ht_heldby_brlm_field(heldby_brlm: dict) -> dict:
+def create_ht_heldby_brlm_field(heldby_brlm: list[tuple]) -> dict:
     list_brl_members = [member_id.get("member_id") for member_id in heldby_brlm]
     return {"ht_heldby_brlm": list_brl_members}
 
 
-def create_ht_heldby_field(heldby_brlm: dict) -> dict:
+def create_ht_heldby_field(heldby_brlm: list[tuple]) -> dict:
     list_brl_members = [member_id.get("member_id") for member_id in heldby_brlm]
     return {"ht_heldby": list_brl_members}
 

@@ -1,6 +1,12 @@
 import os
+import sys
 from ht_indexer_api.ht_indexer_api import HTSolrAPI
 from ht_queue_service.queue_consumer import QueueConsumer
+import ht_utils.ht_utils
+
+from ht_utils.ht_logger import get_ht_logger
+
+logger = get_ht_logger(name=__name__)
 
 
 class IndexerServiceArguments:
@@ -28,7 +34,19 @@ class IndexerServiceArguments:
         self.document_local_path = self.args.document_local_path
 
         # Using queue
-        self.queue_consumer = QueueConsumer(os.environ["QUEUE_USER"],
-                                            os.environ["QUEUE_PASS"],
-                                            os.environ["QUEUE_HOST"],
-                                            os.environ["QUEUE_NAME"])
+        try:
+            self.queue_consumer = QueueConsumer(os.environ["QUEUE_USER"],
+                                                os.environ["QUEUE_PASS"],
+                                                os.environ["QUEUE_HOST"],
+                                                os.environ["QUEUE_NAME"],
+                                                dead_letter_queue=True,
+                                                requeue_message=False)
+        except KeyError as e:
+            logger.error(f"Environment variables required: "
+                         f"{ht_utils.ht_utils.get_general_error_message('IndexerServiceArguments', e)}")
+
+            sys.exit(1)
+        except Exception as e:
+            logger.error(f"Queue connection required: "
+                         f"{ht_utils.ht_utils.get_general_error_message('DocumentGeneratorService', e)}")
+            sys.exit(1)

@@ -4,6 +4,10 @@ class TestFullTextRetrieverService:
         # TODO Use the json file to index the document without the need to connect to the Catalog
         pass
 
+    def test_full_text_search_retriever_(self):
+        # TODO Use the json file to index the document without the need to connect to the Catalog
+        pass
+
     """
     def test_create_directory_to_load_xml_fields(self):
         document_local_path = "indexing_data"

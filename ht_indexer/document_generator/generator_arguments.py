@@ -5,6 +5,7 @@ from ht_queue_service.queue_producer import QueueProducer
 from ht_utils.ht_logger import get_ht_logger
 from ht_queue_service.queue_consumer import QueueConsumer
 import ht_utils.ht_mysql
+import ht_utils.ht_utils
 
 logger = get_ht_logger(name=__name__)
 
@@ -66,19 +67,42 @@ class GeneratorServiceArguments:
         # MySql connection
         self.db_conn = get_mysql_conn()
 
-        self.src_queue_consumer = QueueConsumer(os.environ["SRC_QUEUE_USER"],
-                                                os.environ["SRC_QUEUE_PASS"],
-                                                os.environ["SRC_QUEUE_HOST"],
-                                                os.environ["SRC_QUEUE_NAME"])
+        try:
+            self.src_queue_consumer = QueueConsumer(os.environ["SRC_QUEUE_USER"],
+                                                    os.environ["SRC_QUEUE_PASS"],
+                                                    os.environ["SRC_QUEUE_HOST"],
+                                                    os.environ["SRC_QUEUE_NAME"],
+                                                    dead_letter_queue=True,
+                                                    requeue_message=False)
+        except KeyError as e:
+            logger.error(f"Environment variables required: "
+                         f"{ht_utils.ht_utils.get_general_error_message('DocumentGeneratorService', e)}")
+
+            sys.exit(1)
+        except Exception as e:
+            logger.error(f"Queue connection required: "
+                         f"{ht_utils.ht_utils.get_general_error_message('DocumentGeneratorService', e)}")
+            sys.exit(1)
 
         # Publish documents in a queue or local folder
         self.not_required_tgt_queue = self.args.not_required_tgt_queue
 
         if not self.args.not_required_tgt_queue:
-            self.tgt_queue_producer = QueueProducer(os.environ["TGT_QUEUE_USER"],
-                                                    os.environ["TGT_QUEUE_PASS"],
-                                                    os.environ["TGT_QUEUE_HOST"],
-                                                    os.environ["TGT_QUEUE_NAME"])
+            try:
+                self.tgt_queue_producer = QueueProducer(os.environ["TGT_QUEUE_USER"],
+                                                        os.environ["TGT_QUEUE_PASS"],
+                                                        os.environ["TGT_QUEUE_HOST"],
+                                                        os.environ["TGT_QUEUE_NAME"],
+                                                        dead_letter_queue=True)
+            except KeyError as e:
+                logger.error(f"Environment variables required: "
+                             f"{ht_utils.ht_utils.get_general_error_message('DocumentGeneratorService', e)}")
+
+                sys.exit(1)
+            except Exception as e:
+                logger.error(f"Queue connection required: "
+                             f"{ht_utils.ht_utils.get_general_error_message('DocumentGeneratorService', e)}")
+                sys.exit(1)
 
         # Variables used if the documents are stored in a local folder
         self.document_repository = self.args.document_repository

@@ -9,8 +9,15 @@ from ht_indexer_api.ht_indexer_api import HTSolrAPI
 @pytest.fixture
 def get_solrAPI():
     return HTSolrAPI(
-        url="http://solr-lss-dev:8983/solr/#/core-x/"  # solr-lss-dev
-    )  # http://localhost:9033/solr/#/catalog/
+        url="http://solr-lss-dev:8983/solr/#/core-x/"
+    )
+
+
+@pytest.fixture
+def get_fake_solrAPI():
+    return HTSolrAPI(
+        url="http://solr-lss-dev:8983/solr/#/core-not_exist/"
+    )
 
 
 class TestHTSolrAPI:
@@ -52,3 +59,9 @@ class TestHTSolrAPI:
         response = get_solrAPI.index_documents(document_path, list_documents=list_documents, solr_url_json="update/",
                                                headers={"Content-Type": "application/xml"})
         assert response.status_code == 200
+
+    def test_get_documents_failed(self, get_fake_solrAPI):
+        query = "*:*"
+
+        with pytest.raises(Exception, match=""):
+            response = get_fake_solrAPI.get_documents(query, response_format="json")

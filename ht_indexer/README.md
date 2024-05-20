@@ -16,9 +16,40 @@ Three services are available in the application:
 * document_generator: Use the Catalog metadata and the files storage on pairtree-based repository to generate the JSON.
 * document_indexer_service: Load the API to index the documents in Full-text search index.
 
-Two queues are available in the application:
-queue_retriever: Queue to manage the flow of documents to be retrieved from Catalog index.
-queue_indexer: Queue to manage the flow of documents to be indexed in Full-text search index.
+Two queues are available in the application to manage the flow of documents to be indexed in Full-text search index.
+
+**queue_retriever**: Queue to manage the flow of documents to be retrieved from Catalog index.
+
+**queue_indexer**: Queue to manage the flow of documents to be indexed in Full-text search index.
+
+The system that publishes the messages to the queue is called the producer. The system that receives the messages from
+the queue is called the consumer.
+
+The consumer services implements a mechanism to re-queue the messages that failed. A message can fail for different
+reasons,
+
+* The document is not found in the pairtree-based repository.
+* The document is not found in the Catalog index.
+* The queue system is down.
+* The Solr server is down.
+
+We use a **dead-letter-exchange** to handle messages that are not processed successfully. The dead-letter-exchange is
+an exchange to which messages will be re-routed if they are rejected by the queue.
+Find [here](https://www.rabbitmq.com/docs/dlx#overview) more details about dead letter exchanges.
+
+Each of the defined queues (queue_retriever and queue_indexer) has a dead-letter-exchange associated with it
+(retriever_queue_dead_letter_queue and indexer_queue_dead_letter_queue).
+
+The image below shows the queues involved in the system.
+
+![img.png](rabbitmq_queues.png)
+
+When a consumer client receive a message from the queue, it will try to process the message. If the message is well
+process the message is acknowledged and removed from the queue. If the message is not processed, the message is
+re-queued in the dead-letter-exchange. As an example of this logic, you can see the code in the file
+`document_generator/document_generator_service.py` in the function `generate_document()`.
+
+The process to retrieve the message from the dead-letter-exchange is not implemented yet.
 
 ## Use cases
 
@@ -79,11 +110,18 @@ chi.096189208,iau.31858049957305,hvd.32044106262314,chi.096415811,hvd.3204402030
 
 ### Generator service
 
-```docker compose exec document_indexer python document_generator/document_generator_service.py```
+```docker compose up document_generator```
+
+This container will automatically start the script `python document_generator/document_generator_service.py` that will
+be retrieving the documents from the retriever_queue and will be published a new message in indexer_queue
 
 ### Indexer service
 
-```docker compose exec document_indexer python document_indexer_service/document_indexer_service.py --solr_indexing_api http://solr-lss-dev:8983/solr/#/core-x/```
+```docker compose up document_indexer```
+
+This container will automatically start the script `python document_indexer_service/document_indexer_service.py` that
+will be retrieving the documents from the indexer_queue and will be indexing the documents in the Full-text search
+index.
 
 ## Retriever used a queue and Generator and indexer run in sequence in the same environment
 
@@ -280,6 +318,8 @@ On mac,
       their files in the home directory, e.g. /Users/user_name/Library/Caches/pypoetry/..
     * `` poetry export -f requirements.txt --output requirements.txt ``
     * Use `` poetry update `` if you change your .toml file and want to generate a new version the .lock file
+    * Use ``poetry add ruff@latest`` to add the last version of the package ruff to your project
+    * Use ``poetry add ruff@1.0.0`` to add a specific version of the package ruff to your project
 
 ## DockerFile explanations
 

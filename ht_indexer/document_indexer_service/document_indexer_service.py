@@ -4,8 +4,10 @@ import argparse
 import inspect
 import os
 import sys
+import json
 
-from ht_queue_service.queue_consumer import QueueConsumer
+from ht_queue_service.queue_consumer import QueueConsumer, positive_acknowledge
+from ht_utils import ht_utils
 from ht_utils.ht_logger import get_ht_logger
 from ht_indexer_api.ht_indexer_api import HTSolrAPI
 
@@ -30,14 +32,20 @@ class DocumentIndexerQueueService:
 
     def indexer_service(self):
         # Get ten messages and break out
-        for message in self.queue_consumer.consume_message():
+        for method_frame, properties, body in self.queue_consumer.consume_message():
 
+            message = json.loads(body.decode('utf-8'))
             try:
+                logger.info(f"Retrieving the item {message.get('id')} from {self.queue_consumer.queue_name}")
                 response = self.storage_document(json_object=message)
-                logger.info(f"Index operation status: {response.status_code}")
-
+                logger.info(
+                    f"Success indexing the item {message.get('id')}. Operation status: {response.status_code}")
+                positive_acknowledge(self.queue_consumer.conn.ht_channel, method_frame.delivery_tag)
             except Exception as e:
-                logger.info(f"Something went wrong with Solr {e}")
+                error_info = ht_utils.get_error_message_by_document("IndexerService",
+                                                                    e, message)
+                logger.error(f"Document {message.get('ht_id')} failed {error_info}")
+                self.queue_consumer.reject_message(self.queue_consumer.conn.ht_channel, method_frame.delivery_tag)
 
 
 def main():
