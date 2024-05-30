@@ -79,6 +79,7 @@ class FullTextSearchRetrieverQueueService:
             exit(1)
 
         count_records = 0
+        processed_items = []
         while count_records < total_documents:
             chunk = initial_documents[count_records:count_records + rows]
 
@@ -104,6 +105,9 @@ class FullTextSearchRetrieverQueueService:
                 # TODO: Add a mechanism to send the message to a dead letter queue
                 try:
                     publish_document(queue_producer, item_metadata)
+
+                    # Update the status of the item in a table
+                    processed_items.append(item_id)
                 except Exception as e:
                     error_info = ht_utils.ht_utils.get_error_message_by_document("FullTextSearchRetrieverQueueService",
                                                                                  e, item_metadata)
@@ -114,9 +118,13 @@ class FullTextSearchRetrieverQueueService:
             count_records += len(result)
             logger.info(f"Total of processed items {count_records}")
 
+        non_processed_items = list(set(initial_documents) - set(processed_items))
+        # TODO: Update the status of non processed items in a table
+        logger.info(f"Total of non processed items {non_processed_items}")
+
 
 def run_retriever_service(parallelize, num_threads, total_documents, list_documents, by_field, document_indexer_service,
-                          init_args_obj):
+                          start, rows):
     """
     Run the retriever service
 
@@ -126,7 +134,8 @@ def run_retriever_service(parallelize, num_threads, total_documents, list_docume
     :param list_documents:
     :param by_field:
     :param document_indexer_service:
-    :param init_args_obj:
+    :param start:
+    :param rows:
     """
 
     if parallelize:
@@ -143,7 +152,7 @@ def run_retriever_service(parallelize, num_threads, total_documents, list_docume
             return
         processes = [multiprocessing.Process(target=document_indexer_service.full_text_search_retriever_service,
                                              args=(list_documents[i:i + batch_size],
-                                                   init_args_obj.start, init_args_obj.rows, by_field))
+                                                   start, rows, by_field))
                      for i in range(0, total_documents, batch_size)]
 
         for process in processes:
@@ -154,8 +163,8 @@ def run_retriever_service(parallelize, num_threads, total_documents, list_docume
     else:
         document_indexer_service.full_text_search_retriever_service(
             list_documents,
-            init_args_obj.start,
-            init_args_obj.rows,
+            start,
+            rows,
             by_field
         )
 
@@ -191,7 +200,7 @@ def main():
 
     total_documents = len(list_documents)
     run_retriever_service(parallelize, nthreads, total_documents, list_documents, by_field, document_indexer_service,
-                          init_args_obj)
+                          init_args_obj.start, init_args_obj.rows)
 
     logger.info(f"Total time to retrieve and generate documents {time.time() - start_time:.10f}")
 

@@ -7,6 +7,7 @@ services:
     volumes:
       - ../tmp:/tmp:rm
       - ../sdr1/obj:/sdr1/obj
+      - .:/app
     ports:
       - "8081:8081"
     environment:

@@ -42,7 +42,7 @@ Each of the defined queues (queue_retriever and queue_indexer) has a dead-letter
 
 The image below shows the queues involved in the system.
 
-![img.png](rabbitmq_queues.png)
+![rabbitmq_queues.png](rabbitmq_queues.png)
 
 When a consumer client receive a message from the queue, it will try to process the message. If the message is well
 process the message is acknowledged and removed from the queue. If the message is not processed, the message is
@@ -82,6 +82,11 @@ There are some documents that exceed the maximum size of message allowing by the
 queue containing the metadata extracted from Catalog index is used. After that, the components for generating and
 indexing the documents are used in sequence in a local environment.
 
+**Use case 3: Generating documents listed in a file:**
+This use case is implemented by a python script that retrieves the id to populate the queue from a TXT file. This
+use case is used to process in Kubernetes a batch of documents selected from production. See the section
+``Run retriever service by file`` to find the command to run this use case.
+
 ## How to test locally indexer service
 
 In your workdir:
@@ -106,6 +111,12 @@ Step 4. Run the container
 --list_documents
 chi.096189208,iau.31858049957305,hvd.32044106262314,chi.096415811,hvd.32044020307005,hvd.32044092647320,iau.31858042938971
 --query_field item
+```
+
+### Run retriever service by file
+
+```docker compose exec document_retriever python document_retriever_service/run_retriever_service_by_file.py 
+--query_field item --input_document_file document_retriever_service/list_htids_indexer_test.txt
 ```
 
 ### Generator service
@@ -173,7 +184,6 @@ http://localhost:8983/solr/#/core-x/ --document_local_path ~/tmp/indexing_data`
 1. ###### [Optional] Data Sampling: Create a sample of data:
     2. In your workdir,
         3. Set up the environment variable
-
            ```export HT_REPO_HOST=some.host.hathitrust.org```
         4. Use a default set up for generating the folder with the documents to process:
            ```./ht_utils/sample_data/sample_data_creator.sh```

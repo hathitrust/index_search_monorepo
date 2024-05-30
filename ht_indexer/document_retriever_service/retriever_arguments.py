@@ -60,3 +60,17 @@ class RetrieverServiceArguments:
         self.rows = 100
 
         self.solr_api_url = get_solr_api()
+
+
+class RetrieverServiceByFileArguments(RetrieverServiceArguments):
+
+    def __init__(self, parser):
+        parser.add_argument("--input_document_file", help="TXT file containing the list of items to process",
+                            default='')
+
+        super().__init__(parser)
+
+        self.input_documents_file = self.args.input_document_file
+        if not os.path.isfile(self.input_documents_file):
+            logger.error(f"File {self.input_documents_file} does not exist")
+            sys.exit(1)

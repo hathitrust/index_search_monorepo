@@ -1,4 +1,3 @@
-import inspect
 import json
 import os
 from copy import deepcopy
@@ -7,7 +6,7 @@ import pytest
 
 from catalog_metadata.catalog_metadata import CatalogItemMetadata, CatalogRecordMetadata
 
-current = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+current = os.path.dirname(__file__)
 
 
 # Retrieve JSON file to create a dictionary with a catalog record
