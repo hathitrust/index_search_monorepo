@@ -142,17 +142,42 @@ class HTSearchQuery:
         query_string_dict = {"q": HTSearchQuery.get_exact_phrase_query(input_phrase)}
 
         if operator == "OR":
-            query_string_dict = {"q": input_phrase, "q.op": operator}
+            or_phrase = " OR ".join(input_phrase.split())
+            query_string_dict = {"q": or_phrase, "q.op": operator}
         elif operator == "AND":
-            query_string_dict = {"q": input_phrase, "q.op": operator}
+            and_phrase = " AND ".join(input_phrase.split())
+            query_string_dict = {"q": and_phrase, "q.op": operator}
         return query_string_dict
+
+    @staticmethod
+    def manage_string_query_solr6(input_phrase: Text, operator: Text = None) -> Text:
+        """
+        This function transform a query_string in Solr string format
+
+        e.g. information OR issue # boolean opperator (any of these words)
+        e.g. "\"information issue\"" # exact phrase query
+        e.g. "information AND issue" # all these words
+        :param input_phrase:
+        :param operator: It could be, all, exact_match or boolean_opperator
+        :return:
+        """
+
+        #query_string_dict = {"q": HTSearchQuery.get_exact_phrase_query(input_phrase)}
+
+        if operator == "OR":
+            query_string = input_phrase #" OR ".join(input_phrase.split())
+        elif operator == "AND":
+            query_string = input_phrase #" AND ".join(input_phrase.split())
+        elif operator is None:
+            query_string = "\"" + input_phrase + "\""
+        return query_string
 
     def make_solr_query(
         self,
         query_string: Text = None,
         operator: Text = None,  # It could be, None (exact_match), "AND" (all these words) or "OR" (any of these words)
         start: int = 0,
-        rows: int = 15,
+        rows: int = 100,
         fl: List = None,
         pf: bool = True,  # It is False for Only Text query
         query_filter: bool = False,  # If the query is using filter, then use config_facet_filters.yaml to create the fq parameter
@@ -168,6 +193,7 @@ class HTSearchQuery:
             "fl": self.solr_parameters.get("fl")
             if self.solr_parameters.get("fl")
             else [],
+            #"ps": '',
             "indent": "on",
             "debug": self.solr_parameters.get("debug"),
             "mm": self.solr_parameters.get("mm"),  # 100 % 25,  # mm = minimum match
@@ -190,6 +216,8 @@ class HTSearchQuery:
         if self.solr_facet_filters:
             query_dict.update(self.facet_creator(self.solr_facet_filters.get("facet")))
 
+        print("*********************************")
+        print(query_dict)
         if fl:
             query_dict.update({"fl": fl})
 

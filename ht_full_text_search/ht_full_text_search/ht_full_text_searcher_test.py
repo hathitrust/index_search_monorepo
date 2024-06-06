@@ -10,7 +10,7 @@ class TestHTFullTextSearcher:
             ht_search_query=ht_full_text_query,
             use_shards=False,
         )
-        solr_results = searcher.solr_result(
+        solr_results = searcher.solr_result_query_dict(
             query_string="majority of the votes",
             fl=["author", "id", "title"],
             operator="AND",

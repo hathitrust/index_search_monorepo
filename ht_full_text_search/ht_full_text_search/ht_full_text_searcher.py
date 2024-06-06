@@ -2,7 +2,7 @@ import json
 
 from ht_searcher.ht_searcher import HTSearcher
 from ht_full_text_search.ht_full_text_query import HTFullTextQuery
-from config_search import SOLR_URL, FULL_TEXT_SEARCH_SHARDS
+from config_search import SOLR_URL, FULL_TEXT_SEARCH_SHARDS_X
 from typing import Text
 
 from argparse import ArgumentParser
@@ -12,7 +12,7 @@ import os
 """
 LS::Operation::Search ==> it contains all the logic about interleaved adn A/B tests
 """
-
+from typing import Text, List, Dict
 
 class HTFullTextSearcher(HTSearcher):
     def __init__(
@@ -28,6 +28,50 @@ class HTFullTextSearcher(HTSearcher):
             ht_search_query=ht_search_query,
             use_shards=use_shards,
         )
+
+    def solr_result_output(
+        self, url, query_string: Text = None, fl: List = None, operator: Text = None, query_filter: bool = False,
+            filter_dict: Dict = None):
+
+        """With one query accumulate all the results"""
+
+        list_docs = []
+        result_explanation = []
+        for response in self.solr_result_query_dict(url, query_string, fl, operator, query_filter, filter_dict):
+
+            for record in response.get("response").get("docs"):
+                list_docs.append(record)
+            for key, value in response.get("debug").get("explain").items():
+                result_explanation.append({key:value})
+
+        return list_docs, result_explanation
+
+    def retrieve_documents_from_file(self, list_ids: List=None, fl: List=None,
+                                     solr_url: Text=None,
+                                     query_filter: bool = False, query_string: Text = None, operator: Text = None):
+
+        """
+        Function to query Solr filtering by a list of ids that are in a file
+        :param query:
+        :param start:
+        :param rows:
+        :return:
+        """
+        # Processing long queries
+        if len(list_ids) > 100:
+            # processing the query in batches
+            while list_ids:
+                chunk, list_ids = list_ids[:100], list_ids[100:]
+
+                list_docs, list_debug = self.solr_result_output(
+                    url=solr_url, query_string=query_string, fl=fl, operator=operator, filter_dict={"id": chunk},
+                    query_filter=query_filter
+                )
+                print(f"One batch of results {len(chunk)}")
+
+                yield list_docs, list_debug
+                #total_found += len(solr_output)  # solr_output["response"]["numFound"]
+
         # TODO implement the of AB test and interleave
         """
         self.AB_config = C.get_object('AB_test_config')
@@ -253,7 +297,7 @@ if __name__ == "__main__":
     parser.add_argument("--env", default=os.environ.get("HT_ENVIRONMENT", "dev"))
     parser.add_argument("--query_string", help="Query string", default="*:*")
     parser.add_argument(
-        "--fl", help="Fields to return", default=["author", "id", "title"]
+        "--fl", help="Fields to return", default=["author", "id", "title", "score"]
     )
     parser.add_argument("--solr_url", help="Solr url", default=None)
     parser.add_argument("--operator", help="Operator", default="AND")
@@ -261,7 +305,7 @@ if __name__ == "__main__":
         "--query_config", help="Type of query ocronly or all", default="all"
     )
     parser.add_argument(
-        "--use_shards", help="If the query should include shards", default=False
+        "--use_shards", help="If the query should include shards", default=False, action="store_true"
     )
     parser.add_argument(
         "--filter_path", help="Path of a JSON file used to filter Solr results", default=None
@@ -281,7 +325,7 @@ if __name__ == "__main__":
     use_shards = False
 
     if args.env == "prod":
-        use_shards = FULL_TEXT_SEARCH_SHARDS
+        use_shards = FULL_TEXT_SEARCH_SHARDS_X
     else:
         use_shards = args.use_shards  # By default is False
 
@@ -305,25 +349,27 @@ if __name__ == "__main__":
 
         total_found = 0
 
-        list_ids = filter_dict[0].get('id')
-        # Processing long queries
-        if len(list_ids) > 100:
-            #processing the query in batches
-            while list_ids:
-                chunk, list_ids = list_ids[:100], list_ids[100:]
+        list_ids = [id['id'] for id in filter_dict.get('response', {}).get('docs', []) if id.get('id')]
 
-                solr_output = ht_full_search.solr_result(
-                    url=solr_url, query_string=query_string, fl=fl, operator=args.operator, filter_dict={"id": chunk},
-                    query_filter=query_filter
-                )
-                print(f"One batch of results {len(chunk)}")
-                print(solr_output)
-                total_found += solr_output["response"]["numFound"]
-        else:
-            solr_output = ht_full_search.solr_result(
-                url=solr_url, query_string=query_string, fl=fl, operator=args.operator, filter_dict={"id": list_ids},
-                query_filter=query_filter
-            )
-            total_found += solr_output["response"]["numFound"]
-            print(solr_output)
-        print(f"Total found {total_found}")
+        # Processing long queries
+        for doc, debug_info in ht_full_search.retrieve_documents_from_file(
+            list_ids=list_ids, fl=fl, solr_url=solr_url, query_filter=query_filter, query_string=query_string, operator=args.operator):
+
+            print('**********************************')
+            print(doc)
+            print(debug_info)
+    #else:
+    #    solr_output = ht_full_search.solr_result_output(
+    #            url=solr_url, query_string=query_string, fl=fl, operator=args.operator, filter_dict={"id": list_ids},
+    #            query_filter=query_filter
+    #        )
+    #    total_found = len(solr_output) #solr_output["response"]["numFound"]
+    #    print(solr_output)
+    #    print(f"Total found {total_found}")
+
+    else:
+        solr_output = ht_full_search.solr_result_output(
+            url=solr_url, query_string=query_string, fl=fl, operator=args.operator
+        )
+        print(f"Total found {len(solr_output)}")
+        print(solr_output)

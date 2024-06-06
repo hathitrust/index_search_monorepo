@@ -61,11 +61,11 @@ if __name__ == "__main__":
 
         ht_search = HTFullTextSearcher(engine_uri=solr_url, ht_search_query=Q)
 
-        solr_output = ht_search.solr_result(
+        solr_output = ht_search.solr_result_query_dict(
             url=solr_url,
             query_string=query["query_string"],
             fl=fl,
-            operator=query["operator"],
+            operator=query["operator"]
         )
 
         if solr_output["response"]["numFound"] == 0:

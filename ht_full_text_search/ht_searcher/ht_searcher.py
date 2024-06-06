@@ -51,12 +51,85 @@ class HTSearcher:
         }  # { "Content-Type": "application/x-www-form-urlencoded; charset=utf-8"}
 
     def get_Solr_raw_internal_query_result(self, C, url):
-        return self.solr_result(C, url)
+        return self.solr_result_query_dict(C, url)
 
-    def solr_result(
+    def get_documents_query_string(self):
+
+        pass
+
+    def solr_result_query_string(self, url, str_query: Text = None, fl: List = None, operator: Text = None, list_filters: List = None):
+
+        query_string = self.query_maker.manage_string_query_solr6(str_query, operator=operator)
+
+        #for q in ["\"Culture in History: Essays in Honor of Paul Radin\"", "Culture OR in OR History: OR Essays OR in OR Honor OR of OR Paul OR Radin", "Culture AND in AND History: AND Essays AND in AND Honor AND of AND Paul AND Radin"]:
+        #    print('**********')
+        #    print(q)
+        #    str_query = q#"Culture in History: Essays in Honor of Paul Radin"
+
+        ids_strings = "\" \"".join(list_filters)  # "inu.30000053396481 wu.89071558118"
+
+        print(ids_strings)  # &mm=100%
+
+        self.query_maker.query_filter_creator_string('id', ids_strings)
+
+        if self.use_shards:
+            shards = f"shards={self.use_shards}"
+            solr_query = f'{url}select?defType=edismax&{shards}&mm=100%&fq=id:(\"{ids_strings}\")&indent=on&mm=100%&q={query_string}&fl=author,id,title&qf=ocr&wt=json'
+        else:
+            solr_query = f'{url}select?defType=edismax&mm=100%&fq=id:(\"{ids_strings}\")&indent=on&mm=100%&q={query_string}&fl=author,id,title&qf=ocr&wt=json'
+
+        print(solr_query)
+        #    shards = "shards=solr-sdr-search-1:8081/solr/core-1x,solr-sdr-search-2:8081/solr/core-2x,solr-sdr-search-3:8081/solr/core-3x,solr-sdr-search-4:8081/solr/core-4x,solr-sdr-search-5:8081/solr/core-5x,solr-sdr-search-6:8081/solr/core-6x,solr-sdr-search-7:8081/solr/core-7x,solr-sdr-search-8:8081/solr/core-8x,solr-sdr-search-9:8081/solr/core-9x,solr-sdr-search-10:8081/solr/core-10x,solr-sdr-search-11:8081/solr/core-11x,solr-sdr-search-12:8081/solr/core-12x"
+        #list_ids = ["inu.30000053396481", "wu.89071558118"]  #list_filters
+
+
+        #response = requests.get(
+        #        f'http://beeftea-1.umdl.umich.edu:8091/solr/core-2x/select?defType=edismax&{shards}&mm=100%&fq=id:({ids_strings})&indent=on&q={str_query}&fl=author,id,title&qf=ocr&wt=json')
+        #response = requests.get(solr_query, stream=True)
+
+        joining_solr_output = {}
+        for query_response in self.get_documents_query_string(None, None,None, method="GET", solr_query=solr_query):
+            # rs.ingest_solr_search_response(code, response, status_line, failed_HTTP_dump)
+            print(query_response["content"])
+            solr_output = json.loads(query_response["content"])
+
+            joining_solr_output.update(solr_output)
+        return joining_solr_output
+
+        """
+        content = ""
+        if response.content:
+            content = response.content.decode("utf-8")
+
+        result = {
+            "code": response.status_code,
+            "content": content,
+            "status": response.reason
+        }
+                #print(content)
+        solr_output = json.loads(result['content'])
+        print(solr_output['response']['numFound'])
+        return solr_output
+        """
+
+    def get_documents_query_dict(self, url, query_dict, start: int = 0, rows: int = 100):
+
+        #response_content = []  # contains partial or full page_source
+
+        #if method == "GET":
+        #    response = requests.get(solr_query, stream=True)
+        #else:
+            # req = requests.get(url=url, params=query_dict, headers=self.headers)
+        print(url)
+        print(f"{url.replace('#/', '')}query")
+        query_dict.update({"start": start, "rows": rows})
+        response = requests.post(
+                url=f"{url.replace('#/', '')}query", params=query_dict, headers=self.headers, stream=True
+            )
+        return response
+    def solr_result_query_dict(
         self, url, query_string: Text = None, fl: List = None, operator: Text = None, query_filter: bool = False,
-            filter_dict: Dict = None
-    ):
+            filter_dict: Dict = None, rows: int = 100, start: int = 0):
         """
 
         :param filter_dict:
@@ -87,37 +160,55 @@ class HTSearcher:
 
         if self.use_shards:
             query_dict["shards"] = self.use_shards
+            query_dict["shards.info"] = "true"
+        print(query_dict)
 
-        query_response = self.get_query_response(ua, url, query_dict)
+        query_dict.update({"start": start, "rows": rows})
 
-        # rs.ingest_solr_search_response(code, response, status_line, failed_HTTP_dump)
-        print(query_response["content"])
-        solr_output = json.loads(query_response["content"])
+        #Counting total records
+        response = self.get_documents_query_dict(url, query_dict)
+        output = response.json()
 
-        return solr_output
+        try:
+            total_records = output.get("response").get("numFound")
+            print(total_records)
+        except Exception as e:
+            print(f"Solr index {url} seems empty {e}")
+            exit()
+        count_records = 0
+        while count_records < total_records:
+            results = []
 
-    def get_query_response(self, ua, url, query_dict):
+            response = self.get_documents_query_dict(url, query_dict, start, rows)
+
+            output = json.loads(response.content.decode("utf-8"))
+
+            count_records = count_records + len(output.get("response").get("docs"))
+
+            print(f"Batch documents {count_records}")
+            start += rows
+            print(f"Result length {len(results)}")
+            yield output
         """
-        Function to get query response
-        :param C:
-        :param ua:
-        :param url:
-        :param query_string:
-        :return:
+        
+        
+        joining_solr_output = {}
+        for query_response in self.get_documents_query_string(ua, url, query_dict):
+
+            # rs.ingest_solr_search_response(code, response, status_line, failed_HTTP_dump)
+            print(query_response["content"])
+            solr_output = json.loads(query_response["content"])
+
+            joining_solr_output.update(solr_output)
+        return joining_solr_output
         """
 
-        # req = requests.get(url=url, params=query_dict, headers=self.headers)
-        print(url)
-        print(f"{url.replace('#/', '')}query")
-        response = requests.post(
-            url=f"{url.replace('#/', '')}query", params=query_dict, headers=self.headers
-        )
+
+
 
         # res = ua.request(req)
 
-        code = response.status_code
-        status_line = response.reason
-        http_status_fail = not response.ok
+
 
         failed_HTTP_dump = ""
         # TODO: Implement Request failed & DEBUG
@@ -151,17 +242,7 @@ class HTSearcher:
                 d = Utils.map_chars_to_cers(d, ['"', "'"]) if Debug.DUtils.under_server()
                 DEBUG('response', d)
         """
-        content = ""
 
-        if response.content:
-            content = response.content.decode("utf-8")
-
-        return {
-            "code": code,
-            "content": content,
-            "status": status_line,
-            "failed_HTTP_dump": failed_HTTP_dump
-        }
 
     """
     # TODO: we do not need this function

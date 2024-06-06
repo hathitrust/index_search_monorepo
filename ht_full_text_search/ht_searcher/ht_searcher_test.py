@@ -103,6 +103,6 @@ class TestHTSearcher:
     def test_solr_result(self, ht_searcher_fixture):
         url = "http://localhost:8983/solr/core-x/select?indent=on&q=date:1874&wt=json"
         query_string = "indent=on&q=date:1874&wt=json"
-        output = ht_searcher_fixture.solr_result(url, query_string)
+        output = ht_searcher_fixture.solr_result_query_dict(url, query_string)
 
         assert output.get("response").get("numFound") == 34
