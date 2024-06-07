@@ -32,6 +32,8 @@ def retrieve_documents_by_file(solr_api_url, queue_name, queue_host, queue_user,
     :param start: Start Solr query
     :param rows: rows
     :param status_file: Status file
+    :param parallelize: Boolean parameter to parallelize the process
+    :param nthreads: Number of threads
     """
 
     document_indexer_service = FullTextSearchRetrieverQueueService(

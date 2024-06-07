@@ -3,7 +3,6 @@ import pytest
 import time
 
 from ht_queue_service.queue_consumer import QueueConsumer, positive_acknowledge
-from ht_queue_service.queue_producer import QueueProducer
 
 from ht_utils.ht_logger import get_ht_logger
 
@@ -32,38 +31,7 @@ def list_messages():
 
 
 @pytest.fixture
-def queue_parameters(request):
-    """
-    This function is used to create the parameters for the queue
-    """
-    return request.param
-
-
-@pytest.fixture
-def producer_instance(queue_parameters):
-    """
-    This function is used to generate a message
-    """
-
-    return QueueProducer(queue_parameters["user"], queue_parameters["password"],
-                         queue_parameters["host"], queue_parameters["queue_name"],
-                         queue_parameters["dead_letter_queue"])
-
-
-@pytest.fixture
-def consumer_instance(queue_parameters):
-    """
-    This function is used to generate a message
-    """
-
-    return QueueConsumer(queue_parameters["user"], queue_parameters["password"],
-                         queue_parameters["host"], queue_parameters["queue_name"],
-                         queue_parameters["dead_letter_queue"],
-                         queue_parameters["requeue_message"])
-
-
-@pytest.fixture
-def populate_queue(list_messages, producer_instance, consumer_instance, queue_parameters):
+def populate_queue(list_messages, producer_instance, consumer_instance, retriever_parameters):
     """ Test for re-queueing a message from the queue, an error is raised, and the message is routed
             to the dead letter queue and discarded from the main queue"""
 
@@ -111,9 +79,9 @@ def populate_queue(list_messages, producer_instance, consumer_instance, queue_pa
 
 class TestHTConsumerService:
 
-    @pytest.mark.parametrize("queue_parameters", [{"user": "guest", "password": "guest", "host": "rabbitmq",
-                                                   "queue_name": "test_producer_queue", "dead_letter_queue": True,
-                                                   "requeue_message": False}])
+    @pytest.mark.parametrize("retriever_parameters", [{"user": "guest", "password": "guest", "host": "rabbitmq",
+                                                       "queue_name": "test_producer_queue", "dead_letter_queue": True,
+                                                       "requeue_message": False}])
     def test_queue_consume_message(self, one_message, producer_instance, consumer_instance):
         """ Test for consuming a message from the queue
         One message is published and consumed, then at the end of the test the queue is empty
@@ -132,9 +100,9 @@ class TestHTConsumerService:
 
         assert 0 == consumer_instance.conn.get_total_messages()
 
-    @pytest.mark.parametrize("queue_parameters", [{"user": "guest", "password": "guest", "host": "rabbitmq",
-                                                   "queue_name": "test_producer_queue", "dead_letter_queue": True,
-                                                   "requeue_message": False}])
+    @pytest.mark.parametrize("retriever_parameters", [{"user": "guest", "password": "guest", "host": "rabbitmq",
+                                                       "queue_name": "test_producer_queue", "dead_letter_queue": True,
+                                                       "requeue_message": False}])
     def test_queue_consume_message_empty(self, consumer_instance):
         """ Test for consuming a message from an empty queue"""
 
@@ -143,7 +111,7 @@ class TestHTConsumerService:
 
         assert 0 == consumer_instance.conn.get_total_messages()
 
-    @pytest.mark.parametrize("queue_parameters",
+    @pytest.mark.parametrize("retriever_parameters",
                              [{"user": "guest", "password": "guest", "host": "rabbitmq",
                                "queue_name": "test_producer_queue", "dead_letter_queue": True,
                                "requeue_message": False}])
@@ -160,7 +128,7 @@ class TestHTConsumerService:
 
         check_consumer.conn.ht_channel.queue_purge(check_consumer.queue_name)
 
-    @pytest.mark.parametrize("queue_parameters",
+    @pytest.mark.parametrize("retriever_parameters",
                              [{"user": "guest", "password": "guest", "host": "rabbitmq",
                                "queue_name": "test_producer_queue", "dead_letter_queue": True,
                                "requeue_message": True}])

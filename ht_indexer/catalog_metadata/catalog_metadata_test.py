@@ -1,4 +1,3 @@
-import json
 import os
 from copy import deepcopy
 
@@ -7,27 +6,6 @@ import pytest
 from catalog_metadata.catalog_metadata import CatalogItemMetadata, CatalogRecordMetadata
 
 current = os.path.dirname(__file__)
-
-
-# Retrieve JSON file to create a dictionary with a catalog record
-@pytest.fixture()
-def get_record_data():
-    with open(os.path.join(current, "data/catalog.json"), "r", ) as file:
-        data = json.load(file)
-
-    return data
-
-
-# Use the catalog record to create a CatalogRecordMetadata object
-@pytest.fixture()
-def get_catalog_record_metadata(get_record_data):
-    return CatalogRecordMetadata(get_record_data)
-
-
-# Create a CatalogItemMetadata object with the catalog record and the ht_id of the item
-@pytest.fixture()
-def get_item_metadata(get_record_data: dict, get_catalog_record_metadata: CatalogRecordMetadata):
-    return CatalogItemMetadata("mdp.39015078560292", get_catalog_record_metadata)
 
 
 # Update some fields of the catalog record to test some functions that retrieve specific fields

@@ -3,14 +3,8 @@ import os
 
 from document_retriever_service.run_retriever_service_by_file import retrieve_documents_by_file
 from document_retriever_service.ht_status_retriever_service import get_non_processed_ids
-from ht_queue_service.queue_consumer import QueueConsumer
 
 current = os.path.dirname(__file__)
-
-
-@pytest.fixture
-def solr_api_url():
-    return "http://localhost:8983/solr/catalog"
 
 
 @pytest.fixture()
@@ -23,26 +17,6 @@ def get_input_file():
 def get_status_file():
     """TXT file containing the list of items to process"""
     return os.path.join(current, "document_retriever_status_test.txt")
-
-
-@pytest.fixture
-def retriever_parameters(request):
-    """
-    This function is used to create the parameters for the queue
-    """
-    return request.param
-
-
-@pytest.fixture
-def consumer_instance(retriever_parameters):
-    """
-    This function is used to generate a message
-    """
-
-    return QueueConsumer(retriever_parameters["user"], retriever_parameters["password"],
-                         retriever_parameters["host"], retriever_parameters["queue_name"],
-                         retriever_parameters["dead_letter_queue"],
-                         retriever_parameters["requeue_message"])
 
 
 class TestRunRetrieverServiceByFile:

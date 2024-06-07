@@ -1,16 +1,7 @@
 import pytest
 
-from document_retriever_service.catalog_retriever_service import CatalogRetrieverService
-
-
-@pytest.fixture
-def get_catalog_url():
-    return "http://solr-sdr-catalog:9033/solr/#/catalog/"
-
-
-@pytest.fixture
-def get_catalog_retriever_service(get_catalog_url):
-    return CatalogRetrieverService(get_catalog_url)
+from document_retriever_service.catalog_retriever_service import (CatalogRetrieverService,
+                                                                  create_catalog_object_by_item_id)
 
 
 @pytest.fixture
@@ -19,8 +10,24 @@ def get_catalog_retriever_service_solr_fake_solr_url():
 
 
 class TestCatalogRetrieverService:
+
+    def test_create_catalog_object_by_item_id(self, get_catalog_retriever_service,
+                                              get_catalog_record_metadata,
+                                              get_record_data):
+        """Test if the method returns only the metadata of the input item"""
+        results = []
+        # Create the list
+        list_documents = ["mdp.39015078560292"]
+        create_catalog_object_by_item_id(list_documents, get_record_data, get_catalog_record_metadata, results)
+
+        assert len(results) == 1
+        assert results[0].ht_id == "mdp.39015078560292"
+        assert results[0].metadata.get("vol_id") == "mdp.39015078560292"
+
     def test_retrieve_documents_by_item(self, get_catalog_retriever_service):
-        """Use case: Receive a list of items to index and retrieve the metadata from Catalog"""
+        """Use case: Receive a list of items (ht_id) to index and retrieve the metadata from Catalog
+        We want to index only the item that appear in the list and not all the items of each record.
+        """
         list_documents = ['nyp.33433082002258', 'nyp.33433082046495', 'nyp.33433082046503', 'nyp.33433082046529',
                           'nyp.33433082046537', 'nyp.33433082046545', 'nyp.33433082067798', 'nyp.33433082067806',
                           'nyp.33433082067822']
@@ -39,7 +46,7 @@ class TestCatalogRetrieverService:
         assert len(results) == 4
 
     def test_retrieve_documents_by_item_only_one(self, get_catalog_retriever_service):
-        """Use case: Receive a list of items to index and retrieve the metadata from Catalog"""
+        """Use case: Retrieve only the metadata of the item given by parameter"""
         list_documents = ['nyp.33433082002258']
         by_field = 'item'
 
@@ -56,7 +63,7 @@ class TestCatalogRetrieverService:
         assert len(results) == 5
 
     def test_retrieve_documents_empty_result(self, get_catalog_retriever_service):
-        """Use case: Receive a list of items to index and retrieve the metadata from Catalog"""
+        """Use case: Check of the results list is empty because the input item is not in Solr"""
         list_documents = ["this_id_does_not_exist_in_solr"]
         by_field = 'item'
 
