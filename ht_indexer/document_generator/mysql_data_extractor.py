@@ -8,7 +8,7 @@ logger = get_ht_logger(name=__name__)
 def create_coll_id_field(large_coll_id_result: dict) -> dict:
     if len(large_coll_id_result) > 0:
         # Obtain the list with the unique coll_id from the result
-        return {"coll_id": set(list(large_coll_id_result.get("MColl_ID").values()))}
+        return {"coll_id": list(set([item.get("MColl_ID") for item in large_coll_id_result]))}
     else:
         return {"coll_id": [0]}
 
@@ -56,27 +56,33 @@ class MysqlMetadataExtractor:
                                     f'WHERE mb_item.extern_item_id="{doc_id}" '
                                     f'AND mb_coll.num_items > {indexer_config.MAX_ITEM_IDS} ')
 
+        logger.info(f"MySQL query: {query_item_in_large_coll}")
         large_collection_id = self.mysql_obj.query_mysql(query_item_in_large_coll)
 
         return large_collection_id
 
     def add_rights_field(self, doc_id) -> list[tuple]:
+
         namespace, _id = doc_id.split(".")
         query = (
             f'SELECT * FROM rights_current WHERE namespace="{namespace}" AND id="{_id}"'
         )
+        logger.info(f"MySQL query: {query}")
         return self.mysql_obj.query_mysql(query)
 
     def add_ht_heldby_field(self, doc_id) -> list[tuple]:
         query = (
             f'SELECT member_id FROM holdings_htitem_htmember WHERE volume_id="{doc_id}"'
         )
+
+        logger.info(f"MySQL query: {query}")
         # ht_heldby is a list of institutions
         return self.mysql_obj.query_mysql(query)
 
     def add_heldby_brlm_field(self, doc_id) -> list[tuple]:
         query = f'SELECT member_id FROM holdings_htitem_htmember WHERE volume_id="{doc_id}" AND access_count > 0'
 
+        logger.info(f"MySQL query: {query}")
         return self.mysql_obj.query_mysql(query)
 
     def retrieve_mysql_data(self, doc_id):
@@ -89,12 +95,12 @@ class MysqlMetadataExtractor:
         if len(doc_rights) == 1:
             entry.update({"rights": doc_rights[0].get("attr")})
 
-        # It is a list of members, if the query result is empty the field does not appear in Solr index
+        # It is a list of members, if the query result is empty, the field does not appear in Solr index
         ht_heldby = self.add_ht_heldby_field(doc_id)
         if len(ht_heldby) > 0:
             entry.update(create_ht_heldby_field(ht_heldby))
 
-        # It is a list of members, if the query result is empty the field does not appear in Solr index
+        # It is a list of members, if the query result is empty, the field does not appear in Solr index
         heldby_brlm = self.add_heldby_brlm_field(doc_id)
 
         if len(heldby_brlm) > 0:

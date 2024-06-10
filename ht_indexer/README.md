@@ -78,7 +78,7 @@ This is use is used to process a batch of documents selected from production. It
 application in Kubernetes and considering production data.
 
 **Use case 2: Generating and indexing long documents in Full-text search index:**
-There are some documents that exceed the maximum size of message allowing by the queue system. In this case, only a
+There are some documents that exceed the maximum size of a message allowing by the queue system. In this case, only a
 queue containing the metadata extracted from Catalog index is used. After that, the components for generating and
 indexing the documents are used in sequence in a local environment.
 
@@ -87,7 +87,7 @@ This use case is implemented by a python script that retrieves the id to populat
 use case is used to process in Kubernetes a batch of documents selected from production. See the section
 ``Run retriever service by file`` to find the command to run this use case.
 
-## How to test locally indexer service
+## How to test local indexer service
 
 In your workdir:
 
@@ -150,7 +150,7 @@ index.
 
 ## Use case for processing documents retrieved from a file
 
-The file is created using the Catalog index. The file contains the list of documents to be processed and it is stored
+The file is created using the Catalog index. The file contains the list of documents to be processed, and it is stored
 in the root of this repository by default. e.g. ~/ht_indexer/filter_ids.txt
 
 ```docker compose exec document_retriever python run_retriever_service_by_file.py```
@@ -189,6 +189,32 @@ http://localhost:8983/solr/#/core-x/ --document_local_path ~/tmp/indexing_data`
            ```./ht_utils/sample_data/sample_data_creator.sh```
         5. Passing arguments to generate the sample of data:
            ```./ht_utils/sample_data/sample_data_creator.sh 0.0011 /sdr1/obj```
+
+### Running test of each service:
+
+In the working directory,
+
+* Create the image
+
+```docker build -t document_generator .```
+
+* Run document_retriever_service container and test it
+
+```docker compose up document_retriever -d```
+
+```docker compose exec document_retriever pytest document_retriever_service catalog_metadata ht_utils ```
+
+* Run document_generator_service container and test it
+
+```docker compose up document_generator -d```
+
+```docker compose exec document_generator pytest document_generator ht_document ht_queue_service ht_utils```
+
+* Run document_indexer_service container and test it
+
+```docker compose up document_indexer -d```
+
+```docker compose exec document_indexer pytest ht_indexer_api ht_queue_service```
 
 ## Data Sampling:
 

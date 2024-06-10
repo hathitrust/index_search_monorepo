@@ -14,6 +14,7 @@ def get_mysql_conn():
     # MySql connection
     try:
         mysql_host = os.getenv("MYSQL_HOST", "mysql-sdr")
+        logger.info(f"Connected to MySql_Host: {mysql_host}")
     except KeyError:
         logger.error("Error: `MYSQL_HOST` environment variable required")
         sys.exit(1)

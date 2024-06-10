@@ -1,6 +1,12 @@
 [virtualenvs]
 in-project = true
 
+[tool.pytest.ini_options]
+minversion = "6.0"
+# -p no:cacheprovider is to avoid pytest warning about pytest_cache fixture
+# -ra is to show extra test summary info; -q is to suppress pytest header
+addopts = "-ra -q -p no:cacheprovider"
+
 [tool.poetry]
 name = "ht-indexer"
 version = "0.1.0"
