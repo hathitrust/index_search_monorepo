@@ -44,7 +44,6 @@ class RetrieverServiceArguments:
             self.queue_host = os.environ["QUEUE_HOST"]
             self.queue_user = os.environ["QUEUE_USER"]
             self.queue_password = os.environ["QUEUE_PASS"]
-            self.dead_letter_queue = True
         except KeyError as e:
             logger.error(f"Environment variables required: "
                          f"{ht_utils.ht_utils.get_general_error_message('DocumentGeneratorService', e)}")

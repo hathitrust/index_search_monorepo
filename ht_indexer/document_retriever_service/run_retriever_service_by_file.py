@@ -1,4 +1,4 @@
-"""This an use case for testing and process a huge lis of documents extracted from production environment."""
+"""This use case is for testing and processing a huge lis of documents extracted from the production environment."""
 import argparse
 import os
 import sys
@@ -16,7 +16,7 @@ parent = os.path.dirname(current)
 sys.path.insert(0, parent)
 
 
-def retrieve_documents_by_file(solr_api_url, queue_name, queue_host, queue_user, queue_password, dead_letter_queue,
+def retrieve_documents_by_file(solr_api_url, queue_name, queue_host, queue_user, queue_password,
                                input_documents_file, query_field, start, rows, status_file, parallelize, nthreads):
     """ This method is used to retrieve the documents from the Catalog and generate the full text search entry.
     The list of documents to index is extracted from a file.
@@ -26,7 +26,6 @@ def retrieve_documents_by_file(solr_api_url, queue_name, queue_host, queue_user,
     :param queue_host: Queue host
     :param queue_user: Queue user
     :param queue_password: Queue password
-    :param dead_letter_queue: Boolean parameter indicating the error messages will send to a dead letter queue
     :param input_documents_file: File with the list of documents to process
     :param query_field: Query field
     :param start: Start Solr query
@@ -41,8 +40,7 @@ def retrieve_documents_by_file(solr_api_url, queue_name, queue_host, queue_user,
         queue_name,
         queue_host,
         queue_user,
-        queue_password,
-        dead_letter_queue)
+        queue_password)
 
     if os.path.isfile(input_documents_file):
         with open(input_documents_file) as f:
@@ -89,7 +87,7 @@ def main():
     nthreads = None
 
     retrieve_documents_by_file(init_args_obj.solr_api_url, init_args_obj.queue_name, init_args_obj.queue_host,
-                               init_args_obj.queue_user, init_args_obj.queue_password, init_args_obj.dead_letter_queue,
+                               init_args_obj.queue_user, init_args_obj.queue_password,
                                init_args_obj.input_documents_file, init_args_obj.query_field,
                                init_args_obj.start, init_args_obj.rows,
                                status_file, parallelize, nthreads)

@@ -39,7 +39,6 @@ class IndexerServiceArguments:
                                                 os.environ["QUEUE_PASS"],
                                                 os.environ["QUEUE_HOST"],
                                                 os.environ["QUEUE_NAME"],
-                                                dead_letter_queue=True,
                                                 requeue_message=False)
         except KeyError as e:
             logger.error(f"Environment variables required: "

@@ -33,7 +33,6 @@ class TestRunRetrieverServiceByFile:
                                                        "user": "guest", "password": "guest", "host": "rabbitmq",
                                                        "queue_name": "test_producer_queue",
                                                        "requeue_message": False,
-                                                       "dead_letter_queue": True,
                                                        "query_field": "item",
                                                        "start": 0,
                                                        "rows": 100}])
@@ -50,7 +49,6 @@ class TestRunRetrieverServiceByFile:
                                    retriever_parameters["host"],
                                    retriever_parameters["user"],
                                    retriever_parameters["password"],
-                                   retriever_parameters["dead_letter_queue"],
                                    get_input_file,
                                    retriever_parameters["query_field"],
                                    retriever_parameters["start"],

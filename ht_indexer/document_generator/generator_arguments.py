@@ -50,7 +50,7 @@ class GeneratorServiceArguments:
                             help="Could be pairtree or local", default="local"
                             )
 
-        # Path to the folder where the documents are stored. This parameter is useful for runing the script locally
+        # Path to the folder where the documents are stored. This parameter is useful for running the script locally
         parser.add_argument("--document_local_path",
                             help="Path of the folder where the documents (.xml file to index) are stored.",
                             required=False,
@@ -73,7 +73,6 @@ class GeneratorServiceArguments:
                                                     os.environ["SRC_QUEUE_PASS"],
                                                     os.environ["SRC_QUEUE_HOST"],
                                                     os.environ["SRC_QUEUE_NAME"],
-                                                    dead_letter_queue=True,
                                                     requeue_message=False)
         except KeyError as e:
             logger.error(f"Environment variables required: "
@@ -93,8 +92,7 @@ class GeneratorServiceArguments:
                 self.tgt_queue_producer = QueueProducer(os.environ["TGT_QUEUE_USER"],
                                                         os.environ["TGT_QUEUE_PASS"],
                                                         os.environ["TGT_QUEUE_HOST"],
-                                                        os.environ["TGT_QUEUE_NAME"],
-                                                        dead_letter_queue=True)
+                                                        os.environ["TGT_QUEUE_NAME"])
             except KeyError as e:
                 logger.error(f"Environment variables required: "
                              f"{ht_utils.ht_utils.get_general_error_message('DocumentGeneratorService', e)}")

@@ -13,7 +13,7 @@ The application integrates a queue system to manage the flow of documents to be 
 Three services are available in the application:
 
 * document_retriever_service: Load an API to retrieve documents from Catalog index.
-* document_generator: Use the Catalog metadata and the files storage on pairtree-based repository to generate the JSON.
+* document_generator: Use the Catalog metadata and the file storage on pairtree-based repository to generate the JSON.
 * document_indexer_service: Load the API to index the documents in Full-text search index.
 
 Two queues are available in the application to manage the flow of documents to be indexed in Full-text search index.
@@ -25,8 +25,8 @@ Two queues are available in the application to manage the flow of documents to b
 The system that publishes the messages to the queue is called the producer. The system that receives the messages from
 the queue is called the consumer.
 
-The consumer services implements a mechanism to re-queue the messages that failed. A message can fail for different
-reasons,
+The consumer service implements a mechanism to re-queue the messages that failed. A message can fail for different
+reasons:
 
 * The document is not found in the pairtree-based repository.
 * The document is not found in the Catalog index.
@@ -34,7 +34,11 @@ reasons,
 * The Solr server is down.
 
 We use a **dead-letter-exchange** to handle messages that are not processed successfully. The dead-letter-exchange is
-an exchange to which messages will be re-routed if they are rejected by the queue.
+an exchange to which messages will be re-routed if they are rejected by the queue. In the current logic, all the service
+using
+the queue system has a dead-letter-exchange associated with it. One of our future steps is to figure out what we will do
+with the messages in the dead-letter-exchange.
+
 Find [here](https://www.rabbitmq.com/docs/dlx#overview) more details about dead letter exchanges.
 
 Each of the defined queues (queue_retriever and queue_indexer) has a dead-letter-exchange associated with it
@@ -44,8 +48,8 @@ The image below shows the queues involved in the system.
 
 ![rabbitmq_queues.png](rabbitmq_queues.png)
 
-When a consumer client receive a message from the queue, it will try to process the message. If the message is well
-process the message is acknowledged and removed from the queue. If the message is not processed, the message is
+When a consumer client receives a message from the queue, it will try to process the message. If the message is well
+process, the message is acknowledged and removed from the queue. If the message is not processed, the message is
 re-queued in the dead-letter-exchange. As an example of this logic, you can see the code in the file
 `document_generator/document_generator_service.py` in the function `generate_document()`.
 
@@ -53,7 +57,7 @@ The process to retrieve the message from the dead-letter-exchange is not impleme
 
 ## Use cases
 
-For all the use cases, a list of documents is received. This workflow retrieve metadata from Catalog index, then a
+For all the use cases, a list of documents is received. This workflow retrieves metadata from Catalog index, then a
 parameter is received indicating the catalog solr field to query. The Solr query can contain the field id or ht_id.
 
 The field id is used if you want to process all the items on
@@ -61,16 +65,16 @@ a record. The ht_id is used when a specific item of a Catalog record will be pro
 
 The Solr query will look like this: `id:100673101` or `ht_id:umn.31951d01828300z`
 
-Not implemented yet: If the list of documents is empty, them do a query=*:* and the query_field will be id to retrieve
-all the documents in Catalog index.
+Not implemented yet: If the list of documents is empty, so do a query=*:* and the query_field will be id to retrieve
+all the documents in the Catalog index.
 
 ``` 
     --query *:* default query to retrieve all the documents in Catalog
 ```
 
 **Use case 1: Generating and indexing one or N items retrieved from Catalog in Full-text search index:**
-The application receives a list of ids and a parameter that indicates if all the items in a record will be processed
-or only one item. Three different components/client are involved in this process and the communication among them
+The application receives a list of ids and a parameter that indicates if all the items in a record are processed
+or only one item. Three different parts/clients are involved in this process, and the communication among them
 is using a queue system.
 
 **Use case 1.1: The list of documents is retrieved from a file:**
@@ -78,7 +82,7 @@ This is use is used to process a batch of documents selected from production. It
 application in Kubernetes and considering production data.
 
 **Use case 2: Generating and indexing long documents in Full-text search index:**
-There are some documents that exceed the maximum size of a message allowing by the queue system. In this case, only a
+There are some documents that exceed the maximum size of a message allowed by the queue system. In this case, only a
 queue containing the metadata extracted from Catalog index is used. After that, the components for generating and
 indexing the documents are used in sequence in a local environment.
 
@@ -223,15 +227,15 @@ FY: [Temporal solution until implement the queue system]
 Use this module if you want to download data from pairtree-based repository via scp and store it in your local
 environment.
 
-FY: This logic was adopted because is complex to set up permission in the docker to access to pairtree repository via
+FY: This logic was adopted because it is complex to set up permission in the docker to access to pairtree repository via
 scp
 
 Find this module in: `ht_indexer/ht_utils/sample_data/`. All the logic is implemented in the
 script `sample_data_creator.sh`.
 The script will use the JSON file `full-output-catalog-index.json`, that contains an extract of the Catalog Solr index
 to generate the list of items to index. The file `sample_data_ht_ids.txt` is generated to load the list of items.
-The file `sample_data_path.txt` is also generated with the list of paths. We decided to obtain the pair-tree path using
-python and use shell script to download the documents via scp.
+The file `sample_data_path.txt` is also generated with the list of paths. We decided to get the pair-tree path using
+python and use a shell script to download the documents via scp.
 
 The script will generate the folder /sdr1/obj to download the .zip and .mets.xml file for the list of records.
 The folder will be created in the parent directory of ht_indexer repository.
@@ -239,7 +243,7 @@ The folder will be created in the parent directory of ht_indexer repository.
 `sample_data_creator.sh` by default,
 
 * 1% of the documents indexed in Catalog image will be added to the sample. You can change the default value
-  passing a different value to the script `sample_data_creator.sh`, e.g. 0.50 to retrieve 50% of the documents in
+  passing a different value to the script `sample_data_creator.sh`, e.g., 0.50 to retrieve 50% of the documents in
   Catalog.
 * only one item per Catalog record will be added to the sample. You can add all the items if you pass True as an
   argument
@@ -248,7 +252,7 @@ The folder will be created in the parent directory of ht_indexer repository.
 I have had some issues running the python script with the docker (line 34 of `sample_data_creator.sh`). It seems python
 is not able to receive the arguments defined as environment variables in the console.
 
-To overcome it, I recommend to use the python script directly to create the sample of data and before that you should
+To overcome it, I recommend using the python script directly to create the sample of data and before that you should
 define the environment variables SAMPLE_PERCENTAGE and ALL_ITEMS.
 
 ``python ht_indexer/ht_utils/sample_data/sample_data_generator.py``
@@ -262,10 +266,10 @@ script and run it to download the files through scp protocol.
 In your workdir, run te scripts `run_retriever_processor.sh`  to generate the XML file to index in full-text search
 index.
 
-This services access to MariaDB database and Solr to obtain the metadata of each item.
+This services access to MariaDB database and Solr to get the metadata of each item.
 It also extracts metadata from .zip and .mets.xml files
-In the docker-compose.yml file, you will find all the environment variables used by this component.
-You will also see, the module use two volume for I/O operations.
+In the docker-compose.yml file; you will find all the environment variables used by this component.
+You will also see the module uses two volumes for I/O operations.
 It should access to `/sdr1/obj` folder to retrieve the .zip and mets.xml and it all the xml files generated by this
 component are stored in `/tmp/indexing_data` folder.
 
@@ -293,10 +297,10 @@ also find the indexed documents in http://localhost:8983/solr/#/core-x/query?q=*
 --solr_url http://localhost:9033/solr/#/catalog/ --mysql_host mudslide.umdl.umich.edu --mysql_user user_name
 --mysql_pass pass --mysql_database ht --query id:hvd.hnr4tg --all_items ``
 
-* If --query parameter is not passed, all the record in Catalog index will be indexed in Full-text search
-* By default, only the first item of each record in Catalog are indexed in Full-text search, if --all_items parameter is
+* If --query parameter is not passed, all the records in Catalog index are indexed in Full-text search
+* By default, only the first item of each record in Catalog is indexed in Full-text search, if --all_items parameter is
   passed, then all the items of the record are added.
-    * You can use the command below to index all the item of a specific record
+    * You can use the command below to index all the items of a specific record
         * `` --solr_url http://localhost:9033/solr/#/catalog/ --mysql_host mudslide.umdl.umich.edu --mysql_user user_name --mysql_pass
           pass --mysql_database ht --query id:012407877 ``
           Use this command to run solr container
@@ -338,7 +342,7 @@ Stop the container and the volume will persist
 On mac,
 
 * Install python
-    * You can read this blog to install python in a right way in
+    * You can read this blog to install python in the right way in
       python: https://opensource.com/article/19/5/python-3-default-mac
         * I installed using brew and pyenv
 * Install poetry:
@@ -379,15 +383,16 @@ The image is based on Debian Bookworm, released June 2023
 * Image system: Debian 12
 * Image size: 51MB
 
-The **python:alpine** image was tested and it worked well however I decided to abandon it because it lacks the package
+The **python:alpine** image was tested, and it worked well, however, I decided to abandon it because it lacks the
+package
 installer
 pip and the support for installing wheel packages, which are both needed for installing applications like Pandas and
-Numpy. Alpine image is the light one, then we should install several dependencies, e.g. some compiler packages like GCC,
+Numpy. Alpine image is the light one; then we should install several dependencies, e.g. some compiler packages like GCC,
 then build the image takes time
 
 ## Document generator
 
-Before using this script you should set up the following environment variables
+Before using this script, you should set up the following environment variables
 
 export HOST=something.hathitrust.org
 export USER=your_user_name
@@ -447,7 +452,7 @@ Use this curl command to delete the XML file
 ``curl --location --request POST 'http://127.0.0.1:8081/solrIndexing/?path=data%2Fdelete'``
 
 You can also run the application from your local machine without a docker file using the following command.
-However, you will have to set up you python environment.
+However, you will have to set up your python environment.
 
 Use this curl command to query Sorl
 

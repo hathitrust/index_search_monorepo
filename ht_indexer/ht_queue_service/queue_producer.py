@@ -1,7 +1,7 @@
 # producer
 import json
 
-from ht_queue_service.queue_connection import QueueConnection
+from ht_queue_service.queue_connection_dead_letter import QueueConnectionDeadLetter
 from ht_utils.ht_logger import get_ht_logger
 
 logger = get_ht_logger(name=__name__)
@@ -10,14 +10,13 @@ logger = get_ht_logger(name=__name__)
 class QueueProducer:
     """ Create a class to send messages to a rabbitMQ """
 
-    def __init__(self, user: str, password: str, host: str, queue_name: str, dead_letter_queue: bool = True):
+    def __init__(self, user: str, password: str, host: str, queue_name: str):
         """
 
         :param user: username for the RabbitMQ
         :param password: password for the RabbitMQ
         :param host: host for the RabbitMQ
         :param queue_name: name of the queue
-        :param dead_letter_queue: boolean to enable dead letter queue
         """
         # Define credentials (user/password) as environment variables
         # declaring the credentials needed for connection like host, port, username, password, exchange etc
@@ -28,8 +27,7 @@ class QueueProducer:
         self.password = password
 
         try:
-            self.conn = QueueConnection(self.user, self.password, self.host, self.queue_name,
-                                        dead_letter_queue=dead_letter_queue)
+            self.conn = QueueConnectionDeadLetter(self.user, self.password, self.host, self.queue_name)
         except Exception as e:
             raise e
 

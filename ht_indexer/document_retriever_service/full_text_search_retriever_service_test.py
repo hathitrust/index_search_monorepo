@@ -9,8 +9,7 @@ def get_document_retriever_service(solr_api_url):
                                                "test_producer_queue",
                                                "rabbitmq",
                                                "guest",
-                                               "guest",
-                                               True
+                                               "guest"
                                                )
 
 
@@ -39,7 +38,6 @@ class TestFullTextRetrieverService:
     @pytest.mark.parametrize("retriever_parameters", [{"user": "guest", "password": "guest", "host": "rabbitmq",
                                                        "queue_name": "test_producer_queue",
                                                        "requeue_message": False,
-                                                       "dead_letter_queue": True,
                                                        "query_field": "item",
                                                        "start": 0,
                                                        "rows": 100}])
