@@ -37,7 +37,8 @@ def get_item_metadata_second_position(update_catalog_record_metadata: dict,
 def get_catalog_record_without_enum_pubdate(get_record_data):
     updating_record = deepcopy(get_record_data)
     updating_record[
-        "ht_json"] = '[{"htid":"nyp.33433069877805","newly_open":null,"ingest":"20220501","rights":["pdus",null],"heldby":["nypl"],"collection_code":"nyp","enumcron":"v. 1","dig_source":"google"}]'
+        "ht_json"] = ('[{"htid":"nyp.33433069877805","newly_open":null,"ingest":"20220501","rights":["pdus",null],'
+                      '"heldby":["nypl"],"collection_code":"nyp","enumcron":"v. 1","dig_source":"google"}]')
     updating_record["ht_id"] = ["nyp.33433069877805"]
     return updating_record
 

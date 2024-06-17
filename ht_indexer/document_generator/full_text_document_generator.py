@@ -18,6 +18,25 @@ import ht_document.ht_document
 logger = get_ht_logger(name=__name__)
 
 
+def extract_fields_from_mets_file(doc_source_path) -> dict:
+    """Read the METS file and extract the fields to be used in the full-text search entry
+    :param doc_source_path: Path to the document source
+    :return: a dictionary with the METS fields
+    """
+    mets_fields = {}
+    try:
+        mets_obj = document_generator.mets_file_extractor.MetsAttributeExtractor(f"{doc_source_path}.mets.xml")
+        mets_entry = mets_obj.create_mets_entry()
+
+        mets_fields["ht_page_feature"] = mets_entry.get("METS_maps").get("features")
+        mets_fields.update(mets_entry.get("METS_maps").get("reading_orders"))
+
+        return mets_fields
+    except Exception as e:
+        logger.error(f"Error generating METS fields {e}")
+        raise e
+
+
 class FullTextDocumentGenerator:
 
     def __init__(self, db_conn: HtMysql):
@@ -33,14 +52,42 @@ class FullTextDocumentGenerator:
             full_text = FullTextDocumentGenerator.get_full_text_field(f"{document_zip_path}.zip")
             return {"ocr": full_text}
         except Exception as e:
-            logger.error(f"Error reading file {document_zip_path}.zip {e}")
+            logger.error(f"Error generating the OCR field {document_zip_path}.zip {e}")
             raise e
 
     @staticmethod
     def create_allfields_field(fullrecord_field: str) -> dict:
         # TODO Create a different class to manage the XML files
-        all_fields = FullTextDocumentGenerator.get_all_fields_field(fullrecord_field)
-        return {"allfields": all_fields}
+        try:
+            all_fields = FullTextDocumentGenerator.get_all_fields_field(fullrecord_field)
+            return {"allfields": all_fields}
+        except Exception as e:
+            logger.error(f"Error generating the allfields field {e}")
+            raise e
+
+    @staticmethod
+    def txt_files_2_full_text(zip_doc: zipfile.ZipFile):
+        """
+        Read all the .TXT files in the input folder and concatenate the content of all of them in a single string
+        :return: String with the content of all the .TXT files
+        """
+        # TODO: Check MACOSX files in the logs to know if the ZIP files with this folder is being processed correctly
+        # and if the full text is being generated correctly
+        # check the logs te see the among of files with this messages to determine if we need the line
+        # if not i_file.startswith('__MACOSX/') or if we need to include a resource forks in the code
+        # python library to handle resource forks => phttps://pypi.org/project/rsrcfork/
+        full_text = ""
+        macosx_files = False
+        for i_file in zip_doc.namelist():
+            if not i_file.startswith('__MACOSX/'):
+                if zip_doc.getinfo(i_file).filename.endswith(".txt"):
+                    full_text = (
+                            full_text + " " + string_preparation(zip_doc.read(i_file))
+                    )
+            else:
+                macosx_files = True
+        logger.info(f"{zip_doc.filename} contains __MACOSX directory")
+        return full_text
 
     @staticmethod
     def get_full_text_field(zip_doc_path: str):
@@ -51,20 +98,13 @@ class FullTextDocumentGenerator:
         :return: String concatenated all the content of the .TXT files
         """
 
-        full_text = ""
         logger.info("=================")
         logger.info(f"Document path {zip_doc_path}")
         if not os.path.isfile(zip_doc_path):
             raise FileNotFoundError(f"File {zip_doc_path} not found")
 
         zip_doc = zipfile.ZipFile(zip_doc_path, mode="r")
-        for i_file in zip_doc.namelist():
-            if zip_doc.getinfo(i_file).filename.endswith(".txt"):
-                full_text = (
-                        full_text + " " + string_preparation(zip_doc.read(i_file))
-                )
-
-        full_text = full_text.encode().decode()
+        full_text = FullTextDocumentGenerator.txt_files_2_full_text(zip_doc).encode().decode()
         return full_text
 
     @staticmethod
@@ -114,52 +154,28 @@ class FullTextDocumentGenerator:
         start = time.time()
 
         # Generate ocr field and check if the current document is a valid UTF-8 encoded document
-        try:
-            entry.update(FullTextDocumentGenerator.create_ocr_field(doc.source_path))
-        except Exception as e:
-            logger.error(f"Error generating the OCR field {doc.source_path}.zip {e}")
-            raise e
+        entry.update(FullTextDocumentGenerator.create_ocr_field(doc.source_path))
 
         # Generate allfields field from fullrecord field
-        # This field is in Catalog object, we process it here and after that we delete because it is not
+        # This field is in a Catalog object, we process it here, and after that we delete because it is not
         # necessary to be in Solr index
-        try:
-            entry.update(
-                FullTextDocumentGenerator.create_allfields_field(doc_metadata.get("fullrecord"))
-            )
-        except Exception as e:
-            logger.error(f"Error generating the allfields field {e}")
-            raise e
-
+        entry.update(
+            FullTextDocumentGenerator.create_allfields_field(doc_metadata.get("fullrecord"))
+        )
         doc_metadata.pop("fullrecord")
-
         logger.info(f"Time to generate OCR field {doc.document_id} {time.time() - start}")
 
-        # Add Catalog fields to full-text document
+        # Add Catalog fields to the full-text document
         entry.update(doc_metadata)
 
         start = time.time()
         # Retrieve data from MariaDB
-        try:
-            entry.update(self.mysql_data_extractor.retrieve_mysql_data(doc.document_id))
-        except Exception as e:
-            logger.error(f"Error retrieving MySQL data {e}")
-            raise e
-
+        entry.update(self.mysql_data_extractor.retrieve_mysql_data(doc.document_id))
         logger.info(f"Time to generate MySQL fields {doc.document_id} {time.time() - start}")
 
         start = time.time()
         # Extract fields from METS file
-        try:
-            mets_obj = document_generator.mets_file_extractor.MetsAttributeExtractor(f"{doc.source_path}.mets.xml")
-
-            mets_entry = mets_obj.create_mets_entry()
-
-            entry.update({"ht_page_feature": mets_entry.get("METS_maps").get("features")})
-            entry.update(mets_entry.get("METS_maps").get("reading_orders"))
-        except Exception as e:
-            logger.error(f"Error generating METS fields {e}")
-            raise e
+        entry.update(extract_fields_from_mets_file(doc.source_path))
         logger.info(f"Time to generate METS fields {doc.document_id} {time.time() - start}")
         entry.pop("ht_id")
         return entry

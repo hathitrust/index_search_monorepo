@@ -1,14 +1,12 @@
-from ht_document.ht_document import HtDocument
-from ht_utils.ht_logger import get_ht_logger
-
-logger = get_ht_logger(name=__name__)
-
-from random import shuffle
 import json
 import os
 import inspect
+from ht_document.ht_document import HtDocument
+from ht_utils.ht_logger import get_ht_logger
+from random import shuffle
 from typing import List
 
+logger = get_ht_logger(name=__name__)
 currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 
 

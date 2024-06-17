@@ -100,6 +100,7 @@ class TestHTConsumerService:
             break
 
         assert 0 == consumer_instance.conn.get_total_messages()
+        consumer_instance.conn.ht_channel.queue_purge(consumer_instance.queue_name)
 
     @pytest.mark.parametrize("retriever_parameters", [{"user": "guest", "password": "guest", "host": "rabbitmq",
                                                        "queue_name": "test_producer_queue",
@@ -111,6 +112,7 @@ class TestHTConsumerService:
         consumer_instance.conn.ht_channel.queue_purge(consumer_instance.queue_name)
 
         assert 0 == consumer_instance.conn.get_total_messages()
+        consumer_instance.conn.ht_channel.queue_purge(consumer_instance.queue_name)
 
     @pytest.mark.parametrize("retriever_parameters",
                              [{"user": "guest", "password": "guest", "host": "rabbitmq",

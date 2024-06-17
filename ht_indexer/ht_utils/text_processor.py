@@ -1,9 +1,13 @@
 import re
-from io import BytesIO
 from typing import Dict, List
 from xml.sax.saxutils import quoteattr
 
 from ht_utils.ht_logger import get_ht_logger
+
+
+class MathLibraryError(Exception):
+    pass
+
 
 table = str.maketrans(
     {
@@ -22,7 +26,7 @@ def xmlesc(txt):
     return txt.translate(table)
 
 
-def string_preparation(doc_content: BytesIO) -> str:
+def string_preparation(doc_content: bytes) -> str:
     """
     Clean up a byte object and convert it to string
     :param doc_content: XML string
@@ -33,11 +37,11 @@ def string_preparation(doc_content: BytesIO) -> str:
     try:
         # Convert byte to str
         str_content = str(doc_content.decode())
-    except Exception as e:
+    except UnicodeDecodeError as e:
         logger.error(f"File encode incompatible with UTF-8 {e}")
-        raise UnicodeDecodeError
+        raise e
 
-    # Remove line breaks
+        # Remove line breaks
     str_content = str_content.replace("\n", " ")
 
     # Remove extra white spaces
@@ -58,10 +62,10 @@ def field_tag(key, value) -> str:
 
 def create_solr_string(data_dic: Dict) -> str:
     """
-    Function to convert a dictionary into an xml string uses for indexing a document in Solr index
+    Function to convert a dictionary into a xml string uses for indexing a document in Solr index
 
     :param data_dic: Dictionary with the data will be indexed in Solr
-    :return: XML String  with tag <add> for adding the document in Solr
+    :return: XML String with tag <add> for adding the document in Solr
     """
     solr_doc = []
     nl = "\n"
