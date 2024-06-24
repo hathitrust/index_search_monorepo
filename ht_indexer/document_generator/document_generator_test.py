@@ -9,6 +9,7 @@ import pytest
 from _pytest.outcomes import Failed
 
 from document_generator.full_text_document_generator import FullTextDocumentGenerator
+from document_generator.mysql_data_extractor import extract_namespace_and_id
 from ht_utils.text_processor import string_preparation
 
 current = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
@@ -90,3 +91,28 @@ class TestDocumentGenerator:
 
         assert len(all_field.strip()) == len(get_allfield_string.strip())
         assert all_field.strip() == get_allfield_string.strip()
+
+    def test_extract_namespace_and_id(self):
+        """
+        Extracts the namespace and the id from a given document id string.
+        The namespace is defined as the characters before the first period.
+        The id is the remainder of the string after the first period.
+
+        :param document_id: The document id string to extract from.
+        :return: A tuple containing the namespace and the id.
+        """
+
+        document_id = "uc2.ark:/13960/t4mk66f1d"
+        namespace, id = extract_namespace_and_id(document_id)
+        assert namespace == "uc2"
+        assert id == "ark:/13960/t4mk66f1d"
+
+        document_id = "miun.afs8435.0001.001"
+        namespace, id = extract_namespace_and_id(document_id)
+        assert namespace == "miun"
+        assert id == "afs8435.0001.001"
+
+        document_id = "uiug.30112056400960"
+        namespace, id = extract_namespace_and_id(document_id)
+        assert namespace == "uiug"
+        assert id == "30112056400960"

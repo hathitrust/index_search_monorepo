@@ -1,11 +1,11 @@
 import zipfile
 import time
-import os
 
 from document_generator.mysql_data_extractor import MysqlMetadataExtractor
 from ht_utils.ht_mysql import HtMysql
 from ht_utils.ht_logger import get_ht_logger
 from ht_utils.text_processor import string_preparation
+from pathlib import Path
 
 import xml.sax.saxutils
 
@@ -25,6 +25,8 @@ def extract_fields_from_mets_file(doc_source_path) -> dict:
     """
     mets_fields = {}
     try:
+        if not Path(f"{doc_source_path}.mets.xml").is_file():
+            raise FileNotFoundError(f"File {doc_source_path}.mets.xml not found")
         mets_obj = document_generator.mets_file_extractor.MetsAttributeExtractor(f"{doc_source_path}.mets.xml")
         mets_entry = mets_obj.create_mets_entry()
 
@@ -100,7 +102,9 @@ class FullTextDocumentGenerator:
 
         logger.info("=================")
         logger.info(f"Document path {zip_doc_path}")
-        if not os.path.isfile(zip_doc_path):
+
+        file_path = Path(zip_doc_path)
+        if not file_path.is_file():
             raise FileNotFoundError(f"File {zip_doc_path} not found")
 
         zip_doc = zipfile.ZipFile(zip_doc_path, mode="r")

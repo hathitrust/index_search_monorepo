@@ -1,15 +1,27 @@
+import inspect
 import os
 import subprocess
 import sys
 
+current = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+parent = os.path.dirname(current)
+sys.path.insert(0, parent)
+
+from pathlib import Path
+
+from ht_document.ht_document import HtDocument
 from ht_utils.ht_logger import get_ht_logger
 
 logger = get_ht_logger(name=__name__)
 
 
 def download_document_file(
-        source_path: str = None, target_path: str = None, extension: str = "zip"
+        ht_id: str = None, target_path: str = None, extension: str = "zip"
 ):
+    os.environ["SDR_DIR"] = '/sdr1/obj'
+
+    ht_doc = HtDocument(document_id=ht_id, document_repository="pairtree")
+    source_path = ht_doc.source_path
     try:
         public_key = os.environ["PUBLIC_KEY"]
     except KeyError:
@@ -35,4 +47,9 @@ def download_document_file(
         f"{target_path}.{extension}",
     ]
     subprocess.run(command)
-    logger.info(f"Download {source_path}.{extension} to {target_path}")
+    print(f"Download {source_path}.{extension} to {target_path}")
+
+
+if __name__ == "__main__":
+    download_document_file(ht_id="coo1.ark:/13960/t57d3f780", target_path=str(Path(__file__).parents[1]),
+                           extension="zip")

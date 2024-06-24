@@ -23,6 +23,21 @@ def create_ht_heldby_field(heldby_brlm: list[tuple]) -> dict:
     return {"ht_heldby": list_brl_members}
 
 
+def extract_namespace_and_id(document_id: str):
+    """
+    Extracts the namespace and the id from a given document id string.
+    The namespace is defined as the characters before the first period.
+    The id is the remainder of the string after the first period.
+
+    :param document_id: The document id string to extract from.
+    :return: A tuple containing the namespace and the id.
+    """
+    parts = document_id.split(".", 1)  # Split at the first period only
+    namespace = parts[0] if parts else None
+    id = parts[1] if len(parts) > 1 else None
+    return namespace, id
+
+
 class MysqlMetadataExtractor:
     def __init__(self, db_conn: HtMysql):
         self.mysql_obj = db_conn
@@ -63,7 +78,8 @@ class MysqlMetadataExtractor:
 
     def add_rights_field(self, doc_id) -> list[tuple]:
 
-        namespace, _id = doc_id.split(".")
+        namespace, _id = extract_namespace_and_id(doc_id)
+
         query = (
             f'SELECT * FROM rights_current WHERE namespace="{namespace}" AND id="{_id}"'
         )

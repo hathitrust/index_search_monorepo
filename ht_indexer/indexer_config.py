@@ -9,8 +9,6 @@ DOCUMENT_LOCAL_PATH = "/tmp/"
 # Variables to manage IO operations, local folder with files
 LOCAL_DOCUMENT_FOLDER = f"{Path(__file__).parents[1]}/sdr1/obj"
 
-TRANSLATE_TABLE = str.maketrans({"=": r"\=", ",": r"\,"})
-
 # field_full_text : field catalog
 RENAMED_CATALOG_METADATA = {
     "record_no": "id",

@@ -29,8 +29,30 @@ def test_get_namespace():
 
 
 def test_get_object_id():
-    namespace = HtDocument.get_object_id("uc2.ark:/13960/t4mk66f1d")
-    assert namespace == "ark:/13960/t4mk66f1d"
+    object_id = HtDocument.get_object_id("uc2.ark:/13960/t4mk66f1d")
+    assert object_id == "ark:/13960/t4mk66f1d"
+
+
+def test_colon_name_pattern():
+    """Test the pattern with a colon in the name
+    Check if the namespace, object id and pairtree path are correctly extracted
+    """
+    namespace = HtDocument.get_namespace("coo1.ark:/13960/t57d3f780")
+    assert namespace == "coo1"
+
+    obj_id = HtDocument.get_object_id("coo1.ark:/13960/t57d3f780")
+    assert obj_id == "ark:/13960/t57d3f780"
+
+    os.environ["SDR_DIR"] = "/sdr1/obj"
+    ht_doc = HtDocument(document_id="coo1.ark:/13960/t57d3f780", document_repository="pairtree")
+
+    doc_path = ht_doc.get_document_pairtree_path()
+    assert doc_path == r"/ar/k+/=1/39/60/=t/57/d3/f7/80/ark+=13960=t57d3f780/ark+=13960=t57d3f780"
+    # assert doc_path == r"/ar/k+/\=1/39/60/\=t/57/d3/f7/80/ark+\=13960\=t57d3f780/ark+\=13960\=t57d3f780"
+
+    # source_path includes the name of the file
+    # assert r"/sdr1/obj/coo1/pairtree_root/ar/k+/\=1/39/60/\=t/57/d3/f7/80/ark+\=13960\=t57d3f780/ark+\=13960\=t57d3f780" == ht_doc.source_path
+    assert r"/sdr1/obj/coo1/pairtree_root/ar/k+/=1/39/60/=t/57/d3/f7/80/ark+=13960=t57d3f780/ark+=13960=t57d3f780" == ht_doc.source_path
 
 
 def test_document_several_points():
@@ -62,4 +84,3 @@ def test_document_filesystem_folder():
     assert ht_doc.target_path == "/tmp/39015078560292_test"
     assert ht_doc.namespace == "mb"
     assert ht_doc.file_name == "39015078560292_test"
-    # assert ht_doc.source_path == f"{os.environ.get('SDR_DIR')}/{ht_doc.file_name}"

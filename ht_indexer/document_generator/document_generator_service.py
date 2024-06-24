@@ -1,5 +1,4 @@
 import time
-import os
 import argparse
 import json
 
@@ -9,6 +8,7 @@ from document_generator.generator_arguments import GeneratorServiceArguments
 from ht_queue_service.queue_consumer import QueueConsumer, positive_acknowledge
 from ht_queue_service.queue_producer import QueueProducer
 import ht_utils.ht_utils
+from pathlib import Path
 
 from ht_utils.ht_logger import get_ht_logger
 
@@ -50,24 +50,22 @@ class DocumentGeneratorService:
         # Instantiate each document
         ht_document = HtDocument(document_id=item_id, document_repository=document_repository)
 
-        logger.info(f"Checking if {ht_document.source_path} exists!")
-
         # TODO: Temporal local for testing using a sample of files
         #  Checking if the file exist, otherwise go to the next
-        if os.path.isfile(f"{ht_document.source_path}.zip"):
-            logger.info(f"Processing item {ht_document.document_id}")
-            try:
-                entry = self.document_generator.make_full_text_search_document(ht_document, record)
-            except Exception as e:
-                raise Exception(f"Document {ht_document.document_id} could not be generated: Error - {e}")
-            logger.info(
-                f"Time to generate full-text search {ht_document.document_id} document {time.time() - start_time:.10f}")
-            return entry
-        else:
+        if not Path(f"{ht_document.source_path}.zip").is_file():
             # The message is rejected because the file with the text of the document does not exist
             # then, entry dictionary could not be generated
             logger.info(f"The file of the document {ht_document.document_id} does not exist")
             raise FileNotFoundError(f"File {ht_document.source_path}.zip not found")
+        logger.info(f"{ht_document.source_path}.zip exists!")
+        logger.info(f"Processing item {ht_document.document_id}")
+        try:
+            entry = self.document_generator.make_full_text_search_document(ht_document, record)
+        except Exception as e:
+            raise Exception(f"Document {ht_document.document_id} could not be generated: Error - {e}")
+        logger.info(
+            f"Time to generate full-text search {ht_document.document_id} document {time.time() - start_time:.10f}")
+        return entry
 
     def publish_document(self, content: dict = None):
         """

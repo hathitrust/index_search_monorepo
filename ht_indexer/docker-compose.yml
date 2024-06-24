@@ -20,10 +20,6 @@ services:
     depends_on:
       solr-sdr-catalog:
         condition: service_healthy
-      solr-lss-dev:
-        condition: service_healthy
-      mysql-sdr:
-        condition: service_healthy
       rabbitmq:
         condition: service_healthy
     tty: true
@@ -101,6 +97,8 @@ services:
       - ../sdr1/obj:/sdr1/obj
     depends_on:
       rabbitmq:
+        condition: service_healthy
+      mysql-sdr:
         condition: service_healthy
     tty: true
     stdin_open: true

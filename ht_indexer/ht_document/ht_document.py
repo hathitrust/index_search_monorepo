@@ -6,7 +6,6 @@ from pypairtree import pairtree
 from ht_utils.ht_logger import get_ht_logger
 from indexer_config import (
     DOCUMENT_LOCAL_PATH,
-    TRANSLATE_TABLE,
     LOCAL_DOCUMENT_FOLDER
 )
 
@@ -35,14 +34,13 @@ class HtDocument:
         # If there are special characters in the document_id, the file will be load in the local
         # environment with a different name
         self.file_name = pairtree.sanitizeString(self.obj_id)
-        self.sanitized_obj_id_translated = self.file_name.translate(TRANSLATE_TABLE)
 
         # By default path files are in /sdr1/obj
         if document_repository == 'pairtree':
             self.source_path = f"{os.environ.get('SDR_DIR')}/{self.namespace}/pairtree_root{self.get_document_pairtree_path()}"  # /sdr1/obj/
         else:
             # A sample_data will be in the same folder of the repository
-            self.source_path = f"{LOCAL_DOCUMENT_FOLDER}/{self.sanitized_obj_id_translated}"
+            self.source_path = f"{LOCAL_DOCUMENT_FOLDER}/{self.file_name}"
 
         self.target_path = f"{DOCUMENT_LOCAL_PATH}{self.file_name}"
 
@@ -73,13 +71,6 @@ class HtDocument:
         """
 
         # Use the file name to get the pairtree path
-        doc_pairtree_path = pairtree.get_pair_path(self.file_name)
-
-        # Escape special characters from the file of the path and the object name
-        doc_translated_path = doc_pairtree_path.translate(TRANSLATE_TABLE)
-        # sanitized_obj_id_translated = self.file_name.translate(TRANSLATE_TABLE)
-
-        # source_path = f"{SDR_DIR}/{self.namespace}/pairtree_root{doc_translated_path}/{sanitized_obj_id_translated}"
-        doc_path = f"{doc_translated_path}/{self.sanitized_obj_id_translated}"
-
+        doc_pairtree_path = pairtree.toPairTreePath(self.obj_id)
+        doc_path = f"/{doc_pairtree_path}{pairtree.sanitizeString(self.obj_id)}/{self.file_name}"
         return doc_path
