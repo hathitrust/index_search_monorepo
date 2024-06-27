@@ -98,13 +98,27 @@ class HTSearchQuery:
     def facet_creator(self, facet_dictionary: Dict = None) -> Dict:
         return reduce(lambda key, value: {**key, **value}, facet_dictionary)
 
-    def query_filter_creator(self, filter_name, filter_value):
+    def query_filter_creator_string(self, filter_name, filter_value):
+
+        #'\\"dog food\\" OR prices OR \\"good eats\\"'
+        # This is the way of creating a list of string query filters
+        filter_string = (
+            "\" OR \"".join(map(str, filter_value))
+            if isinstance(filter_value, list)
+            else filter_value
+        )
+        filter_string = '"'.join(("", filter_string, ""))
+        query_filters = f"{filter_name}:({filter_string})"
+        return query_filters
+
+    def query_filter_creator_rights(self, filter_name, filter_value):
+
+        #This is the way of creating a list of integer query filters
         filter_string = (
             " OR ".join(map(str, filter_value))
             if isinstance(filter_value, list)
             else filter_value
         )
-
         query_filters = f"{filter_name}:({filter_string})"
         return query_filters
 
@@ -128,21 +142,48 @@ class HTSearchQuery:
         query_string_dict = {"q": HTSearchQuery.get_exact_phrase_query(input_phrase)}
 
         if operator == "OR":
-            query_string_dict = {"q": input_phrase, "q.op": operator}
+            or_phrase = " OR ".join(input_phrase.split())
+            query_string_dict = {"q": or_phrase, "q.op": operator}
         elif operator == "AND":
-            query_string_dict = {"q": input_phrase, "q.op": operator}
+            and_phrase = " AND ".join(input_phrase.split())
+            query_string_dict = {"q": and_phrase, "q.op": operator}
         return query_string_dict
+
+    @staticmethod
+    def manage_string_query_solr6(input_phrase: Text, operator: Text = None) -> Text:
+        """
+        This function transform a query_string in Solr string format
+
+        e.g. information OR issue # boolean opperator (any of these words)
+        e.g. "\"information issue\"" # exact phrase query
+        e.g. "information AND issue" # all these words
+        :param input_phrase:
+        :param operator: It could be, all, exact_match or boolean_opperator
+        :return:
+        """
+
+        #query_string_dict = {"q": HTSearchQuery.get_exact_phrase_query(input_phrase)}
+
+        if operator == "OR":
+            query_string = input_phrase #" OR ".join(input_phrase.split())
+        elif operator == "AND":
+            query_string = input_phrase #" AND ".join(input_phrase.split())
+        elif operator is None:
+            query_string = "\"" + input_phrase + "\""
+        return query_string
 
     def make_solr_query(
         self,
         query_string: Text = None,
         operator: Text = None,  # It could be, None (exact_match), "AND" (all these words) or "OR" (any of these words)
         start: int = 0,
-        rows: int = 15,
+        rows: int = 100,
         fl: List = None,
         pf: bool = True,  # It is False for Only Text query
-        filter: bool = False,  # If the query is using filter, then use config_facet_filters.yaml to create the fq parameter
+        query_filter: bool = False,  # If the query is using filter, then use config_facet_filters.yaml to create the fq parameter
+        filter_dict: Dict = None # Pass as a parameter or use the config_facet_filters.yaml if filter is True. It should have this format: {"id": [1,2,3,4,5]}
     ):
+
         query_dict = {
             "defType": self.solr_parameters.get("parser")
             if self.solr_parameters.get("parser")
@@ -152,6 +193,7 @@ class HTSearchQuery:
             "fl": self.solr_parameters.get("fl")
             if self.solr_parameters.get("fl")
             else [],
+            #"ps": '',
             "indent": "on",
             "debug": self.solr_parameters.get("debug"),
             "mm": self.solr_parameters.get("mm"),  # 100 % 25,  # mm = minimum match
@@ -174,37 +216,23 @@ class HTSearchQuery:
         if self.solr_facet_filters:
             query_dict.update(self.facet_creator(self.solr_facet_filters.get("facet")))
 
+        print("*********************************")
+        print(query_dict)
         if fl:
             query_dict.update({"fl": fl})
 
         # Add the filter query
-        if filter:
-            query_dict.update(
-                {
-                    "fq": self.query_filter_creator(
-                        "rights",
-                        [
-                            25,
-                            15,
-                            18,
-                            1,
-                            21,
-                            23,
-                            19,
-                            13,
-                            11,
-                            20,
-                            7,
-                            10,
-                            24,
-                            14,
-                            17,
-                            22,
-                            12,
-                        ],
-                    )
-                }
-            )
+        #query_dict.update({"fq": 'id:(msu.31293021774280 OR uc1.32106012252521)'}) # TODO: Remove this line and uncomment the next one
+
+        if query_filter:
+            if filter_dict:
+                query_dict.update({"fq": self.query_filter_creator_string("id",
+                                                                   filter_dict.get("id"))})
+            else: # Will retrive the default filters defined in config_facet_filters.yaml
+                query_dict.update(
+                    {"fq": self.query_filter_creator_rights("rights",
+                                                     [25, 15, 18, 1, 21, 23, 19, 13, 11, 20, 7, 10, 24, 14, 17, 22, 12])})
+
         return query_dict
 
     def AFTER_Query_initialize(self):
