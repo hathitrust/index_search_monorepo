@@ -33,6 +33,9 @@ in the Solr server every time the container is started.
 The query below will retrieve only the documents that mention the exact phase `justice blame` in the full text
 `docker compose exec full_text_searcher python ht_full_text_search/ht_full_text_searcher.py --env dev --query_string "justice blame" --operator None --query_config ocronly`
 
+To do the same exact phrase query but export all results using solr result streaming:
+`docker compose exec full_text_searcher python ht_full_text_search/export_all_results.py '"justice blame"'`
+
 ### Scripts for running batch of queries, saving the results in a csv file and comparing the results with the expected ones or with the results of another query or search engine
 
 `python3 ht_full_text_search/scripts/generate_query_results.py`
