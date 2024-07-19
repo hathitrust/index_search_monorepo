@@ -1,24 +1,23 @@
-import pytest
-from ht_full_text_search.ht_full_text_query import HTFullTextQuery
-from ht_searcher.ht_searcher import HTSearcher
-from ht_full_text_search.ht_full_text_searcher import HTFullTextSearcher
-
-import os
 import inspect
+import os
 import sys
+import pytest
 
-currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-parentdir = os.path.dirname(currentdir)
-sys.path.insert(0, parentdir)
+from ht_full_text_search.ht_full_text_query import HTFullTextQuery
+from ht_full_text_search.ht_full_text_searcher import HTFullTextSearcher
+from ht_searcher.ht_searcher import HTSearcher
+
+
+current_folder = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+parent_folder = os.path.dirname(current_folder)
+sys.path.insert(0, parent_folder)
 
 QUERY_PARAMETER_CONFIG_FILE = "/".join(
-    [parentdir, "config_files/full_text_search/config_query.yaml"]
+    [parent_folder, "config_files/full_text_search/config_query.yaml"]
 )
 FACET_FILTERS_CONFIG_FILE = "/".join(
-    [parentdir, "config_files/full_text_search/config_facet_filters.yaml"]
+    [parent_folder, "config_files/full_text_search/config_facet_filters.yaml"]
 )
-
-from ht_full_text_search.ht_full_text_query import HTFullTextQuery
 
 
 @pytest.fixture
@@ -56,11 +55,10 @@ def ht_searcher_fixture(ht_search_query_fixture):
     """
 
     return HTSearcher(
-        engine_uri="http://localhost:8983/solr/#/core-x/",
+        solr_url="http://solr-lss-dev:8983/solr/#/core-x/",
         ht_search_query=ht_search_query_fixture,
-        timeout=None,
-        use_shards=False,
-    )  # solr-lss-dev
+        environment="dev"
+    )
 
 
 # Specific objects (Full-text search)
@@ -87,9 +85,7 @@ def ht_full_text_search_fixture(ht_full_text_search_query_fixture):
     :return:
     """
 
-    query_string = "example query"
     return HTFullTextSearcher(
-        engine_uri="http://localhost:8983/solr/#/core-x/",
-        ht_search_query=ht_full_text_search_query_fixture,
-        use_shards=False,
+        solr_url="http://solr-lss-dev:8983/solr/#/core-x/",
+        ht_search_query=ht_full_text_search_query_fixture
     )

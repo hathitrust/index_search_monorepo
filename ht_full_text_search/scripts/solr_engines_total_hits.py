@@ -1,7 +1,6 @@
 import pandas as pd
 import os
 import pathlib
-import matplotlib.pyplot as plt
 
 if __name__ == "__main__":
     list_queries = []
@@ -26,7 +25,7 @@ if __name__ == "__main__":
 
     print(f"Total string queries {len(string_queries)}.")
     kind_query = ["AND", "OR", None]
-    print(f"Total kind of queries", len(kind_query))
+    print(f"Total kind of queries: {len(kind_query)}")
 
     engines = ["solr6", "solr8"]
 
