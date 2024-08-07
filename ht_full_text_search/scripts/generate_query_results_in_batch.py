@@ -1,25 +1,66 @@
+import json
+import os
+import sys
+from argparse import ArgumentParser
 
 import pandas as pd
+
+from config_search import SOLR_URL
 from ht_full_text_search.ht_full_text_query import HTFullTextQuery
 from ht_full_text_search.ht_full_text_searcher import HTFullTextSearcher
-from argparse import ArgumentParser
-import os
-from config_search import SOLR_URL, FULL_TEXT_SEARCH_SHARDS_Y
-import json
+
+
+def comma_separated_list(arg):
+    return arg.split(",")
+
 
 def clean_up_score_string(score_string):
     return score_string.strip("\n").strip("")
 
 
-def create_doc_score_dataframe(solr_output_explaination):
-
+def create_doc_score_dataframe(solr_output_explanation):
     doc_score_dict = {}
-    for doc in solr_output_explaination:
+    for doc in solr_output_explanation:
         for key, value in doc.items():
             doc_score_dict.update({'id': doc[key],
                                    'score': clean_up_score_string(value.split("=")[0].strip())})
 
     return doc_score_dict
+
+
+def get_solr_results_without_filter_by_id(ht_full_search_obj: HTFullTextSearcher,
+                                          query: dict, fl: list):
+    """
+    Get the results from Sol without filter it by id
+    :param ht_full_search_obj: Search object
+    :param query: query object
+    :param fl: Fields to return
+    :return:
+    """
+
+    list_docs = []
+    total_found = 0
+
+    for response in ht_full_search_obj.solr_result_query_dict(
+            query_string=query["query_string"],
+            fl=fl,
+            operator=query["operator"]
+    ):
+        total_found += response.get("response").get("numFound")
+        for record in response.get("response").get("docs"):
+            list_docs.append(record)
+
+    return total_found, list_docs
+
+
+def get_list_phrases(file_path: str) -> list:
+    if not os.path.isfile(file_path):
+        print(f"File {file_path} not found")
+        sys.exit(1)
+    with open(file_path) as f:
+        list_phrases = f.read().splitlines()
+
+    return list_phrases
 
 
 if __name__ == "__main__":
@@ -31,11 +72,13 @@ if __name__ == "__main__":
         "--fl", help="Fields to return", default=["author", "id", "title", "score"]
     )
     parser.add_argument(
-        "--use_shards", help="If the query should include shards", default=False, action="store_true"
-    )
-    parser.add_argument(
         "--filter_path", help="Path of a JSON file used to filter Solr results", default=None
     )
+    parser.add_argument(
+        "--query_config", help="Type of query ocronly or/and all", default=["ocronly"],
+        type=comma_separated_list)
+    parser.add_argument("--list_phrase_file", help="TXT file containing the list of phrase to search",
+                        default='')
 
     args = parser.parse_args()
 
@@ -45,40 +88,16 @@ if __name__ == "__main__":
     else:  # Use the default solr url, depending on the environment. If prod environment, use shards
         solr_url = SOLR_URL[args.env]
 
-
     fl = args.fl
-    use_shards = False
-
-    if args.env == "prod":
-        use_shards = FULL_TEXT_SEARCH_SHARDS_Y
-    else:
-        use_shards = args.use_shards  # By default is False
+    use_shards = False  # By default is False
 
     list_queries = []
+
+    list_phrases = get_list_phrases(args.list_phrase_file)
+
     # Generating the list of queries
-    for input_query in [
-        "majority of the votes",
-        "chief justice",
-        "majority of the votes",
-        "chief justice",
-        "Natural history",
-        #"S-350 anti-drone",
-        "Shell Recharge cybersecurity",
-        "Charge point software cybersecurity",
-        "Shell Recharge software cybersecurity",
-        "panama",
-        "Network Rail cybersecurity",
-        "National Grid cybersecurity",
-        "26th Regiment",
-        "wind farm operator cybersecurity",
-        "cell",
-        "Chile",
-        "Culture in History: Essays in Honor of Paul Radin",
-        "S-350 anti-satellite",
-        "Genealogy",
-        "natural history"
-    ]:
-        for type_query in ["ocronly"]: #, "all"
+    for input_query in list_phrases:
+        for type_query in args.query_config:  # "ocronly", "all"
             for op_type in ["AND", "OR", None]:
                 list_queries.append(
                     {
@@ -90,37 +109,41 @@ if __name__ == "__main__":
 
     for query in list_queries:
 
+        fl = args.fl  # ["author", "id", "title"]
+
+        # Create empty dataframe with the columns to be returned
         df = pd.DataFrame(columns=args.fl)
 
-        fl = args.fl #["author", "id", "title"]
         print(f"Solr query {query['query_string']} with operator {query['operator']}")
 
         # Create query object
         Q = HTFullTextQuery(config_query=query['query_fields'])
 
-        ht_full_search = HTFullTextSearcher(engine_uri=solr_url, ht_search_query=Q, use_shards=use_shards)
+        # Create the search object
+        ht_full_search = HTFullTextSearcher(solr_url=solr_url, ht_search_query=Q, environment=args.env)
 
         total_found = 0
 
         if args.filter_path is None:
-            solr_output = ht_full_search.solr_result_query_dict(
-                url=solr_url,
-                query_string=query["query_string"],
-                fl=fl,
-                operator=query["operator"]
+            # Get the results from Sol without filter it by id
+            docs_found, list_docs = get_solr_results_without_filter_by_id(
+                ht_full_search_obj=ht_full_search,
+                query=query,
+                fl=args.fl
             )
 
-            total_found += solr_output["response"]["numFound"]
+            total_found += docs_found
 
             # Empty results
-            if solr_output["response"]["numFound"] == 0:
+            if docs_found == 0:
                 print(f'No results found for query {query["query_string"]}')
                 continue
 
-            df = pd.DataFrame(solr_output["response"]["docs"])
+            df = pd.DataFrame(list_docs)
+
             # Extract the score for each document
-            #doc_score_dict = create_doc_score_dataframe(solr_output["debug"]["explain"])
-            #df["score"] = df["id"].map(doc_score_dict)
+            # doc_score_dict = create_doc_score_dataframe(solr_output["debug"]["explain"])
+            # df["score"] = df["id"].map(doc_score_dict)
 
         else:
             # Generate filter dictionary from JSON file
@@ -128,14 +151,17 @@ if __name__ == "__main__":
             filter_dict = json.loads(filter_json_file.read())
             query_filter = True
 
-            list_ids = [id['id'] for id in filter_dict.get('response', {}).get('docs', []) if id.get('id')]
+            list_ids = [doc_id['id'] for doc_id in filter_dict.get('response', {}).get('docs', []) if doc_id.get('id')]
 
             print(f"Total of ids to process {len(list_ids)}")
 
             list_df_results = []
             # Processing long queries
-            for doc, debug_info in ht_full_search.retrieve_documents_from_file(
-                    list_ids=list_ids, fl=fl, solr_url=solr_url, query_filter=query_filter, query_string=query["query_string"], operator=query["operator"]):
+            for doc, debug_info in ht_full_search.retrieve_documents_from_file(q_string=query["query_string"],
+                                                                               fl=fl,
+                                                                               operator=query["operator"],
+                                                                               q_filter=query_filter,
+                                                                               list_ids=list_ids):
 
                 # Empty results
                 if len(doc) == 0:
@@ -146,14 +172,18 @@ if __name__ == "__main__":
 
                 list_df_results.append(df_tmp)
 
+            df = pd.concat(list_df_results)
 
         print(f"Total found {total_found}")
 
-        if list_df_results:
-            df = pd.concat(list_df_results)
+        # Save the results in a CSV files
+        main_path = f'{os.getcwd()}/scripts/query_results'
+
+        if not os.path.exists(main_path):
+            os.makedirs(main_path)
 
         df.to_csv(
-            path_or_buf=f'{query["query_fields"]}_{query["query_string"]}_{query["operator"]}_solr6.csv',
+            path_or_buf=f'{main_path}/{query["query_fields"]}_{query["query_string"]}_{query["operator"]}_{args.env}.csv',
             index=False,
             sep="\t"
         )

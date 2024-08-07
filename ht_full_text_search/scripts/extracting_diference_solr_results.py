@@ -1,7 +1,11 @@
-import pandas as pd
+
 import os
 import pathlib
+import pandas as pd
 import matplotlib.pyplot as plt
+
+from argparse import ArgumentParser
+from scripts.generate_query_results_in_batch import get_list_phrases
 
 """
 What are the questions we want to answer?
@@ -19,74 +23,69 @@ What are the questions we want to answer?
 11. How many queries results have the same ids in both engines and the order is the same?
 12. How many queries results have the same ids in both engines and the order is the same and the scores are the same?
 13. How many queries results have the same ids in both engines and the order is the same and the scores are different?
-14. How many queries results have the same ids in both engines and the order is the same and the scores are different in the top n=5,10,15?
+14. How many queries results have the same ids in both engines and the order is the same and the scores are different in
+ the top n=5,10,15?
  
 """
 
-def get_different_ids(list_A, list_B):
 
-    diff = []
-    for i in sorted(list_A):
-        if i not in list_B:
-            diff.append(i)
-    for i in sorted(list_B):
-        if i not in list_A:
-            diff.append(i)
-    return list(set(diff))
+def get_different_ids(list_a, list_b):
+    diff_elements = []
+    for i in sorted(list_a):
+        if i not in list_b:
+            diff_elements.append(i)
+    for i in sorted(list_b):
+        if i not in list_a:
+            diff_elements.append(i)
+    return list(set(diff_elements))
 
-def get_different_sorted_ids(list_A, list_B):
 
-        diff = []
-        for i, item in enumerate(list_A):
-            try:
-                if item != list_B[i]:
-                    diff.append(i)
-            except IndexError as e_index:
-                diff.append(i)
+def get_different_sorted_ids(list_a, list_b):
+    diff_elements = []
+    for i, item in enumerate(list_a):
+        try:
+            if item != list_b[i]:
+                diff_elements.append(i)
+        except IndexError as e_index:
+            diff_elements.append(i)
+            print(f"Index Error {e_index}")
 
-        for i, item in enumerate(list_B):
-            try:
-                if item != list_A[i]:
-                    diff.append(i)
-            except IndexError as e_index:
-                diff.append(i)
+    for i, item in enumerate(list_b):
+        try:
+            if item != list_a[i]:
+                diff_elements.append(i)
+        except IndexError as e_index:
+            diff_elements.append(i)
+            print(f"Index Error {e_index}")
 
-        return list(set(diff))
+    return list(set(diff_elements))
 
 
 def percentage(part, whole):
-  percentage = 100 * float(part)/float(whole)
-  return percentage
+    return 100 * float(part) / float(whole)
+
 
 if __name__ == "__main__":
+
+    parser = ArgumentParser()
+
+    parser.add_argument("--list_phrase_file", help="TXT file containing the list of phrase to search",
+                        default='')
+
+    args = parser.parse_args()
+
     list_queries = []
-    string_queries = ["majority of the votes",
-        "chief justice",
-        "Natural history",
-        "S-350 anti-drone",
-        "Shell Recharge cybersecurity",
-        "Charge point software cybersecurity",
-        "Shell Recharge software cybersecurity",
-        "panama",
-        "Network Rail cybersecurity",
-        "National Grid cybersecurity",
-        "26th Regiment",
-        "wind farm operator cybersecurity",
-        "cell",
-        "Chile",
-        "Culture in History: Essays in Honor of Paul Radin",
-        "S-350 anti-satellite",
-        "Genealogy",
-        "natural history"]
 
-    print(f"Total string queries {len(string_queries)}.")
+    list_phrases = get_list_phrases(args.list_phrase_file)
+
+    print(f"Total string queries {len(list_phrases)}.")
     kind_query = ["AND", "OR", None]
-    print(f"Total kind of queries", len(kind_query))
+    print(f"Total kind of queries: {len(kind_query)}")
 
-    #Expected number of queries to compare: total of kind_query * string_queries (3 * 17) = 51 to compare
-    print(f"Expected comparison {len(string_queries) * len(kind_query)}")
+    # Expected number of queries to compare: total of kind_query * string_queries (3 * 17) = 51 to compare
+    print(f"Expected comparison {len(list_phrases) * len(kind_query)}")
     # Generating the list of queries
-    for input_query in string_queries:
+    for input_query in list_phrases:
         for type_query in ["ocronly"]:
             for op_type in kind_query:
                 list_queries.append(
@@ -117,27 +116,30 @@ if __name__ == "__main__":
         print("***************")
         print(query)
 
-        a_path = f'{query["query_fields"]}_{query["query_string"]}_{query["operator"]}_solr6.csv'
-        if pathlib.Path(a_path).is_file():
+        a_path = f'scripts/query_results/{query["query_fields"]}_{query["query_string"]}_{query["operator"]}_prod.csv'
+        print("/".join([os.getcwd(), a_path]))
+        if pathlib.Path("/".join([os.getcwd(), a_path])).is_file():
             df_A = pd.read_csv("/".join([os.getcwd(), a_path]), sep="\t")
         else:
             print(f"File {a_path} does not exist")
             continue
-        b_path = f'{query["query_fields"]}_{query["query_string"]}_{query["operator"]}_solr8.csv'
-        if pathlib.Path(b_path).is_file():
+        b_path = f'scripts/query_results/{query["query_fields"]}_{query["query_string"]}_{query["operator"]}_dev.csv'
+        print("/".join([os.getcwd(), b_path]))
+        if pathlib.Path("/".join([os.getcwd(), b_path])).is_file():
             df_B = pd.read_csv("/".join([os.getcwd(), b_path]), sep="\t")
         else:
             print(f"File {b_path} does not exist")
             continue
 
-        #total of difference
+        # total of difference
         diff = get_different_sorted_ids(df_A["id"].to_list(), df_B["id"].to_list())
 
         count_diff.append(len(diff))
         total_comparison = total_comparison + 1
         try:
             if df_A[["id", "author", "title"]].equals(df_B[["id", "author", "title"]]):
-                print("Identical results")  # I did not expect this case, because at least the scores should be different
+                print(
+                    "Identical results")  # I did not expect this case, because at least the scores should be different
                 query_stats["ident_results"] += 1
 
             if list(df_A["id"][0:5]) == list(df_B["id"][0:5]):
@@ -186,17 +188,13 @@ if __name__ == "__main__":
 
     print(names)
     print(count_diff)
-    #ax = fig.add_subplot()
+    # ax = fig.add_subplot()
 
     plt.bar(names, values)
     plt.title("Query stats")
     plt.ylabel("Total of queries")
     plt.xlabel("Categories")
 
-    #ax.set_xticklabels(names, rotation=10, ha="right")
-    #plt.bar(range(len(query_stats)), values, tick_label=names)
+    # ax.set_xticklabels(names, rotation=10, ha="right")
+    # plt.bar(range(len(query_stats)), values, tick_label=names)
     plt.show()
-
-
-
-

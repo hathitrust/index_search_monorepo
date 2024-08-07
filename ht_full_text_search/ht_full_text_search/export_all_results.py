@@ -1,9 +1,9 @@
-import requests
 import json
+import requests
 import yaml
 
-SOLR_URL="http://localhost:8081/solr/core-1x/query"
-SOLR_SHARDS = [f"http://solr-sdr-search-{i}:8081/solr/core-{i}x" for i in range(1,12)]
+from config_search import QUERY_PARAMETER_CONFIG_FILE, default_solr_params, SOLR_URL
+
 
 # This is a quick attempt to do a query to solr more or less as we issue it in
 # production and to then export all results using the cursorMark results
@@ -18,61 +18,124 @@ SOLR_SHARDS = [f"http://solr-sdr-search-{i}:8081/solr/core-{i}x" for i in range(
 # If you want to do a phrase query, be sure to surround it in double quotes, e.g.
 # poetry run python3 ht_full_text_search/export_all_results.py '"a phrase"'
 
-def default_solr_params():
-  return {
-     "rows": 500,
-     "sort": "id asc",
-     "fl": ",".join(["title","author","id"]),
-     "wt": "json",
-     "shards": ",".join(SOLR_SHARDS)
-  }
+def process_results(item: dict) -> str:
 
-def send_query(params):
-  headers = {
-     "Content-type": "application/json"
-  }
+    """ Prepare the dictionary with Solr results to be exported as JSON """
 
-  response = requests.post(
-      url=SOLR_URL, params=params, headers=headers
-  )
+    return json.dumps({
+        "id": item["id"],
+        "author": item.get("author", []),
+        "title": item.get("title", [])
+    })
 
-  return json.loads(response.content)
 
-def output_results(results):
-  for result in results['response']['docs']:
-    print("\t".join([result['id'],", ".join(result.get('author',[]))," ,".join(result.get('title',[]))]))
+def solr_query_params(config_file=QUERY_PARAMETER_CONFIG_FILE, conf_query="ocr"):
 
-def run_cursor(query):
-  params = default_solr_params()
-  params["cursorMark"] = "*"
-  params["q"] = make_query(query)
+    """ Prepare the Solr query parameters
+    :param config_file: str, path to the config file
+    :param conf_query: str, query configuration name
+    :return: str, formatted Solr query parameters
+    """
 
-  while True:
-    results = send_query(params)# send_query
-    output_results(results)
-    if params["cursorMark"] != results["nextCursorMark"]:
-      params["cursorMark"] = results["nextCursorMark"]
-    else:
-      break
+    with open(config_file, "r") as file:
+        data = yaml.safe_load(file)[conf_query]
 
-def format_boosts(query_fields):
-  formatted_boosts = ["^".join(map(str, field)) for field in query_fields]
-  return " ".join(formatted_boosts)
+        params = {
+            "pf": SolrExporter.create_boost_phrase_fields(data["pf"]),
+            "qf": SolrExporter.create_boost_phrase_fields(data["qf"]),
+            "mm": data["mm"],
+            "tie": data["tie"]
+        }
+        return " ".join([f"{k}='{v}'" for k, v in params.items()])
+
 
 def make_query(query):
-  return f"{{!edismax {solr_query_params()}}} {query}"
 
-def solr_query_params(config_file="config_files/full_text_search/config_query.yaml", conf_query="ocr"):
-  with open(config_file, "r") as file:
-      data = yaml.safe_load(file)[conf_query]
+    """ Prepare the Solr query string
+        :param query: str, query string
+        :return: str, formatted Solr query string
+    """
+    return f"{{!edismax {solr_query_params()}}} {query}"
 
-      params = {
-        "pf": format_boosts(data["pf"]),
-        "qf": format_boosts(data["qf"]),
-        "mm": data["mm"],
-        "tie": data["tie"],
-      }
-      return " ".join([f"{k}='{v}'" for k,v in params.items()])
 
-if __name__ == "__main__": 
-   run_cursor('"poetic justice"')
+class SolrExporter:
+
+    def __init__(self, solr_url: str, env: str):
+
+        """ Initialize the SolrExporter class
+        :param solr_url: str, Solr URL
+        :param env: str, environment. It could be dev or prod
+        """
+
+        self.solr_url = solr_url
+        self.environment = env
+        self.headers = {"Content-Type": "application/json"}
+
+    def send_query(self, params):
+
+        """ Send the query to Solr
+        :param params: dict, query parameters
+        :return: response
+        """
+
+        # Use stream=True to avoid loading all the data in memory at once (useful for large responses)
+        # In chunked transfer, the data stream is divided into a series of non-overlapping "chunks".
+
+        response = requests.post(
+            url=self.solr_url, params=params, headers=self.headers, stream=True
+        )
+
+        return response
+
+    def run_cursor(self, query):
+
+        """ Run the cursor to export all result
+        The cursorMark parameter is used to keep track of the current position in the result set.
+        :param query: str, query string
+        :return: generator
+        """
+
+        params = default_solr_params(self.environment)
+        params["cursorMark"] = "*"
+        params["q"] = make_query(query)
+
+        while True:
+            results = self.send_query(params)  # send_query
+
+            output = json.loads(results.content)
+
+            for result in output['response']['docs']:
+                yield process_results(result)
+            if params["cursorMark"] != output["nextCursorMark"]:
+                params["cursorMark"] = output["nextCursorMark"]
+            else:
+                break
+
+    @staticmethod
+    def create_boost_phrase_fields(query_fields):
+
+        """ Create the boost phrase fields
+        :param query_fields: list, list of field
+        :return: str, formatted boost phrase fields
+        """
+
+        # phrase fields ==> Once the list of matching documents has been identified using the fq and qf parameters,
+        # the pf parameter can be used to "boost" the score of documents in cases where all the terms
+        # in the q parameter appear in close proximity.
+        formatted_boosts = ["^".join(map(str, field)) for field in query_fields]
+        return " ".join(formatted_boosts)
+
+    def get_solr_status(self):
+
+        """ Get the Solr status
+        :return: response
+        """
+        response = requests.get(self.solr_url)
+        return response
+
+
+if __name__ == "__main__":
+    environment = "dev"
+    solr_exporter = SolrExporter(SOLR_URL[environment], environment)
+    for x in solr_exporter.run_cursor('"poetic justice"'):
+        print(x)

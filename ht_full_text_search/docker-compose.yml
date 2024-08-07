@@ -1,18 +1,50 @@
-version: "3"
 services:
   full_text_searcher:
-    container_name: full_text_searcher
-    image: full-text-searcher
+    build:
+      context: .
+      target: runtime
+      dockerfile: Dockerfile
+      args:
+        UID: ${UID:-1000}
+        GID: ${GID:-1000}
+        ENV: ${ENV:-dev}
+        POETRY_VERSION: ${POETRY_VERSION:-1.5.1}
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+    stdin_open: true
     depends_on:
       solr-lss-dev:
         condition: service_healthy
     tty: true
+    container_name: full_text_searcher
+  full_text_search_api:
+    build:
+      context: .
+      target: runtime
+      dockerfile: Dockerfile
+      args:
+        UID: ${UID:-1000}
+        GID: ${GID:-1000}
+        ENV: ${ENV:-dev}
+        POETRY_VERSION: ${POETRY_VERSION:-1.5.1}
+    env_file:
+      - .env
+    stdin_open: true
+    depends_on:
+      solr-lss-dev:
+        condition: service_healthy
+    tty: true
+    container_name: full_text_search_api
+    ports:
+      - "8000:8000"
+    command: [ "python", "main.py", "--env", $ENV ]
   test:
     container_name: full_text_searcher_test
     build: .
     volumes:
       - .:/app
-      #- ../tmp:/tmp
     command: [ "pytest" ]
     depends_on:
       solr-lss-dev:
@@ -33,17 +65,12 @@ services:
         retries: 5
   data_loader: # It is probably for this application I should create the image first
     image: ghcr.io/hathitrust/lss_solr_configs-data_loader:data_sampling
-      #context: .
-      #dockerfile: ./solr8.11.2_files/Dockerfile
-      #target: embedded_zookeeper
     entrypoint: [ "/bin/sh", "-c" ,"indexing_data.sh http://solr-lss-dev:8983" ]
     volumes:
       - solr_data:/var/solr/data
-      #- .:/app
     depends_on:
       solr-lss-dev:
         condition: service_healthy
 volumes:
     solr_data:
     app:
-    #tmp:
