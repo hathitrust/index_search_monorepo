@@ -1,6 +1,10 @@
 import json
+import os
+from argparse import ArgumentParser
+
 import requests
 import yaml
+from requests.auth import HTTPBasicAuth
 
 from config_search import QUERY_PARAMETER_CONFIG_FILE, default_solr_params, SOLR_URL
 
@@ -60,7 +64,7 @@ def make_query(query):
 
 class SolrExporter:
 
-    def __init__(self, solr_url: str, env: str):
+    def __init__(self, solr_url: str, env: str, user=None, password=None):
 
         """ Initialize the SolrExporter class
         :param solr_url: str, Solr URL
@@ -70,6 +74,7 @@ class SolrExporter:
         self.solr_url = solr_url
         self.environment = env
         self.headers = {"Content-Type": "application/json"}
+        self.auth = HTTPBasicAuth(user, password) if user and password else None
 
     def send_query(self, params):
 
@@ -82,7 +87,8 @@ class SolrExporter:
         # In chunked transfer, the data stream is divided into a series of non-overlapping "chunks".
 
         response = requests.post(
-            url=self.solr_url, params=params, headers=self.headers, stream=True
+            url=self.solr_url, params=params, headers=self.headers, stream=True,
+            auth=self.auth
         )
 
         return response
@@ -130,12 +136,26 @@ class SolrExporter:
         """ Get the Solr status
         :return: response
         """
-        response = requests.get(self.solr_url)
+        response = requests.get(self.solr_url, auth=self.auth)
         return response
 
 
 if __name__ == "__main__":
-    environment = "dev"
-    solr_exporter = SolrExporter(SOLR_URL[environment], environment)
-    for x in solr_exporter.run_cursor('"poetic justice"'):
+
+    parser = ArgumentParser()
+    parser.add_argument("--env", default=os.environ.get("HT_ENVIRONMENT", "dev"))
+    parser.add_argument("--solr_url", help="Solr url", default=None)
+    parser.add_argument('--query', help='Query string', required=True)
+
+    args = parser.parse_args()
+
+    # Receive as a parameter an specific solr url
+    if args.solr_url:
+        solr_url = args.solr_url
+    else:  # Use the default solr url, depending on the environment. If prod environment, use shards
+        solr_url = SOLR_URL[args.env]
+    solr_exporter = SolrExporter(solr_url, args.env,
+                                 user=os.getenv("SOLR_USER"), password=os.getenv("SOLR_PASSWORD"))
+    # '"good"'
+    for x in solr_exporter.run_cursor(args.query):
         print(x)
