@@ -10,7 +10,7 @@ arg1_source_resource="$1" # It could be catalog or local
 source_resource="${arg1_source_resource:-catalog}" #By default retrieve from Catalog
 
 # TODO ADD ALL_ITEMS parameter
-if [ $source_resource=='local' ]; then
+if [ $source_resource == 'local' ]; then
   # You should use the sample_data_creator.sh script to generate the local folder with the documents you want to process
   for line in $(cat "$PWD/ht_utils/sample_data/sample_data_ht_ids.txt")
     do
