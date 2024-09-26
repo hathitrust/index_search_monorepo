@@ -1,5 +1,3 @@
-version: "3"
-
 services:
   document_retriever:
     container_name: document_retriever
@@ -11,12 +9,12 @@ services:
     ports:
       - "8081:8081"
     environment:
-      - SOLR_URL=http://solr-sdr-catalog:9033/solr/#/catalog/
-      - SDR_DIR=/sdr1/obj
-      - QUEUE_HOST=rabbitmq
-      - QUEUE_NAME=retriever_queue
-      - QUEUE_PASS=guest
-      - QUEUE_USER=guest
+      SOLR_URL: http://solr-sdr-catalog:9033/solr/#/catalog/
+      SDR_DIR: /sdr1/obj
+      QUEUE_HOST: rabbitmq
+      QUEUE_NAME: retriever_queue
+      QUEUE_PASS: guest
+      QUEUE_USER: guest
     depends_on:
       solr-sdr-catalog:
         condition: service_healthy
@@ -32,11 +30,11 @@ services:
     ports:
       - "3306:3306"
     environment:
-      - MYSQL_HOST=mysql-sdr
-      - MYSQL_USER=mdp-lib
-      - MYSQL_PASS=mdp-lib
-      - MYSQL_DATABASE=ht
-      - MYSQL_RANDOM_ROOT_PASSWORD=1
+      MYSQL_HOST: mysql-sdr
+      MYSQL_USER: mdp-lib
+      MYSQL_PASS: mdp-lib
+      MYSQL_DATABASE: ht
+      MYSQL_RANDOM_ROOT_PASSWORD: 1
     healthcheck:
       interval: 30s
       retries: 3
@@ -49,18 +47,46 @@ services:
         ]
       timeout: 30s
   solr-lss-dev:
-    image: ghcr.io/hathitrust/full-text-search-embedded_zoo:example-8.11
+    image: ghcr.io/hathitrust/full-text-search-cloud:shards-docker
     container_name: solr-lss-dev
     ports:
       - "8983:8983"
+    environment:
+      ZK_HOST: zoo1:2181
+      SOLR_OPTS: -XX:-UseLargePages
+      SOLR_USER: solr
+      SOLR_PASSWORD: 'solrRocks'
+    depends_on:
+      zoo1:
+        condition: service_healthy
     volumes:
-      - solr_data:/var/solr/data
-    command: solr-foreground -c
+      - solr1_data:/var/solr/data
+    # start solr in the background, wait for it to start, then create the collection
+    command: [ "sh", "-c", 'solr-foreground -c & sleep 150 && export SOLR_AUTHENTICATION_OPTS=-Dbasicauth="$SOLR_USER":"$SOLR_PASSWORD" && solr create_collection -d /opt/solr/core-x -c core-x -shards 1 -replicationFactor 1 -p 8983 && wait' ]
     healthcheck:
-      test: [ "CMD-SHELL", "solr healthcheck -c core-x" ]
-      interval: 5s
+      test: [ "CMD-SHELL", "solr healthcheck -c core-x || echo 'Healthcheck failed'" ]
+      interval: 30s
       timeout: 10s
-      start_period: 30s
+      retries: 5
+  zoo1:
+    image: zookeeper:3.8.0
+    container_name: zoo1
+    restart: always
+    hostname: zoo1
+    ports:
+      - 2181:2181
+      - 7001:7000
+    environment:
+      ZOO_MY_ID: 1
+      ZOO_SERVERS: server.1=zoo1:2888:3888;2181
+      ZOO_4LW_COMMANDS_WHITELIST: mntr, conf, ruok
+      ZOO_CFG_EXTRA: "metricsProvider.className=org.apache.zookeeper.metrics.prometheus.PrometheusMetricsProvider metricsProvider.httpPort=7000 metricsProvider.exportJvmInfo=true"
+    volumes:
+      - zoo1_data:/data
+    healthcheck:
+      test: [ "CMD", "echo", "ruok", "|", "nc", "localhost", "2181", "|", "grep", "imok" ]
+      interval: 30s
+      timeout: 10s
       retries: 5
   solr-sdr-catalog:
     container_name: solr-sdr-catalog
@@ -75,20 +101,6 @@ services:
       - "9033:9033"
     expose:
       - 9033
-  test:
-    container_name: indexing_test
-    build: .
-    volumes:
-      - .:/app
-      - ../tmp:/tmp
-    command: [ "pytest" ]
-    depends_on:
-      solr-sdr-catalog:
-        condition: service_healthy
-      solr-lss-dev:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
   document_generator:
     container_name: document_generator
     image: document_generator
@@ -103,14 +115,14 @@ services:
     tty: true
     stdin_open: true
     environment:
-      - SRC_QUEUE_HOST=rabbitmq
-      - SRC_QUEUE_NAME=retriever_queue
-      - SRC_QUEUE_PASS=guest
-      - SRC_QUEUE_USER=guest
-      - TGT_QUEUE_HOST=rabbitmq
-      - TGT_QUEUE_NAME=indexer_queue
-      - TGT_QUEUE_PASS=guest
-      - TGT_QUEUE_USER=guest
+      SRC_QUEUE_HOST: rabbitmq
+      SRC_QUEUE_NAME: retriever_queue
+      SRC_QUEUE_PASS: guest
+      SRC_QUEUE_USER: guest
+      TGT_QUEUE_HOST: rabbitmq
+      TGT_QUEUE_NAME: indexer_queue
+      TGT_QUEUE_PASS: guest
+      TGT_QUEUE_USER: guest
     command: [ "python", "document_generator/document_generator_service.py" ]
   document_indexer:
     container_name: document_indexer
@@ -127,10 +139,12 @@ services:
     tty: true
     stdin_open: true
     environment:
-      - QUEUE_HOST=rabbitmq
-      - QUEUE_NAME=indexer_queue
-      - QUEUE_PASS=guest
-      - QUEUE_USER=guest
+      QUEUE_HOST: rabbitmq
+      QUEUE_NAME: indexer_queue
+      QUEUE_PASS: guest
+      QUEUE_USER: guest
+      SOLR_USER: solr
+      SOLR_PASSWORD: 'solrRocks'
     command: [ "python", "document_indexer_service/document_indexer_service.py", "--solr_indexing_api", "http://solr-lss-dev:8983/solr/#/core-x/" ]
   rabbitmq:
     container_name: rabbitmq
@@ -147,7 +161,22 @@ services:
       timeout: 10s
       start_period: 30s
       retries: 5
+  all_tests:
+    container_name: all_tests
+    build: .
+    volumes:
+      - .:/app
+      - ../tmp:/tmp
+    command: [ "pytest" ]
+    depends_on:
+      solr-sdr-catalog:
+        condition: service_healthy
+      solr-lss-dev:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
 volumes:
-  solr_data:
   mysql_sdr_data:
+  solr1_data: null
+  zoo1_data: null
 

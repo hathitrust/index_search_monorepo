@@ -20,4 +20,4 @@ jobs:
           docker compose build
 
       - name: Run tests
-        run: docker compose run test
+        run: docker compose run all_tests

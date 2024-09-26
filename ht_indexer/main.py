@@ -1,4 +1,5 @@
 import argparse
+import os
 
 import uvicorn
 from fastapi import FastAPI
@@ -37,7 +38,9 @@ def main():
         logger.info("Connecting with Solr server")
 
         global solr_api
-        solr_api = HTSolrAPI(url=args.solr_url)
+        solr_user = os.getenv("SOLR_USER")
+        solr_password = os.getenv("SOLR_PASSWORD")
+        solr_api = HTSolrAPI(url=args.solr_url, user=solr_user, password=solr_password)
 
     @app.get("/ping")
     def check_solr():

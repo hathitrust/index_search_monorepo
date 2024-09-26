@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import Text
 
 import requests
+from requests.auth import HTTPBasicAuth
 
 from ht_utils.ht_logger import get_ht_logger
 
@@ -9,15 +10,16 @@ logger = get_ht_logger(name=__name__)
 
 
 class HTSolrAPI:
-    def __init__(self, url):
+    def __init__(self, url, user=None, password=None):
         self.url = url
+        self.auth = HTTPBasicAuth(user, password) if user and password else None
 
     def get_solr_status(self):
         response = requests.get(self.url)
         return response
 
     def index_document(self, xml_data: dict, content_type: Text = "application/json"):
-        """Feed a JSON object, create an XML string to  index the document into SOLR
+        """Feed a JSON object, create an XML string to index the document into SOLR
         "Content-Type": "application/json"
         """
         try:
@@ -25,6 +27,7 @@ class HTSolrAPI:
                 f"{self.url.replace('#/', '')}update/json/docs",
                 headers={"Content-Type": content_type},
                 json=xml_data,
+                auth=self.auth,
                 params={
                     "commit": "true",
                 }, )
@@ -47,6 +50,7 @@ class HTSolrAPI:
                 response = requests.post(
                     f"{self.url.replace('#/', '')}{solr_url_json}?commit=true",
                     headers=headers,
+                    auth=self.auth,
                     data=data_dict,
                     params={
                         "commit": "true",

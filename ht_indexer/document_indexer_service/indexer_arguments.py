@@ -29,7 +29,12 @@ class IndexerServiceArguments:
 
         self.args = parser.parse_args()
 
-        self.solr_api_full_text = HTSolrAPI(url=self.args.solr_indexing_api)
+        solr_user = os.getenv("SOLR_USER")
+        solr_password = os.getenv("SOLR_PASSWORD")
+
+        self.solr_api_full_text = HTSolrAPI(url=self.args.solr_indexing_api,
+                                            user=solr_user,
+                                            password=solr_password)
 
         self.document_local_path = self.args.document_local_path
 

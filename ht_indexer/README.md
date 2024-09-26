@@ -71,12 +71,26 @@ systems involved in the flow to index documents in Full-text search index. The q
 In your workdir:
 
 1. Clone the repository:
+
    ```git clone git@github.com:hathitrust/ht_indexer.git```
 2. Go to the folder ``cd ht_indexer``
 3. Create the image
+
    `docker build -t document_generator .`
-4. Run the container
-   `docker compose up document_retriever -d`
+
+4. Run the services
+
+    1. Retriever service
+
+       `docker compose up document_retriever -d`
+
+    2. Generator service
+
+       `docker compose up document_generator -d`
+
+    3. Indexer service
+
+       `docker compose up document_indexer -d`
 
 If you want to run the application in your local environment and outside the docker container, you should
 follow the steps mentioned in the section [How to set up your python environment](#project-set-up-local-environment)
@@ -172,7 +186,7 @@ A message can fail for different reasons:
 
 We use a **dead-letter-exchange** to handle messages that are not processed successfully. The dead-letter-exchange is
 an exchange to which messages will be re-routed if they are rejected by the queue. In the current logic, all the service
-using the queue system has a dead-letter-exchange associated with it. One of our future steps is to figure out what we
+using the queue system has a dead-letter-exschange associated with itve One of our future steps is to figure out what we
 will do
 with the messages in the dead-letter-exchange.
 
@@ -308,9 +322,15 @@ In the working directory,
 
 * Run document_indexer_service container and test it
 
+Solr server required authentication, so you should set up the environment variables SOLR_USER and SOLR_PASSWORD before
+starting the container. All the users (solr, admin and fulltext) use the same solr password (solrRocks)
+
+export SOLR_USER=admin
+export SOLR_PASSWORD=solrRocks
+
 ```docker compose up document_indexer -d```
 
-```docker compose exec document_indexer pytest ht_indexer_api ht_queue_service```
+```docker compose exec document_indexer pytest document_indexer_service ht_indexer_api ht_queue_service```
 
 ## Hosting
 
@@ -363,7 +383,7 @@ In the image below, you can see the main kubernetes parts running in this workfl
     * Document indexer
       ```
       python document_indexer_service/document_indexer_service.py
-              --solr_indexing_api http://solr8-embedded-zookeeper:8983/solr/#/core-x/
+              --solr_indexing_api http://fulltext-workshop-solrcloud-headless:8983/solr/core-x/
       ```
 
     * In Kubernetes, you can also use the script `run_retriever_processor_kubernetes.sh` to run the services to retrieve
