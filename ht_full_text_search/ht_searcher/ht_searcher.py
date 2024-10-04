@@ -1,6 +1,8 @@
 import requests
 import json
 
+from requests.auth import HTTPBasicAuth
+
 from config_search import add_shards
 from ht_query.ht_query import HTSearchQuery
 from typing import Text, List, Dict
@@ -37,11 +39,13 @@ class HTSearcher:
             self,
             solr_url: Text = None,
             ht_search_query: HTSearchQuery = None,
-            environment: Text = "dev"
+            environment: Text = "dev",
+            user=None, password=None
     ):
         self.solr_url = solr_url
         self.environment = environment  # Not sure if we need it right now
         self.query_maker = ht_search_query
+        self.auth = HTTPBasicAuth(user, password) if user and password else None
 
         # TODO HTTP request string and JSON object. We should transform the query string into a JSON object
         self.headers = {
@@ -54,7 +58,7 @@ class HTSearcher:
         # In chunked transfer, the data stream is divided into a series of non-overlapping "chunks".
 
         response = requests.post(
-            url=self.solr_url, params=params, headers=self.headers, stream=True
+            url=self.solr_url, params=params, headers=self.headers, stream=True, auth=self.auth
         )
 
         return response

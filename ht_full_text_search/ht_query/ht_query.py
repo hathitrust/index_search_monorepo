@@ -126,10 +126,9 @@ class HTSearchQuery:
         :return:
         """
 
-        if not operator:
+        if operator is None:
             return {"q": HTSearchQuery.get_exact_phrase_query(input_phrase)}
         else:
-
             phrase = f" {operator} ".join(input_phrase.split())
             query_string_dict = {"q": phrase, "q.op": operator}
             return query_string_dict

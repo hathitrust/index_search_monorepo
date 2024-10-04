@@ -60,21 +60,28 @@ The API is based on the [FastAPI](https://fastapi.tiangolo.com/) library.
 
 ## Project Set Up
 * In your work directory,
-  * Run the script ./init.sh to create the image and set up all the environment variables used in the application
+  * Run the script `./init.sh` to create the image and set up all the environment variables used in the application
   * Start the container with the service involved in the search
   `docker-compose up -d`
+  **Note**: The container will take some minutes to start because it will start:
+    * the Solr server with authentication. In docker, all the users (`admin`, `solr`, `fulltext`) use the same password `solrRocks`
+    * the application to search the documents in the Solr server
+    * the API to search the documents in the Solr server
+    * a service to index some data in the Solr server to test the application
 
 
 ### Prerequisites
 * Docker
 * Code Editor
-* Python 3 and Poetry (If you want to run the application in your local environment)
+* Python 3 and Poetry (If you want to run the application in your local environment). See the installation section below.
   * To access to prod Solr server, you need it, 
     * to have a VPN connection to the HathiTrust network
-    * to set up an ssh tunnel `ssh -L8081:localhost:8081 squishee-1.umdl.umich.edu`
+    * to set up an ssh tunnel `ssh -L8081:localhost:8081 squishee-1.umdl.umich.edu`.
     * to run the application in your local environment with the parameter `--env prod`.We don't have an 
     acceptable alternative, nor is it necessary to set up access to the production server via a Docker file.
-  * To query production, you will have to run the application locally and open and ssh connection to squishee-1. 
+  * To query production, you will have to run the application locally and open and ssh connection to squishee-1.
+  * **Note**: squishee-1 will be retired, when that happen the new one name will be macc-ht-solr-lss-1.
+  * To locally run the application, you can also set up the environment variable `HT_ENVIRONMENT` (dev or prod) to define the desired environment.
 
 ### Installation
 
@@ -88,7 +95,6 @@ The API is based on the [FastAPI](https://fastapi.tiangolo.com/) library.
       * `poetry init` # It will set up your local environment and repository details
       * `poetry env use python` # To find the virtual environment directory, created by poetry
       * `source ~/ht-full-text-search-TUsF9qpC-py3.11/bin/activate` # Activate the virtual environment
-      * `poetry add pytest` # Add dependencies
 
 ### Creating A Pull Request
 
@@ -116,7 +122,6 @@ The project is structured as follows:
     │   ├── export_all_results.py
     │   ├── ht_full_text_searcher.py
     |   ├── search.py
-
     │   ├── search.py
     │   ├── scripts
     │   │   ├── compare_results.py
@@ -141,14 +146,16 @@ The project is structured as follows:
 The infrastructure of the application is based on the following classes. The classes are used to create the Solr query 
 and search the documents in the Solr server. In the image below, you can see the classes and their relationships.
 
-![application_architecture.png](application_architecture_1.png)
+![application_architecture.png](application_architecture.png)
 
 The main classes are:
-* ht_full_text_searcher.py: Contains the class responsible for creating the Solr query in the full-text search index
-* ht_searcher.py: This class encapsulates the search interface to Solr
-* ht_query.py: This class is responsible for creating the Solr query
-* ht_search_results.py: This class is responsible for presenting the Solr results
-* Config_files: This folder contains the YAML file setting the configuration of the Solr query
+* `ht_full_text_searcher.py`: Contains the class responsible for creating the Solr query in the full-text search index
+* `ht_searcher.py`: This class encapsulates the search interface to Solr
+* `ht_query.py`: This class is responsible for creating the Solr query
+* `ht_search_results.py`: This class is responsible for presenting the Solr results
+* `Config_files`: This folder contains the YAML file setting the configuration of the Solr query
+* `indexing_data.sh`: This script is responsible for indexing data in the Solr server. 
+  In the folder `solr_dataset` there is a list of documents to index in the Solr server.
 
 
 ## Functionality
@@ -171,7 +178,7 @@ There are three different ways to search by string in the documents:
 * Search the string in the OCR field of the documents
 
 The Solr query is built based on the input parameters. The query can be built using the `AND`, `OR` and None operator.
-   * the query with the operator None will search the exact phrase in the documents, 
+   * the query with the operator None will search the exact phrase in the documents. None is the default value, then you do not have to pass it in the command line
      * e.g. "justice blame"
    * the query with the operator `AND` will search the documents that contain both words in the phrase, 
      * e.g. justice AND blame
@@ -183,18 +190,18 @@ Use case 1 is implemented in the `ht_full_text_searcher.py` script. The script r
 * `--env` is the environment where the application is running. It can be `dev` (Solr 8) or `prod` (Solr 6)
 * `--query_string` is the string to search in the documents. 
   * In case of a multi-word string, it must be between quotes e.g. `"justice league"`
-* `--operator` is the operator to use in the query. 
+* `--operator` is the operator to use in the query. I opperator is None, you do not have to pass it to the command line
   * It can be `AND` or `OR` or None, that means the query will find exact matches
 * `--query_config` is the configuration to use in the query. It can be `all` or `ocronly`
   * `all` means that the query will search the input string in all the fields of the documents
   * `ocronly` means only the ocr field will be used in the query
 
 
-* Example of command to run the application with the query you want to search in the Solr server
+* Example of command to run the application with the query you want to search in the Solr server. 
+The command below will search the exact phrase `justice blame` in the full text of the documents because operator is None.
     ```docker compose exec full_text_searcher python ht_full_text_search/ht_full_text_searcher.py \
     --env dev \
     --query_string "justice blame" \
-    --operator None \
     --query_config ocronly 
     ```
   * The output of the command below is a list of documents that contain the exact phrase `justice blame` in the full text,
@@ -293,8 +300,8 @@ PROD and DEV servers.
 
 **Use case 4**: Do the same exact phrase query but export all results using solr result streaming:
 
-- This use case originated from an HTRC request. The HTRC needs to obtain the htids of the documents that are useful for creating the dataset.
-- The API is implemented in the `main.py`, that uses the script /ht_full_text_search/export_all_results.py to search the documents in the Solr server.
+- This use case originated from an HTRC request. The HTRC needs to get the htids of the documents that are useful for creating the dataset.
+- The API is implemented in the `main.py`, that uses the script `/ht_full_text_search/export_all_results.py` to search the documents in the Solr server.
 
 The API is running in the container full_text_search_api where `docker compose up -d` is executed.
 
@@ -302,12 +309,11 @@ To check the API is running, you can access the URL `http://localhost:8000/docs`
 
 You will see the following screen with the API endpoints:
 
-![img.png](search_api_documentation.png)
+![search_api_documentation.png](search_api_documentation.png)
 
 * Query endpoint: 
 
-`curl --location 'http://localhost:8000//query/?query=poetic%20justice&env=prod' \
---form 'query="'\''\"poetic justice\"'\''"'`
+`curl --location 'http://localhost:8000/query/?query=biennial%20report&env=dev' --form 'query="'\''\"biennial report\"'\''"'`
 
 * Status endpoint: 
 
@@ -315,7 +321,7 @@ You will see the following screen with the API endpoints:
 
 * You can also run the script `export_all_results.py` to search the documents in the Solr server.
 
-```docker compose exec full_text_searcher python ht_full_text_search/export_all_results.py '"justice blame"'```
+```docker compose exec full_text_searcher python ht_full_text_search/export_all_results.py --env dev --query '"good"'```
 
 * You can also run the API to search the documents in the Solr server using the command below:
 ```docker compose exec full_text_searcher python main.py --env dev```
@@ -333,9 +339,27 @@ You will see the following screen with the API endpoints:
 - Use the command `. $env_name/bin/activate` to activate the virtual environment inside the container $env_name is 
 the name of the virtual environment created by poetry.
 - Enter inside the docker file: `docker compose exec full_text_searcher /bin/bash`
-- Running the scripts: `docker compose exec full_text_searcher python ht_full_text_search/export_all_results.py '"justice blame"'`
+- Running the scripts: `docker compose exec full_text_searcher python ht_full_text_search/export_all_results.py --env dev --query '"good"'`
 
+### Guides to install python and poetry on macOS
 
+Recommendation: Use brew to install python and pyenv to manage the python versions.
+
+* Install python
+    * You can read this blog to install python in the right way in
+      python: https://opensource.com/article/19/5/python-3-default-mac
+* Install poetry:
+    * **Good blog to understand and use poetry
+      **: https://blog.networktocode.com/post/upgrade-your-python-project-with-poetry/
+    * **Poetry docs**: https://python-poetry.org/docs/dependency-specification/
+    * **How to manage Python projects with Poetry
+      **: https://www.infoworld.com/article/3527850/how-to-manage-python-projects-with-poetry.html
+
+* Useful poetry commands (Find more information about commands [here](https://python-poetry.org/docs/cli))
+    * Inside the application folder: See the virtual environment used by the application `` poetry env use python ``
+    * Activate the virtual environment: ``source ~/ht-indexer-GQmvgxw4-py3.11/bin/activate``, in Mac poetry creates
+      their files in the home directory, e.g. /Users/user_name/Library/Caches/pypoetry/.
+  
 ### Transforms the Solr query from string to JSON
 
 ``` 

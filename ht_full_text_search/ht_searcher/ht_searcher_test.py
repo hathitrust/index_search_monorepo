@@ -70,7 +70,9 @@ def ht_searcher_fixture():
 
     return HTSearcher(
         solr_url=config_search.SOLR_URL["dev"],
-        environment="dev"
+        environment="dev",
+        user="solr",
+        password="solrRocks"
     )
 
 

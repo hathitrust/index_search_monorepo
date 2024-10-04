@@ -7,7 +7,9 @@ class TestHTFullTextSearcher:
     def test_search(self, ht_full_text_query):
         searcher = HTFullTextSearcher(
             solr_url=config_search.SOLR_URL["dev"],
-            ht_search_query=ht_full_text_query
+            ht_search_query=ht_full_text_query,
+            user="solr",
+            password="solrRocks"
         )
         solr_results = searcher.solr_result_query_dict(
             query_string="majority of the votes",

@@ -26,10 +26,10 @@ def main():
         """
         print("Connecting with Solr server")
 
-        exporter_api['obj'] = SolrExporter(SOLR_URL[args.env], args.env)
+        exporter_api['obj'] = SolrExporter(SOLR_URL[args.env], args.env, user=os.getenv("SOLR_USER"),
+                                           password=os.getenv("SOLR_PASSWORD"))
         yield
         # Add some logic here to close the connection
-
     app = FastAPI(title="HT_FullTextSearchAPI", description="Search phrases in Solr full text index", lifespan=lifespan)
 
     @app.get("/ping")

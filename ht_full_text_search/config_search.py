@@ -2,13 +2,9 @@ import inspect
 import os
 import sys
 
-current = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-parent = os.path.dirname(current)
-sys.path.insert(0, parent)
-
 # Full-text search config parameters
 SOLR_URL = {
-    "prod": "http://localhost:8081/solr/core-1y/query",
+    "prod": "http://localhost:8081/solr/core-1x/query",
     "dev": "http://solr-lss-dev:8983/solr/core-x/query"
 }
 

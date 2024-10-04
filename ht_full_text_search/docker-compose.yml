@@ -15,8 +15,8 @@ services:
       - .:/app
     stdin_open: true
     depends_on:
-      solr-lss-dev:
-        condition: service_healthy
+      data_loader:
+        condition: service_completed_successfully
     tty: true
     container_name: full_text_searcher
   full_text_search_api:
@@ -42,7 +42,10 @@ services:
     command: [ "python", "main.py", "--env", $ENV ]
   test:
     container_name: full_text_searcher_test
-    build: .
+    build:
+      context: .
+      target: runtime
+      dockerfile: Dockerfile
     volumes:
       - .:/app
     command: [ "pytest" ]
@@ -50,27 +53,61 @@ services:
       solr-lss-dev:
         condition: service_healthy
   solr-lss-dev:
-    image: ghcr.io/hathitrust/full-text-search-embedded_zoo_data_sampling:example-8.11
+    image: ghcr.io/hathitrust/full-text-search-cloud:shards-docker
     container_name: solr-lss-dev
     ports:
-        - "8983:8983"
+      - "8983:8983"
+    environment:
+      ZK_HOST: zoo1:2181
+      SOLR_OPTS: -XX:-UseLargePages
+    env_file:
+      - .env
+    depends_on:
+      zoo1:
+        condition: service_healthy
     volumes:
-        - solr_data:/var/solr/data
-    command: solr-foreground -c
+      - solr1_data:/var/solr/data
+    # start solr in the background, wait for it to start, then create the collection
+    command: [ "sh", "-c", 'solr-foreground -c & sleep 150 && export SOLR_AUTHENTICATION_OPTS=-Dbasicauth="$SOLR_USER":"$SOLR_PASSWORD" && solr create_collection -d /opt/solr/core-x -c core-x -shards 1 -replicationFactor 1 -p 8983 && wait' ]
     healthcheck:
-        test: [ "CMD-SHELL", "solr healthcheck -c core-x" ]
-        interval: 5s
-        timeout: 10s
-        start_period: 30s
-        retries: 5
-  data_loader: # It is probably for this application I should create the image first
-    image: ghcr.io/hathitrust/lss_solr_configs-data_loader:data_sampling
-    entrypoint: [ "/bin/sh", "-c" ,"indexing_data.sh http://solr-lss-dev:8983" ]
+      test: [ "CMD-SHELL", "solr healthcheck -c core-x || echo 'Healthcheck failed'" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+  zoo1:
+    image: zookeeper:3.8.0
+    container_name: zoo1
+    restart: always
+    hostname: zoo1
+    ports:
+      - 2181:2181
+      - 7001:7000
+    environment:
+      ZOO_MY_ID: 1
+      ZOO_SERVERS: server.1=zoo1:2888:3888;2181
+      ZOO_4LW_COMMANDS_WHITELIST: mntr, conf, ruok
+      ZOO_CFG_EXTRA: "metricsProvider.className=org.apache.zookeeper.metrics.prometheus.PrometheusMetricsProvider metricsProvider.httpPort=7000 metricsProvider.exportJvmInfo=true"
     volumes:
-      - solr_data:/var/solr/data
+      - zoo1_data:/data
+    healthcheck:
+      test: [ "CMD", "echo", "ruok", "|", "nc", "localhost", "2181", "|", "grep", "imok" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+  data_loader: # It is probably for this application I should create the image first
+    build:
+      context: .
+      target: runtime
+      dockerfile: Dockerfile
+    entrypoint: [ "/bin/sh", "-c" ,"sleep 150 && /app/indexing_data.sh http://solr-lss-dev:8983 $SOLR_PASSWORD /app/solr_dataset core-x" ]
+    volumes:
+      - .:/app
+    env_file:
+      - .env
     depends_on:
       solr-lss-dev:
         condition: service_healthy
 volumes:
-    solr_data:
-    app:
+  solr1_data: null
+  zoo1_data: null
+  app:

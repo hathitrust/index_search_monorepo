@@ -28,6 +28,8 @@ RUN pip install poetry==${POETRY_VERSION}
 
 # Install the app. Just copy the files needed to install the dependencies
 COPY pyproject.toml poetry.lock README.md ./
+COPY solr_dataset/ ./solr_dataset
+COPY --chown=app:app --chmod=0755 indexing_data.sh ./indexing_data.sh
 
 # Poetry cache is used to avoid installing the dependencies every time the code changes, we will keep this folder in development environment and remove it in production
 # --no-root, poetry will install only the dependencies avoiding to install the project itself, we will install the project in the final layer
@@ -56,6 +58,7 @@ RUN groupadd -g ${GID} -o app
 RUN useradd -m -d /app -u ${UID} -g ${GID} -o -s /bin/bash app
 RUN mkdir -p /venv && chown ${UID}:${GID} /venv
 RUN which pip && sleep 10
+RUN apt-get update && apt-get install -y curl
 
 # By adding /venv/bin to the PATH the dependencies in the virtual environment
 # are used
@@ -72,6 +75,7 @@ WORKDIR /app
 ENV PYTHONPATH=/app
 
 COPY --chown=${UID}:${GID} . /app
+
 
 CMD ["tail", "-f", "/dev/null"]
 

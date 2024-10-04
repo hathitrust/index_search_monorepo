@@ -88,6 +88,9 @@ if __name__ == "__main__":
     else:  # Use the default solr url, depending on the environment. If prod environment, use shards
         solr_url = SOLR_URL[args.env]
 
+    solr_user = os.getenv("SOLR_USER")
+    solr_password = os.getenv("SOLR_PASSWORD")
+
     fl = args.fl
     use_shards = False  # By default is False
 
@@ -120,7 +123,8 @@ if __name__ == "__main__":
         Q = HTFullTextQuery(config_query=query['query_fields'])
 
         # Create the search object
-        ht_full_search = HTFullTextSearcher(solr_url=solr_url, ht_search_query=Q, environment=args.env)
+        ht_full_search = HTFullTextSearcher(solr_url=solr_url, ht_search_query=Q, environment=args.env,
+                                            user=solr_user, password=solr_password)
 
         total_found = 0
 
