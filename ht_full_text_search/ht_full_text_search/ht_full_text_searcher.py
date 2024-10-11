@@ -119,7 +119,7 @@ if __name__ == "__main__":
     fl = args.fl
 
     # Create query object
-    Q = HTFullTextQuery(config_query=args.query_config)
+    Q = HTFullTextQuery(config_query=args.query_config, config_facet_field="all")
 
     # Create a full text searcher object
     ht_full_search = HTFullTextSearcher(

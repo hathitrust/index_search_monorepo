@@ -4,7 +4,7 @@ import sys
 
 # Full-text search config parameters
 SOLR_URL = {
-    "prod": "http://localhost:8081/solr/core-1x/query",
+    "prod": "http://macc-ht-solr-lss-1.umdl.umich.edu:8081/solr/core-1x/query",
     "dev": "http://solr-lss-dev:8983/solr/core-x/query"
 }
 
