@@ -20,7 +20,7 @@ class HTFullTextQuery(HTSearchQuery):
             config_query_path: Text = QUERY_PARAMETER_CONFIG_FILE,
             user_id: Text = None,
             config_facet_field: Text = None,
-            config_facet_field_path: Text = FACET_FILTERS_CONFIG_FILE,
+            config_facet_field_path: Text = FACET_FILTERS_CONFIG_FILE
     ):
         """
         Constructor to create the Solr query

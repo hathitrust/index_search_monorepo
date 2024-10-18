@@ -61,7 +61,44 @@ class HTSearcher:
             url=self.solr_url, params=params, headers=self.headers, stream=True, auth=self.auth
         )
 
+
         return response
+
+    def solr_facets_output(self,
+            query_string: Text = None,
+            fl: List = None,
+            operator: Text = None,
+            query_filter: bool = False,
+            filter_dict: Dict = None,
+            ) -> Dict:
+
+        """
+        Query Solr and return the results
+
+        :param query_string: Query string
+        :param fl: Fields to return
+        :param operator: Operator, it could be, None (exact_match), "AND" (all these words) or "OR" (any of these words)
+        :param query_filter: If the query is using filter, then use config_facet_filters.yaml to create the fq parameter
+        :param filter_dict: Filter dictionary
+
+        :return:
+        """
+        # query_string += "&wt=json&indent=off" if "wt=" not in query_string else ""
+        query_dict = self.query_maker.make_solr_query(
+            q_string=query_string, operator=operator,
+            fl=fl, query_filter=query_filter, filter_dict=filter_dict
+        )
+
+        if self.environment == "prod":
+            add_shards(query_dict)
+            query_dict["shards.info"] = "true"
+        print(query_dict)
+
+        # Counting total records
+        response = self.send_query(query_dict)
+        output = response.json()
+
+        return output.get("facet_counts")
 
     def solr_result_query_dict(
             self,

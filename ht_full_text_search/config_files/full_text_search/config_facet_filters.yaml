@@ -9,8 +9,29 @@ all:
                      "countryOfPubStr",
                      "bothPublishDateRange",
                      "format",
-                     "htsource"]
+                     "htsource",
+                     "callnoletters"
+      ]
 
+  fl: [ "id",
+        "title",
+        "language008_full",
+        "countryOfPubStr",
+        "bothPublishDateRange",
+        "htsource",
+        "score"]
+only_facets:
+  facet:
+    - facet.mincount: 0
+    - facet: "on"
+    - facet.limit: 500
+    - rows: 0
+    - facet.field: [ "language008_full",
+                     "countryOfPubStr",
+                     "bothPublishDateRange",
+                     "htsource",
+                     "callnoletters",
+                    "rights"]
   fl: [ "id",
         "title",
         "authorStr",
@@ -20,4 +41,4 @@ all:
         "bothPublishDateRange",
         "format",
         "htsource",
-        "score"]
+        "score" ]

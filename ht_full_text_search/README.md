@@ -76,7 +76,8 @@ The API is based on the [FastAPI](https://fastapi.tiangolo.com/) library.
 * Python 3 and Poetry (If you want to run the application in your local environment). See the installation section below.
   * To access to prod Solr server, you need it, 
     * to have a VPN connection to the HathiTrust network
-    * to set up an ssh tunnel `ssh -L8081:localhost:8081 squishee-1.umdl.umich.edu`.
+    * to set up an ssh tunnel `ssh -L8081:macc-ht-solr-lss-1.umdl.umich.edu:8081 test.babel.hathitrust.org`.
+    * the Solr URL will be http://macc-ht-solr-lss-1.umdl.umich.edu:8081/solr/core-1x/query
     * to run the application in your local environment with the parameter `--env prod`.We don't have an 
     acceptable alternative, nor is it necessary to set up access to the production server via a Docker file.
   * To query production, you will have to run the application locally and open and ssh connection to squishee-1.
@@ -163,6 +164,13 @@ The main classes are:
 
 
 ## Usage
+
+If you will use this application outside the docker file, you will have to change the Solr URL in the file `config_search.py`
+
+SOLR_URL = {
+    "prod": "http://macc-ht-solr-lss-1.umdl.umich.edu:8081/solr/core-1x/query",
+    "dev": "http://localhost:8983/solr/core-x/query"
+}
 
 **Phase 1**
 - Initially, the application was created to run experiments comparing the results of the full-text search 
@@ -325,6 +333,28 @@ You will see the following screen with the API endpoints:
 
 * You can also run the API to search the documents in the Solr server using the command below:
 ```docker compose exec full_text_searcher python main.py --env dev```
+
+**Use case 5**: Create an Excel file with collection statistics using Solr facets. 
+
+- This use case is relevant to get the following statistics from our Solr collection:
+    - Distribution of documents per language (tab: Language dist all)
+    - Distribution of documents per publication place (tab: Place of Pub)
+    - Distribution of documents per range of publication date (tab: Date Dist)
+    - Distribution of documents per Institution (tab: Source Libs)
+    - Distribution of documents per Library of Congress classification (tab: LC Class)
+    - Distribution of documents per Domains (tab: Public Domain dist)
+
+The script `scripts/generate_collection_statistics.py` is responsible for creating the Excel file with the collection statistics.
+The generated Excel file will be saved in the folder `scripts/collection_statistics_2024.xlsx`.
+
+```docker compose exec full_text_searcher python scripts/get_collection_statistics.py --env dev --map_file_path scripts/map_call_number.properties```
+
+To get the collection statistics from production Solr server, you will have to run the 
+application outside the docker and using the command below:
+
+```python full_text_searcher python ht_full_text_search/generate_collection_statistics.py --env prod --map_file_path scripts/map_call_number.properties```
+
+Note: To find all the distribution by rights categories, you can query the table `attributes` in MySql database.
 
 ## Tests
 - This application is tested using the pytest library.
