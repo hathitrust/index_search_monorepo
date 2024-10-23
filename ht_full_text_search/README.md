@@ -80,8 +80,7 @@ The API is based on the [FastAPI](https://fastapi.tiangolo.com/) library.
     * the Solr URL will be http://macc-ht-solr-lss-1.umdl.umich.edu:8081/solr/core-1x/query
     * to run the application in your local environment with the parameter `--env prod`.We don't have an 
     acceptable alternative, nor is it necessary to set up access to the production server via a Docker file.
-  * To query production, you will have to run the application locally and open and ssh connection to squishee-1.
-  * **Note**: squishee-1 will be retired, when that happen the new one name will be macc-ht-solr-lss-1.
+  * To query production, you will have to run the application locally and open an ssh connection to macc-ht.
   * To locally run the application, you can also set up the environment variable `HT_ENVIRONMENT` (dev or prod) to define the desired environment.
 
 ### Installation
@@ -95,7 +94,11 @@ The API is based on the [FastAPI](https://fastapi.tiangolo.com/) library.
   
       * `poetry init` # It will set up your local environment and repository details
       * `poetry env use python` # To find the virtual environment directory, created by poetry
-      * `source ~/ht-full-text-search-TUsF9qpC-py3.11/bin/activate` # Activate the virtual environment
+      * `source ~/ht-full-text-search-TUsF9qpC-py3.11/bin/activate` # Activate the virtual environment in Mac
+      * `C:\Users\user_name\AppData\Local\pypoetry\Cache\virtualenvs\ht-full-text-search-d4ARlKJT-py3.12\Scripts\Activate.ps1` # Activate the virtual environment in Windows
+      * ** Note **: 
+              If you are using a Mac, poetry creates their files in the home directory, e.g. /Users/user_name/Library/Caches/pypoetry/.
+              If you are using Windows, poetry creates their files in the home directory, e.g. C:\Users\user_name\AppData\Local\pypoetry\
 
 ### Creating A Pull Request
 
@@ -333,6 +336,10 @@ You will see the following screen with the API endpoints:
 
 * You can also run the API to search the documents in the Solr server using the command below:
 ```docker compose exec full_text_searcher python main.py --env dev```
+
+According to the env use in the command line, the API will use the Solr URL in the configuration file `config_search.py`.
+If you use `--env htrc` the Solr URL will be `https://analytics.dev.htrc.indiana.edu/solr/core-1x/query`, however the
+data is extracted from HathiTrust full-text search production index.
 
 **Use case 5**: Create an Excel file with collection statistics using Solr facets. 
 
