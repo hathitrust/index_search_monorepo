@@ -1,0 +1,16 @@
+name: Run Tests
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+    test-image:
+        runs-on: ubuntu-latest
+        steps:
+            - name: ht_full_test_search tests
+              run: |
+                docker compose up -d 
+                docker compose exec full_text_searcher python -m pytest
