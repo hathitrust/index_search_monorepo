@@ -10,8 +10,10 @@ jobs:
     test-image:
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v2
-
+            - uses: actions/checkout@v4
+              with:
+                ref: DEV-1382-add-actions
+            
             - name: Log in to package registry
               uses: docker/login-action@v1
               with:
