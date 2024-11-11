@@ -34,7 +34,7 @@ def default_solr_params(env: str = "prod"):
     :param env:
     :return:
     """
-    if env == "prod" or env == "htrc":
+    if env == "prod":
         add_shards(DEFAULT_SOLR_PARAMS)
     return DEFAULT_SOLR_PARAMS
 

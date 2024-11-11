@@ -324,7 +324,7 @@ You will see the following screen with the API endpoints:
 
 * Query endpoint: 
 
-`curl --location 'http://localhost:8000/query/?query=biennial%20report&env=dev' --form 'query="'\''\"biennial report\"'\''"'`
+`curl --location 'http://localhost:8000/query/?query=biennial%20report' --form 'query="'\''\"biennial report\"'\''"'`
 
 * Status endpoint: 
 
@@ -334,12 +334,32 @@ You will see the following screen with the API endpoints:
 
 ```docker compose exec full_text_searcher python ht_full_text_search/export_all_results.py --env dev --query '"good"'```
 
-* You can also run the API to search the documents in the Solr server using the command below:
-```docker compose exec full_text_searcher python main.py --env dev```
+* You can also run the API to search the documents in the Solr server (dev environment) using the command below in the terminal:
+```docker compose exec full_text_searcher python main.py --env dev```. The Solr URLs to access dev and prod 
+environments are in the file `config_search.py`.
 
-According to the env use in the command line, the API will use the Solr URL in the configuration file `config_search.py`.
-If you use `--env htrc` the Solr URL will be `https://analytics.dev.htrc.indiana.edu/solr/core-1x/query`, however the
-data is extracted from HathiTrust full-text search production index.
+If you want to run the API or the `export_all_results.py` script using HTRC access point, you will have to run 
+the application outside the docker because it will access to the full-text search production index:
+
+To access full-text search index using HTRC Solr access point:
+
+  * ask Samitha to add your IP in the HTRC proxy.
+  * contact Samitha or Lianet to get the right Solr URL to access the HTRC Solr server. You will have to pass the Solr 
+    URL as a parameter in the command line.
+  * run the application outside the docker and using the parameters below: 
+    * `--env prod` and `--solr_url https://htrc_solr_url/...` 
+    
+For example, use the command below to run the script `export_all_results.py`:
+
+```python ht_full_text_search/export_all_results.py --env prod --query '"poetic justice"' --solr_url https://htrc_solr_url/...``` 
+
+and the command below to run the API:
+
+```python main.py --env prod --solr_url https://htrc_solr_url/...```
+
+Once the API is up, we can use the command below to query the full-text search using the API:
+
+```curl --location 'http://localhost:8000/query/?query=poetic%20justice' --form 'query="'\''\"poetic justice\"'\''"'```
 
 **Use case 5**: Create an Excel file with collection statistics using Solr facets. 
 
