@@ -45,6 +45,7 @@ class TestHTSearchQuery:
             "titleProper^50",
         ]
 
+
     def test_facet_creator(self):
         data = HTSearchQuery.initialize_solr_query(
             FACET_FILTERS_CONFIG_FILE, conf_query="all"
@@ -61,6 +62,7 @@ class TestHTSearchQuery:
                 "bothPublishDateRange",
                 "format",
                 "htsource",
+                "callnoletters"
             ],
         }
 

@@ -1,4 +1,5 @@
 import pytest
+import os
 
 import config_search
 from ht_searcher.ht_searcher import HTSearcher
@@ -71,8 +72,8 @@ def ht_searcher_fixture():
     return HTSearcher(
         solr_url=config_search.SOLR_URL["dev"],
         environment="dev",
-        user="solr",
-        password="solrRocks"
+        user = os.getenv("SOLR_USER"),
+        password = os.getenv("SOLR_PASSWORD")
     )
 
 

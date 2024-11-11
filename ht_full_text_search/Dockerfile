@@ -4,7 +4,7 @@ FROM python:3.11-slim-bookworm AS base
 # Allowing the argumenets to be read into the dockerfile. Ex:  .env > compose.yml > Dockerfile
 ARG POETRY_VERSION=1.5.1
 # ENV=dev => development / ENV=prod => production
-ARG ENV
+ARG ENV=dev
 
 # Set the working directory to /app
 WORKDIR /app

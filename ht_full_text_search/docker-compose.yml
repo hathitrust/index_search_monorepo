@@ -1,16 +1,10 @@
 services:
   full_text_searcher:
-    build:
-      context: .
-      target: runtime
-      dockerfile: Dockerfile
-      args:
-        UID: ${UID:-1000}
-        GID: ${GID:-1000}
-        ENV: ${ENV:-dev}
-        POETRY_VERSION: ${POETRY_VERSION:-1.5.1}
-    env_file:
-      - .env
+    image: ghcr.io/hathitrust/ht_full_text_search:unstable
+    environment: &solr_env
+      ENV: ${ENV:-dev}
+      SOLR_USER: ${SOLR_USER:-admin}
+      SOLR_PASSWORD: ${SOLR_PASSWORD:-solrRocks}
     volumes:
       - .:/app
     stdin_open: true
@@ -20,17 +14,8 @@ services:
     tty: true
     container_name: full_text_searcher
   full_text_search_api:
-    build:
-      context: .
-      target: runtime
-      dockerfile: Dockerfile
-      args:
-        UID: ${UID:-1000}
-        GID: ${GID:-1000}
-        ENV: ${ENV:-dev}
-        POETRY_VERSION: ${POETRY_VERSION:-1.5.1}
-    env_file:
-      - .env
+    image: ghcr.io/hathitrust/ht_full_text_search:unstable
+    environment: *solr_env
     stdin_open: true
     depends_on:
       solr-lss-dev:
@@ -42,38 +27,38 @@ services:
     command: [ "python", "main.py", "--env", $ENV ]
   test:
     container_name: full_text_searcher_test
-    build:
-      context: .
-      target: runtime
-      dockerfile: Dockerfile
+    image: ghcr.io/hathitrust/ht_full_text_search:unstable
+    environment: *solr_env
     volumes:
       - .:/app
     command: [ "pytest" ]
     depends_on:
       solr-lss-dev:
         condition: service_healthy
+      data_loader:
+        condition: service_completed_successfully
   solr-lss-dev:
     image: ghcr.io/hathitrust/full-text-search-cloud:shards-docker
     container_name: solr-lss-dev
     ports:
       - "8983:8983"
     environment:
+      <<: *solr_env
       ZK_HOST: zoo1:2181
       SOLR_OPTS: -XX:-UseLargePages
-    env_file:
-      - .env
     depends_on:
       zoo1:
         condition: service_healthy
     volumes:
       - solr1_data:/var/solr/data
     # start solr in the background, wait for it to start, then create the collection
-    command: [ "sh", "-c", 'solr-foreground -c & sleep 150 && export SOLR_AUTHENTICATION_OPTS=-Dbasicauth="$SOLR_USER":"$SOLR_PASSWORD" && solr create_collection -d /opt/solr/core-x -c core-x -shards 1 -replicationFactor 1 -p 8983 && wait' ]
+    command: [ "sh", "-c", 'solr-foreground -c & sleep 150 && export SOLR_AUTHENTICATION_OPTS=-Dbasicauth=admin:solrRocks && solr create_collection -d /opt/solr/core-x -c core-x -shards 1 -replicationFactor 1 -p 8983 && wait' ]
     healthcheck:
-      test: [ "CMD-SHELL", "solr healthcheck -c core-x || echo 'Healthcheck failed'" ]
+      test: [ "CMD-SHELL", "curl -s -u admin:solrRocks 'http://localhost:8983/solr/admin/collections?action=CLUSTERSTATUS&collection=core-x' | grep -q '\"state\":\"active\"'" ]
       interval: 30s
-      timeout: 10s
-      retries: 5
+      timeout: 30s
+      start_period: 30s
+      retries: 10
   zoo1:
     image: zookeeper:3.8.0
     container_name: zoo1
@@ -95,15 +80,11 @@ services:
       timeout: 10s
       retries: 5
   data_loader: # It is probably for this application I should create the image first
-    build:
-      context: .
-      target: runtime
-      dockerfile: Dockerfile
-    entrypoint: [ "/bin/sh", "-c" ,"sleep 150 && /app/indexing_data.sh http://solr-lss-dev:8983 $SOLR_PASSWORD /app/solr_dataset core-x" ]
+    image: ghcr.io/hathitrust/ht_full_text_search:unstable
+    entrypoint: [ "/bin/sh", "-c" ,"/app/indexing_data.sh http://solr-lss-dev:8983 $SOLR_PASSWORD /app/solr_dataset core-x" ]
     volumes:
       - .:/app
-    env_file:
-      - .env
+    environment: *solr_env
     depends_on:
       solr-lss-dev:
         condition: service_healthy
