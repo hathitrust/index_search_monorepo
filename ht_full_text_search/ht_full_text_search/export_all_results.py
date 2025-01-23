@@ -29,6 +29,22 @@ from config_search import default_solr_params, SOLR_URL
 # If you want to do a phrase query, be sure to surround it in double quotes, e.g.
 # poetry run python3 ht_full_text_search/export_all_results.py '"a phrase"'
 
+# TODO: ht_full_text_search should change to become the python library we use for quering our Solr clusters. Right now,
+# the code is implemented to run queries only in the full text search cluster. We should have a more generic way to
+# query any Solr cluster we have, including the catalog ones.
+# We should have a way to configure the Solr cluster we want to query, the environment, the collection, etc.
+# We should have a way to configure the fields we want to return in the query results
+# We should have a way to configure the fields we want to use in the query
+# We should have a way to configure the fields we want to use in the query to boost the results
+
+# We should have generic classes to Search, make queries, filters and facets and print the query results.
+# We should create specific classes (catalog => catalog-api, catalog-monitoring, fulltext => fulltext-api,
+# fulltext-monitoring) children of the generic ones that have their own ways to make queries
+
+# TODO: Implement the class to manage Solr query results.
+# Specify the fields to show in the query result
+# Specify if the Solr debug output will be show.Create our onw debug dictionary with fields we decide,
+# e.g. QTime, status, shards, etc.
 def process_results(item: dict) -> str:
 
     """ Prepare the dictionary with Solr results to be exported as JSON """
@@ -78,7 +94,7 @@ class SolrExporter:
         :param env: str, environment. It could be dev or prod
         """
 
-        self.solr_url = solr_url
+        self.solr_url = f"{solr_url}/query"
         self.environment = env
         self.headers = {"Content-Type": "application/json"}
         self.auth = HTTPBasicAuth(user, password) if user and password else None
@@ -110,6 +126,8 @@ class SolrExporter:
 
         params = default_solr_params(self.environment)
         params["cursorMark"] = "*"
+        # TODO: Implement the feature to access to Solr debug using this python script
+        params["debugQuery"] = "true"
         params["q"] = make_query(query)
 
         while True:
@@ -151,14 +169,15 @@ if __name__ == "__main__":
 
     parser = ArgumentParser()
     parser.add_argument("--env", default=os.environ.get("HT_ENVIRONMENT", "dev"))
-    parser.add_argument("--solr_url", help="Solr url", default=None)
+    parser.add_argument("--solr_host", help="Solr host", default=None)
+    parser.add_argument("--collection_name", help="Name of the collection", default=None)
     parser.add_argument('--query', help='Query string', required=True)
 
     args = parser.parse_args()
 
     # Receive as a parameter an specific solr url
-    if args.solr_url:
-        solr_url = args.solr_url
+    if args.solr_host:
+        solr_url = f"{args.solr_host}/solr/{args.collection_name}"
     else:  # Use the default solr url, depending on the environment. If prod environment, use shards
         solr_url = SOLR_URL[args.env]
     solr_exporter = SolrExporter(solr_url, args.env,

@@ -383,6 +383,24 @@ application outside the docker and using the command below:
 
 Note: To find all the distribution by rights categories, you can query the table `attributes` in MySql database.
 
+**Phase 3**: Create scripts to monitor the Solr servers and the application.
+
+- Create the script `~/ht_solr_monitoring/solr_query_monitoring.py` to generate queries to test the performance of the Solr cluster.
+
+**Use case 1**: Downloading large result sets (over 20,000 items) using cursor-based paging and using the Solr export handler.
+**Use case 2**: Create different kinds of Solr queries to measure their performance.
+
+- These use cases are relevant because we want to monitor the query performance of our different Solr clusters. 
+We have created some Grafana dashboards, and we need the flexibility to add different kinds of queries and see how the cluster 
+works. 
+
+The main logic to create the queries is in the script `ht_solr_monitoring/solr_query_monitoring.py`. Currently, there are two different
+alternatives to query Catalog and Full Text Solr servers. We can run the script with the following parameters. 
+For Catalog, you should change --cluster_name to catalog. The script allows you to pass the name of the collection, 
+the environment and the solr host. If you run the script on your local environment the solr host will be http://localhost:8983.
+
+```docker compose exec full_text_searcher python ht_solr_monitoring/solr_query_monitoring.py --solr_host http://solr-lss-dev:8983 --collection_name core-x --env dev --cluster_name fulltext```
+
 ## Tests
 - This application is tested using the pytest library.
 - To run the tests, you can use the command `pytest` in the terminal.
