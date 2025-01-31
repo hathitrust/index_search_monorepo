@@ -16,6 +16,7 @@ exporter_api = {}
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--env", default=os.environ.get("HT_ENVIRONMENT", "dev"))
+    parser.add_argument("--solr_url", help="Solr url", default=None)
 
     args = parser.parse_args()
 
@@ -26,7 +27,11 @@ def main():
         """
         print("Connecting with Solr server")
 
-        exporter_api['obj'] = SolrExporter(SOLR_URL[args.env], args.env, user=os.getenv("SOLR_USER"),
+        if args.solr_url:
+            exporter_api['obj'] = SolrExporter(args.solr_url, args.env, user=os.getenv("SOLR_USER"),
+                                               password=os.getenv("SOLR_PASSWORD"))
+        else:
+            exporter_api['obj'] = SolrExporter(SOLR_URL[args.env], args.env, user=os.getenv("SOLR_USER"),
                                            password=os.getenv("SOLR_PASSWORD"))
         yield
         # Add some logic here to close the connection

@@ -1,13 +1,20 @@
 import json
+import inspect
 import os
+import sys
 from argparse import ArgumentParser
 
 import requests
 import yaml
 from requests.auth import HTTPBasicAuth
 
-from config_search import QUERY_PARAMETER_CONFIG_FILE, default_solr_params, SOLR_URL
+current_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+sys.path.insert(0, current_dir)
 
+config_file_path = os.path.join(os.path.abspath(os.path.join(os.getcwd())),
+                                           'config_files', 'full_text_search', 'config_query.yaml')
+
+from config_search import default_solr_params, SOLR_URL
 
 # This is a quick attempt to do a query to solr more or less as we issue it in
 # production and to then export all results using the cursorMark results
@@ -33,7 +40,7 @@ def process_results(item: dict) -> str:
     })
 
 
-def solr_query_params(config_file=QUERY_PARAMETER_CONFIG_FILE, conf_query="ocr"):
+def solr_query_params(config_file=config_file_path, conf_query="ocr"):
 
     """ Prepare the Solr query parameters
     :param config_file: str, path to the config file

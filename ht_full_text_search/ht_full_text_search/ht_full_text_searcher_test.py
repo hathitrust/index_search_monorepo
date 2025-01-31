@@ -1,4 +1,5 @@
 import config_search
+import os
 
 from ht_full_text_search.ht_full_text_searcher import HTFullTextSearcher
 
@@ -8,8 +9,8 @@ class TestHTFullTextSearcher:
         searcher = HTFullTextSearcher(
             solr_url=config_search.SOLR_URL["dev"],
             ht_search_query=ht_full_text_query,
-            user="solr",
-            password="solrRocks"
+            user=os.getenv("SOLR_USER"),
+            password=os.getenv("SOLR_PASSWORD")
         )
         solr_results = searcher.solr_result_query_dict(
             query_string="majority of the votes",

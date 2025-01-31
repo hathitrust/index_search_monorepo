@@ -6,13 +6,6 @@ else
   echo "🌎 .env does not exist. Copying .env-example to .env"
   cp env.example .env
 
-  #if [[ DEV == "true" ]];
-  #  then
-  #     ENV="dev"
-  #  else
-  #     ENV="prod"
-  #fi
-
   YOUR_UID=`id -u`
   YOUR_GID=`id -g`
   echo "🙂 Setting your UID ($YOUR_UID) and GID ($YOUR_UID) in .env"
