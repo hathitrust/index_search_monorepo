@@ -4,7 +4,7 @@ import sys
 import inspect
 from argparse import ArgumentParser
 
-from config_search import SOLR_URL
+from config_search import FULL_TEXT_SOLR_URL
 from ht_full_text_search.ht_full_text_query import HTFullTextQuery
 from ht_searcher.ht_searcher import HTSearcher
 from typing import Text, List, Dict
@@ -110,7 +110,7 @@ if __name__ == "__main__":
     if args.solr_url:
         solr_url = args.solr_url
     else:  # Use the default solr url, depending on the environment. If prod environment, use shards
-        solr_url = SOLR_URL[args.env]
+        solr_url = FULL_TEXT_SOLR_URL[args.env]
 
     solr_user = os.getenv("SOLR_USER")
     solr_password = os.getenv("SOLR_PASSWORD")

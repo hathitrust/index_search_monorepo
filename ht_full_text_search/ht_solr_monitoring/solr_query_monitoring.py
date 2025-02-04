@@ -1,4 +1,6 @@
+import inspect
 import os
+import sys
 from argparse import ArgumentParser
 
 import requests
@@ -8,8 +10,12 @@ from statistics import mean, median
 
 from requests.auth import HTTPBasicAuth
 
+from config_search import FULL_TEXT_SOLR_URL, CATALOG_SOLR_URL
 from ht_full_text_search.export_all_results import SolrExporter
 
+current = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+parent = os.path.dirname(current)
+sys.path.insert(0, parent)
 
 def send_solr_query(solr_base_url: str, query: dict = None,
                     user: str = None, password: str = None, response_times: list = None, error_count: int = 0,
@@ -79,8 +85,6 @@ def main():
 
     args = parser.parse_args()
 
-    solr_base_url = f"{args.solr_host}/solr/{args.collection_name}" # http://localhost:8983/solr/core-x/query
-
     # Set the experiment parameters
     INTERVAL = 1  # seconds
     TEST_DURATION = 60  # seconds
@@ -91,33 +95,38 @@ def main():
     print("Starting Solr Query Performance Test...")
     start_time = time.time()
 
+    # Default parameters are for full-text search
+    solr_host = FULL_TEXT_SOLR_URL[args.env]
+    config_files = 'full_text_search'
+    conf_query = "ocr"
+
+    # Overwrite default parameter for Catalog search
+    if args.cluster_name == "catalog":
+        solr_host = CATALOG_SOLR_URL[args.env]
+        config_files = 'catalog_search'
+        conf_query = "titleonly"
+
+    if args.solr_host:
+        solr_base_url = f"{args.solr_host}/solr/{args.collection_name}"
+    else:
+        solr_base_url = f"{solr_host}/solr/{args.collection_name}"
+
+
     while time.time() - start_time < TEST_DURATION:
         # TODO: Generate a random Solr query using different kind of queries and parameters
         # Query by id,
         # Query that involves different shards by title, query by author, query by date, query by source
         # Faceted search
 
-        # Catalog
-        if args.cluster_name == "catalog":
-            query = {
-                "q": "title:Opera OR title:Shakespeare OR title:Science",
-                "sort": "id desc",
-                "rows": 1000
-            }
-            print(query)
+        query_config_file_path = os.path.join(os.path.abspath(os.path.join(parent)),
+                                              'config_files', config_files, 'config_query.yaml')
 
-
-            send_solr_query(solr_base_url, query, os.getenv("SOLR_USER"), os.getenv("SOLR_PASSWORD")
-                            , response_times,
-                            error_count, total_queries)
-        # Full-text
-        if args.cluster_name == "fulltext":
-            query = "health"
-            solr_exporter = SolrExporter(solr_base_url, args.env,
-                                         user=os.getenv("SOLR_USER"), password=os.getenv("SOLR_PASSWORD"))
-            # '"good"'
-            for x in solr_exporter.run_cursor(query):
-                print(x)
+        query = "health"
+        solr_exporter = SolrExporter(solr_base_url, args.env,
+                                     user=os.getenv("SOLR_USER"), password=os.getenv("SOLR_PASSWORD"))
+        # '"good"'
+        for x in solr_exporter.run_cursor(query, query_config_file_path, conf_query=conf_query):
+            print(x)
 
         time.sleep(INTERVAL)
 
