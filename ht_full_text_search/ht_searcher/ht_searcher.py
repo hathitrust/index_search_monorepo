@@ -58,7 +58,7 @@ class HTSearcher:
         # In chunked transfer, the data stream is divided into a series of non-overlapping "chunks".
 
         response = requests.post(
-            url=self.solr_url, params=params, headers=self.headers, stream=True, auth=self.auth
+            url=f"{self.solr_url}/query", params=params, headers=self.headers, stream=True, auth=self.auth
         )
 
 

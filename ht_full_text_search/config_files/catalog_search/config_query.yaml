@@ -1,0 +1,26 @@
+# This config file contains the parameters used for creating the Solr query in Catalog Search. It is for testing purposes only.
+
+all:
+  pf: # Fields used for boosting results
+    - [title_ab, 10000]
+    - [title_a, 8000]
+    - [author, 1600]
+    - [author2, 800]
+    - [author_top, 100]
+  qf: # Fields used to find the results
+    - [title, 10]
+    - [author, 80]
+    - [author2, 50]
+    - [author_top, 30]
+  mm: "100%"
+  tie: 0.5
+  parser: "edismax"
+  debug: "all"
+
+titleonly:
+  parser: "edismax"
+  debug: "all"
+  qf:
+    - [title, 500000]
+  mm: "100%"
+  tie: 0.9

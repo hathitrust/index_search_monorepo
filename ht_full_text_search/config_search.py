@@ -6,9 +6,13 @@ current_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentfra
 sys.path.insert(0, current_dir)
 
 # Full-text search config parameters
-SOLR_URL = {
-    "prod": "http://macc-ht-solr-lss-1.umdl.umich.edu:8081/solr/core-1x/query",
-    "dev": "http://solr-lss-dev:8983/solr/core-x/query"
+FULL_TEXT_SOLR_URL = {
+    "prod": "http://macc-ht-solr-lss-1.umdl.umich.edu:8081/solr/core-1x",
+    "dev": "http://solr-lss-dev:8983/solr/core-x"
+}
+
+CATALOG_SOLR_URL = {
+    "dev": "http://localhost:8983"
 }
 
 FULL_TEXT_SEARCH_SHARDS_X = ','.join([f"http://solr-sdr-search-{i}:8081/solr/core-{i}x" for i in range(1, 12)])
@@ -29,6 +33,8 @@ DEFAULT_SOLR_PARAMS = {
 
 
 def default_solr_params(env: str = "prod"):
+    # TODO: Add shards is only for prod environment and full-text search, then I have to change this function to
+    # ensure we have access to Catalog in prod environment.
     """
     Return the default solr parameters
     :param env:

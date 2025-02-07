@@ -7,7 +7,7 @@ from ht_full_text_search.ht_full_text_searcher import HTFullTextSearcher
 class TestHTFullTextSearcher:
     def test_search(self, ht_full_text_query):
         searcher = HTFullTextSearcher(
-            solr_url=config_search.SOLR_URL["dev"],
+            solr_url=config_search.FULL_TEXT_SOLR_URL["dev"],
             ht_search_query=ht_full_text_query,
             user=os.getenv("SOLR_USER"),
             password=os.getenv("SOLR_PASSWORD")

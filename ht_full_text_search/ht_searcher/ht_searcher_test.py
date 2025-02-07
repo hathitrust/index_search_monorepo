@@ -70,7 +70,7 @@ def ht_searcher_fixture():
     """
 
     return HTSearcher(
-        solr_url=config_search.SOLR_URL["dev"],
+        solr_url=config_search.FULL_TEXT_SOLR_URL["dev"],
         environment="dev",
         user = os.getenv("SOLR_USER"),
         password = os.getenv("SOLR_PASSWORD")
