@@ -8,7 +8,7 @@
 #I abandonded alpine image because it lacks the package installer pip and the support for installing wheel packages, which are both needed for installing applications like Pandas and Numpy.
 # Build the image takes time because I have to compile source files
 # using some compiler packages like GCC
-FROM python:3.11-slim-bookworm as python-base
+FROM python:3.11-slim-bookworm AS python-base
 
 # Use this page as a reference for python and poetry environment variables: https://docs.python.org/3/using/cmdline.html#envvar-PYTHONUNBUFFERED
 #Ensure the stdout and stderr streams are sent straight to terminal, then you can see the output of your application
@@ -22,7 +22,7 @@ ENV PYTHONUNBUFFERED=1\
 
 WORKDIR /app
 
-ENV PYTHONPATH "${PYTHONPATH}:/app"
+ENV PYTHONPATH="${PYTHONPATH}:/app"
 
 COPY requirements.txt ./
 
@@ -51,7 +51,7 @@ RUN for i in $(seq 1 24); do ln -s /sdr/$i /sdr$i; done
 RUN  python3.11 -m pip install --upgrade pip
 RUN  python3.11 -m pip install -r requirements.txt
 
-FROM python-base as development
+FROM python-base AS development
 ENV FASTAPI_ENV=development
 
 

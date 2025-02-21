@@ -167,7 +167,7 @@ class FullTextDocumentGenerator:
             FullTextDocumentGenerator.create_allfields_field(doc_metadata.get("fullrecord"))
         )
         doc_metadata.pop("fullrecord")
-        logger.info(f"Time to generate OCR field {doc.document_id} {time.time() - start}")
+        logger.info(f"Time to generate process=OCR_field ht_id={doc.document_id} Time={time.time() - start}")
 
         # Add Catalog fields to the full-text document
         entry.update(doc_metadata)
@@ -175,11 +175,11 @@ class FullTextDocumentGenerator:
         start = time.time()
         # Retrieve data from MariaDB
         entry.update(self.mysql_data_extractor.retrieve_mysql_data(doc.document_id))
-        logger.info(f"Time to generate MySQL fields {doc.document_id} {time.time() - start}")
+        logger.info(f"Time to generate process=MySQL_fields ht_id={doc.document_id} Time={time.time() - start}")
 
         start = time.time()
         # Extract fields from METS file
         entry.update(extract_fields_from_mets_file(doc.source_path))
-        logger.info(f"Time to generate METS fields {doc.document_id} {time.time() - start}")
+        logger.info(f"Time to generate process=METS_fields ht_id={doc.document_id} Time={time.time() - start}")
         entry.pop("ht_id")
         return entry

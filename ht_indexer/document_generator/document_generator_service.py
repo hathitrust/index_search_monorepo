@@ -64,7 +64,13 @@ class DocumentGeneratorService:
         except Exception as e:
             raise Exception(f"Document {ht_document.document_id} could not be generated: Error - {e}")
         logger.info(
-            f"Time to generate full-text search {ht_document.document_id} document {time.time() - start_time:.10f}")
+            f"Time to generate process=full-text_document ht_id={ht_document.document_id} Time={time.time() - start_time:.10f}")
+
+        # Use to get the size of the entry dictionary
+        entry_data = json.dumps(entry)
+        entry_size = len(entry_data.encode('utf-8'))  # Convert to bytes and get length
+        logger.info(f"Serialized JSON process=full-text_document ht_id={ht_document.document_id} Size={entry_size} bytes")
+
         return entry
 
     def publish_document(self, content: dict = None):

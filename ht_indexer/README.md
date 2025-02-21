@@ -24,6 +24,7 @@
 * [Usage](#usage)
 * [Tests](#tests)
 * [Hosting](#hosting)
+* [Experiments](#experiments)
 * [Resources](#resources)
 
 ## About the Project
@@ -413,6 +414,21 @@ In the image below, you can see the main kubernetes parts running in this workfl
 4. Get user/pass of Rabbitmq
    `kubectl -n fulltext-workshop get secret rabbitmq-secret -o jsonpath="{.data.rabbitmq-password}" | base64 --decode`
    `kubectl -n fulltext-workshop get secret rabbitmq-secret -o jsonpath="{.data.rabbitmq-username}" | base64 --decode`
+
+## Experiments
+
+1. Indexing one million of documents in the Solr server
+
+The file document_retriever_service/1_million_filter_ids.txt contains a list of 1 million of ht_id to be indexed in the
+Solr server. The file is generated querying the Catalog index and using the script get_list_ids_from_Solr_results.py
+implemented in the repository `ht_full_text_search`.
+
+The command used to retrieve the documents from Catalog index is:
+
+```python document_retriever_service/run_retriever_service_by_file.py --query_field item --input_document_file 1_million_filter_ids.txt
+```
+
+This experiment will do in the Kubernetes cluster.
 
 # Resources
 

@@ -1,4 +1,4 @@
-"""This use case is for testing and processing a huge lis of documents extracted from the production environment."""
+"""This use case is for testing and processing a huge list of documents extracted from the production environment."""
 import argparse
 import os
 import sys
