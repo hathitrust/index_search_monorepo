@@ -40,19 +40,20 @@ class DocumentIndexerQueueService:
             # Use to get the size of the entry dictionary
             entry_data = json.dumps(message)
             entry_size = len(entry_data.encode('utf-8'))  # Convert to bytes and get length
-            logger.info(
-                f"Serialized JSON process=indexing ht_id={message.get('id')} Size={entry_size} bytes")
 
             try:
                 logger.info(f"Retrieving the item {message.get('id')} from {self.queue_consumer.queue_name}")
                 response = self.storage_document(json_object=message)
                 logger.info(
-                    f"Success process=indexing the item ht_id={message.get('id')}. Operation status: {response.status_code} Time={time.time() - start_time:.10f}")
+                    f"Success process=indexing the item ht_id={message.get('id')}. "
+                    f"Operation status: {response.status_code} Time={time.time() - start_time:.10f} "
+                    f"Size={entry_size} bytes")
                 positive_acknowledge(self.queue_consumer.conn.ht_channel, method_frame.delivery_tag)
             except Exception as e:
                 error_info = ht_utils.get_error_message_by_document("IndexerService",
                                                                     e, message)
-                logger.error(f"Document={message.get('ht_id')} failed {error_info} Time={time.time() - start_time:.10f}")
+                logger.error(f"Document={message.get('ht_id')} failed {error_info} "
+                             f"Time={time.time() - start_time:.10f} Size={entry_size} bytes")
                 self.queue_consumer.reject_message(self.queue_consumer.conn.ht_channel, method_frame.delivery_tag)
 
 

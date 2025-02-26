@@ -55,21 +55,18 @@ class DocumentGeneratorService:
         if not Path(f"{ht_document.source_path}.zip").is_file():
             # The message is rejected because the file with the text of the document does not exist
             # then, entry dictionary could not be generated
-            logger.info(f"The file of the document {ht_document.document_id} does not exist")
-            raise FileNotFoundError(f"File {ht_document.source_path}.zip not found")
-        logger.info(f"{ht_document.source_path}.zip exists!")
-        logger.info(f"Processing item {ht_document.document_id}")
+            raise FileNotFoundError(f"The file of the ht_id={ht_document.document_id} on the path={ht_document.source_path}.zip not found")
+        logger.info(f"Processing item {ht_document.document_id} using {ht_document.source_path}.zip")
         try:
             entry = self.document_generator.make_full_text_search_document(ht_document, record)
         except Exception as e:
             raise Exception(f"Document {ht_document.document_id} could not be generated: Error - {e}")
-        logger.info(
-            f"Time to generate process=full-text_document ht_id={ht_document.document_id} Time={time.time() - start_time:.10f}")
 
         # Use to get the size of the entry dictionary
         entry_data = json.dumps(entry)
         entry_size = len(entry_data.encode('utf-8'))  # Convert to bytes and get length
-        logger.info(f"Serialized JSON process=full-text_document ht_id={ht_document.document_id} Size={entry_size} bytes")
+        logger.info(f"Time to generate process=full-text_document ht_id={ht_document.document_id} "
+                    f"Time={time.time() - start_time:.10f} Size={entry_size} bytes")
 
         return entry
 

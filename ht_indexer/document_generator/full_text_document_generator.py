@@ -78,18 +78,17 @@ class FullTextDocumentGenerator:
         # check the logs te see the among of files with this messages to determine if we need the line
         # if not i_file.startswith('__MACOSX/') or if we need to include a resource forks in the code
         # python library to handle resource forks => phttps://pypi.org/project/rsrcfork/
-        full_text = ""
+        full_text_parts = []
         macosx_files = False
         for i_file in zip_doc.namelist():
             if not i_file.startswith('__MACOSX/'):
                 if zip_doc.getinfo(i_file).filename.endswith(".txt"):
-                    full_text = (
-                            full_text + " " + string_preparation(zip_doc.read(i_file))
-                    )
+                    full_text_parts.append(string_preparation(zip_doc.read(i_file)))
             else:
                 macosx_files = True
-        logger.info(f"{zip_doc.filename} contains __MACOSX directory")
-        return full_text
+        if macosx_files:
+            logger.info(f"{zip_doc.filename} contains __MACOSX directory")
+        return " ".join(full_text_parts)
 
     @staticmethod
     def get_full_text_field(zip_doc_path: str):
@@ -100,15 +99,14 @@ class FullTextDocumentGenerator:
         :return: String concatenated all the content of the .TXT files
         """
 
-        logger.info("=================")
         logger.info(f"Document path {zip_doc_path}")
 
         file_path = Path(zip_doc_path)
         if not file_path.is_file():
             raise FileNotFoundError(f"File {zip_doc_path} not found")
 
-        zip_doc = zipfile.ZipFile(zip_doc_path, mode="r")
-        full_text = FullTextDocumentGenerator.txt_files_2_full_text(zip_doc).encode().decode()
+        with zipfile.ZipFile(zip_doc_path, mode="r") as zip_doc:
+            full_text = FullTextDocumentGenerator.txt_files_2_full_text(zip_doc)
         return full_text
 
     @staticmethod
