@@ -54,20 +54,21 @@ services:
     environment:
       ZK_HOST: zoo1:2181
       SOLR_OPTS: -XX:-UseLargePages
-      SOLR_USER: solr
-      SOLR_PASSWORD: 'solrRocks'
+      SOLR_USER: admin
+      SOLR_PASSWORD: solrRocks
     depends_on:
       zoo1:
         condition: service_healthy
     volumes:
       - solr1_data:/var/solr/data
     # start solr in the background, wait for it to start, then create the collection
-    command: [ "sh", "-c", 'solr-foreground -c & sleep 150 && export SOLR_AUTHENTICATION_OPTS=-Dbasicauth="$SOLR_USER":"$SOLR_PASSWORD" && solr create_collection -d /opt/solr/core-x -c core-x -shards 1 -replicationFactor 1 -p 8983 && wait' ]
+    command: [ "sh", "-c", 'solr-foreground -c & sleep 150 && export SOLR_AUTHENTICATION_OPTS=-Dbasicauth=admin:solrRocks && solr create_collection -d /opt/solr/core-x -c core-x -shards 1 -replicationFactor 1 -p 8983 && wait' ]
     healthcheck:
-      test: [ "CMD-SHELL", "solr healthcheck -c core-x || echo 'Healthcheck failed'" ]
+      test: [ "CMD-SHELL", "curl -s -u admin:solrRocks 'http://localhost:8983/solr/admin/collections?action=CLUSTERSTATUS&collection=core-x' | grep -q '\"state\":\"active\"'" ]
       interval: 30s
-      timeout: 10s
-      retries: 5
+      timeout: 30s
+      start_period: 30s
+      retries: 10
   zoo1:
     image: zookeeper:3.8.0
     container_name: zoo1
@@ -143,9 +144,9 @@ services:
       QUEUE_NAME: indexer_queue
       QUEUE_PASS: guest
       QUEUE_USER: guest
-      SOLR_USER: solr
+      SOLR_USER: admin
       SOLR_PASSWORD: 'solrRocks'
-    command: [ "python", "document_indexer_service/document_indexer_service.py", "--solr_indexing_api", "http://solr-lss-dev:8983/solr/#/core-x/" ]
+    command: [ "python", "document_indexer_service/document_indexer_service.py", "--solr_indexing_api", "http://solr-lss-dev:8983/solr/#/core-x/", "--batch_size", "100" ]
   rabbitmq:
     container_name: rabbitmq
     image: rabbitmq:3.13-management

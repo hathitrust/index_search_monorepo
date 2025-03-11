@@ -73,7 +73,8 @@ class GeneratorServiceArguments:
                                                     os.environ["SRC_QUEUE_PASS"],
                                                     os.environ["SRC_QUEUE_HOST"],
                                                     os.environ["SRC_QUEUE_NAME"],
-                                                    requeue_message=False)
+                                                    requeue_message=False,
+                                                    batch_size=1)
         except KeyError as e:
             logger.error(f"Environment variables required: "
                          f"{ht_utils.ht_utils.get_general_error_message('DocumentGeneratorService', e)}")
@@ -92,7 +93,8 @@ class GeneratorServiceArguments:
                 self.tgt_queue_producer = QueueProducer(os.environ["TGT_QUEUE_USER"],
                                                         os.environ["TGT_QUEUE_PASS"],
                                                         os.environ["TGT_QUEUE_HOST"],
-                                                        os.environ["TGT_QUEUE_NAME"])
+                                                        os.environ["TGT_QUEUE_NAME"],
+                                                        batch_size=1)
             except KeyError as e:
                 logger.error(f"Environment variables required: "
                              f"{ht_utils.ht_utils.get_general_error_message('DocumentGeneratorService', e)}")

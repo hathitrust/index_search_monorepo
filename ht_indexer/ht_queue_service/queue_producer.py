@@ -10,7 +10,7 @@ logger = get_ht_logger(name=__name__)
 class QueueProducer:
     """ Create a class to send messages to a rabbitMQ """
 
-    def __init__(self, user: str, password: str, host: str, queue_name: str):
+    def __init__(self, user: str, password: str, host: str, queue_name: str, batch_size: int = 1):
         """
 
         :param user: username for the RabbitMQ
@@ -27,7 +27,7 @@ class QueueProducer:
         self.password = password
 
         try:
-            self.conn = QueueConnectionDeadLetter(self.user, self.password, self.host, self.queue_name)
+            self.conn = QueueConnectionDeadLetter(self.user, self.password, self.host, self.queue_name, batch_size)
         except Exception as e:
             raise e
 

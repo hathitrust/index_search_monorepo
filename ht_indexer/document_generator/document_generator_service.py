@@ -17,7 +17,7 @@ logger = get_ht_logger(name=__name__)
 
 class DocumentGeneratorService:
     def __init__(self, db_conn, src_queue_consumer: QueueConsumer,
-                 tgt_queue_producer: QueueProducer,
+                 tgt_queue_producer: QueueProducer | None,
                  document_repository: str = None,
                  not_required_tgt_queue: bool = False
                  ):

@@ -60,7 +60,7 @@ def consumer_instance(retriever_parameters):
 
     return QueueConsumer(retriever_parameters["user"], retriever_parameters["password"],
                          retriever_parameters["host"], retriever_parameters["queue_name"],
-                         retriever_parameters["requeue_message"])
+                         retriever_parameters["requeue_message"], retriever_parameters["batch_size"])
 
 
 @pytest.fixture
@@ -70,4 +70,4 @@ def producer_instance(retriever_parameters):
     """
 
     return QueueProducer(retriever_parameters["user"], retriever_parameters["password"],
-                         retriever_parameters["host"], retriever_parameters["queue_name"])
+                         retriever_parameters["host"], retriever_parameters["queue_name"], batch_size=1)

@@ -11,7 +11,7 @@ def positive_acknowledge(used_channel, basic_deliver):
 
 class QueueConsumer:
     def __init__(self, user: str, password: str, host: str, queue_name: str,
-                 requeue_message: bool = False):
+                 requeue_message: bool = False, batch_size: int = None):
 
         """
         This class is used to consume messages from the queue
@@ -31,11 +31,11 @@ class QueueConsumer:
         self.requeue_message = requeue_message
 
         try:
-            self.conn = QueueConnectionDeadLetter(self.user, self.password, self.host, self.queue_name)
+            self.conn = QueueConnectionDeadLetter(self.user, self.password, self.host, self.queue_name, batch_size)
         except Exception as e:
             raise e
 
-    def consume_message(self, inactivity_timeout: int = None) -> dict:
+    def consume_message(self, inactivity_timeout: int = None) -> dict or None:
 
         # Inactivity timeout is the time in seconds to wait for a message before returning None, the consumer will
         try:

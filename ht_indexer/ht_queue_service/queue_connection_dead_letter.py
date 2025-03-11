@@ -1,7 +1,6 @@
 import pika
 from ht_queue_service.queue_connection import QueueConnection
 
-
 def ht_declare_dead_letter_queue(ht_channel: pika.connection, queue_name: str):
     """
     Declare the dead letter queue
@@ -26,9 +25,9 @@ class QueueConnectionDeadLetter(QueueConnection):
     A message is dead-lettered if it is negatively acknowledged and requeued, or if it times out.
     """
 
-    def __init__(self, user: str, password: str, host: str, queue_name: str):
+    def __init__(self, user: str, password: str, host: str, queue_name: str, batch_size: int = 1):
         # Call the parent class constructor that initializes the connection to the queue
-        super().__init__(user, password, host, queue_name)
+        super().__init__(user, password, host, queue_name, batch_size)
 
     def ht_queue_connection(self):
         # queue a name is important when you want to share the queue between producers and consumers
@@ -62,6 +61,6 @@ class QueueConnectionDeadLetter(QueueConnection):
         # The value defines the max number of unacknowledged deliveries that are permitted on a channel.
         # When the number reaches the configured count, RabbitMQ will stop delivering more messages on the
         # channel until at least one of the outstanding ones is acknowledged.
-        ht_channel.basic_qos(prefetch_count=1)
+        ht_channel.basic_qos(prefetch_count=self.batch_size)
 
         return ht_channel

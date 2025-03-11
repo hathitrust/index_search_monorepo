@@ -4,7 +4,7 @@ import argparse
 
 from document_generator.document_generator_service import DocumentGeneratorService
 from ht_queue_service.queue_consumer import QueueConsumer
-from indexer_config import DOCUMENT_LOCAL_PATH
+from ht_indexer_config import DOCUMENT_LOCAL_PATH
 from document_generator.generator_arguments import GeneratorServiceArguments
 
 from ht_utils.ht_logger import get_ht_logger

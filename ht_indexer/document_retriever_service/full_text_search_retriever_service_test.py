@@ -40,7 +40,8 @@ class TestFullTextRetrieverService:
                                                        "requeue_message": False,
                                                        "query_field": "item",
                                                        "start": 0,
-                                                       "rows": 100}])
+                                                       "rows": 100,
+                                                       "batch_size": 1}])
     def test_full_text_search_retriever_service(self, retriever_parameters, get_document_retriever_service,
                                                 consumer_instance):
         # Clean up the queue

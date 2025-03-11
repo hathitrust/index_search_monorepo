@@ -4,7 +4,7 @@ from typing import Text
 from pypairtree import pairtree
 
 from ht_utils.ht_logger import get_ht_logger
-from indexer_config import (
+from ht_indexer_config import (
     DOCUMENT_LOCAL_PATH,
     LOCAL_DOCUMENT_FOLDER
 )

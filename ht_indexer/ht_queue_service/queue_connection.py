@@ -3,7 +3,7 @@ import pika
 
 class QueueConnection:
 
-    def __init__(self, user: str, password: str, host: str, queue_name: str):
+    def __init__(self, user: str, password: str, host: str, queue_name: str, batch_size: int = 1):
         # Define credentials (user/password) as environment variables
         # declaring the credentials needed for connection like host, port, username, password, exchange etc.
 
@@ -13,6 +13,7 @@ class QueueConnection:
             self.host = host
             self.queue_name = queue_name
             self.exchange = 'ht_channel'
+            self.batch_size = batch_size
 
             # Open a connection to RabbitMQ
             self.queue_connection = pika.BlockingConnection(pika.ConnectionParameters(host=self.host,
@@ -39,7 +40,7 @@ class QueueConnection:
         # The value defines the max number of unacknowledged deliveries that are permitted on a channel.
         # When the number reaches the configured count, RabbitMQ will stop delivering more messages on the
         # channel until at least one of the outstanding ones is acknowledged.
-        ht_channel.basic_qos(prefetch_count=1)
+        ht_channel.basic_qos(prefetch_count=self.batch_size)
 
         return ht_channel
 

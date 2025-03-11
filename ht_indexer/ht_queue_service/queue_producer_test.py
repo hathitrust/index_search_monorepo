@@ -26,7 +26,7 @@ def create_list_message():
 class TestHTProducerService:
     @pytest.mark.parametrize("retriever_parameters", [{"user": "guest", "password": "guest", "host": "rabbitmq",
                                                        "queue_name": "test_producer_queue"}])
-    def test_queue_produce_one_message(self, producer_instance):
+    def test_queue_produce_one_message(self, retriever_parameters, producer_instance):
         producer_instance.conn.ht_channel.queue_purge(producer_instance.queue_name)
         producer_instance.publish_messages(message)
         assert producer_instance.conn.get_total_messages() == 1
@@ -48,7 +48,7 @@ class TestHTProducerService:
 
     @pytest.mark.parametrize("retriever_parameters", [{"user": "guest", "password": "guest", "host": "rabbitmq",
                                                        "queue_name": "test_producer_queue"}])
-    def test_queue_reconnect(self, producer_instance):
+    def test_queue_reconnect(self, retriever_parameters, producer_instance):
         # Check if the connection is open
         assert producer_instance.conn.queue_connection.is_open
 

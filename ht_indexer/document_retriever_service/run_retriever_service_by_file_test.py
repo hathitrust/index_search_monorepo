@@ -35,7 +35,8 @@ class TestRunRetrieverServiceByFile:
                                                        "requeue_message": False,
                                                        "query_field": "item",
                                                        "start": 0,
-                                                       "rows": 100}])
+                                                       "rows": 100,
+                                                       "batch_size": 1}])
     def test_run_retriever_service_by_file(self, retriever_parameters, get_input_file, get_status_file,
                                            consumer_instance):
         parallelize = False

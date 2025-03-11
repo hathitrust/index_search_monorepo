@@ -14,7 +14,7 @@ class TestHTLogger:
         caplog.set_level("WARNING", logger="my_error_log_warning")
         my_log = get_ht_logger(name="my_error_log_debug", log_level="WARNING")
         try:
-            x = 1 / 0
+            print(1 / 0)
         except ZeroDivisionError as e:
             my_log.error(f"Zero division Error {e}")
         assert 0 == 0
@@ -23,7 +23,7 @@ class TestHTLogger:
         caplog.set_level("ERROR", logger="my_error_log")
         my_log = get_ht_logger(name="my_error_log")
         try:
-            x = 1 / 0
+            print(1 / 0)
         except ZeroDivisionError as e:
             my_log.error(f"Zero division Error {e}")
         assert 0 == 0

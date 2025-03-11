@@ -1,6 +1,6 @@
 import json
 
-from indexer_config import IDENTICAL_CATALOG_METADATA, RENAMED_CATALOG_METADATA
+from ht_indexer_config import IDENTICAL_CATALOG_METADATA, RENAMED_CATALOG_METADATA
 
 
 class CatalogRecordMetadata:

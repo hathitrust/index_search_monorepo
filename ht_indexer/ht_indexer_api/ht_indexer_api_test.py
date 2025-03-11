@@ -21,7 +21,7 @@ def get_fake_solr_api():
     )
 
 
-class TestHTSolrAPI():
+class TestHTSolrAPI:
 
     @patch('ht_indexer_api.ht_indexer_api.HTSolrAPI.get_solr_status')
     def test_connection(self, mock_solr_status, get_solr_api):
@@ -38,7 +38,7 @@ class TestHTSolrAPI():
         solr_api_status = get_solr_api.get_solr_status()
         assert solr_api_status.status_code == 200
 
-    @patch('ht_indexer_api.ht_indexer_api.HTSolrAPI.index_documents')
+    @patch('ht_indexer_api.ht_indexer_api.HTSolrAPI.index_documents_by_file')
     def test_index_document_add(self, mock_index_documents, get_solr_api):
         # Arrange
         mock_response = MagicMock()
@@ -49,8 +49,8 @@ class TestHTSolrAPI():
         list_documents = ["39015078560292_solr_full_text.xml"]
 
         # Act
-        response = get_solr_api.index_documents(document_path, list_documents=list_documents, solr_url_json="update/",
-                                                headers={"Content-Type": "application/xml"})
+        response = get_solr_api.index_documents_by_file(document_path, list_documents=list_documents, solr_url_json="update/",
+                                                        headers={"Content-Type": "application/xml"})
 
         # Assert
         assert response.status_code == 200
@@ -75,7 +75,7 @@ class TestHTSolrAPI():
                 response.headers["Content-Type"] == "text/plain;charset=utf-8"
         )
 
-    @patch('ht_indexer_api.ht_indexer_api.HTSolrAPI.index_documents')
+    @patch('ht_indexer_api.ht_indexer_api.HTSolrAPI.index_documents_by_file')
     def test_index_document_delete(self, mock_index_documents, get_solr_api):
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -86,8 +86,8 @@ class TestHTSolrAPI():
         )  # "data/delete"
         list_documents = ["39015078560292-1-1-flat.solr_delete.xml"]
 
-        response = get_solr_api.index_documents(document_path, list_documents=list_documents, solr_url_json="update/",
-                                                headers={"Content-Type": "application/xml"})
+        response = get_solr_api.index_documents_by_file(document_path, list_documents=list_documents, solr_url_json="update/",
+                                                        headers={"Content-Type": "application/xml"})
         assert response.status_code == 200
 
     def test_get_documents_failed(self, get_fake_solr_api):

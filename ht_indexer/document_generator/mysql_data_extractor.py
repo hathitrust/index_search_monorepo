@@ -1,6 +1,6 @@
+import ht_indexer_config
 from ht_utils.ht_mysql import HtMysql
 from ht_utils.ht_logger import get_ht_logger
-import indexer_config
 
 logger = get_ht_logger(name=__name__)
 
@@ -69,7 +69,7 @@ class MysqlMetadataExtractor:
         query_item_in_large_coll = (f'SELECT mb_item.MColl_ID '
                                     f'FROM mb_coll_item mb_item, mb_collection mb_coll '
                                     f'WHERE mb_item.extern_item_id="{doc_id}" '
-                                    f'AND mb_coll.num_items > {indexer_config.MAX_ITEM_IDS} ')
+                                    f'AND mb_coll.num_items > {ht_indexer_config.MAX_ITEM_IDS} ')
 
         logger.info(f"MySQL query: {query_item_in_large_coll}")
         large_collection_id = self.mysql_obj.query_mysql(query_item_in_large_coll)

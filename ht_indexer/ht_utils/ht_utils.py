@@ -36,10 +36,12 @@ def get_error_message_by_document(service_name: str, e: Exception, doc: dict) ->
     :param doc: The document, the document is a dictionary that
      must have a key 'ht_id'
     """
+
     # TODO Check if in the future we want to add more information about the document, like the record_id or probably
     # the full message received from the queue or the full document
+
     return {'service_name': service_name,
             'error_message': e,
-            'ht_id': doc.get('ht_id'),
+            'ht_id': doc.get('ht_id') if doc.get('ht_id') else doc.get('id'),
             'timestamp': get_current_time()
             }

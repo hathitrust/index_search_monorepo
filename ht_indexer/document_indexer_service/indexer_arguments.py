@@ -1,9 +1,8 @@
 import os
-import sys
-from ht_indexer_api.ht_indexer_api import HTSolrAPI
-from ht_queue_service.queue_consumer import QueueConsumer
-import ht_utils.ht_utils
 
+import ht_indexer_config
+from ht_indexer_api.ht_indexer_api import HTSolrAPI
+from ht_indexer_config import indexer_requeue_message, indexer_queue_name
 from ht_utils.ht_logger import get_ht_logger
 
 logger = get_ht_logger(name=__name__)
@@ -27,6 +26,11 @@ class IndexerServiceArguments:
             default=None
         )
 
+        parser.add_argument(
+            "--batch_size",
+            help="Integer that represents the number of documents to process in a batch."
+        )
+
         self.args = parser.parse_args()
 
         solr_user = os.getenv("SOLR_USER")
@@ -38,19 +42,12 @@ class IndexerServiceArguments:
 
         self.document_local_path = self.args.document_local_path
 
-        # Using queue
-        try:
-            self.queue_consumer = QueueConsumer(os.environ["QUEUE_USER"],
-                                                os.environ["QUEUE_PASS"],
-                                                os.environ["QUEUE_HOST"],
-                                                os.environ["QUEUE_NAME"],
-                                                requeue_message=False)
-        except KeyError as e:
-            logger.error(f"Environment variables required: "
-                         f"{ht_utils.ht_utils.get_general_error_message('IndexerServiceArguments', e)}")
+        self.queue_parameters = {
+            "queue_user": os.getenv("QUEUE_USER"),
+            "queue_pass": os.getenv("QUEUE_PASS"),
+            "queue_host": os.getenv("QUEUE_HOST"),
+            "queue_name": os.getenv("QUEUE_NAME") if os.getenv("QUEUE_NAME") else indexer_queue_name,
+            "requeue_message": indexer_requeue_message,
+            "batch_size": int(self.args.batch_size) if self.args.batch_size else ht_indexer_config.indexer_batch_size
+        }
 
-            sys.exit(1)
-        except Exception as e:
-            logger.error(f"Queue connection required: "
-                         f"{ht_utils.ht_utils.get_general_error_message('DocumentGeneratorService', e)}")
-            sys.exit(1)
