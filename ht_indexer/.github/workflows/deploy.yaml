@@ -8,7 +8,7 @@ on:
             environments:
                 description: The environment to deploy to
                 type: choice
-                default: testing
+                default: workshop_ictc
                 options:
                 - workshop_ictc
                 - staging
