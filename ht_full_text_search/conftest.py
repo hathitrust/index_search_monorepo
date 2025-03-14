@@ -1,24 +1,14 @@
-import inspect
-import os
-import sys
 import pytest
+from pathlib import Path
 
-from ht_full_text_search.ht_full_text_query import HTFullTextQuery
+from ht_full_text_search import config_files
+
+from ht_full_text_search.ht_query.ht_query import HTSearchQuery
 from ht_full_text_search.ht_full_text_searcher import HTFullTextSearcher
-from ht_searcher.ht_searcher import HTSearcher
+from ht_full_text_search.ht_searcher.ht_searcher import HTSearcher
 
-
-current_folder = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-parent_folder = os.path.dirname(current_folder)
-sys.path.insert(0, parent_folder)
-
-QUERY_PARAMETER_CONFIG_FILE = "/".join(
-    [parent_folder, "config_files/full_text_search/config_query.yaml"]
-)
-FACET_FILTERS_CONFIG_FILE = "/".join(
-    [parent_folder, "config_files/full_text_search/config_facet_filters.yaml"]
-)
-
+QUERY_PARAMETER_CONFIG_FILE = Path(config_files.config_files_path, "full_text_search/config_query.yaml")
+FACET_FILTERS_CONFIG_FILE = Path(config_files.config_files_path, "full_text_search/config_facet_filters.yaml")
 
 @pytest.fixture
 def ht_full_text_query_default_values():
@@ -27,7 +17,7 @@ def ht_full_text_query_default_values():
     :return:
     """
 
-    return HTFullTextQuery(config_query="all")
+    return HTSearchQuery(config_query="all")
 
 
 # General objects
@@ -38,12 +28,12 @@ def ht_full_text_query():
     :return:
     """
 
-    return HTFullTextQuery(
+    return HTSearchQuery(
         config_query="all",
-        config_query_path=QUERY_PARAMETER_CONFIG_FILE,
+        config_query_path=str(QUERY_PARAMETER_CONFIG_FILE),
         user_id=None,
         config_facet_field="all",
-        config_facet_field_path=FACET_FILTERS_CONFIG_FILE,
+        config_facet_field_path=str(FACET_FILTERS_CONFIG_FILE),
     )
 
 
@@ -69,12 +59,12 @@ def ht_full_text_search_query_fixture():
     :return:
     """
 
-    return HTFullTextQuery(
+    return HTSearchQuery(
         config_query="all",
-        config_query_path=QUERY_PARAMETER_CONFIG_FILE,
+        config_query_path=str(QUERY_PARAMETER_CONFIG_FILE),
         user_id=None,
         config_facet_field="all",
-        config_facet_field_path=FACET_FILTERS_CONFIG_FILE,
+        config_facet_field_path=str(FACET_FILTERS_CONFIG_FILE),
     )
 
 

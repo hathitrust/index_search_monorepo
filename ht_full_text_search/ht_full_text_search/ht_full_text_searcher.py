@@ -4,8 +4,8 @@ import sys
 import inspect
 from argparse import ArgumentParser
 
-from config_search import FULL_TEXT_SOLR_URL
-from ht_full_text_search.ht_full_text_query import HTFullTextQuery
+from ht_full_text_search.config_search import FULL_TEXT_SOLR_URL
+from ht_full_text_search.ht_query.ht_query import HTSearchQuery
 from ht_searcher.ht_searcher import HTSearcher
 from typing import Text, List, Dict
 
@@ -22,7 +22,7 @@ class HTFullTextSearcher(HTSearcher):
     def __init__(
             self,
             solr_url: Text = None,
-            ht_search_query: HTFullTextQuery = None,
+            ht_search_query: HTSearchQuery = None,
             environment: str = "dev",
             user=None, password=None
     ):

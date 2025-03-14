@@ -1,27 +1,46 @@
-[tool.poetry]
-name = "ht-full-text-search"
+# The [project] table is the format that most build backends use to specify the project’s basic metadata,
+# such as the dependencies, your name, etc.
+[project]
+name = "ht_full_text_search"
 version = "0.1.0"
 description = "Repository for full-text search in Solr"
-authors = ["y"]
+license = {file = "LICENSE"}
 readme = "README.md"
-packages = [{include = "ht_full_text_search"}]
+authors = [{name = "Lianet Sepulveda Torres", email = "lisepul@umich.edu"},]
+keywords = ["solr", "full-text-search", "HathiTrust"]
+requires-python = ">=3.11"
+dependencies = [
+    "requests>=2.31.0",
+    "pandas>=2.1.4",
+    "pyyaml>=6.0.1",
+    "solrq>=1.1.2",
+    "matplotlib>=3.8.2",
+    "pytest>=8.0.2",
+    "fastapi>=0.111.1",
+    "uvicorn>=0.30.3",
+    "openpyxl>=3.1.5"
+]
+
+packages = [
+    { include = "ht_full_text_search", from = "."}
+    ]
 
 [tool.poetry.dependencies]
-python = "^3.11"
-requests = "^2.31.0"
-pandas = "^2.1.4"
-pyyaml = "^6.0.1"
-solrq = "^1.1.2"
-matplotlib = "^3.8.2"
-pytest = "^8.0.2"
-fastapi = "^0.111.1"
-uvicorn = "^0.30.3"
-openpyxl = "^3.1.5"
+    requests = "^2.31.0"
+    pandas ="^2.1.4"
+    pyyaml ="^6.0.1"
+    solrq = "^1.1.2"
+    matplotlib ="^3.8.2"
+    pytest ="^8.0.2"
+    fastapi ="^0.111.1"
+    uvicorn ="^0.30.3"
+    openpyxl ="^3.1.5"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.2.2"
 pytest = "^8.0.2"
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["poetry-core>=2.1.1"] # Define the list of dependencies required to build your package. It is a mandatory field
+build-backend = "poetry.core.masonry.api" # The Python object used to perform the build
+

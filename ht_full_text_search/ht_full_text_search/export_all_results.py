@@ -1,19 +1,14 @@
 import json
-import inspect
 import os
-import sys
-from argparse import ArgumentParser
-
 import requests
 import yaml
+from pathlib import Path
+from argparse import ArgumentParser
 from requests.auth import HTTPBasicAuth
 
+from ht_full_text_search.config_files import config_files_path
 # Add the parent directory ~/ht_full_text_search into the PYTHONPATH.
-current = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-parent = os.path.dirname(current)
-sys.path.insert(0, parent)
-
-from config_search import default_solr_params, FULL_TEXT_SOLR_URL
+from ht_full_text_search.config_search import default_solr_params, FULL_TEXT_SOLR_URL
 
 # This is a quick attempt to do a query to solr more or less as we issue it in
 # production and to then export all results using the cursorMark results
@@ -28,31 +23,35 @@ from config_search import default_solr_params, FULL_TEXT_SOLR_URL
 # If you want to do a phrase query, be sure to surround it in double quotes, e.g.
 # poetry run python3 ht_full_text_search/export_all_results.py '"a phrase"'
 
-# TODO: ht_full_text_search should change to become the python library we use for quering our Solr clusters. Right now,
+# TODO: ht_full_text_search should change to become the python library we use for querying our Solr clusters. Right now,
 # the code is implemented to run queries only in the full text search cluster. We should have a more generic way to
 # query any Solr cluster we have, including the catalog ones.
-# We should have a way to configure the Solr cluster we want to query, the environment, the collection, etc.
-# We should have a way to configure the fields we want to return in the query results
-# We should have a way to configure the fields we want to use in the query
-# We should have a way to configure the fields we want to use in the query to boost the results
+# We should have a way:
+#  to configure the Solr cluster we want to query, the environment, the collection, etc.
+#  to configure the fields we want to return in the query results
+#  to configure the fields we want to use in the query
+#  to configure the fields we want to use in the query to boost the results
 
-# We should have generic classes to Search, make queries, filters and facets and print the query results.
-# We should create specific classes (catalog => catalog-api, catalog-monitoring, fulltext => fulltext-api,
+# We should have generic classes to Search, make queries, filters, and facets and print the query results.
+# We should create specific classes/endpoints (catalog => catalog-api, catalog-monitoring, fulltext => fulltext-api,
 # fulltext-monitoring) children of the generic ones that have their own ways to make queries
 
 # TODO: Implement the class to manage Solr query results.
 # Specify the fields to show in the query result
 # Specify if the Solr debug output will be show.Create our onw debug dictionary with fields we decide,
 # e.g. QTime, status, shards, etc.
-def process_results(item: dict) -> str:
+def process_results(item: dict, list_output_fields: list) -> str:
 
-    """ Prepare the dictionary with Solr results to be exported as JSON """
+    """ Prepare the dictionary with Solr results to be exported as JSON
+    Args:
+        item (dict): The Solr result item.
+        list_output_fields (list): List of fields to include in the output.
+    Returns:
+        str: JSON string of the processed result.
+    """
 
-    return json.dumps({
-        "id": item["id"],
-        "author": item.get("author", []),
-        "title": item.get("title", [])
-    })
+    result = {field: item.get(field, None) for field in list_output_fields}
+    return json.dumps(result)
 
 
 def solr_query_params(query_config_file=None, conf_query="ocr"):
@@ -125,14 +124,14 @@ class SolrExporter:
 
         return response
 
-    def run_cursor(self, query_string, query_config_path=None, conf_query="ocr"):
+    def run_cursor(self, query_string, query_config_path=None, conf_query="ocr", list_output_fields: list = None):
 
         # TODO: This function will receive the query string and the query type (ocr or all). From memory, it will
         # instantiate the query parameters (params["q"]) and run the query.
         # See below how the params dictionary is created. As the fields about the query are already in memory, we should
         # update the field q in the params dictionary with the query string and run the query.
 
-        """ Run the cursor to export all result
+        """ Run the cursor to export all results
 
         params = {'cursorMark': '*',
         'debugQuery': 'true',
@@ -143,13 +142,20 @@ class SolrExporter:
         'wt': 'json'}
 
         The cursorMark parameter is used to keep track of the current position in the result set.
+        :param list_output_fields:
         :param conf_query:
         :param query_config_path:
-        :param query_string: str, query string
+        :param query_string: Str, query string
         :return: generator
         """
 
         params = default_solr_params(self.environment)
+
+        # Replace the default list of fields with the one passed as a parameter
+        if list_output_fields is not None:
+            params["fl"] = ",".join(list_output_fields)
+        else:
+            list_output_fields = params["fl"].split(",")
         params["cursorMark"] = "*"
         # TODO: Implement the feature to access to Solr debug using this python script
         params["debugQuery"] = "true"
@@ -161,7 +167,7 @@ class SolrExporter:
             output = json.loads(results.content)
 
             for result in output['response']['docs']:
-                yield process_results(result)
+                yield process_results(result, list_output_fields)
             if params["cursorMark"] != output["nextCursorMark"]:
                 params["cursorMark"] = output["nextCursorMark"]
             else:
@@ -208,8 +214,9 @@ if __name__ == "__main__":
     solr_exporter = SolrExporter(solr_url, args.env,
                                  user=os.getenv("SOLR_USER"), password=os.getenv("SOLR_PASSWORD"))
 
-    query_config_file_path = os.path.join(os.path.abspath(os.path.join(parent)),
-                                          'config_files', 'full_text_search', 'config_query.yaml')
+    query_config_file_path = Path(
+        config_files_path, "full_text_search/config_query.yaml"
+    )
 
     # '"good"'
     for x in solr_exporter.run_cursor(args.query, query_config_path=query_config_file_path, conf_query="ocr"):

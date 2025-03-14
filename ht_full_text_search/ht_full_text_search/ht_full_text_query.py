@@ -1,7 +1,7 @@
 # Perl file: LS::Query:FullTest.pm
 from typing import Text
 
-from config_search import QUERY_PARAMETER_CONFIG_FILE, FACET_FILTERS_CONFIG_FILE
+from ht_full_text_search.config_search import QUERY_PARAMETER_CONFIG_FILE, FACET_FILTERS_CONFIG_FILE
 from ht_query.ht_query import HTSearchQuery
 
 

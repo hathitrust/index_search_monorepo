@@ -62,7 +62,7 @@ The API is based on the [FastAPI](https://fastapi.tiangolo.com/) library.
 * In your work directory,
   * Run the script `./init.sh` to create the image and set up all the environment variables used in the application
   * Start the container with the service involved in the search
-  `docker-compose up -d`
+  `docker compose up -d`
   **Note**: The container will take some minutes to start because it will start:
     * the Solr server with authentication. In docker, all the users (`admin`, `solr`, `fulltext`) use the same password `solrRocks`
     * the application to search the documents in the Solr server
@@ -209,29 +209,26 @@ Use case 1 is implemented in the `ht_full_text_searcher.py` script. The script r
 
 
 * Example of command to run the application with the query you want to search in the Solr server. 
-The command below will search the exact phrase `justice blame` in the full text of the documents because operator is None.
+The command below will search the exact phrase `Congreso de los Diputados` in the full text of the documents because operator is None.
     ```docker compose exec full_text_searcher python ht_full_text_search/ht_full_text_searcher.py \
     --env dev \
-    --query_string "justice blame" \
+    --query_string "Congreso de los Diputados" \
     --query_config ocronly 
     ```
-  * The output of the command below is a list of documents that contain the exact phrase `justice blame` in the full text,
+  * The output of the command below is a list of documents that contain the exact phrase `Congreso de los Diputados` in the full text,
   
     ```
-    [
-    {'id': 'iau.31858045768748', 
-    'author': ['Kyd, Thomas, 1558-1594.'], 
-    'title': ['The first part of Jeronimo'], 
-    'score': 52303.336},
-    {'id': 'mdp.39015000130438', 
-    'author': ['Chaucer, Geoffrey, -1400.', 
-    'Hitchins, Henry Luxmoore, 1885-'], 
-    'title': ['Canterbury tales. : Chaucer for present-day readers'], 
-    'score': 39378.035}
-    .
-    .
-    .
-    ]
+    {
+    "title": [
+        "Diario de las sesiones ... Legislatura ..."
+    ],
+    "author": [
+        "Spain. Cortes. Congreso de los Diputados"
+    ],
+    "id": "chi.096189208",
+    "shard": null,
+    "score": 284897.53
+    }
     ```
 **Use case 2**: Run a batch of queries and save the results in a csv file. This use case is based on use case 1 to
 retrieve documents from Solr. However, in this case, the application will receive a list of phrases to search in the 
@@ -266,9 +263,9 @@ example of the name of the CSV file:
 
 * Example of command to run the application with the queries you want to search in the Solr server
 
-        ```docker compose exec full_text_searcher python ht_full_text_search/generate_query_results_in_batch.py \
+        ```docker compose exec full_text_searcher python scripts/generate_query_results_in_batch.py \
               --env dev \
-              --list_phrase_file ~/list_query_file.txt \
+              --list_phrase_file scripts/list_query_file.txt \
               --query_config ocronly
         ```
   

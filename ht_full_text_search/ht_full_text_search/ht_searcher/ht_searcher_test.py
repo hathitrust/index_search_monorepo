@@ -1,8 +1,8 @@
 import pytest
 import os
 
-import config_search
-from ht_searcher.ht_searcher import HTSearcher
+from ht_full_text_search import config_search
+from ht_full_text_search.ht_searcher.ht_searcher import HTSearcher
 
 """
 {"responseHeader":{"zkConnected":true,"status":0,"QTime":3,"params":{"q":"*:*","indent":"off","fl":"id","start":"0","json":"","rows":"10","wt":"json"}},
