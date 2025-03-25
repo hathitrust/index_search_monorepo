@@ -28,24 +28,20 @@ def xmlesc(txt):
 
 def string_preparation(doc_content: bytes) -> str:
     """
-    Clean up a byte object and convert it to string
-    :param doc_content: XML string
-    :return:
+    Clean up a byte object and convert it to a string efficiently.
+    :param doc_content: XML string as bytes
+    :return: Processed string
     """
 
-    # Make sure you will be able to convert the byte the full text
     try:
-        # Convert byte to str
-        str_content = str(doc_content.decode())
+        str_content = doc_content.decode('utf-8')
     except UnicodeDecodeError as e:
-        logger.error(f"File encode incompatible with UTF-8 {e}")
+        logger.error(f"File encoding incompatible with UTF-8: {e}")
         raise e
 
-        # Remove line breaks
-    str_content = str_content.replace("\n", " ")
+    # Use regex once to remove line breaks and extra spaces
+    str_content = re.sub(r"\s+", " ", str_content)
 
-    # Remove extra white spaces
-    str_content = re.sub(" +", " ", str_content)
     return quoteattr(str_content)
 
 

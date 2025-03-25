@@ -69,13 +69,13 @@ class TestDocumentGenerator:
 
         zip_doc = zipfile.ZipFile(zip_doc_path, mode="r")
         with pytest.raises(UnicodeDecodeError):
-            full_test = FullTextDocumentGenerator.txt_files_2_full_text(zip_doc)
+            full_text = FullTextDocumentGenerator.txt_files_2_full_text(zip_doc)
 
             for i_file in zip_doc.namelist():
                 if i_file.startswith('__MACOSX/'):
                     if zip_doc.getinfo(i_file).filename.endswith(".txt"):
                         doc_str = string_preparation(zip_doc.read(i_file))
-                        full_test = full_test + " " + doc_str
+                        full_text = full_text + " " + doc_str
 
     def test_full_text_field(self):
         zip_path = f"{Path(__file__).parents[1]}/data/document_generator/mb.39015078560292_test.zip"

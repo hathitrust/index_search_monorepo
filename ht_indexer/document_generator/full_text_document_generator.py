@@ -1,5 +1,6 @@
 import zipfile
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 from document_generator.mysql_data_extractor import MysqlMetadataExtractor
 from ht_utils.ht_mysql import HtMysql
@@ -70,24 +71,23 @@ class FullTextDocumentGenerator:
     @staticmethod
     def txt_files_2_full_text(zip_doc: zipfile.ZipFile):
         """
-        Read all the .TXT files in the input folder and concatenate the content of all of them in a single string
-        :return: String with the content of all the .TXT files
+        Read all .TXT files in a zip and concatenate their contents.
+        :return: Single string with all text files concatenated.
         """
-        # TODO: Check MACOSX files in the logs to know if the ZIP files with this folder is being processed correctly
-        # and if the full text is being generated correctly
-        # check the logs te see the among of files with this messages to determine if we need the line
-        # if not i_file.startswith('__MACOSX/') or if we need to include a resource forks in the code
-        # python library to handle resource forks => phttps://pypi.org/project/rsrcfork/
-        full_text_parts = []
-        macosx_files = False
-        for i_file in zip_doc.namelist():
-            if not i_file.startswith('__MACOSX/'):
-                if zip_doc.getinfo(i_file).filename.endswith(".txt"):
-                    full_text_parts.append(string_preparation(zip_doc.read(i_file)))
-            else:
-                macosx_files = True
+        macosx_files = any(i_file.startswith('__MACOSX/') for i_file in zip_doc.namelist())
+
+        # Get only .txt files and sort them by name
+        txt_files = sorted([i_file for i_file in zip_doc.namelist() if
+                     i_file.endswith('.txt') and not i_file.startswith('__MACOSX/')])
+
+        # Process files in parallel
+        with ThreadPoolExecutor() as executor:
+            full_text_parts = list(executor.map(lambda f: string_preparation(zip_doc.read(f)), txt_files))
+
+        # Log if __MACOSX was found
         if macosx_files:
             logger.info(f"{zip_doc.filename} contains __MACOSX directory")
+
         return " ".join(full_text_parts)
 
     @staticmethod

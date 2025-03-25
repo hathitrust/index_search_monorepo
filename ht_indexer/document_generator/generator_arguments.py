@@ -31,11 +31,13 @@ def get_mysql_conn():
         logger.error("Error: `MYSQL_PASS` environment variable required")
         sys.exit(1)
 
+    # Use pool_size=1 because we are using the connection in a single thread
     ht_mysql = ht_utils.ht_mysql.HtMysql(
         host=mysql_host,
         user=mysql_user,
         password=mysql_pass,
-        database=os.getenv("MYSQL_DATABASE", "ht")
+        database=os.getenv("MYSQL_DATABASE", "ht"),
+        pool_size=1
     )
 
     logger.info("Access by default to `ht` Mysql database")

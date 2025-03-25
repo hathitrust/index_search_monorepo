@@ -42,19 +42,6 @@ class MysqlMetadataExtractor:
     def __init__(self, db_conn: HtMysql):
         self.mysql_obj = db_conn
 
-    def get_results_query(self, query: str) -> list:
-
-        results = self.mysql_obj.query_mysql(query=query)
-
-        list_docs = []
-        for row in results:
-            doc = {}
-            for name, value in zip(self.mysql_obj.cursor.description, row):
-                doc.update({name[0]: value})
-            list_docs.append(doc)
-
-        return list_docs
-
     def add_large_coll_id_field(self, doc_id: str) -> [dict]:
         """
         Get the list of coll_ids for the given id that are large so those

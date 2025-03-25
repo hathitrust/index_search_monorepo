@@ -59,6 +59,8 @@ class DocumentIndexerQueueService(QueueMultipleConsumer):
                 f"Success process=indexing {len(batch)} items."
                 f"Operation status: {response.status_code} Time={time.time() - start_time:.10f} ")
 
+            response.raise_for_status()
+
             # Acknowledge all messages in batch
             for delivery_tag in delivery_tags:
                 positive_acknowledge(self.conn.ht_channel, delivery_tag)
