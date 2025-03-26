@@ -19,7 +19,6 @@ class HtMysql:
         if not HtMysql._pool:
             HtMysql.create_connection_pool(host=host, user=user, password=password, database=database,
                                            pool_size=pool_size)
-        self.db_conn = HtMysql.get_connection_from_pool()
 
     def query_mysql(self, query: str = None) -> list[Any] | None | list[dict[Any, Any]]:
 
