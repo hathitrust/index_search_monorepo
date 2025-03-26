@@ -80,9 +80,7 @@ class FullTextDocumentGenerator:
         txt_files = sorted([i_file for i_file in zip_doc.namelist() if
                      i_file.endswith('.txt') and not i_file.startswith('__MACOSX/')])
 
-        # Process files in parallel
-        with ThreadPoolExecutor() as executor:
-            full_text_parts = list(executor.map(lambda f: string_preparation(zip_doc.read(f)), txt_files))
+        full_text_parts = [string_preparation(zip_doc.read(f)) for f in txt_files]
 
         # Log if __MACOSX was found
         if macosx_files:
