@@ -98,7 +98,10 @@ class FullTextDocumentGenerator:
             raise FileNotFoundError(f"File {zip_doc_path} not found")
 
         with zipfile.ZipFile(zip_doc_path, mode="r") as zip_doc:
-            full_text = FullTextDocumentGenerator.txt_files_2_full_text(zip_doc)
+            file_contents = {name: string_preparation(zip_doc.read(name)) for name in zip_doc.namelist() if
+                             name.endswith('.txt') and not name.startswith('__MACOSX/')}
+            full_text = " ".join([file_contents[key] for key in sorted(file_contents)])
+
         return full_text
 
     @staticmethod

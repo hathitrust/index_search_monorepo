@@ -37,14 +37,12 @@ def string_preparation(doc_content: bytes) -> str:
 
     try:
         str_content = doc_content.decode('utf-8')
+        # Remove line breaks and extra spaces
+        str_content = str_content.replace('\r', ' ').replace('\n', ' ')
+        return quoteattr(str_content.strip())
     except UnicodeDecodeError as e:
         logger.error(f"File encoding incompatible with UTF-8: {e}")
         raise e
-
-    # Remove line breaks and extra spaces
-    str_content = str_content.replace('\r', '').replace('\n', '')
-    return quoteattr(str_content)
-
 
 def escape_values(value) -> str:
     if isinstance(value, str):
