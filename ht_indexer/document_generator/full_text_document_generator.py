@@ -1,6 +1,5 @@
 import zipfile
 import time
-from concurrent.futures import ThreadPoolExecutor
 
 from document_generator.mysql_data_extractor import MysqlMetadataExtractor
 from ht_utils.ht_mysql import HtMysql
@@ -74,17 +73,12 @@ class FullTextDocumentGenerator:
         Read all .TXT files in a zip and concatenate their contents.
         :return: Single string with all text files concatenated.
         """
-        macosx_files = any(i_file.startswith('__MACOSX/') for i_file in zip_doc.namelist())
 
         # Get only .txt files and sort them by name
         txt_files = sorted([i_file for i_file in zip_doc.namelist() if
                      i_file.endswith('.txt') and not i_file.startswith('__MACOSX/')])
 
         full_text_parts = [string_preparation(zip_doc.read(f)) for f in txt_files]
-
-        # Log if __MACOSX was found
-        if macosx_files:
-            logger.info(f"{zip_doc.filename} contains __MACOSX directory")
 
         return " ".join(full_text_parts)
 

@@ -1,6 +1,8 @@
 import re
+from datetime import time
 from typing import Dict, List
 from xml.sax.saxutils import quoteattr
+import time
 
 from ht_utils.ht_logger import get_ht_logger
 
@@ -39,9 +41,8 @@ def string_preparation(doc_content: bytes) -> str:
         logger.error(f"File encoding incompatible with UTF-8: {e}")
         raise e
 
-    # Use regex once to remove line breaks and extra spaces
-    str_content = re.sub(r"\s+", " ", str_content)
-
+    # Remove line breaks and extra spaces
+    str_content = str_content.replace('\r', '').replace('\n', '')
     return quoteattr(str_content)
 
 
