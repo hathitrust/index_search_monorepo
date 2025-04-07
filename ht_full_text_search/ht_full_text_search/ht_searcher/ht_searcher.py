@@ -3,10 +3,9 @@ import json
 
 from requests.auth import HTTPBasicAuth
 
-from config_search import add_shards
-from ht_query.ht_query import HTSearchQuery
-from typing import Text, List, Dict
-
+from ht_full_text_search.config_search import add_shards
+from ht_full_text_search.ht_query.ht_query import HTSearchQuery
+from typing import Text, List, Dict, Any, Generator
 
 """
 Perl
@@ -108,7 +107,7 @@ class HTSearcher:
             query_filter: bool = False,
             filter_dict: Dict = None,
             rows: int = 100,
-            start: int = 0) -> Dict:
+            start: int = 0) -> Generator[Any, Any, None]:
 
         """
         Query Solr and return the results
@@ -131,7 +130,6 @@ class HTSearcher:
         if self.environment == "prod":
             add_shards(query_dict)
             query_dict["shards.info"] = "true"
-        print(query_dict)
 
         query_dict.update({"start": start, "rows": rows})
 
@@ -141,7 +139,6 @@ class HTSearcher:
 
         try:
             total_records = output.get("response").get("numFound")
-            print(total_records)
         except Exception as e:
             print(f"Solr index {self.solr_url} seems empty {e}")
             exit()

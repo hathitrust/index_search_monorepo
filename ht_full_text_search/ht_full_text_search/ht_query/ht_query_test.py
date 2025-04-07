@@ -1,5 +1,5 @@
-from ht_query.ht_query import HTSearchQuery
-from config_search import QUERY_PARAMETER_CONFIG_FILE, FACET_FILTERS_CONFIG_FILE
+from ht_full_text_search.ht_query.ht_query import HTSearchQuery
+from ht_full_text_search.config_search import QUERY_PARAMETER_CONFIG_FILE, FACET_FILTERS_CONFIG_FILE
 
 
 def ht_search_query_object():

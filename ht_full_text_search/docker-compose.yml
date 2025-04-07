@@ -14,7 +14,10 @@ services:
     tty: true
     container_name: full_text_searcher
   full_text_search_api:
-    image: ghcr.io/hathitrust/ht_full_text_search:unstable
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
     environment: *solr_env
     stdin_open: true
     depends_on:
@@ -27,7 +30,10 @@ services:
     command: [ "python", "main.py", "--env", $ENV ]
   test:
     container_name: full_text_searcher_test
-    image: ghcr.io/hathitrust/ht_full_text_search:unstable
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
     environment: *solr_env
     volumes:
       - .:/app

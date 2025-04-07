@@ -5,7 +5,7 @@ from argparse import ArgumentParser
 
 import pandas as pd
 
-from config_search import FULL_TEXT_SOLR_URL
+from ht_full_text_search.config_search import FULL_TEXT_SOLR_URL
 from ht_full_text_search.ht_full_text_query import HTFullTextQuery
 from ht_full_text_search.ht_full_text_searcher import HTFullTextSearcher
 

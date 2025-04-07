@@ -10,7 +10,7 @@ from statistics import mean, median
 
 from requests.auth import HTTPBasicAuth
 
-from config_search import FULL_TEXT_SOLR_URL, CATALOG_SOLR_URL
+from ht_full_text_search.config_search import FULL_TEXT_SOLR_URL, CATALOG_SOLR_URL
 from ht_full_text_search.export_all_results import SolrExporter
 
 current = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
@@ -18,12 +18,17 @@ parent = os.path.dirname(current)
 sys.path.insert(0, parent)
 
 def send_solr_query(solr_base_url: str, query: dict = None,
-                    user: str = None, password: str = None, response_times: list = None, error_count: int = 0,
-                    total_queries: int = 0) -> None:
+                    user: str = None, password: str = None, response_times: list = None,
+                    error_count: int = 0, total_queries: int = 0) -> None:
     """
     Send a query to Solr and measure the response time.
+    :param total_queries:
+    :param error_count:
+    :param response_times:
+    :param password:
+    :param user:
+    :param query:
     :param solr_base_url:
-    :param collection_name:
     :return:
     """
 
@@ -86,8 +91,8 @@ def main():
     args = parser.parse_args()
 
     # Set the experiment parameters
-    INTERVAL = 1  # seconds
-    TEST_DURATION = 60  # seconds
+    interval = 1  # seconds
+    test_duration = 60  # seconds
     response_times = []
     error_count = 0
     total_queries = 0
@@ -112,7 +117,7 @@ def main():
         solr_base_url = f"{solr_host}/solr/{args.collection_name}"
 
 
-    while time.time() - start_time < TEST_DURATION:
+    while time.time() - start_time < test_duration:
         # TODO: Generate a random Solr query using different kind of queries and parameters
         # Query by id,
         # Query that involves different shards by title, query by author, query by date, query by source
@@ -128,7 +133,7 @@ def main():
         for x in solr_exporter.run_cursor(query, query_config_file_path, conf_query=conf_query):
             print(x)
 
-        time.sleep(INTERVAL)
+        time.sleep(interval)
 
     # Only for Catalog queries
     print_metrics(response_times, error_count, total_queries)

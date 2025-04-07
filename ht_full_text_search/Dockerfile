@@ -2,7 +2,7 @@
 FROM python:3.11-slim-bookworm AS base
 
 # Allowing the argumenets to be read into the dockerfile. Ex:  .env > compose.yml > Dockerfile
-ARG POETRY_VERSION=1.5.1
+ARG POETRY_VERSION=2.1.1
 # ENV=dev => development / ENV=prod => production
 ARG ENV=dev
 
@@ -27,7 +27,7 @@ ENV PYTHONUNBUFFERED=1\
 RUN pip install poetry==${POETRY_VERSION}
 
 # Install the app. Just copy the files needed to install the dependencies
-COPY pyproject.toml poetry.lock README.md ./
+COPY pyproject.toml poetry.lock README.md LICENSE ./
 COPY solr_dataset/ ./solr_dataset
 COPY --chown=app:app --chmod=0755 indexing_data.sh ./indexing_data.sh
 
@@ -36,13 +36,14 @@ COPY --chown=app:app --chmod=0755 indexing_data.sh ./indexing_data.sh
 # --without dev to avoid installing dev dependencies, we do not need test and linters in production environment
 # --with dev to install dev dependencies, we need test and linters in development environment
 # --mount, mount a folder for plugins with poetry cache, this will speed up the process of building the image
-RUN if [ {${ENV}="dev"} ]; then \
-  echo "Installing dev dependencies"; \
-  poetry install --no-root --with dev \
-  else \
-  echo "Skipping dev dependencies"; \
+
+RUN if [ "${ENV}" = "dev" ]; then \
+  echo "Installing dev dependencies" && \
+  poetry install --no-root --with dev; \
+else \
+  echo "Skipping dev dependencies" && \
   poetry install --no-root --without dev && rm -rf ${POETRY_CACHE_DIR}; \
-  fi
+fi
 
 # Set up our final runtime layer
 FROM python:3.11-slim-bookworm AS runtime
