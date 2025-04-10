@@ -41,11 +41,10 @@ class HTSolrAPI:
     def index_documents(self, list_documents: list = None, solr_url_json: str = 'update/json/docs'):
         """Read an XML and feed into SOLR for indexing"""
         response = requests.post(
-            f"{self.url.replace('#/', '')}{solr_url_json}?commit=true",
+            f"{self.url.replace('#/', '')}{solr_url_json}",
             headers={"Content-Type": "application/json"},
             auth=self.auth,
-            data=orjson.dumps(list_documents),
-            params={"commit": "true"},
+            data=orjson.dumps(list_documents)
         )
         return response
 
