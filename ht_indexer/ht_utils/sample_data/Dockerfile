@@ -26,7 +26,7 @@ WORKDIR /app
 
 ENV PYTHONPATH "${PYTHONPATH}:/app"
 
-COPY ../../requirements.txt ./
+COPY requirements.txt ./
 
 RUN set -ex \
     # Create a non-root user

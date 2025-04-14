@@ -50,10 +50,10 @@ def retrieve_documents_by_file(solr_api_url, queue_name, queue_host, queue_user,
 
             logger.info(f"Total of items to process {len(ids2process)}")
 
-            tmp_file_status = open(os.path.join(current, "document_retriever_status.txt"), "w+")
-            for doc in processed_ids:
-                tmp_file_status.write(doc + "\n")
-            tmp_file_status.close()
+            with open(status_file, "w") as tmp_file_status:
+                for doc in processed_ids:
+                    tmp_file_status.write(doc + "\n")
+                tmp_file_status.close()
 
             while ids2process:
                 list_documents, ids2process = ids2process[:200], ids2process[200:]

@@ -49,8 +49,8 @@ class TestHTSolrAPI:
         list_documents = ["39015078560292_solr_full_text.xml"]
 
         # Act
-        response = get_solr_api.index_documents_by_file(document_path, list_documents=list_documents, solr_url_json="update/",
-                                                        headers={"Content-Type": "application/xml"})
+        response = get_solr_api.index_documents_by_file(document_path, list_documents=list_documents,
+                                                        solr_url_json="update/")
 
         # Assert
         assert response.status_code == 200
@@ -86,8 +86,7 @@ class TestHTSolrAPI:
         )  # "data/delete"
         list_documents = ["39015078560292-1-1-flat.solr_delete.xml"]
 
-        response = get_solr_api.index_documents_by_file(document_path, list_documents=list_documents, solr_url_json="update/",
-                                                        headers={"Content-Type": "application/xml"})
+        response = get_solr_api.index_documents_by_file(document_path, list_documents=list_documents, solr_url_json="update/")
         assert response.status_code == 200
 
     def test_get_documents_failed(self, get_fake_solr_api):

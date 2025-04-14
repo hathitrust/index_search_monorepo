@@ -1,9 +1,30 @@
 services:
+  ht_indexer_tracker:
+    container_name: ht_indexer_tracker
+    image: document_generator
+    volumes:
+      - ../tmp:/tmp:rm
+      - ../sdr1/obj:/sdr1/obj
+      - .:/app
+    environment:
+      SOLR_URL: http://solr-sdr-catalog:9033/solr/#/catalog/
+      SDR_DIR: /sdr1/obj
+      SOLR_USER: solr
+      SOLR_PASSWORD: 'solrRocks'
+      MYSQL_USER: mdp-admin
+      MYSQL_PASS: mdp-admin
+    depends_on:
+      solr-sdr-catalog:
+        condition: service_healthy
+      mysql-sdr:
+        condition: service_healthy
+    tty: true
+    stdin_open: true
   document_retriever:
     container_name: document_retriever
     image: document_generator
     volumes:
-      - ../tmp:/tmp:rm
+      - ../tmp:/tmp
       - ../sdr1/obj:/sdr1/obj
       - .:/app
     ports:
@@ -15,13 +36,20 @@ services:
       QUEUE_NAME: retriever_queue
       QUEUE_PASS: guest
       QUEUE_USER: guest
+      SOLR_USER: solr
+      SOLR_PASSWORD: 'solrRocks'
+      MYSQL_USER: mdp-admin
+      MYSQL_PASS: mdp-admin
     depends_on:
       solr-sdr-catalog:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+      mysql-sdr:
+        condition: service_healthy
     tty: true
     stdin_open: true
+    command: [ "python", "document_retriever_service/full_text_search_retriever_service.py", "--query_field", "item" ]
   mysql-sdr:
     image: ghcr.io/hathitrust/db-image
     volumes:
@@ -31,8 +59,8 @@ services:
       - "3306:3306"
     environment:
       MYSQL_HOST: mysql-sdr
-      MYSQL_USER: mdp-lib
-      MYSQL_PASS: mdp-lib
+      MYSQL_USER: mdp-admin
+      MYSQL_PASS: mdp-admin
       MYSQL_DATABASE: ht
       MYSQL_RANDOM_ROOT_PASSWORD: 1
     healthcheck:
@@ -164,11 +192,14 @@ services:
       retries: 5
   all_tests:
     container_name: all_tests
-    build: .
+    build:
+      context: .
+      args:
+        ENV: ${ENV:-dev}
     volumes:
       - .:/app
       - ../tmp:/tmp
-    command: [ "pytest" ]
+    command: [ "python", "-m", "pytest" ]
     depends_on:
       solr-sdr-catalog:
         condition: service_healthy
@@ -176,8 +207,11 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+      mysql-sdr:
+        condition: service_healthy
 volumes:
   mysql_sdr_data:
   solr1_data: null
   zoo1_data: null
+  mysql_retriever_data:
 

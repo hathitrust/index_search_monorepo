@@ -9,8 +9,11 @@ import ht_utils.ht_utils
 from catalog_metadata.catalog_metadata import CatalogItemMetadata
 from document_retriever_service.catalog_retriever_service import CatalogRetrieverService
 from document_retriever_service.retriever_arguments import RetrieverServiceArguments
+from ht_indexer_monitoring.ht_indexer_tracktable import HT_INDEXER_TRACKTABLE, PROCESSING_STATUS_TABLE_NAME
+
 from ht_utils.ht_logger import get_ht_logger
 from ht_queue_service.queue_producer import QueueProducer
+from ht_utils.ht_mysql import get_mysql_conn
 
 logger = get_ht_logger(name=__name__)
 
@@ -102,29 +105,40 @@ class FullTextSearchRetrieverQueueService:
         return total_documents
 
     @staticmethod
-    def publishing_documents(queue_producer, result):
+    def publishing_documents(queue_producer, result, mysql_db):
 
         processed_items = []
+        failed_items = []
+        processed_update_query = "UPDATE ht_indexer_tracktable SET status = %s, retriever_status = %s, processed_at = %s WHERE ht_id = %s"
+        failed_update_query = "UPDATE ht_indexer_tracktable SET status = %s, retriever_status = %s, processed_at = %s, error = %s WHERE ht_id = %s"
+
         for record in result:
 
             item_metadata, item_id = FullTextSearchRetrieverQueueService.generate_metadata(record)
-
             logger.info(f"Publishing document {item_id}")
 
             # Try to publish the document in the queue, if an error occurs, log the error and continue to the next
-            # TODO: Add a mechanism to send the message to a dead letter queue
             try:
                 publish_document(queue_producer, item_metadata)
+                processed_items.append(('processing', 'completed', ht_utils.ht_utils.get_current_time(), item_id))
 
-                # Update the status of the item in a table
-                processed_items.append(item_id)
             except Exception as e:
                 error_info = ht_utils.ht_utils.get_error_message_by_document("FullTextSearchRetrieverQueueService",
                                                                              e, item_metadata)
 
+                failed_items.append(('failed', 'failed', ht_utils.ht_utils.get_current_time(),
+                                    f"{error_info.get('service_name')}_{error_info.get('error_message')}",
+                                    error_info.get('ht_id')))
+
                 logger.error(f"Error in publishing document {item_id} {error_info}")
                 continue
-        return processed_items
+
+        # Update the status of the items in MySQL table
+        if len(failed_items)>0:
+            mysql_db.update_status(failed_update_query, failed_items)
+
+        if len(processed_items)>0:
+            mysql_db.update_status(processed_update_query, processed_items)
 
     def full_text_search_retriever_service(self, initial_documents, start, rows, by_field: str = 'item'):
         """
@@ -133,6 +147,8 @@ class FullTextSearchRetrieverQueueService:
         """
         # Create a connection to Solr Api
         catalog_retriever = CatalogRetrieverService(self.solr_api_url)
+        # Create a connection to the MySQL database
+        mysql_db = get_mysql_conn(pool_size=1)
 
         # Create a connection to the queue to produce messages
         queue_producer = self.get_queue_producer()
@@ -140,7 +156,6 @@ class FullTextSearchRetrieverQueueService:
         total_documents = FullTextSearchRetrieverQueueService.count_documents(catalog_retriever, initial_documents,
                                                                               start, rows, by_field)
         count_records = 0
-        processed_items = []
         while count_records < total_documents:
 
             chunk = initial_documents[count_records:count_records + rows]
@@ -151,22 +166,14 @@ class FullTextSearchRetrieverQueueService:
             except Exception as e:
                 error_info = ht_utils.ht_utils.get_general_error_message("FullTextSearchRetrieverQueueService",
                                                                          e)
-
                 logger.error(f"Error in getting documents from Solr {error_info}")
                 continue
 
             # Publish the documents in the queue
-            processed_chunk_items = FullTextSearchRetrieverQueueService.publishing_documents(queue_producer, result)
-
-            processed_items.extend(processed_chunk_items)
+            FullTextSearchRetrieverQueueService.publishing_documents(queue_producer, result, mysql_db)
 
             count_records += len(result)
             logger.info(f"Total of processed items {count_records}")
-
-        non_processed_items = list(set(initial_documents) - set(processed_items))
-        # TODO: Update the status of non processed items in a table
-        logger.info(f"Total of non processed items {non_processed_items}")
-
 
 def run_retriever_service(parallelize, num_threads, total_documents, list_documents, by_field, document_indexer_service,
                           start, rows):
@@ -190,6 +197,7 @@ def run_retriever_service(parallelize, num_threads, total_documents, list_docume
         else:
             n_cores = multiprocessing.cpu_count()
 
+        # The number of MySQL connections is equal to batch_size
         if total_documents:
             batch_size = round(total_documents / n_cores + 0.5)
         else:
@@ -231,21 +239,50 @@ def main():
         init_args_obj.queue_user,
         init_args_obj.queue_password)
 
+    # by_field is use to define the type of query to retrieve the documents (by item or by record).
+    # by_field = item => MySQL query will return the ht_id of the items
+    # by_field = record => MySQL query will return the id of the records
+    # To retrieve documents from Catalog the field is also used to define the type of query
+
     by_field = init_args_obj.query_field
     list_documents = init_args_obj.list_documents
-    start_time = time.time()
 
-    logger.info(f"Total of documents to process {len(list_documents)}")
-    parallelize = True
+    if len(list_documents) == 0:
 
-    # TODO: Define the number of threads to use
-    nthreads = None
+        # If the table does not exist, stop the process
+        if not init_args_obj.db_conn.table_exists(PROCESSING_STATUS_TABLE_NAME):
+            logger.error(f"{PROCESSING_STATUS_TABLE_NAME} does not exist")
+            init_args_obj.db_conn.create_table(HT_INDEXER_TRACKTABLE)
 
-    total_documents = len(list_documents)
-    run_retriever_service(parallelize, nthreads, total_documents, list_documents, by_field, document_retriever_service,
-                          init_args_obj.start, init_args_obj.rows)
+        # The process will run every 5 minutes to check if there are documents to process
+        while True:
+            list_documents = init_args_obj.db_conn.query_mysql(init_args_obj.retriever_query)
+            if len(list_documents) == 0:
+                logger.info("No documents to process")
+                time.sleep(300)
+                continue
+            else:
+                if by_field == 'record':
+                    list_documents = [record['record_id'] for record in list_documents]
 
-    logger.info(f"Total time to retrieve and generate documents {time.time() - start_time:.10f}")
+                if by_field == 'item':
+                    list_documents = [record['ht_id'] for record in list_documents]
+
+            start_time = time.time()
+
+            logger.info(f"Total of documents to process {len(list_documents)}")
+            parallelize = True
+
+            # TODO: Define the number of threads to use
+            nthreads = None
+
+            total_documents = len(list_documents)
+            run_retriever_service(parallelize, nthreads, total_documents, list_documents, by_field, document_retriever_service,
+                                  init_args_obj.start, init_args_obj.rows)
+
+
+
+            logger.info(f"Total time to retrieve and generate documents {time.time() - start_time:.10f}")
 
 
 if __name__ == "__main__":

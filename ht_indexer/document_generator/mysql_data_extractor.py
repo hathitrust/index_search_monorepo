@@ -34,8 +34,8 @@ def extract_namespace_and_id(document_id: str):
     """
     parts = document_id.split(".", 1)  # Split at the first period only
     namespace = parts[0] if parts else None
-    id = parts[1] if len(parts) > 1 else None
-    return namespace, id
+    ht_id = parts[1] if len(parts) > 1 else None
+    return namespace, ht_id
 
 
 class MysqlMetadataExtractor:

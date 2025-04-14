@@ -3,6 +3,7 @@ import os
 
 from document_retriever_service.run_retriever_service_by_file import retrieve_documents_by_file
 from document_retriever_service.ht_status_retriever_service import get_non_processed_ids
+import tempfile
 
 current = os.path.dirname(__file__)
 
@@ -15,8 +16,10 @@ def get_input_file():
 
 @pytest.fixture()
 def get_status_file():
-    """TXT file containing the list of items to process"""
-    return os.path.join(current, "document_retriever_status_test.txt")
+
+    """Creates and returns a temporary TXT file to store the status of items to process"""
+    tmpfile_status = tempfile.NamedTemporaryFile(mode="w+", delete=False)
+    return tmpfile_status.name
 
 
 class TestRunRetrieverServiceByFile:

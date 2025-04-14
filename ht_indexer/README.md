@@ -57,6 +57,8 @@ systems involved in the flow to index documents in Full-text search index. The q
 * **Phase 3**: Integrate a queue system to manage the flow of documents to be indexed in Full-text search index
     * **Phase 3.1**: Split the architecture in three services: document_retriever_service, document_generator, and
       document_indexer_service and use a queue system to manage the flow of documents to be indexed in Full-text search.
+* **Phase 4**: Create the MySQL table fulltext_item_processing_status to store the status of the documents
+  being processed by the pipeline.
 * **Next steps**:
     * The process to retrieve the message from the dead-letter-exchange is not implemented yet.
     * Implement the query to reprocess all the documents in Catalog index.
@@ -81,15 +83,19 @@ In your workdir:
 
 4. Run the services
 
-    1. Retriever service
+    1. Populate the database with the table fulltext_item_processing_status
+
+       `docker compose up ht_indexer_tracker -d`
+
+    2. Retriever service
 
        `docker compose up document_retriever -d`
 
-    2. Generator service
+    3. Generator service
 
        `docker compose up document_generator -d`
 
-    3. Indexer service
+    4. Indexer service
 
        `docker compose up document_indexer -d`
 
@@ -118,11 +124,17 @@ follow the steps mentioned in the section [How to set up your python environment
     * `poetry env use python` # To find the virtual environment directory, created by poetry
     * `source ~/ht-indexer-GQmvgxw4-py3.11/bin/activate` # Activate the virtual environment
     * `poetry add pytest` # Optional: Use this command if you want to add dependencies
+    * `poetry self update` # Update poetry
+    * Since Poetry (2.0.0) the recommended way to activate the virtual environment is using the command
+      `poetry env activate`
 
 ## Content Structure
 
-Three services are available in the application:
+Four services are available in the application:
 
+* **ht_indexer_monitoring**: Retrieve documents from Catalog to populate the table fulltext_item_processing_status.This
+  table is
+  used to store the status of the documents being processed by the pipeline.
 * **document_retriever_service**: Retrieve documents from Catalog index using.
 * **document_generator**: Use the Catalog metadata and the file storage on pairtree-based repository to generate the
   the document to index in Solr.
@@ -152,6 +164,11 @@ ht_indexer/
 │ ├── __init__.py
 │ └── document_indexer_service.py
 | └──test_document_indexer_service.py
+├── ht_indexer_monitoring/
+│ ├── __init__.py
+│ ├── ht_indexer_tracktable.py
+│ ├── ht_indexer_tracktable_test.py
+│ └── monitoring_arguments.py
 ├── document_retriever_service/
 │ ├── __init__.py
 │ ├── catalog_metadata.py
@@ -187,7 +204,7 @@ A message can fail for different reasons:
 
 We use a **dead-letter-exchange** to handle messages that are not processed successfully. The dead-letter-exchange is
 an exchange to which messages will be re-routed if they are rejected by the queue. In the current logic, all the service
-using the queue system has a dead-letter-exschange associated with itve One of our future steps is to figure out what we
+using the queue system has a dead-letter-exchange associated with itve One of our future steps is to figure out what we
 will do
 with the messages in the dead-letter-exchange.
 
@@ -209,7 +226,9 @@ When a consumer client receives a message from the queue, it will try to process
 
 ## Functionality
 
-In all the use cases, a list of documents is received as input. The retriever_service retrieves the metadata of each
+In all the use cases, a list of documents is received as input. The list of documents could be provided as an input or
+retrieved from the MySql table fulltext_item_processing_status.
+The list of documents is used to query the Catalog index. The retriever_service retrieves the metadata of each
 document from the Catalog index. The user must also provide a parameter indicating the catalog Solr field
 used into the query. The Solr query is based on the field `id` or `ht_id`.
 
@@ -236,9 +255,48 @@ This use case is implemented by a python script that retrieves the id to populat
 use case is used to process in Kubernetes a batch of documents selected from production. See the section
 ``Run retriever service by file`` to find the command to run this use case.
 
+### Use case 4: Populate the table fulltext_item_processing_status with the status of the documents being processed by the pipeline:
+
+The script will query the Catalog index and populate the table with the status of the documents being processed by
+the pipeline. See below the sql statement used to create the table fulltext_item_processing_status.
+
+Every time a document is processed, the status of the document is updated in the table. The status of the document can
+be one of the following: pending, processing, failed, completed.
+
+* If the document is indexed in Solr status=completed, retriever_status=completed,
+  generator_status=completed, indexer_status=completed.
+* If the document is not indexed in Solr status=failed, retriever_status=completed,
+  generator_status=completed, indexer_status=failed.
+
+```
+        CREATE TABLE IF NOT EXISTS fulltext_item_processing_status (
+            ht_id VARCHAR(255) UNIQUE NOT NULL,
+            record_id VARCHAR(255) NOT NULL,
+            status ENUM('pending', 'processing', 'failed', 'completed', 'requeued') NOT NULL DEFAULT 'Pending',
+            retriever_status ENUM('pending', 'processing', 'failed', 'completed') NOT NULL DEFAULT 'Pending',
+            generator_status ENUM('pending','processing' ,'failed', 'completed') NOT NULL DEFAULT 'Pending',
+            indexer_status ENUM('pending', 'processing', 'failed', 'completed') NOT NULL DEFAULT 'Pending',
+            error TEXT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            processed_at TIMESTAMP NULL DEFAULT NULL
+        );
+```
+
 ## Usage
 
 ### All services (Retriever, Generator and Indexer) using the queue message system
+
+* **Run retriever service**
+
+``` docker compose exec ht_indexer_tracker python ht_indexer_monitoring/ht_indexer_tracktable.py --env dev --query "*:*" --query_field id --num_found 100 --solr_host http://solr-sdr-catalog:9033 --collection_name catalog ```
+
+* --query "*:*" It retrieves all the documents on Solr server
+* --query_field id: The field used to query the Solr server. As the query field is the id you will be able
+  to retrieve all the items of each Catalog record.
+* --num_found 100 The number of documents to be retrieved, when the query is by id you will retrieve more that the
+  num_found because for each record in Catalog, there are several items.
+* --solr_host http://solr-sdr-catalog:9033 The host of the Solr server
 
 * **Run retriever service**
 
@@ -309,17 +367,23 @@ In the working directory,
 
 ```docker build -t document_generator .```
 
+* Run ht_indexer_tracker
+
+```docker compose up ht_indexer_tracker -d```
+
+```docker compose exec ht_indexer_tracker python -m pytest ht_indexer_monitoring ```
+
 * Run document_retriever_service container and test it
 
 ```docker compose up document_retriever -d```
 
-```docker compose exec document_retriever pytest document_retriever_service catalog_metadata ht_utils ```
+```docker compose exec document_retriever python -m pytest document_retriever_service catalog_metadata ht_utils ```
 
 * Run document_generator_service container and test it
 
 ```docker compose up document_generator -d```
 
-```docker compose exec document_generator pytest document_generator ht_document ht_queue_service ht_utils```
+```docker compose exec document_generator python -m pytest document_generator ht_document ht_queue_service ht_utils```
 
 * Run document_indexer_service container and test it
 
@@ -331,7 +395,7 @@ export SOLR_PASSWORD=solrRocks
 
 ```docker compose up document_indexer -d```
 
-```docker compose exec document_indexer pytest document_indexer_service ht_indexer_api ht_queue_service```
+```docker compose exec document_indexer python -m pytest document_indexer_service ht_indexer_api ht_queue_service```
 
 ## Hosting
 
@@ -455,6 +519,9 @@ On mac, you can use brew to install python and pyenv to manage the python versio
     * Use `` poetry update `` if you change your .toml file and want to generate a new version the .lock file
     * Use ``poetry add ruff@latest`` to add the last version of the package ruff to your project
     * Use ``poetry add ruff@1.0.0`` to add a specific version of the package ruff to your project
+    * Use ``poetry add git+https://github.com/hathitrust/ht_full_text_search.git@main`` to add a github dependency
+    * In pyproject.toml the dependencies are defined as follows:
+        * ``ht-full-text-search = {git = "https://github.com/hathitrust/ht_full_text_search.git", rev = "main"}``
 
 ### Additional use cases
 

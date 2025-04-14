@@ -103,16 +103,16 @@ class TestDocumentGenerator:
         """
 
         document_id = "uc2.ark:/13960/t4mk66f1d"
-        namespace, id = extract_namespace_and_id(document_id)
+        namespace, ht_id = extract_namespace_and_id(document_id)
         assert namespace == "uc2"
-        assert id == "ark:/13960/t4mk66f1d"
+        assert ht_id == "ark:/13960/t4mk66f1d"
 
         document_id = "miun.afs8435.0001.001"
-        namespace, id = extract_namespace_and_id(document_id)
+        namespace, ht_id = extract_namespace_and_id(document_id)
         assert namespace == "miun"
-        assert id == "afs8435.0001.001"
+        assert ht_id == "afs8435.0001.001"
 
         document_id = "uiug.30112056400960"
-        namespace, id = extract_namespace_and_id(document_id)
+        namespace, ht_id = extract_namespace_and_id(document_id)
         assert namespace == "uiug"
-        assert id == "30112056400960"
+        assert ht_id == "30112056400960"
