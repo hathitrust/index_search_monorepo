@@ -3,7 +3,6 @@ import sys
 import inspect
 
 from ht_full_text_search.config_files import config_files_path
-from ht_full_text_search.config_search import CATALOG_SOLR_URL
 from ht_full_text_search.export_all_results import SolrExporter
 from pathlib import Path
 

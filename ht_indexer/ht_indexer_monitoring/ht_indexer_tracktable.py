@@ -74,15 +74,15 @@ class HTIndexerTracktable:
                                           list_output_fields=list_output_fields):
             dict_x = json.loads(x)
             if "ht_id" in dict_x:
-
-                for ht_id in dict_x["ht_id"]:
-                    record = {
-                        "ht_id": ht_id,
-                        "record_id": dict_x["id"], #f"record_{ht_id}",
-                        "status": "pending"
-                    }
-                    data.append(HTIndexerTrackData(ht_id=record['ht_id'], record_id=record['record_id'],
-                                                   status=record['status']))
+                if dict_x["ht_id"] is not None:
+                    for ht_id in dict_x["ht_id"]:
+                        record = {
+                            "ht_id": ht_id,
+                            "record_id": dict_x["id"], #f"record_{ht_id}",
+                            "status": "pending"
+                        }
+                        data.append(HTIndexerTrackData(ht_id=record['ht_id'], record_id=record['record_id'],
+                                                       status=record['status']))
 
             # Insert in MySQL a batch size of 500 records
             if len(data) >= 500:
