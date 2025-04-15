@@ -5,7 +5,9 @@ import inspect
 import ht_utils.ht_utils
 from ht_utils.ht_logger import get_ht_logger
 from ht_utils.ht_mysql import get_mysql_conn
+from ht_utils.ht_utils import get_solr_url
 from ht_indexer_monitoring.ht_indexer_tracktable import PROCESSING_STATUS_TABLE_NAME
+
 
 logger = get_ht_logger(name=__name__)
 
@@ -16,18 +18,6 @@ sys.path.insert(0, parent)
 
 def comma_separated_list(arg):
     return arg.split(",")
-
-
-def get_solr_api():
-    # Catalog Solr server
-    try:
-        solr_url = os.getenv("SOLR_URL")
-    except KeyError:
-        logger.error("Error: `SOLR_URL` environment variable required")
-        sys.exit(1)
-
-    return solr_url
-
 
 class RetrieverServiceArguments:
     def __init__(self, parser):
@@ -65,7 +55,7 @@ class RetrieverServiceArguments:
         self.start = 0
         self.rows = 500
 
-        self.solr_api_url = get_solr_api()
+        self.solr_api_url = get_solr_url()
 
 
 class RetrieverServiceByFileArguments(RetrieverServiceArguments):

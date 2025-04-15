@@ -1,5 +1,19 @@
 import arrow
+import os
+import sys
 
+from ht_utils.ht_logger import get_ht_logger
+
+logger = get_ht_logger(name=__name__)
+
+def get_solr_url():
+    # Get Solr URL
+    try:
+        solr_url = os.getenv("SOLR_URL")
+        return solr_url
+    except KeyError:
+        logger.error("Error: `SOLR_URL` environment variable required")
+        sys.exit(1)
 
 def get_current_time(current=None, str_format: str = "YYYY-MM-DD HH:mm:ss"):
     """
