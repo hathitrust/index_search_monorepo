@@ -48,8 +48,6 @@ RUN apt-get update -y \
     && apt-get -y clean \
     && rm -rf /var/lib/apt/lists/*
 
-RUN for i in $(seq 1 24); do ln -s /sdr/$i /sdr$i; done
-
 # Install the app. Just copy the files needed to install the dependencies
 COPY pyproject.toml poetry.lock README.md ./
 
@@ -71,6 +69,8 @@ fi
 FROM python:3.11-slim-bookworm AS runtime
 
 ENV FASTAPI_ENV=runtime
+
+RUN for i in $(seq 1 24); do ln -s /sdr/$i /sdr$i; done
 
 ARG UID=1000
 ARG GID=1000
@@ -98,5 +98,7 @@ WORKDIR /app
 ENV PYTHONPATH=/app
 
 COPY --chown=${UID}:${GID} . /app
+
+
 
 CMD ["tail", "-f", "/dev/null"]

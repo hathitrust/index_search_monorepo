@@ -138,6 +138,7 @@ class FullTextSearchRetrieverQueueService:
             mysql_db.update_status(failed_update_query, failed_items)
 
         if len(processed_items)>0:
+            logger.info(f"Total of processed documents: {len(processed_items)}")
             mysql_db.update_status(processed_update_query, processed_items)
 
     def full_text_search_retriever_service(self, initial_documents, start, rows, by_field: str = 'item'):
