@@ -32,7 +32,7 @@ class TestRunRetrieverServiceByFile:
             assert len(ids2process) == 12
             assert len(processed_ids) == 0
 
-    @pytest.mark.parametrize("retriever_parameters", [{"solr_api": "http://solr-sdr-catalog:9033/solr/#/catalog/",
+    @pytest.mark.parametrize("retriever_parameters", [{"solr_api": "http://solr-sdr-catalog:9033/solr/catalog",
                                                        "user": "guest", "password": "guest", "host": "rabbitmq",
                                                        "queue_name": "test_producer_queue",
                                                        "requeue_message": False,

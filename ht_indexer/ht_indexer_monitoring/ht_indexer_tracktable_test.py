@@ -81,6 +81,6 @@ class TestHTIndexerTracktable:
         ht_indexer_tracktable_instance.insert_batch(data)
         assert mock_db_conn.insert_batch.called_once()
         # Check the arguments passed to the insert_batch method, position 0 is the query, position 1 is the data
-        assert mock_db_conn.insert_batch.call_args[0][0].startswith(f"INSERT INTO {PROCESSING_STATUS_TABLE_NAME}")
+        assert mock_db_conn.insert_batch.call_args[0][0].startswith(f"INSERT IGNORE INTO {PROCESSING_STATUS_TABLE_NAME}")
         # Check the number of items to be inserted (position 1)
         assert len(mock_db_conn.insert_batch.call_args[0][1]) == 2

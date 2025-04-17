@@ -10,14 +10,14 @@ from ht_indexer_api.ht_indexer_api import HTSolrAPI
 @pytest.fixture
 def get_solr_api():
     return HTSolrAPI(
-        "http://solr-lss-dev:8983/solr/#/core-x/"
+        "http://solr-lss-dev:8983/solr/core-x/"
     )
 
 
 @pytest.fixture
 def get_fake_solr_api():
     return HTSolrAPI(
-        "http://solr-lss-dev:8983/solr/#/core-not_exist/"
+        "http://solr-lss-dev:8983/solr/core-not_exist/"
     )
 
 

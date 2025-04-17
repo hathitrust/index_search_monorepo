@@ -78,7 +78,7 @@ class HTIndexerTracktable:
                     for ht_id in dict_x["ht_id"]:
                         record = {
                             "ht_id": ht_id,
-                            "record_id": dict_x["id"], #f"record_{ht_id}",
+                            "record_id": dict_x["id"],
                             "status": "pending"
                         }
                         data.append(HTIndexerTrackData(ht_id=record['ht_id'], record_id=record['record_id'],
@@ -87,7 +87,7 @@ class HTIndexerTracktable:
             # Insert in MySQL a batch size of 500 records
             if len(data) >= 500:
                 yield data
-
+                data = []
         if len(data) > 0:
             yield data
     def create_table(self):
@@ -104,24 +104,14 @@ class HTIndexerTracktable:
             logger.info("No data to insert.")
             return
 
-        insert_query = f"""INSERT INTO {PROCESSING_STATUS_TABLE_NAME} (ht_id, record_id,  status, retriever_status, generator_status, indexer_status, error) 
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
-            ON DUPLICATE KEY UPDATE 
-                status = VALUES(status),
-                retriever_status = VALUES(retriever_status),
-                generator_status = VALUES(generator_status),
-                indexer_status = VALUES(indexer_status),
-                error = VALUES(error),
-                updated_at = CURRENT_TIMESTAMP;
+        insert_query = f"""INSERT IGNORE INTO {PROCESSING_STATUS_TABLE_NAME} (ht_id, record_id,  status, retriever_status, generator_status, indexer_status, error) 
+            VALUES (%s, %s, %s, %s, %s, %s, %s);
             """
         batch_values = [
                 (item.ht_id, item.record_id, item.status, item.retriever_status, item.generator_status, item.indexer_status, item.error)
                 for item in list_items
     ]
-
         self.mysql_obj.insert_batch(insert_query, batch_values)
-
-
 
 def main():
 

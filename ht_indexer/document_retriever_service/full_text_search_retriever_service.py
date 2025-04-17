@@ -109,8 +109,8 @@ class FullTextSearchRetrieverQueueService:
 
         processed_items = []
         failed_items = []
-        processed_update_query = "UPDATE ht_indexer_tracktable SET status = %s, retriever_status = %s, processed_at = %s WHERE ht_id = %s"
-        failed_update_query = "UPDATE ht_indexer_tracktable SET status = %s, retriever_status = %s, processed_at = %s, error = %s WHERE ht_id = %s"
+        processed_update_query = f"UPDATE {PROCESSING_STATUS_TABLE_NAME} SET status = %s, retriever_status = %s, processed_at = %s WHERE ht_id = %s"
+        failed_update_query = f"UPDATE {PROCESSING_STATUS_TABLE_NAME} SET status = %s, retriever_status = %s, processed_at = %s, error = %s WHERE ht_id = %s"
 
         for record in result:
 
@@ -260,7 +260,7 @@ def main():
             list_documents = init_args_obj.db_conn.query_mysql(init_args_obj.retriever_query)
             if len(list_documents) == 0:
                 logger.info("No documents to process")
-                time.sleep(300)
+                time.sleep(60)
                 continue
             else:
                 if by_field == 'record':

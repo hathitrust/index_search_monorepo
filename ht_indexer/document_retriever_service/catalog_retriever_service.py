@@ -161,7 +161,7 @@ def main():
         "--solr_url",
         help="Solr server URL",
         required=True,
-        default="http://localhost:8983/solr/#/core-x/",
+        default="http://localhost:8983/solr/core-x/",
     )
 
     parser.add_argument("--query", help="Query used to retrieve documents", default='*:*'

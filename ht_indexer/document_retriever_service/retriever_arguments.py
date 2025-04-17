@@ -49,11 +49,11 @@ class RetrieverServiceArguments:
         self.list_documents = self.args.list_documents
         self.query_field = self.args.query_field
 
-        self.retriever_query = f"SELECT ht_id, record_id FROM {PROCESSING_STATUS_TABLE_NAME} WHERE status = 'pending' LIMIT 1000"
+        self.retriever_query = f"SELECT ht_id, record_id FROM {PROCESSING_STATUS_TABLE_NAME} WHERE retriever_status = 'pending' LIMIT 1000"
 
         # TODO: Add start and rows to a configuration file
         self.start = 0
-        self.rows = 500
+        self.rows = 1000
 
         self.solr_api_url = get_solr_url()
 

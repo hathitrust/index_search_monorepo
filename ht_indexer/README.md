@@ -289,14 +289,12 @@ be one of the following: pending, processing, failed, completed.
 
 * **Run retriever service**
 
-``` docker compose exec ht_indexer_tracker python ht_indexer_monitoring/ht_indexer_tracktable.py --env dev --query "*:*" --query_field id --num_found 100 --solr_host http://solr-sdr-catalog:9033 --collection_name catalog ```
+``` docker compose exec ht_indexer_tracker python ht_indexer_monitoring/ht_indexer_tracktable.py --env dev --query "*:*" --num_found 100```
 
 * --query "*:*" It retrieves all the documents on Solr server
-* --query_field id: The field used to query the Solr server. As the query field is the id you will be able
-  to retrieve all the items of each Catalog record.
-* --num_found 100 The number of documents to be retrieved, when the query is by id you will retrieve more that the
-  num_found because for each record in Catalog, there are several items.
-* --solr_host http://solr-sdr-catalog:9033 The host of the Solr server
+* --num_found = 100. It is the number of records to be retrieved. As each record could be 1 or more items and each row
+  of
+  the table is an item, we will recover more items than the number of records.
 
 * **Run retriever service**
 

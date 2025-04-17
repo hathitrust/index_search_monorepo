@@ -6,13 +6,12 @@ from document_retriever_service.catalog_retriever_service import (CatalogRetriev
 
 @pytest.fixture
 def get_catalog_retriever_service_solr_fake_solr_url():
-    return CatalogRetrieverService("http://solr-sdr-catalog:9033/solr/#/catalogFake/")
+    return CatalogRetrieverService("http://solr-sdr-catalog:9033/solr/catalogFake")
 
 
 class TestCatalogRetrieverService:
 
-    def test_create_catalog_object_by_item_id(self, get_catalog_retriever_service,
-                                              get_catalog_record_metadata,
+    def test_create_catalog_object_by_item_id(self, get_catalog_record_metadata,
                                               get_record_data):
         """Test if the method returns only the metadata of the input item"""
         results = []

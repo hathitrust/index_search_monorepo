@@ -22,17 +22,12 @@ class MonitoringServiceArguments:
         parser.add_argument("--query", help="Solr query",
                             default="*:*")
 
-        parser.add_argument("--query_field",
-                            help="Could be item or record. If item, the query contains the ht_id of the item",
-                            default="ht_id"
-                            )
         parser.add_argument("--fl", help="Fields to return", default=["ht_id", "id"])
         parser.add_argument("--num_found", help="Total number of documents found", default=1000000)
 
         self.args = parser.parse_args()
 
         self.query = self.args.query
-        self.query_field = self.args.query_field
         self.output_fields = self.args.fl
 
         self.solr_host = get_solr_url()
