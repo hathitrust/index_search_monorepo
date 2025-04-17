@@ -7,7 +7,7 @@ services:
       - ../sdr1/obj:/sdr1/obj
       - .:/app
     environment:
-      SOLR_URL: http://solr-sdr-catalog:9033/solr/catalog
+      SOLR_URL: http://solr-sdr-catalog:9033/solr/catalog/
       SDR_DIR: /sdr1/obj
       SOLR_USER: solr
       SOLR_PASSWORD: 'solrRocks'
@@ -30,7 +30,7 @@ services:
     ports:
       - "8081:8081"
     environment:
-      SOLR_URL: http://solr-sdr-catalog:9033/solr/catalog
+      SOLR_URL: http://solr-sdr-catalog:9033/solr/catalog/
       SDR_DIR: /sdr1/obj
       QUEUE_HOST: rabbitmq
       QUEUE_NAME: retriever_queue

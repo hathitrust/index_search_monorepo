@@ -30,5 +30,5 @@ def make_query(list_documents: list[str], by_field: str = 'item') -> str:
         values = "\" OR \"".join(list_documents)
         values = '"'.join(("", values, ""))
         query = f"{query_field}:({values})"
-    logger.info(f"Query to retrieve the documents: {query}")
+    # logger.info(f"Query to retrieve the documents: {query}")
     return query

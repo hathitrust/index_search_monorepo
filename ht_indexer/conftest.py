@@ -40,7 +40,7 @@ def get_catalog_retriever_service(solr_api_url):
 
 @pytest.fixture
 def solr_api_url():
-    return "http://solr-sdr-catalog:9033/solr/catalog"
+    return "http://solr-sdr-catalog:9033/solr/catalog/"
 
 
 # Fixtures to instantiate the queue consumer and producer

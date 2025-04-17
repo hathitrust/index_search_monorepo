@@ -98,7 +98,7 @@ class HTSolrAPI:
 
         try:
             response = requests.post(
-                f"{self.url}/query",
+                f"{self.url}query",
                 params=data_query,
                 headers=solr_headers,
             )

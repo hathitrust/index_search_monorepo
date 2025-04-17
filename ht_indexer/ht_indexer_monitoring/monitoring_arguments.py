@@ -31,6 +31,8 @@ class MonitoringServiceArguments:
         self.output_fields = self.args.fl
 
         self.solr_host = get_solr_url()
+        # TODO Remove the line below once SolrExporter been updated self.solr_url = f"{solr_url}/query"
+        self.solr_host = self.solr_host.strip('/')
 
         self.conf_query = "all"
         self.query_config_file_path = Path(config_files_path, 'catalog_search/config_query.yaml')

@@ -6,7 +6,7 @@ from document_retriever_service.catalog_retriever_service import (CatalogRetriev
 
 @pytest.fixture
 def get_catalog_retriever_service_solr_fake_solr_url():
-    return CatalogRetrieverService("http://solr-sdr-catalog:9033/solr/catalogFake")
+    return CatalogRetrieverService("http://solr-sdr-catalog:9033/solr/catalogFake/")
 
 
 class TestCatalogRetrieverService:
