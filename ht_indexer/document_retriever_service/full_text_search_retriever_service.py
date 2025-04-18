@@ -23,7 +23,7 @@ parent = os.path.dirname(current)
 sys.path.insert(0, parent)
 
 PROCESSES = multiprocessing.cpu_count() - 1
-WAITING_TIME_QUEUE_PRODUCER = 300 # Wait 5 minutes to send documents in the queue
+WAITING_TIME_QUEUE_PRODUCER = 180 # Wait 3 minutes to send documents in the queue
 WAITING_TIME_MYSQL = 60 # Wait 1 minute to query MySQL checking if there are documents to process (retriever_status = pending)
 
 
@@ -207,6 +207,9 @@ def run_retriever_service(parallelize, num_threads, total_documents, list_docume
         else:
             logger.info("Nothing to process")
             return
+
+        start_time = time.time()
+
         processes = [multiprocessing.Process(target=document_indexer_service.full_text_search_retriever_service,
                                              args=(list_documents[i:i + batch_size],
                                                    start, rows, by_field))
@@ -217,6 +220,9 @@ def run_retriever_service(parallelize, num_threads, total_documents, list_docume
 
         for process in processes:
             process.join()
+
+        logger.info(f"Process=retrieving: Total time to retrieve a batch documents {time.time() - start_time:.10f}")
+
     else:
         document_indexer_service.full_text_search_retriever_service(
             list_documents,
@@ -261,6 +267,8 @@ def main():
         # The process will run every 5 minutes to check if there are documents to process
         while True:
             total_time_waiting = 0
+            if total_time_waiting > 0:
+                logger.info(f"Process=retrieving: Waiting {total_time_waiting} until reduce the number of messages in the queue")
             list_documents = init_args_obj.db_conn.query_mysql(init_args_obj.retriever_query)
             if len(list_documents) == 0:
                 logger.info("No documents to process")
@@ -273,9 +281,7 @@ def main():
                 if by_field == 'item':
                     list_documents = [record['ht_id'] for record in list_documents]
 
-            start_time = time.time()
-
-            logger.info(f"Total of documents to process {len(list_documents)}")
+            logger.info(f"Process=retrieving: Total of documents to process {len(list_documents)}")
             parallelize = True
 
             # TODO: Define the number of threads to use
@@ -285,7 +291,7 @@ def main():
             run_retriever_service(parallelize, nthreads, total_documents, list_documents, by_field, document_retriever_service,
                                   init_args_obj.start, init_args_obj.rows)
 
-            logger.info(f"Process=retrieving: Total time to retrieve a batch documents {time.time() - start_time:.10f}")
+
 
             # Checking the number of messages in the queue
             # Create a connection to the queue to produce messages
@@ -298,7 +304,6 @@ def main():
                 time.sleep(WAITING_TIME_QUEUE_PRODUCER) # Wait 5 minutes to send documents in the queue
                 total_messages_in_queue = queue_producer.conn.get_total_messages()
                 total_time_waiting += WAITING_TIME_QUEUE_PRODUCER
-            logger.info(f"Process=retrieving: Waiting {total_time_waiting} until reduce the number of messages in the queue")
             queue_producer.conn.queue_connection.close()
 
 

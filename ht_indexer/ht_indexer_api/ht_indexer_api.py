@@ -103,7 +103,6 @@ class HTSolrAPI:
                 headers=solr_headers,
             )
             response.raise_for_status()
-            logger.info(f"Executing query {query}.")
             return response
         except requests.exceptions.RequestException as e:
             logger.info(f"Error {e} in query: {query}")

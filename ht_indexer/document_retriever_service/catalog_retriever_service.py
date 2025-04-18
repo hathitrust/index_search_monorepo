@@ -3,6 +3,7 @@ import json
 import time
 
 from catalog_metadata.catalog_metadata import CatalogRecordMetadata, CatalogItemMetadata
+from document_retriever_service.retriever_arguments import SOLR_TOTAL_ROWS, SOLR_ROW_START
 
 from ht_indexer_api.ht_indexer_api import HTSolrAPI
 from ht_utils.ht_logger import get_ht_logger
@@ -80,7 +81,7 @@ class CatalogRetrieverService:
             output = response.json()
 
             total_records = output.get("response").get("numFound")
-            logger.info(f" Total of records {total_records}")
+            logger.info(f"Process=retrieving: Total of records {total_records} to process.")
 
             return total_records if total_records else 0
         except Exception as e:
@@ -184,8 +185,8 @@ def main():
     # TODO Parallelize the process of retrieving documents from solr Catalog
     file_object = open(args.output_file, "w+")
 
-    start = 0
-    rows = 100
+    start = SOLR_ROW_START
+    rows = SOLR_TOTAL_ROWS
 
     # TODO Implement the use case that retrieve documents accept a query instead of a list of documents
     list_documents = []

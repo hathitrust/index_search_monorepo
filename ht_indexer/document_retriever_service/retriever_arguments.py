@@ -16,7 +16,7 @@ parent = os.path.dirname(current)
 sys.path.insert(0, parent)
 
 SOLR_ROW_START = 0
-SOLR_TOTAL_ROWS = 1000
+SOLR_TOTAL_ROWS = 200
 TOTAL_MYSQL_ROWS = 24000
 
 
