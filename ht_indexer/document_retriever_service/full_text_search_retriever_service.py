@@ -10,6 +10,7 @@ from catalog_metadata.catalog_metadata import CatalogItemMetadata
 from document_retriever_service.catalog_retriever_service import CatalogRetrieverService
 from document_retriever_service.retriever_arguments import RetrieverServiceArguments
 from ht_indexer_monitoring.ht_indexer_tracktable import HT_INDEXER_TRACKTABLE, PROCESSING_STATUS_TABLE_NAME
+from ht_queue_service.queue_connection import MAX_DOCUMENT_IN_QUEUE
 
 from ht_utils.ht_logger import get_ht_logger
 from ht_queue_service.queue_producer import QueueProducer
@@ -22,6 +23,8 @@ parent = os.path.dirname(current)
 sys.path.insert(0, parent)
 
 PROCESSES = multiprocessing.cpu_count() - 1
+WAITING_TIME_QUEUE_PRODUCER = 300 # Wait 5 minutes to send documents in the queue
+WAITING_TIME_MYSQL = 60 # Wait 1 minute to query MySQL checking if there are documents to process (retriever_status = pending)
 
 
 def publish_document(queue_producer: QueueProducer, content: dict = None):
@@ -257,10 +260,11 @@ def main():
 
         # The process will run every 5 minutes to check if there are documents to process
         while True:
+            total_time_waiting = 0
             list_documents = init_args_obj.db_conn.query_mysql(init_args_obj.retriever_query)
             if len(list_documents) == 0:
                 logger.info("No documents to process")
-                time.sleep(60)
+                time.sleep(WAITING_TIME_MYSQL)
                 continue
             else:
                 if by_field == 'record':
@@ -281,9 +285,22 @@ def main():
             run_retriever_service(parallelize, nthreads, total_documents, list_documents, by_field, document_retriever_service,
                                   init_args_obj.start, init_args_obj.rows)
 
+            logger.info(f"Process=retrieving: Total time to retrieve a batch documents {time.time() - start_time:.10f}")
 
+            # Checking the number of messages in the queue
+            # Create a connection to the queue to produce messages
+            queue_producer = document_retriever_service.get_queue_producer()
 
-            logger.info(f"Total time to retrieve and generate documents {time.time() - start_time:.10f}")
+            total_messages_in_queue = queue_producer.conn.get_total_messages()
+
+            while total_messages_in_queue > MAX_DOCUMENT_IN_QUEUE:
+                logger.info (f"Waiting: There are {total_messages_in_queue} or more documents in the {queue_producer.queue_name}")
+                time.sleep(WAITING_TIME_QUEUE_PRODUCER) # Wait 5 minutes to send documents in the queue
+                total_messages_in_queue = queue_producer.conn.get_total_messages()
+                total_time_waiting += WAITING_TIME_QUEUE_PRODUCER
+            logger.info(f"Process=retrieving: Waiting {total_time_waiting} until reduce the number of messages in the queue")
+            queue_producer.conn.queue_connection.close()
+
 
 
 if __name__ == "__main__":

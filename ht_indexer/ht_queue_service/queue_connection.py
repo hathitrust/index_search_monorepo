@@ -1,5 +1,5 @@
 import pika
-
+MAX_DOCUMENT_IN_QUEUE = 30000 # 30k is the maximum number of messages in the queue
 
 class QueueConnection:
 

@@ -15,6 +15,10 @@ current = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()
 parent = os.path.dirname(current)
 sys.path.insert(0, parent)
 
+SOLR_ROW_START = 0
+SOLR_TOTAL_ROWS = 1000
+TOTAL_MYSQL_ROWS = 24000
+
 
 def comma_separated_list(arg):
     return arg.split(",")
@@ -49,11 +53,13 @@ class RetrieverServiceArguments:
         self.list_documents = self.args.list_documents
         self.query_field = self.args.query_field
 
-        self.retriever_query = f"SELECT ht_id, record_id FROM {PROCESSING_STATUS_TABLE_NAME} WHERE retriever_status = 'pending' LIMIT 1000"
+        # Retriever 24k items from the database
+        self.retriever_query = f"SELECT ht_id, record_id FROM {PROCESSING_STATUS_TABLE_NAME} WHERE retriever_status = 'pending' LIMIT {TOTAL_MYSQL_ROWS}"
 
-        # TODO: Add start and rows to a configuration file
-        self.start = 0
-        self.rows = 1000
+
+        # Each Solr query will retrieve maximum 1000 documents
+        self.start = SOLR_ROW_START
+        self.rows = SOLR_TOTAL_ROWS
 
         self.solr_api_url = get_solr_url()
 
