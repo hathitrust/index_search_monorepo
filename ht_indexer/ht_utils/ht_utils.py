@@ -59,3 +59,11 @@ def get_error_message_by_document(service_name: str, e: Exception, doc: dict) ->
             'ht_id': doc.get('ht_id') if doc.get('ht_id') else doc.get('id'),
             'timestamp': get_current_time()
             }
+
+def split_into_batches(documents, batch_size):
+    """Split the list of documents into batches of given size."""
+    for i in range(0, len(documents), batch_size):
+        yield documents[i:i + batch_size]
+
+def comma_separated_list(arg):
+    return arg.split(",")

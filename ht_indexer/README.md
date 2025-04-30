@@ -171,10 +171,14 @@ ht_indexer/
 │ └── monitoring_arguments.py
 ├── document_retriever_service/
 │ ├── __init__.py
-│ ├── catalog_metadata.py
 │ ├── full_text_search_retriever_service.py
+│ ├── full_text_search_retriever_service_test.py
+│ ├── ht_status_retriever_service.py
+│ ├── retriever_arguments.py
+│ ├── retriever_services_utils.py
+│ ├── retriever_services_utils_test.py.py
+│ └── run_retriever_service_by_file_test.py
 │ └── run_retriever_service_by_file.py
-| └──test_document_retriever_service.py
 ├── ht_utils/
 │ ├── __init__.py
 │ └── sample_data/
@@ -237,6 +241,30 @@ item of a Catalog record will be processed.
 
 The Solr query will look like this: `id:100673101` or `ht_id:umn.31951d01828300z`
 
+The Solr terms query parser is used to look up the documents in the Catalog index.
+The terms query parser in Solr is a highly efficient way to search for multiple exact values
+in a specific field — great for querying by id or any other exact-match field, especially when you're dealing with
+large lists.
+
+The Solr query looks like this:
+
+``` 
+{ q:*:*,
+  fq:{!terms f=ht_id}id1,id2,id3,id4 }
+  'rows': 200,
+  'wt': 'json'
+ ```
+
+In the query `*:*` is used to match everything (or in the future we could implement the use case to add a specific
+query string. The list of ids is used as a filter via `fq` to limit the documents by ht_id. The query avoids
+scoring computation, which improves performance.
+
+The parameter `rows` is used to retrieve documents in batches of 200 IDs each time.
+As we have a long list of ht_ids/ids, we recommend splitting the list of documents into chunks
+and creating a query batch to avoid the Solr URI too long error (status code 414).
+The chunk size equal 200 was determined by testing the Solr query with different values, e.g., 100-500 and
+with 200 ht_ids it worked.
+
 ### Use case 1: Generating & indexing one or N items retrieved from Catalog in Full-text search index:
 
 The application receives a list of ids and a parameter that indicates if all the items in a record are processed
@@ -269,6 +297,7 @@ be one of the following: pending, processing, failed, completed.
   generator_status=completed, indexer_status=failed.
 
 ```
+
         CREATE TABLE IF NOT EXISTS fulltext_item_processing_status (
             ht_id VARCHAR(255) UNIQUE NOT NULL,
             record_id VARCHAR(255) NOT NULL,
@@ -281,6 +310,7 @@ be one of the following: pending, processing, failed, completed.
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             processed_at TIMESTAMP NULL DEFAULT NULL
         );
+
 ```
 
 ## Usage
@@ -299,20 +329,29 @@ be one of the following: pending, processing, failed, completed.
 * **Run retriever service**
 
 ```
-docker compose exec document_retriever python document_retriever_service/full_text_search_retriever_service.py --list_documents chi.096189208,iau.31858049957305,hvd.32044106262314,chi.096415811,hvd.32044020307005,hvd.32044092647320,iau.31858042938971 --query_field item
+
+docker compose exec document_retriever python document_retriever_service/full_text_search_retriever_service.py
+--list_documents
+chi.096189208,iau.31858049957305,hvd.32044106262314,chi.096415811,hvd.32044020307005,hvd.32044092647320,iau.31858042938971
+--query_field item
+
 ```
 
 * **Run retriever service by file**
 
 ```
-docker compose exec document_retriever python document_retriever_service/run_retriever_service_by_file.py 
+
+docker compose exec document_retriever python document_retriever_service/run_retriever_service_by_file.py
 --query_field item --input_document_file document_retriever_service/list_htids_indexer_test.txt
+
 ```
 
 * **Generator service**
 
 ```
+
 docker compose up document_generator -d
+
 ```
 
 This container will automatically start the script `python document_generator/document_generator_service.py` that will
@@ -321,7 +360,9 @@ be retrieving the documents from the retriever_queue and will be published a new
 * **Indexer service**
 
 ```
+
 docker compose up document_indexer -d
+
 ```
 
 This container will automatically start the script `python document_indexer_service/document_indexer_service.py` that
@@ -333,7 +374,12 @@ index.
 * **Retriever service receives a list of document ids**
 
 ```
-docker compose exec document_retriever python document_retriever_service/full_text_search_retriever_service.py --list_documents chi.096189208,iau.31858049957305,hvd.32044106262314,chi.096415811,hvd.32044020307005,hvd.32044092647320,iau.31858042938971 --query_field item
+
+docker compose exec document_retriever python document_retriever_service/full_text_search_retriever_service.py
+--list_documents
+chi.096189208,iau.31858049957305,hvd.32044106262314,chi.096415811,hvd.32044020307005,hvd.32044092647320,iau.31858042938971
+--query_field item
+
 ```
 
 * **Generator service running locally**

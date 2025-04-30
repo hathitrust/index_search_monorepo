@@ -69,41 +69,20 @@ class HTSolrAPI:
 
         return response
 
-    def get_documents(
-            self,
-            query: str = None,
-            response_format: Text = "json",
-            start: int = 0,
-            rows: int = 100,
-    ):
-        """ Get documents from Solr server
-        If solr server is running, it will return a response object
-        otherwise, it will raise an exception
-        Any exception will be raised to the caller
+    def send_solr_request(self, solr_host: str, solr_params: dict):
         """
-        solr_headers = {"Content-type": "application/json"}
-
-        if response_format == "xml":
-            solr_headers = {"Content-type": "application/xml"}
-        if response_format == "html":
-            solr_headers = {"Content-type": "application/html"}
-
-        data_query = {"q": "*:*"}
-        if query:
-            data_query["q"] = query
-        else:
-            data_query = {"q": "*:*"}
-
-        data_query.update({"start": start, "rows": rows})
-
+        Send a request to Solr and return the response.
+        """
+        # try ... except block to catch any exception raised by the Solr connection
         try:
             response = requests.post(
-                f"{self.url}query",
-                params=data_query,
-                headers=solr_headers,
+                f"{solr_host}",
+                params=solr_params,
+                auth=self.auth,
+                headers={"Content-type": "application/json"}
             )
             response.raise_for_status()
             return response
         except requests.exceptions.RequestException as e:
-            logger.info(f"Error {e} in query: {query}")
+            logger.info(f"Error {e} in query: {solr_params}")
             raise e

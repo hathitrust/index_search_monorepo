@@ -16,31 +16,27 @@ parent = os.path.dirname(current)
 sys.path.insert(0, parent)
 
 
-def retrieve_documents_by_file(solr_api_url, queue_name, queue_host, queue_user, queue_password,
-                               input_documents_file, query_field, start, rows, status_file, parallelize, nthreads):
+def retrieve_documents_by_file(queue_name, queue_host, queue_user, queue_password,
+                               query_field, solr_host, solr_user, solr_password, solr_retriever_query_params,
+                               input_documents_file, status_file):
     """ This method is used to retrieve the documents from the Catalog and generate the full text search entry.
     The list of documents to index is extracted from a file.
 
-    :param solr_api_url: Solr API URL
-    :param queue_name: Queue name
-    :param queue_host: Queue host
-    :param queue_user: Queue user
-    :param queue_password: Queue password
-    :param input_documents_file: File with the list of documents to process
-    :param query_field: Query field
-    :param start: Start Solr query
-    :param rows: rows
-    :param status_file: Status file
-    :param parallelize: Boolean parameter to parallelize the process
-    :param nthreads: Number of threads
+    :param queue_name: The name of the queue to use
+    :param queue_host: The host of the queue
+    :param queue_user: The user of the queue
+    :param queue_password: The password of the queue
+    :param query_field: The field to use in the query
+    :param solr_host: The host of the Solr server
+    :param solr_user: The user of the Solr server
+    :param solr_password: The password of the Solr server
+    :param solr_retriever_query_params: The query parameters to use in the Solr query
+    :param input_documents_file: The file containing the list of documents to process
+    :param status_file: The file to store the status of the documents
     """
 
-    document_indexer_service = FullTextSearchRetrieverQueueService(
-        solr_api_url,
-        queue_name,
-        queue_host,
-        queue_user,
-        queue_password)
+    document_retriever_service = FullTextSearchRetrieverQueueService(queue_name, queue_host, queue_user, queue_password,
+                        solr_host, solr_user, solr_password, solr_retriever_query_params)
 
     if os.path.isfile(input_documents_file):
         with open(input_documents_file) as f:
@@ -63,10 +59,9 @@ def retrieve_documents_by_file(solr_api_url, queue_name, queue_host, queue_user,
                 logger.info(f"Total of documents to process {len(list_documents)}")
 
                 total_documents = len(list_documents)
-                run_retriever_service(parallelize, nthreads, total_documents, list_documents, query_field,
-                                      document_indexer_service,
-                                      start,
-                                      rows)
+                run_retriever_service(list_documents, query_field,
+                                      document_retriever_service,
+                                      )
 
                 logger.info(f"Total time to retrieve and generate documents {time.time() - start_time:.10f}")
 
@@ -83,15 +78,15 @@ def main():
     # TODO: Review the logic of the status file
     status_file = os.path.join(current, "document_retriever_status.txt")
 
-    parallelize = True
-    nthreads = None
-
-    retrieve_documents_by_file(init_args_obj.solr_api_url, init_args_obj.queue_name, init_args_obj.queue_host,
+    retrieve_documents_by_file(init_args_obj.queue_name, init_args_obj.queue_host,
                                init_args_obj.queue_user, init_args_obj.queue_password,
-                               init_args_obj.input_documents_file, init_args_obj.query_field,
-                               init_args_obj.start, init_args_obj.rows,
-                               status_file, parallelize, nthreads)
-
+                               init_args_obj.query_field,
+                               init_args_obj.solr_host,
+                               init_args_obj.solr_user,
+                               init_args_obj.solr_password,
+                               init_args_obj.solr_retriever_query_params,
+                               init_args_obj.input_documents_file,
+                               status_file)
 
 if __name__ == "__main__":
     main()

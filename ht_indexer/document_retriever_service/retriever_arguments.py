@@ -5,8 +5,9 @@ import inspect
 import ht_utils.ht_utils
 from ht_utils.ht_logger import get_ht_logger
 from ht_utils.ht_mysql import get_mysql_conn
-from ht_utils.ht_utils import get_solr_url
+from ht_utils.ht_utils import get_solr_url, comma_separated_list
 from ht_indexer_monitoring.ht_indexer_tracktable import PROCESSING_STATUS_TABLE_NAME
+
 
 
 logger = get_ht_logger(name=__name__)
@@ -19,9 +20,6 @@ SOLR_ROW_START = 0
 SOLR_TOTAL_ROWS = 200
 TOTAL_MYSQL_ROWS = 24000
 
-
-def comma_separated_list(arg):
-    return arg.split(",")
 
 class RetrieverServiceArguments:
     def __init__(self, parser):
@@ -56,12 +54,17 @@ class RetrieverServiceArguments:
         # Retriever 24k items from the database
         self.retriever_query = f"SELECT ht_id, record_id FROM {PROCESSING_STATUS_TABLE_NAME} WHERE retriever_status = 'pending' LIMIT {TOTAL_MYSQL_ROWS}"
 
+        # TODO Remove the line below once SolrExporter been updated self.solr_url = f"{solr_url}/query"
 
-        # Each Solr query will retrieve maximum 1000 documents
-        self.start = SOLR_ROW_START
-        self.rows = SOLR_TOTAL_ROWS
+        self.solr_host = get_solr_url().strip('/')
+        self.solr_user=os.getenv("SOLR_USER")
+        self.solr_password=os.getenv("SOLR_PASSWORD")
 
-        self.solr_api_url = get_solr_url()
+        self.solr_retriever_query_params = {
+        'q': '*:*',
+        'rows': SOLR_TOTAL_ROWS,
+        'wt': 'json'
+    }
 
 
 class RetrieverServiceByFileArguments(RetrieverServiceArguments):

@@ -22,6 +22,7 @@ logger = get_ht_logger(name=__name__)
 
 # MySQL table to track the status of the indexer
 PROCESSING_STATUS_TABLE_NAME = "fulltext_item_processing_status"
+MYSQL_INSERT_BATCH_SIZE = 500
 
 HT_INDEXER_TRACKTABLE = f"""
         CREATE TABLE IF NOT EXISTS {PROCESSING_STATUS_TABLE_NAME} (
@@ -85,7 +86,7 @@ class HTIndexerTracktable:
                                                        status=record['status']))
 
             # Insert in MySQL a batch size of 500 records
-            if len(data) >= 500:
+            if len(data) >= MYSQL_INSERT_BATCH_SIZE:
                 yield data
                 data = []
         if len(data) > 0:

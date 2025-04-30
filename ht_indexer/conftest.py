@@ -3,12 +3,15 @@ import json
 import os
 
 from catalog_metadata.catalog_metadata import CatalogRecordMetadata, CatalogItemMetadata
-from document_retriever_service.catalog_retriever_service import CatalogRetrieverService
 from ht_queue_service.queue_consumer import QueueConsumer
 from ht_queue_service.queue_producer import QueueProducer
+from ht_utils.ht_utils import get_solr_url
 
 current = os.path.dirname(__file__)
 
+@pytest.fixture
+def get_retriever_service_solr_parameters():
+    return {'q': '*:*','rows': 10, 'wt': 'json'}
 
 # Fixtures to retrieve the catalog record
 # Retrieve JSON file to create a dictionary with a catalog record
@@ -31,16 +34,9 @@ def get_catalog_record_metadata(get_record_data):
 def get_item_metadata(get_record_data: dict, get_catalog_record_metadata: CatalogRecordMetadata):
     return CatalogItemMetadata("mdp.39015078560292", get_catalog_record_metadata)
 
-
-# CatalogRetrieverService object to retrieve the catalog record
 @pytest.fixture
-def get_catalog_retriever_service(solr_api_url):
-    return CatalogRetrieverService(solr_api_url)
-
-
-@pytest.fixture
-def solr_api_url():
-    return "http://solr-sdr-catalog:9033/solr/catalog/"
+def solr_catalog_url():
+    return get_solr_url().strip('/')
 
 
 # Fixtures to instantiate the queue consumer and producer

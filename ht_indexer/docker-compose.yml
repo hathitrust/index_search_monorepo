@@ -200,6 +200,8 @@ services:
       - .:/app
       - ../tmp:/tmp
     command: [ "python", "-m", "pytest" ]
+    environment:
+      SOLR_URL: http://solr-sdr-catalog:9033/solr/catalog/
     depends_on:
       solr-sdr-catalog:
         condition: service_healthy

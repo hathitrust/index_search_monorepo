@@ -1,6 +1,7 @@
 import pytest
 import os
 
+from conftest import solr_catalog_url
 from document_retriever_service.run_retriever_service_by_file import retrieve_documents_by_file
 from document_retriever_service.ht_status_retriever_service import get_non_processed_ids
 import tempfile
@@ -32,34 +33,28 @@ class TestRunRetrieverServiceByFile:
             assert len(ids2process) == 12
             assert len(processed_ids) == 0
 
-    @pytest.mark.parametrize("retriever_parameters", [{"solr_api": "http://solr-sdr-catalog:9033/solr/catalog/",
-                                                       "user": "guest", "password": "guest", "host": "rabbitmq",
+    @pytest.mark.parametrize("retriever_parameters", [{"user": "guest", "password": "guest", "host": "rabbitmq",
                                                        "queue_name": "test_producer_queue",
                                                        "requeue_message": False,
                                                        "query_field": "item",
-                                                       "start": 0,
-                                                       "rows": 100,
                                                        "batch_size": 1}])
     def test_run_retriever_service_by_file(self, retriever_parameters, get_input_file, get_status_file,
-                                           consumer_instance):
-        parallelize = False
-        nthreads = None
+                                           consumer_instance, solr_catalog_url, get_retriever_service_solr_parameters):
 
         # Clean up the queue
         consumer_instance.conn.ht_channel.queue_purge(consumer_instance.queue_name)
 
-        retrieve_documents_by_file(retriever_parameters["solr_api"],
-                                   retriever_parameters["queue_name"],
+        retrieve_documents_by_file(retriever_parameters["queue_name"],
                                    retriever_parameters["host"],
                                    retriever_parameters["user"],
                                    retriever_parameters["password"],
-                                   get_input_file,
                                    retriever_parameters["query_field"],
-                                   retriever_parameters["start"],
-                                   retriever_parameters["rows"],
-                                   get_status_file,
-                                   parallelize,
-                                   nthreads)
+                                   solr_catalog_url,
+                                   'solr_user',
+                                   'solr_password',
+                                   get_retriever_service_solr_parameters,
+                                   get_input_file,
+                                   get_status_file)
 
         assert 9 == consumer_instance.conn.get_total_messages()
 
