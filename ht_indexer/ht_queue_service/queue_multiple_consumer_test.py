@@ -7,7 +7,8 @@ from ht_utils.ht_logger import get_ht_logger
 
 logger = get_ht_logger(name=__name__)
 
-class TestHTMultipleConsumerServiceConcrete(QueueMultipleConsumer):
+
+class HTMultipleConsumerServiceConcrete(QueueMultipleConsumer):
 
     def __init__(self, user: str, password: str, host: str, queue_name: str, requeue_message: bool = False,
                  batch_size: int = 1, shutdown_on_empty_queue: bool = True):
@@ -71,17 +72,17 @@ def list_messages():
 
 @pytest.fixture
 def multiple_consumer_instance():
-    return TestHTMultipleConsumerServiceConcrete(user="guest", password="guest", host="rabbitmq",
+    return HTMultipleConsumerServiceConcrete(user="guest", password="guest", host="rabbitmq",
                                                  queue_name="test_producer_queue", requeue_message=False, batch_size=1)
 
 @pytest.fixture
 def multiple_consumer_instance_requeue_true_size_n():
-    return TestHTMultipleConsumerServiceConcrete(user="guest", password="guest", host="rabbitmq",
+    return HTMultipleConsumerServiceConcrete(user="guest", password="guest", host="rabbitmq",
                                                  queue_name="test_producer_queue", requeue_message=True, batch_size=10)
 
 @pytest.fixture
 def multiple_consumer_instance_requeue_false_size_n():
-    return TestHTMultipleConsumerServiceConcrete(user="guest", password="guest", host="rabbitmq",
+    return HTMultipleConsumerServiceConcrete(user="guest", password="guest", host="rabbitmq",
                                                  queue_name="test_producer_queue", requeue_message=False, batch_size=10)
 
 @pytest.fixture

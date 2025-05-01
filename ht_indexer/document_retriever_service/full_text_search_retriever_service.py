@@ -35,7 +35,7 @@ WAITING_TIME_MYSQL = 60 # Wait 1 minute to query MySQL checking if there are doc
 MYSQL_COLUMN_UPDATE = 'retriever_status'
 SUCCESS_UPDATE_STATUS = f"UPDATE {PROCESSING_STATUS_TABLE_NAME} SET status = %s, {MYSQL_COLUMN_UPDATE} = %s, processed_at = %s WHERE ht_id = %s"
 FAILURE_UPDATE_STATUS = f"UPDATE {PROCESSING_STATUS_TABLE_NAME} SET status = %s, {MYSQL_COLUMN_UPDATE} = %s, processed_at = %s, error = %s WHERE ht_id = %s"
-PARALLELIZE = False
+PARALLELIZE = True
 SOLR_BATCH_SIZE = 200 # The chunk size is 200, because Solr will fail with the status code 414. The chunk size was determined
 # by testing the Solr query with different values (e.g., 100-500 and with 200 ht_ids it worked.
 
@@ -232,18 +232,19 @@ class FullTextSearchRetrieverQueueService:
             FullTextSearchRetrieverQueueService.publishing_documents(queue_producer, record_metadata_list, mysql_db)
 
 
-def run_retriever_service(list_documents, by_field, document_retriever_service):
+def run_retriever_service(list_documents, by_field, document_retriever_service, parallelize: bool = False):
     """
     Run the retriever service
 
     :param list_documents:
     :param by_field:
     :param document_retriever_service:
+    :param parallelize: if True, the process will run in parallel
     """
 
     total_documents = len(list_documents)
 
-    if PARALLELIZE:
+    if parallelize:
 
         n_cores = multiprocessing.cpu_count()
 
@@ -307,7 +308,7 @@ def main():
         # If the list of documents is provided, the process will run only for the documents in the list
         list_ids = RetrieverServicesUtils.extract_ids_from_documents(init_args_obj.list_documents, by_field)
         logger.info(f"Process=retrieving: Total of documents to process {len(list_ids)}")
-        run_retriever_service(list_ids, by_field, document_retriever_service)
+        run_retriever_service(list_ids, by_field, document_retriever_service, parallelize=PARALLELIZE)
     else:
 
         # If the table does not exist, stop the process
@@ -330,7 +331,7 @@ def main():
 
             logger.info(f"Process=retrieving: Total of documents to process {len(list_ids)}")
 
-            run_retriever_service(list_ids, by_field, document_retriever_service)
+            run_retriever_service(list_ids, by_field, document_retriever_service, parallelize=PARALLELIZE)
 
             # Checking the number of messages in the queue
             # Create a connection to the queue to produce messages

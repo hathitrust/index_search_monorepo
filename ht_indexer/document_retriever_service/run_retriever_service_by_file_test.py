@@ -54,7 +54,8 @@ class TestRunRetrieverServiceByFile:
                                    'solr_password',
                                    get_retriever_service_solr_parameters,
                                    get_input_file,
-                                   get_status_file)
+                                   get_status_file,
+                                   parallelize=False)
 
         assert 9 == consumer_instance.conn.get_total_messages()
 
