@@ -61,7 +61,6 @@ class RetrieverServiceArguments:
         self.solr_password=os.getenv("SOLR_PASSWORD")
 
         self.solr_retriever_query_params = {
-        'q': '*:*',
         'rows': SOLR_TOTAL_ROWS,
         'wt': 'json'
     }

@@ -1,5 +1,20 @@
 import pika
-MAX_DOCUMENT_IN_QUEUE = 30000 # 30k is the maximum number of messages in the queue
+
+# Calculate the maximum number of messages in the queue
+
+# The average size of a document_generator message is 1.8 MB
+# The average size of a document_retriever message is 0.0132 MB
+
+# The total disk space of the RabbitMQ server is 50 GB.
+# 1 GB = 1024 MB, so 50 GB = 50 * 1024 MB = 51,200 MB.
+
+# Let's calculate using 90% of the total disk space 51,200 MB * 0.90 = 46,080 MB
+
+# The maximum number of document_generator messages in the queue is 46,080 MB / 1.8 MB = 25,600 messages
+# The maximum number of document_retriever messages in the queue is 46,080 MB / 0.0132 MB = 3,487,878 messages
+
+# To set the maximum number of messages in the retriever queue, I'll set it to 500,000 messages
+MAX_DOCUMENT_IN_QUEUE = 200000 # 200000 is the maximum number of messages in the retriever queue
 
 class QueueConnection:
 

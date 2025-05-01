@@ -1,3 +1,5 @@
+import json
+
 from catalog_metadata.catalog_metadata import CatalogItemMetadata, CatalogRecordMetadata
 from ht_queue_service.queue_producer import QueueProducer
 from ht_utils.ht_logger import get_ht_logger
@@ -15,7 +17,9 @@ class RetrieverServicesUtils:
         :param content: dict with the content of the message
         """
         message = content
-        logger.info(f"Sending message with id {content.get('ht_id')} to queue {queue_producer.queue_name}")
+        entry_data = json.dumps(message)
+        entry_size = len(entry_data.encode('utf-8'))  # Convert to bytes and get length
+        logger.info(f"Sending message with id {content.get('ht_id')} and Size={entry_size} bytes to queue {queue_producer.queue_name}")
         queue_producer.publish_messages(message)
 
     @staticmethod
