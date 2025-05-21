@@ -14,7 +14,7 @@ def get_rabbitmq_host_name():
     """
     This function is used to create the host name for the RabbitMQ
     """
-    return  "rabbitmq" # "localhost"
+    return  "rabbitmq" #"localhost" #
 
 @pytest.fixture
 def get_retriever_service_solr_parameters():

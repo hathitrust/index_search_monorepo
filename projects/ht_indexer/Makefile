@@ -7,7 +7,8 @@ default: build
 all: build
 
 # Install dependencies
-dep: poetry install
+dep:
+	poetry install
 
 build:
     # Copy project files
@@ -24,10 +25,12 @@ build:
 
 	rm -rf $(TMP_DIR)
 
-# Run ht_indexer application in the docker container
+# Run ht_indexer application in the docker container. The docker compose is in the root directory
 run:
-	docker compose -f ../../docker-compose.yml --profile indexer up -d
+	docker compose --profile indexer up -d
 
-# Run ht_indexer tests in the docker container
+# Run ht_indexer tests in the docker container. The docker compose is in the root directory
 test:
-	DOCKER_COMPOSE_PROFILES=indexer docker compose run --rm all_tests
+	docker compose --profile indexer_tests up -d --wait
+	DOCKER_COMPOSE_PROFILES=indexer_tests docker compose run --rm all_tests
+	docker compose --profile indexer_tests down -d
