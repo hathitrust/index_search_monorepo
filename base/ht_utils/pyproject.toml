@@ -1,0 +1,41 @@
+[virtualenvs]
+in-project = true
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+# -p no:cacheprovider is to avoid pytest warning about pytest_cache fixture
+# -ra is to show extra test summary info; -q is to suppress pytest header
+addopts = "-ra -q -p no:cacheprovider"
+
+[tool.poetry]
+name = "ht-utils"
+version = "0.1.0"
+description = "Python utilities for HathiTrust indexing and searching"
+authors = ["lisepul <lisepul@umich.edu>"]
+readme = "README.md"
+packages = [
+    { include = "ht_utils", from = "src" }
+]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+typer = "^0.12.3"
+lxml = "^5.2.1"
+pandas = "^2.2.2"
+mysqlclient = "^2.1.0"
+mysql-connector-python = "^9.2.0"
+mysql = "^0.0.3"
+pypairtree = "^1.1.0"
+pydocstyle = "^6.3.0"
+pytest-cov = "^5.0.0"
+cryptography = "^44.0.2"
+pytest = "^8.0.2"
+
+[tool.poetry.group.dev.dependencies]
+ruff = "^0.4.2"
+pytest = "^8.0.2"
+
+
+[build-system]
+requires = ["poetry-core>=2.1.1"]
+build-backend = "poetry.core.masonry.api"
