@@ -22,7 +22,7 @@ services:
     image: ht_indexer
     volumes:
       - ../tmp:/tmp
-      - ./projects/ht_indexer:/app
+      - ./app/ht_indexer:/app
       - ../sdr1/obj:/sdr1/obj
     ports:
       - "8081:8081"
@@ -138,7 +138,7 @@ services:
     volumes:
       - ../tmp:/tmp:rm
       - ../sdr1/obj:/sdr1/obj
-      - ./projects/ht_indexer:/app
+      - ./app/ht_indexer:/app
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -164,7 +164,7 @@ services:
     volumes:
       - ../tmp:/tmp:rm
       - ../sdr1/obj:/sdr1/obj
-      - ./projects/ht_indexer:/app
+      - ./app/ht_indexer:/app
     ports:
       - "8082:8082"
     depends_on:
@@ -203,8 +203,8 @@ services:
     image: ht_indexer
     profiles: [ indexer_tests, indexer_tests ]
     volumes:
-      - ./projects/ht_indexer:/app
-      - ./projects/ht_indexer/tests:/tests
+      - ./app/ht_indexer:/app
+      - ./app/ht_indexer/tests:/tests
       - ../tmp:/tmp
       - ../sdr1/obj:/sdr1/obj
     command: [ "python", "-m", "pytest", "tests"]

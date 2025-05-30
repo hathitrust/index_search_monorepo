@@ -67,7 +67,7 @@ previous commit history of both projects.
 * **Phase 4**: Set up a CI/CD pipeline to automate testing, and deployment for `ht_search` project.
 * **Phase 5**: Repeat the process for other projects in the monorepo, ensuring that each project is properly structured and tested.
 * **Phase 6**: Install the monorepo in editable mode, allowing for real-time updates during development.
-  * Define dependencies in editable mode add `develop = true ==> {ht-utils = {path = "../../base/ht_utils", develop = true}`
+  * Define dependencies in editable mode add `develop = true ==> {common-lib = {path = "../../libs/common_lib", develop = true}`
   * This approach is useful to develop using the docker image, as it allows you to edit the code in the 
   monorepo and see the changes reflected in the Docker container without having to rebuild the image every time.
   * I don't know how to do this yet, but I will figure it out.
@@ -89,8 +89,8 @@ build:
 	cp pyproject.toml poetry.lock README.md $(TMP_DIR)
 
 	# Copy the shared package written in pyproject.toml
-	cp -r ../../base/ht_utils $(TMP_DIR)/ht_utils
-	cp -r ../../base/ht_search $(TMP_DIR)/ht_search
+	cp -r ../../libs/common_lib/ht_utils $(TMP_DIR)/ht_utils
+	cp -r ../../libs/common_lib/ht_search $(TMP_DIR)/ht_search
 
 	docker build -t $(IMAGE_NAME) $(TMP_DIR)
 
@@ -105,10 +105,10 @@ stage is used to copy the code into the image.
 **Steps to add a dependency**:
 
 In the Dockerfile,
-* Copy the dependency on the base stage of the Docker image. `COPY ./ht_search /base/ht_search/`
+* Copy the dependency on the base stage of the Docker image. `COPY ./ht_search /libs/ht_search/`
 * Copy the dependency on the final stage of the Docker image. `COPY --chown=${UID}:${GID} ht_search/ ht_search/`
 * In the pyproject.toml file, add the dependency to the [tool.poetry.dependencies] section.
-       ```ht-search = {path = "../../base/ht_search"}```
+       ```ht-search = {path = "../../libs/ht_search"}```
 
 ## Design 
 
@@ -116,13 +116,13 @@ The design of the `index_search_monorepo` is structured to ensure uniformity bet
 code. 
 
 1. Monorepo Structure
-The monorepo is organized into two main directories: `base` and `projects`. 
+The monorepo is organized into two main directories: `libs` and `app`. 
 
-* `base`: Contains shared libraries and utilities that are reused across multiple projects.
-* `projects`: Contains independent projects, each with its own functionality and dependencies.
+* `libs`: Contains shared libraries and utilities that are reused across multiple projects.
+* `app`: Contains independent projects, each with its own functionality and dependencies.
 
 2. Shared Libraries
-`Shared libraries` are placed in the base directory (e.g., ht_utils and ht_search).
+`Shared libraries` are placed in the libs directory (e.g., common_lib and ht_search).
 Each shared library has its own `pyproject.toml` file for dependency management.
 These libraries are installed in non-editable mode, that does not allow real-time updates during development. Right now,
 we have a multistage Dockerfile that builds the image in two stages. The first stage is used to install the dependencies,
@@ -136,8 +136,8 @@ use `Makefile` and `Dockerfile` to create the image simulating equivalent paths 
 
 
 3. Independent Projects
-Each project in the projects directory is self-contained with its own `pyproject.toml`, `Dockerfile`, `src` and `tests` 
-directories. Projects can depend on shared libraries in the base directory using relative paths. 
+Each project in the app directory is self-contained with its own `pyproject.toml`, `Dockerfile`, `src` and `tests` 
+directories. Projects can depend on shared libraries in the libs directory using relative paths. 
 
 To add a dependency, you must:
 
@@ -163,7 +163,7 @@ By using relative paths for dependencies, all projects share a single version of
 Breaking changes in shared libraries are addressed across all dependent projects in a single pull request.
 
 9. Scalability
-The modular design allows for easy addition of new projects or shared libraries without disrupting the existing structure.
+The modular design allows for the easy addition of new projects or shared libraries without disrupting the existing structure.
 The use of Docker ensures that new projects can be deployed independently.
 
 ## Usage
@@ -175,18 +175,18 @@ To use the monorepo, follow these steps:
 ```cd index_search_monorepo```
 3. Create the Docker image:
  ```
-   cd projects/ht_indexer
+   cd app/ht_indexer
    make build
  ```
 4. Run the Docker container:
 ```
-   cd projects/ht_indexer
+   cd app/ht_indexer
    make run
 ```
 
 5. Run the tests:
 ```
-   cd projects/ht_indexer
+   cd app/ht_indexer
    make test
 ```
 ## Struction of the monorepo:
@@ -196,21 +196,22 @@ index_search_monorepo
 ├── README.md
 ├── Makefile
 ├── .gitignore
-├── base
-│   ├── ht_utils
-│   │   ├── pyproject.toml
-│   │   ├── __init__.py
-│   │   ├── src
-│   │   ├── tests
-│   ├── ht_search
-│       ├── pyproject.toml
-│       ├── Dockerfile
-│       ├── src
-│           ├── ht_search
-│           ├── solr_dataset
-│           ├── indexing_data.sh
+├── libs
+├── common_lib
+  │   ├── ht_utils
+  │   │   ├── pyproject.toml
+  │   │   ├── __init__.py
+  │   │   ├── src
+  │   │   ├── tests
+  │   ├── ht_search
+  │       ├── pyproject.toml
+  │       ├── Dockerfile
+  │       ├── src
+  │           ├── ht_search
+  │           ├── solr_dataset
+  │           ├── indexing_data.sh
 │   │   ├── tests    
-├── projects
+├── app
 │   ├── ht_indexer
 │       ├── pyproject.toml
 │       ├── Dockerfile
@@ -230,7 +231,7 @@ index_search_monorepo
 You could run in each:
 
 ```
-cd projects/ht_indexer
+cd app/ht_indexer
 poetry install
 poetry run pytest
 poetry lock

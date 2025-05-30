@@ -5,7 +5,7 @@ import uvicorn
 from fastapi import FastAPI
 from ht_indexer_api import HTSolrAPI
 
-from base.ht_utils import get_ht_logger
+from libs.common_lib import get_ht_logger
 
 logger = get_ht_logger(name=__name__)
 

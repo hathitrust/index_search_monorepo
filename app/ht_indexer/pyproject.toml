@@ -43,8 +43,8 @@ pika = "^1.3.2"
 pika-stubs = "^0.1.3"
 arrow = "^1.3.0"
 orjson = "^3.10.15"
-ht-search = {path = "../../base/ht_search"}
-ht-utils = {path = "../../base/ht_utils"}
+ht-search = {path = "../../libs/ht_search"}
+ht-utils = {path = "../../libs/common_lib"}
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.2"

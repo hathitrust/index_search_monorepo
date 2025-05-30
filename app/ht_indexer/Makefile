@@ -18,8 +18,8 @@ build:
 	cp pyproject.toml poetry.lock README.md $(TMP_DIR)
 
 	# Copy the shared package written in pyproject.toml
-	cp -r ../../base/ht_utils $(TMP_DIR)/ht_utils
-	cp -r ../../base/ht_search $(TMP_DIR)/ht_search
+	cp -r ../../libs/common_lib $(TMP_DIR)/common_lib
+	cp -r ../../libs/ht_search $(TMP_DIR)/ht_search
 
 	docker build -t $(IMAGE_NAME) $(TMP_DIR)
 

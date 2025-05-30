@@ -33,8 +33,8 @@ RUN curl -sSL https://install.python-poetry.org | python3 -
 
 # Install the app. Just copy the files needed to install the dependencies
 COPY ./pyproject.toml ./poetry.lock ./
-COPY ./ht_utils /base/ht_utils/
-COPY ./ht_search /base/ht_search/
+COPY ./common_lib /libs/common_lib/
+COPY ./ht_search /libs/ht_search/
 
 # Poetry cache is used to avoid installing the dependencies every time the code changes, we will keep this folder in development environment and remove it in production
 # --no-root, poetry will install only the dependencies avoiding to install the project itself, we will install the project in the final layer
@@ -86,13 +86,13 @@ WORKDIR /app
 COPY --chown=${UID}:${GID} src/ src/
 
 # Copy dependencies to the image
-COPY --chown=${UID}:${GID} ht_utils/ ht_utils/
+COPY --chown=${UID}:${GID} common_lib/ common_lib/
 
 # Copy dependencies to the image
 COPY --chown=${UID}:${GID} ht_search/ ht_search/
 
 # Add the code and the dependencies to the PYTHONPATH
-ENV PYTHONPATH="/app/src:/app/ht_utils:/app/ht_search"
+ENV PYTHONPATH="/app/src:/app/common_lib:/app/ht_search"
 
 CMD ["tail", "-f", "/dev/null"]
 
