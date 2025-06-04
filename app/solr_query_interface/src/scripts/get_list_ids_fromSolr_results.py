@@ -6,6 +6,9 @@ from pathlib import Path
 from ht_search.config_files import config_files_path
 from ht_search.config_search import CATALOG_SOLR_URL, FULL_TEXT_SOLR_URL
 from ht_search.export_all_results import SolrExporter
+from ht_utils.ht_logger import get_ht_logger
+
+logger = get_ht_logger(name=__name__)
 
 
 def get_first_item(document_path: str) -> list:
@@ -74,7 +77,7 @@ def main():
         for _id in list_documents:
             file.write(f"{_id}\n")
 
-    print(f"File '{args.file_name}' created successfully!")
+    logger.info(f"File '{args.file_name}' created successfully!")
 
 if __name__ == "__main__":
     '''

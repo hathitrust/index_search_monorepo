@@ -1,10 +1,11 @@
 from pathlib import Path
 
 import pytest
-from ht_full_text_search import config_files
-from ht_full_text_search.ht_full_text_searcher import HTFullTextSearcher
-from ht_full_text_search.ht_query.ht_query import HTSearchQuery
-from ht_full_text_search.ht_searcher.ht_searcher import HTSearcher
+from ht_search import config_files
+from ht_search.ht_query.ht_query import HTSearchQuery
+from ht_search.ht_searcher.ht_searcher import HTSearcher
+
+from app.solr_query_interface.src.scripts.ht_full_text_searcher import HTFullTextSearcher
 
 QUERY_PARAMETER_CONFIG_FILE = Path(config_files.config_files_path, "full_text_search/config_query.yaml")
 FACET_FILTERS_CONFIG_FILE = Path(config_files.config_files_path, "full_text_search/config_facet_filters.yaml")

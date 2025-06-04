@@ -47,9 +47,6 @@ The monorepo structure is to maintain and supports collaborative development, an
 * [Pytest](https://docs.pytest.org/en/stable/)
 * [Docker](https://www.docker.com/)
 * [Makefile](https://www.gnu.org/software/make/)
-* [Solr](https://lucene.apache.org/solr/)
-* [RabbitMQ](https://www.rabbitmq.com/)
-* [MariaDB](https://mariadb.org/)
 * [Black](https://black.readthedocs.io/en/stable/)
 * [Ruff](https://ruff.rs/)
 
@@ -74,6 +71,10 @@ previous commit history of both projects.
 
 
 ## Project Set Up
+
+All the applications and library run in a docker container, and it is based on the [python:3.11.0a7-slim-buster](https://hub.docker.com/_/python) image. 
+Their dependencies are managing to use [poetry](https://python-poetry.org/). 
+
 
 We use `Makefile` and `Dockerfile` to manage the environment set up and build the image simulating equivalent paths 
 in the Docker image and locally.
@@ -166,6 +167,25 @@ Breaking changes in shared libraries are addressed across all dependent projects
 The modular design allows for the easy addition of new projects or shared libraries without disrupting the existing structure.
 The use of Docker ensures that new projects can be deployed independently.
 
+### Installation
+
+1. Clone the repo
+   ``` git clone https://github.com/hathitrust/index_search_monorepo.git```
+
+2. Set up a development environment with poetry
+
+  In your workdir,
+  
+      * `poetry init` # It will set up your local environment and repository details
+      * `poetry env use python` # To find the virtual environment directory, created by poetry
+      * `source ~/index_search_monorepo-TUsF9qpC-py3.11/bin/activate` # Activate the virtual environment in Mac
+      * `C:\Users\user_name\AppData\Local\pypoetry\Cache\virtualenvs\index_search_monorepo-d4ARlKJT-py3.12\Scripts\Activate.ps1` # Activate the virtual environment in Windows
+      * ** Note **: 
+              If you are using a Mac, poetry creates their files in the home directory, e.g. /Users/user_name/Library/Caches/pypoetry/.
+              If you are using Windows, poetry creates their files in the home directory, e.g. C:\Users\user_name\AppData\Local\pypoetry\
+
+
+
 ## Usage
 
 To use the monorepo, follow these steps:
@@ -189,6 +209,15 @@ To use the monorepo, follow these steps:
    cd app/ht_indexer
    make test
 ```
+
+### Creating A Pull Request
+
+1. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
+2. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
+3. Squash your commits (`git rebase -i HEAD~n` where n is the number of commits you want to squash)
+4. Push to the Branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
 ## Struction of the monorepo:
 
 ```aiignore
@@ -224,22 +253,53 @@ index_search_monorepo
 │       ├── pyproject.toml
 │       ├── Dockerfile
 │       ├── tests
+│       ├── src
+│           ├── ht_searcher
 ```
 
 
 
-You could run in each:
+To update or istall the dependencies of the monorepo, you can use the `poetry update` command in each project directory:
 
 ```
 cd app/ht_indexer
 poetry install
 poetry run pytest
-poetry lock
+poetry update
 ```
 
-* To run Ruff
+* Follow these steps to run Ruff for a check on the code style and linting issues:
 
-`ruff check .`
+On the monorepo root directory, run the following commands:
 
-* To fix issues automatically:
-`ruff check . --fix` 
+```bash
+`poetry env use python ` # To find the virtual environment directory, created by poetry
+`source ~/index_search_monorepo-TUsF9qpC-py3.11/bin/activate` # Activate the virtual environment in Mac
+`ruff check . --fix` # To check and fix the code style and linting issues
+```
+
+## Resources
+
+- Use the command `. $env_name/bin/activate` to activate the virtual environment inside the container $env_name is 
+the name of the virtual environment created by poetry.
+- Enter inside the docker file: `docker compose exec full_text_searcher /bin/bash`
+- Running the scripts: `docker compose exec full_text_searcher python ht_full_text_search/export_all_results.py --env dev --query '"good"'`
+
+### Guides to install python and poetry on macOS
+
+Recommendation: Use brew to install python and pyenv to manage the python versions.
+
+* Install python
+    * You can read this blog to install python in the right way in
+      python: https://opensource.com/article/19/5/python-3-default-mac
+* Install poetry:
+    * **Good blog to understand and use poetry
+      **: https://blog.networktocode.com/post/upgrade-your-python-project-with-poetry/
+    * **Poetry docs**: https://python-poetry.org/docs/dependency-specification/
+    * **How to manage Python projects with Poetry
+      **: https://www.infoworld.com/article/3527850/how-to-manage-python-projects-with-poetry.html
+
+* Useful poetry commands (Find more information about commands [here](https://python-poetry.org/docs/cli))
+    * Inside the application folder: See the virtual environment used by the application `` poetry env use python ``
+    * Activate the virtual environment: ``source ~/ht-indexer-GQmvgxw4-py3.11/bin/activate``, in Mac poetry creates
+      their files in the home directory, e.g. /Users/user_name/Library/Caches/pypoetry/.

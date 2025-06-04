@@ -6,6 +6,9 @@ from argparse import ArgumentParser
 import matplotlib.pyplot as plt
 import pandas as pd
 from generate_query_results_in_batch import get_list_phrases
+from ht_utils.ht_logger import get_ht_logger
+
+logger = get_ht_logger(name=__name__)
 
 """
 What are the questions we want to answer?
@@ -48,7 +51,7 @@ def get_different_sorted_ids(list_a, list_b):
                 diff_elements.append(i)
         except IndexError as e_index:
             diff_elements.append(i)
-            print(f"Index Error {e_index}")
+            logger.error(f"Index Error {e_index}")
 
     for i, item in enumerate(list_b):
         try:
@@ -56,7 +59,7 @@ def get_different_sorted_ids(list_a, list_b):
                 diff_elements.append(i)
         except IndexError as e_index:
             diff_elements.append(i)
-            print(f"Index Error {e_index}")
+            logger.error(f"Index Error {e_index}")
 
     return list(set(diff_elements))
 
@@ -78,12 +81,12 @@ if __name__ == "__main__":
 
     list_phrases = get_list_phrases(args.list_phrase_file)
 
-    print(f"Total string queries {len(list_phrases)}.")
+    logger.info(f"Total string queries {len(list_phrases)}.")
     kind_query = ["AND", "OR", None]
-    print(f"Total kind of queries: {len(kind_query)}")
+    logger.info(f"Total kind of queries: {len(kind_query)}")
 
     # Expected number of queries to compare: total of kind_query * string_queries (3 * 17) = 51 to compare
-    print(f"Expected comparison {len(list_phrases) * len(kind_query)}")
+    logger.info(f"Expected comparison {len(list_phrases) * len(kind_query)}")
     # Generating the list of queries
     for input_query in list_phrases:
         for type_query in ["ocronly"]:
@@ -113,22 +116,22 @@ if __name__ == "__main__":
     for query in list_queries:
         df_A = None
         df_B = None
-        print("***************")
-        print(query)
+        logger.info("***************")
+        logger.info(query)
 
         a_path = f'scripts/query_results/{query["query_fields"]}_{query["query_string"]}_{query["operator"]}_prod.csv'
-        print("/".join([os.getcwd(), a_path]))
+        logger.info("/".join([os.getcwd(), a_path]))
         if pathlib.Path("/".join([os.getcwd(), a_path])).is_file():
             df_A = pd.read_csv("/".join([os.getcwd(), a_path]), sep="\t")
         else:
-            print(f"File {a_path} does not exist")
+            logger.info(f"File {a_path} does not exist")
             continue
         b_path = f'scripts/query_results/{query["query_fields"]}_{query["query_string"]}_{query["operator"]}_dev.csv'
-        print("/".join([os.getcwd(), b_path]))
+        logger.info("/".join([os.getcwd(), b_path]))
         if pathlib.Path("/".join([os.getcwd(), b_path])).is_file():
             df_B = pd.read_csv("/".join([os.getcwd(), b_path]), sep="\t")
         else:
-            print(f"File {b_path} does not exist")
+            logger.info(f"File {b_path} does not exist")
             continue
 
         # total of difference
@@ -138,63 +141,60 @@ if __name__ == "__main__":
         total_comparison = total_comparison + 1
         try:
             if df_A[["id", "author", "title"]].equals(df_B[["id", "author", "title"]]):
-                print(
+                logger.info(
                     "Identical results")  # I did not expect this case, because at least the scores should be different
                 query_stats["ident_results"] += 1
 
             if list(df_A["id"][0:5]) == list(df_B["id"][0:5]):
-                print("Identical ids in top 5")
+                logger.info("Identical ids in top 5")
                 query_stats["ident_id_top_5"] += 1
             else:
-                print("Different ids in top 5")
+                logger.info("Different ids in top 5")
                 query_stats["diff_id_top_5"] += 1
             if list(df_A["id"][5:20]) == list(df_B["id"][5:20]):
-                print("Identical ids in the range 5 to 20")
+                logger.info("Identical ids in the range 5 to 20")
                 query_stats["ident_id_range5-20"] += 1
             else:
-                print("Different ids in the range 5 to 20")
+                logger.info("Different ids in the range 5 to 20")
                 query_stats["diff_id_range5-20"] += 1
 
             if list(df_A["id"][20:]) != list(df_B["id"][20:]):
-                print("Different ids from top 20 to end")
+                logger.info("Different ids from top 20 to end")
                 query_stats["diff_id_top_20_to_end"] += 1
 
             if len(get_different_ids(df_A["id"].to_list(), df_B["id"].to_list())) == 0:
 
-                print("The same ids in both engines")
+                logger.info("The same ids in both engines")
                 query_stats["same_ids_both_engines"] += 1
             else:
-                print("Different ids in both engines")
-                print(query)
+                logger.info("Different ids in both engines")
+                logger.info(query)
 
             if len(set(df_A["id"].sort_values()) ^ set(df_B["id"].sort_values())) > 0:
-                print(f"List of different ids {set(df_A['id']) ^ set(df_B['id'])}")
+                logger.info(f"List of different ids {set(df_A['id']) ^ set(df_B['id'])}")
         except AttributeError as e_attribute:
-            print(f"Some of the dataframe does not exist Error {e_attribute}")
+            logger.error(f"Some of the dataframe does not exist Error {e_attribute}")
         except NameError as e_name:
-            print(f"Some of the dataframe does not exist Error {e_name}")
+            logger.error(f"Some of the dataframe does not exist Error {e_name}")
         except TypeError as e_type:
-            print(f"Some of the dataframe does not exist Error {e_type}")
+            logger.error(f"Some of the dataframe does not exist Error {e_type}")
 
-    print(f"Total comparison {total_comparison}")
-    print(query_stats)
+    logger.info(f"Total comparison {total_comparison}")
+    logger.info(query_stats)
     query_stats_percentage = {key: percentage(value, total_comparison) for key, value in query_stats.items()}
-    print(query_stats_percentage)
+    logger.info(query_stats_percentage)
 
     plt.figure(figsize=(10, 7))
 
     names = list(query_stats.keys())
     values = list(query_stats.values())
 
-    print(names)
-    print(count_diff)
-    # ax = fig.add_subplot()
+    logger.info(names)
+    logger.info(count_diff)
 
     plt.bar(names, values)
     plt.title("Query stats")
     plt.ylabel("Total of queries")
     plt.xlabel("Categories")
 
-    # ax.set_xticklabels(names, rotation=10, ha="right")
-    # plt.bar(range(len(query_stats)), values, tick_label=names)
     plt.show()

@@ -2,9 +2,9 @@ import inspect
 import os
 import sys
 
+from document_generator.ht_mysql import get_mysql_conn
 from ht_indexer_monitoring.ht_indexer_tracktable import PROCESSING_STATUS_TABLE_NAME
 from ht_utils.ht_logger import get_ht_logger
-from ht_utils.ht_mysql import get_mysql_conn
 from ht_utils.ht_utils import comma_separated_list, get_general_error_message, get_solr_url
 
 logger = get_ht_logger(name=__name__)

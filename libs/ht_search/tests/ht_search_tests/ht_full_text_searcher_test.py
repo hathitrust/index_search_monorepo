@@ -1,7 +1,8 @@
 import os
 
 from ht_search import config_search
-from ht_search.ht_full_text_searcher import HTFullTextSearcher
+
+from app.solr_query_interface.src.scripts.ht_full_text_searcher import HTFullTextSearcher
 
 
 class TestHTFullTextSearcher:

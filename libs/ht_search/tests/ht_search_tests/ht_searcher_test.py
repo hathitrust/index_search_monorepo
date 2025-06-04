@@ -1,7 +1,6 @@
 import os
 
 import pytest
-
 from ht_search import config_search
 from ht_search.ht_searcher.ht_searcher import HTSearcher
 

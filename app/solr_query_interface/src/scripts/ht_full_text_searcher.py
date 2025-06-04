@@ -5,12 +5,15 @@ import sys
 from argparse import ArgumentParser
 
 from ht_search.config_search import FULL_TEXT_SOLR_URL
-from ht_search.ht_query.ht_query import HTSearchQuery
+from ht_search.ht_query.ht_full_text_query import HTFullTextQuery
 from ht_search.ht_searcher.ht_searcher import HTSearcher
+from ht_utils.ht_logger import get_ht_logger
 
 current = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 parent = os.path.dirname(current)
 sys.path.insert(0, parent)
+
+logger = get_ht_logger(name=__name__)
 
 """
 LS::Operation::Search ==> it contains all the logic about interleaved adn A/B tests
@@ -21,7 +24,7 @@ class HTFullTextSearcher(HTSearcher):
     def __init__(
             self,
             solr_url: str = None,
-            ht_search_query: HTSearchQuery = None,
+            ht_search_query: HTFullTextQuery = None,
             environment: str = "dev",
             user=None, password=None
     ):
@@ -74,7 +77,7 @@ class HTFullTextSearcher(HTSearcher):
                 list_docs, list_debug = self.solr_result_output(q_string=q_string, fl=fl, operator=operator, filter_dict={"id": chunk},
                     q_filter=q_filter
                 )
-                print(f"One batch of results {len(chunk)}")
+                logger.info(f"One batch of results {len(chunk)}")
 
                 yield list_docs, list_debug
 
@@ -145,11 +148,11 @@ if __name__ == "__main__":
                                                                            q_filter=q_filter,
                                                                            list_ids=list_ids,
                                                                            ):
-            print('**********************************')
-            print(doc)
-            print(debug_info)
+            logger.info('**********************************')
+            logger.info(doc)
+            logger.info(debug_info)
     else:
         solr_output = ht_full_search.solr_result_output(q_string=query_string, fl=fl, operator=args.operator
         )
-        print(f"Total found {len(solr_output)}")
-        print(solr_output)
+        logger.info(f"Total found {len(solr_output)}")
+        logger.info(solr_output)

@@ -2,6 +2,9 @@ import os
 import pathlib
 
 import pandas as pd
+from ht_utils.ht_logger import get_ht_logger
+
+logger = get_ht_logger(name=__name__)
 
 if __name__ == "__main__":
     list_queries = []
@@ -24,9 +27,9 @@ if __name__ == "__main__":
                       "Genealogy",
                       "natural history"]
 
-    print(f"Total string queries {len(string_queries)}.")
+    logger.info(f"Total string queries {len(string_queries)}.")
     kind_query = ["AND", "OR", None]
-    print(f"Total kind of queries: {len(kind_query)}")
+    logger.info(f"Total kind of queries: {len(kind_query)}")
 
     engines = ["solr6", "solr8"]
 
@@ -46,14 +49,14 @@ if __name__ == "__main__":
     for engine in engines:
         # Hits counter
         # Expected number of queries to compare: total of kind_query * string_queries (3 * 17) = 51 to compare
-        print(f"Expected comparison {len(string_queries) * len(kind_query)}")
+        logger.info(f"Expected comparison {len(string_queries) * len(kind_query)}")
 
         hits_dict = []
 
         for query in list_queries:
             df_A = None
-            print("***************")
-            print(query)
+            logger.info("***************")
+            logger.info(query)
 
             a_path = f'{query["query_fields"]}_{query["query_string"]}_{query["operator"]}_{engine}.csv'
             if pathlib.Path(a_path).is_file():
@@ -68,7 +71,7 @@ if __name__ == "__main__":
                                   })
 
             else:
-                print(f"File {a_path} does not exist")
+                logger.info(f"File {a_path} does not exist")
                 hits_dict.append({'engine': engine,
                                   'query_string': query['query_string'],
                                   'operator': query['operator'],

@@ -10,27 +10,25 @@ addopts = "-ra -q -p no:cacheprovider"
 # The [project] table is the format that most build backends use to specify the project’s basic metadata,
 # such as the dependencies, your name, etc.
 [tool.poetry]
-name = "ht-search"
+name = "solr_query_interface"
 version = "0.1.0"
-description = "Repository for full-text search in Solr"
+description = "Package for search in Solr"
 readme = "README.md"
 authors = ["lisepul <lisepul@umich.edu>"]
 keywords = ["solr", "full-text-search", "HathiTrust"]
 packages = [
-    {include = "ht_search", from = "src"},
+    {include = "solr_query_interface", from = "src"},
 ]
 
 [tool.poetry.dependencies]
 python = "^3.11"
-requests = "^2.31.0"
-pandas ="^2.1.4"
-pyyaml ="^6.0.1"
-#solrq = "^1.1.2"
-matplotlib ="^3.8.2"
-
+fastapi ="^0.111.1"
+uvicorn ="^0.30.3"
+openpyxl ="^3.1.5"
+ht-search = {path = "../../libs/ht_search"}
+ht-utils = {path = "../../libs/common_lib"}
 
 [tool.poetry.group.dev.dependencies]
-ruff = "^0.4.2"
 pytest = "^8.0.2"
 
 [build-system]

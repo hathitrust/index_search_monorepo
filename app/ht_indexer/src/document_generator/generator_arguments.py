@@ -5,10 +5,11 @@ import sys
 from ht_queue_service.queue_consumer import QueueConsumer
 from ht_queue_service.queue_producer import QueueProducer
 from ht_utils.ht_logger import get_ht_logger
-from ht_utils.ht_mysql import get_mysql_conn
 
 # utils
 from ht_utils.ht_utils import get_general_error_message
+
+from document_generator.ht_mysql import get_mysql_conn
 
 logger = get_ht_logger(name=__name__)
 

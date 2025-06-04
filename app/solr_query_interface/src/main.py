@@ -7,13 +7,14 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-
 from ht_search.config_files import config_files_path
 from ht_search.config_files.solr_data_sample import SOLR_OUTPUT_SAMPLE
 from ht_search.config_search import FULL_TEXT_SOLR_URL
 from ht_search.export_all_results import SolrExporter
+from ht_utils.ht_logger import get_ht_logger
 
 exporter_api = {}
+logger = get_ht_logger(name=__name__)
 
 def main():
     parser = argparse.ArgumentParser()
@@ -27,7 +28,7 @@ def main():
         """
         Startup the API to index documents in Solr
         """
-        print("Connecting with Solr server")
+        logger.info("Connecting with Solr server")
 
         solr_url = FULL_TEXT_SOLR_URL[args.env]
         if args.solr_url:

@@ -2,10 +2,12 @@ import os
 from argparse import ArgumentParser
 
 import pandas as pd
-
+from ht_full_text_searcher import HTFullTextSearcher
 from ht_search.config_search import FULL_TEXT_SOLR_URL
-from ht_search.ht_full_text_query import HTFullTextQuery
-from ht_search.ht_full_text_searcher import HTFullTextSearcher
+from ht_search.ht_query.ht_full_text_query import HTFullTextQuery
+from ht_utils.ht_logger import get_ht_logger
+
+logger = get_ht_logger(name=__name__)
 
 statistics_fields = {"language008_full": "Language dist all",
                   "countryOfPubStr": "Place of Pub",
@@ -237,8 +239,8 @@ if __name__ == "__main__":
     solr_output = ht_full_search.solr_facets_output(query_string=None, fl=fl, operator=args.operator
                                                     )
 
-    print(f"Total found {len(solr_output)}")
-    print(solr_output)
+    logger.info(f"Total found {len(solr_output)}")
+    logger.info(solr_output)
 
     data_solr_facets = create_dataframe_from_facets(solr_output)
 

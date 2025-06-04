@@ -1,5 +1,5 @@
 import arrow
-from ht_utils import get_current_time
+from ht_utils.ht_utils import get_current_time
 
 
 class TestHTTime:

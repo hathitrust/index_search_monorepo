@@ -1,6 +1,9 @@
 from functools import reduce
 
 import yaml
+from ht_utils.ht_logger import get_ht_logger
+
+logger = get_ht_logger(name=__name__)
 
 
 class HTSearchQuery:
@@ -31,14 +34,14 @@ class HTSearchQuery:
                 config_query_path, self.config_query
             )
         except Exception as e:
-            print(f"File {config_query_path} to create Solr query does not exist. Exception: {e}")
+            logger.error(f"File {config_query_path} to create Solr query does not exist. Exception: {e}")
             self.solr_parameters = {}  # Empty dictionary
         try:
             self.solr_facet_filters = HTSearchQuery.initialize_solr_query(
                 config_facet_field_path, config_facet_field
             )
         except Exception as e:
-            print(f"File {config_facet_field} to get the filters does not exist. Exception: {e}")
+            logger.error(f"File {config_facet_field} to get the filters does not exist. Exception: {e}")
             self.solr_facet_filters = {}  # Empty dictionary
             pass
 
@@ -147,7 +150,6 @@ class HTSearchQuery:
 
         # query_string_dict = {"q": HTSearchQuery.get_exact_phrase_query(input_phrase)}
         if operator == "OR" or operator == "AND":
-            # " AND ".join(input_phrase.split())
             return f" {operator} ".join(input_phrase.split())  # input_phrase
         elif operator is None:
             return "\"" + input_phrase + "\""
@@ -202,7 +204,7 @@ class HTSearchQuery:
         if self.solr_facet_filters:
             params.update(HTSearchQuery.facet_creator(self.solr_facet_filters.get("facet")))
 
-        print(params)
+        logger.info(params)
         if fl:
             params.update({"fl": fl})
 
@@ -227,4 +229,4 @@ if __name__ == "__main__":
     Q = HTSearchQuery(config_query="all")
     solr_query = Q.make_solr_query(q_string=query_string, operator="OR")
 
-    print(solr_query)
+    logger.info(solr_query)

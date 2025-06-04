@@ -2,10 +2,9 @@ import os
 import sys
 from typing import Any
 
-from mysql import connector
-
 from ht_utils.ht_logger import get_ht_logger
 from ht_utils.ht_utils import get_general_error_message
+from mysql import connector
 
 logger = get_ht_logger(name=__name__)
 

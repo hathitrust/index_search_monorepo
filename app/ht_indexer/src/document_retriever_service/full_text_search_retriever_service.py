@@ -9,6 +9,7 @@ import time
 
 import requests
 from catalog_metadata.catalog_metadata import CatalogItemMetadata, CatalogRecordMetadata
+from document_generator.ht_mysql import get_mysql_conn
 from ht_indexer_api.ht_indexer_api import HTSolrAPI
 from ht_indexer_monitoring.ht_indexer_tracktable import (
     HT_INDEXER_TRACKTABLE,
@@ -17,7 +18,6 @@ from ht_indexer_monitoring.ht_indexer_tracktable import (
 from ht_queue_service.queue_connection import MAX_DOCUMENT_IN_QUEUE
 from ht_queue_service.queue_producer import QueueProducer
 from ht_utils.ht_logger import get_ht_logger
-from ht_utils.ht_mysql import get_mysql_conn
 from ht_utils.ht_utils import (
     get_current_time,
     get_error_message_by_document,

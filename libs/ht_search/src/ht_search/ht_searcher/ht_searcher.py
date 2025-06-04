@@ -3,10 +3,13 @@ from collections.abc import Generator
 from typing import Any
 
 import requests
+from ht_utils.ht_logger import get_ht_logger
 from requests.auth import HTTPBasicAuth
 
 from ht_search.config_search import add_shards
 from ht_search.ht_query.ht_query import HTSearchQuery
+
+logger = get_ht_logger(name=__name__)
 
 """
 Perl
@@ -92,7 +95,7 @@ class HTSearcher:
         if self.environment == "prod":
             add_shards(query_dict)
             query_dict["shards.info"] = "true"
-        print(query_dict)
+        logger.info(query_dict)
 
         # Counting total records
         response = self.send_query(query_dict)
@@ -141,7 +144,7 @@ class HTSearcher:
         try:
             total_records = output.get("response").get("numFound")
         except Exception as e:
-            print(f"Solr index {self.solr_url} seems empty {e}")
+            logger.error(f"Solr index {self.solr_url} seems empty {e}")
             exit()
         count_records = 0
         while count_records < total_records:
@@ -155,7 +158,7 @@ class HTSearcher:
 
             count_records = count_records + len(output.get("response").get("docs"))
 
-            print(f"Batch documents {count_records}")
+            logger.info(f"Batch documents {count_records}")
             start += rows
-            print(f"Result length {len(results)}")
+            logger.info(f"Result length {len(results)}")
             yield output

@@ -4,11 +4,12 @@ import sys
 from argparse import ArgumentParser
 
 import pandas as pd
-
+from ht_full_text_searcher import HTFullTextSearcher
 from ht_search.config_search import FULL_TEXT_SOLR_URL
-from ht_search.ht_full_text_query import HTFullTextQuery
-from ht_search.ht_full_text_searcher import HTFullTextSearcher
+from ht_search.ht_query.ht_full_text_query import HTFullTextQuery
+from ht_utils.ht_logger import get_ht_logger
 
+logger = get_ht_logger(name=__name__)
 
 def comma_separated_list(arg):
     return arg.split(",")
@@ -55,7 +56,7 @@ def get_solr_results_without_filter_by_id(ht_full_search_obj: HTFullTextSearcher
 
 def get_list_phrases(file_path: str) -> list:
     if not os.path.isfile(file_path):
-        print(f"File {file_path} not found")
+        logger.error(f"File {file_path} not found")
         sys.exit(1)
     with open(file_path) as f:
         list_phrases = f.read().splitlines()
@@ -117,7 +118,7 @@ if __name__ == "__main__":
         # Create empty dataframe with the columns to be returned
         df = pd.DataFrame(columns=args.fl)
 
-        print(f"Solr query {query['query_string']} with operator {query['operator']}")
+        logger.info(f"Solr query {query['query_string']} with operator {query['operator']}")
 
         # Create query object
         Q = HTFullTextQuery(config_query=query['query_fields'])
@@ -140,7 +141,7 @@ if __name__ == "__main__":
 
             # Empty results
             if docs_found == 0:
-                print(f'No results found for query {query["query_string"]}')
+                logger.info(f'No results found for query {query["query_string"]}')
                 continue
 
             df = pd.DataFrame(list_docs)
@@ -157,7 +158,7 @@ if __name__ == "__main__":
 
             list_ids = [doc_id['id'] for doc_id in filter_dict.get('response', {}).get('docs', []) if doc_id.get('id')]
 
-            print(f"Total of ids to process {len(list_ids)}")
+            logger.info(f"Total of ids to process {len(list_ids)}")
 
             list_df_results = []
             # Processing long queries
@@ -169,7 +170,7 @@ if __name__ == "__main__":
 
                 # Empty results
                 if len(doc) == 0:
-                    print(f'No results found for query {query["query_string"]}')
+                    logger.info(f'No results found for query {query["query_string"]}')
                     continue
 
                 df_tmp = pd.DataFrame(doc)
@@ -178,7 +179,7 @@ if __name__ == "__main__":
 
             df = pd.concat(list_df_results)
 
-        print(f"Total found {total_found}")
+        logger.info(f"Total found {total_found}")
 
         # Save the results in a CSV files
         main_path = f'{os.getcwd()}/scripts/query_results'

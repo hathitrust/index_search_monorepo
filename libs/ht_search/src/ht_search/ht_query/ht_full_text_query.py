@@ -1,7 +1,11 @@
 # Perl file: LS::Query:FullTest.pm
 
+from ht_utils.ht_logger import get_ht_logger
+
 from ht_search.config_search import FACET_FILTERS_CONFIG_FILE, QUERY_PARAMETER_CONFIG_FILE
 from ht_search.ht_query.ht_query import HTSearchQuery
+
+logger = get_ht_logger(name=__name__)
 
 
 class HTFullTextQuery(HTSearchQuery):
@@ -56,4 +60,4 @@ if __name__ == "__main__":
 
     solr_query = Q.make_solr_query(q_string=query_string, operator="OR")
 
-    print(solr_query)
+    logger.info(solr_query)
