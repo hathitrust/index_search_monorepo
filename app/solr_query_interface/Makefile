@@ -13,6 +13,7 @@ dep:
 build:
     # Copy project files
 	cp -r src $(TMP_DIR)/src
+	cp -r tests $(TMP_DIR)/tests
 
 	cp Dockerfile .dockerignore $(TMP_DIR)
 	cp pyproject.toml poetry.lock README.md $(TMP_DIR)
@@ -33,4 +34,3 @@ run:
 test:
 	docker compose --profile solr_query_interface_tests up -d --wait
 	DOCKER_COMPOSE_PROFILES=solr_query_interface_tests docker compose run --rm ht_search_tests
-	docker compose --profile solr_query_interface_tests down -d

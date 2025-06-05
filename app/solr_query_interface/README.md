@@ -121,13 +121,16 @@ The project is structured as follows:
     ├── documentation
     │   ├── search_api_documentation.png
     ├── src
-        ├── scripts
+        ├── data_analysis
         │   ├── compare_results.py
         │   ├── generate_query_results.py
         │   ├── generate_query_results_in_batch.py
         │   ├── get_collection_statistics.py
         │   └── [other scripts]
-        ├── main.py
+        ├── ht_full_text_search
+        │   ├── __init__.py
+        │   ├── main.py
+        │   ├── ht_full_text_searcher.py
         ├── indexing_data.sh
     ├── tests   
     ├── Dockerfile
@@ -166,8 +169,8 @@ SOLR_URL = {
 - in the HathiTrust full-text search service (Solr 6 standalone mode).
 
 Use case 1: Implement the Python script `ht_full_text_searcher.py` to retrieve documents from solr using the same logic 
-as in HathiTrus ls module. A Python version of the ls module is implemented in the `ht_search` library.
-The script `ht_full_text_searcher.py` is responsible for creating the Solr query and searching the documents 
+as in HathiTrust ls module. A Python version of the ls module is implemented in the `ht_search` library.
+The script `ht_full_text_search/ht_full_text_searcher.py` is responsible for creating the Solr query and searching the documents 
 in the Solr server with the following parameters.
 
 * `--env` is the environment where the application is running. It can be `dev` (Solr 8) or `prod` (Solr 6)
@@ -182,7 +185,7 @@ in the Solr server with the following parameters.
   * Example of command to run the application with the query you want to search in the Solr server. 
   The command below will search the exact phrase `Congreso de los Diputados` in the full text of the documents because operator is None.
       ```
-      docker compose exec solr_query_api python src/scripts/ht_full_text_searcher.py 
+      docker compose exec solr_query_api python src/data_analysis/ht_full_text_searcher.py 
     --env dev --query_string "Congreso de los Diputados" --query_config ocronly
       ```
     * The output of the command below is a list of documents that contain the exact phrase `Congreso de los Diputados` in the full text,
@@ -206,7 +209,7 @@ retrieve documents from Solr. However, in this case, the application will receiv
 Solr server and the results will be saved in a csv file. The user must create the file (e.g. `list_query_file.txt`) with the
 list of phrases to search in the Solr server.
 
-This use case is implemented in the `src/scripts/generate_query_results_in_batch.py` script. 
+This use case is implemented in the `src/data_analysis/generate_query_results_in_batch.py` script. 
 
 The script receives the following parameters:
 
@@ -222,7 +225,7 @@ The script receives the following parameters:
   * `--list_phrase_file` TXT file containing the list of phrase to search in the Solr server
 
 The script will create a CSV file with the result of each query in the list of phrases. 
-All the CVS files will be saved inside the folder scripts/query_results.
+All the CVS files will be saved inside the folder data_analysis/query_results.
 To name the CSV file the following parameters are concatenated:
   - the fields (only the OCR or all the fields), 
   - the operator and 
@@ -234,9 +237,9 @@ example of the name of the CSV file:
 
 * Example of command to run the application with the queries you want to search in the Solr server
 
-        ```docker compose exec solr_query_api python src/scripts/generate_query_results_in_batch.py \
+        ```docker compose exec solr_query_api python src/data_analysis/generate_query_results_in_batch.py \
               --env dev \
-              --list_phrase_file src/scripts/list_query_file.txt \
+              --list_phrase_file src/data_analysis/list_query_file.txt \
               --query_config ocronly
         ```
   
@@ -251,7 +254,7 @@ example of the name of the CSV file:
 
 **Use case 3**: Compare the results with the expected ones or with the results of another query or search engine
 
-This use case is implemented in the `solr_query_interface/src/scripts/compare_results.py` script.It was created as part of the experiments 
+This use case is implemented in the `solr_query_interface/src/data_analysis/compare_results.py` script.It was created as part of the experiments 
 to compare the results of the full-text search in Solr (dev) with the results of the full-text search 
 in the HathiTrust full-text search service (prod). When this use case was created, two Solr servers were running. 
 The production server was running Solr 6 in standalone mode, and the development server was running Solr 8 in cloud mode.
@@ -264,13 +267,13 @@ You can find [here](https://hathitrust.atlassian.net/wiki/spaces/HAT/pages/27422
 The script receives the following parameters:
   * `--list_phrase_file` TXT file containing the list of phrase to search in the Solr server
 
-To run the script, you should have CSV files in `solr_query_interface/src//scripts/query_results`
+To run the script, you should have CSV files in `solr_query_interface/src/data_analysis/query_results`
 folder with the results of the queries in PROD and DEV servers.
 
 * Example of command to run the application with the queries you want to search in the Solr server
 
-        ```docker compose exec solr_query_api python src/scripts/extracting_diference_solr_results.py \
-              --list_phrase_file src/scripts/list_query_file.txt
+        ```docker compose exec solr_query_api python src/data_analysis/extracting_diference_solr_results.py \
+              --list_phrase_file src/data_analysis/list_query_file.txt
         ```
 **Phase 2**:
 - Create an API to search documents in Solr server
@@ -302,7 +305,7 @@ You will see the following screen with the API endpoints:
 ```docker compose exec solr_query_api python ht_search/src/ht_search/export_all_results.py --env dev --query '"good"'```
 
 * You can also run the API to search the documents in the Solr server (dev environment) using the command below in the terminal:
-```docker compose exec solr_query_api python main.py --env dev```. The Solr URLs to access dev and prod 
+```docker compose exec solr_query_api python data_analysis/main.py --env dev```. The Solr URLs to access dev and prod 
 environments are in the file `config_search.py`.
 
 If you want to run the API or the `export_all_results.py` script using HTRC access point, you will have to run 
@@ -338,15 +341,15 @@ Once the API is up, we can use the command below to query the full-text search u
     - Distribution of documents per Library of Congress classification (tab: LC Class)
     - Distribution of documents per Domains (tab: Public Domain dist)
 
-The script `scripts/get_collection_statistics.py` is responsible for creating the Excel file with the collection statistics.
-The generated Excel file will be saved in the folder `scripts/collection_statistics_2024.xlsx`.
+The script `data_analysis/get_collection_statistics.py` is responsible for creating the Excel file with the collection statistics.
+The generated Excel file will be saved in the folder `data_analysis/collection_statistics_2024.xlsx`.
 
-```docker compose exec solr_query_api python src/scripts/get_collection_statistics.py --env dev --map_file_path scripts/map_call_number.properties```
+```docker compose exec solr_query_api python src/data_analysis/get_collection_statistics.py --env dev --map_file_path lib/ht_search/src/ht_search/map_call_number.properties```
 
 To get the collection statistics from production Solr server, you will have to run the 
 application outside the docker and using the command below:
 
-```python scripts/get_collection_statistics.py --env prod --map_file_path lib/ht_search/src/ht_search/config_files/map_call_number.properties```
+```python data_analysis/get_collection_statistics.py --env prod --map_file_path lib/ht_search/src/ht_search/config_files/map_call_number.properties```
 
 Note: To find all the distribution by rights categories, you can query the table `attributes` in MySql database.
 

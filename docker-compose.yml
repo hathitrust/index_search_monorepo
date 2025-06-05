@@ -220,7 +220,7 @@ services:
       - "8000:8000"
     environment:
       <<: *env_common
-    command: [ "python", "src/main.py", "--env",  "dev"]
+    command: [ "python", "src/ht_full_text_search/main.py", "--env",  "dev"]
   data_loader: # It is probably for this application I should create the image first
     image: solr_query_interface
     container_name: data_loader

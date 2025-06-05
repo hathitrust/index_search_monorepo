@@ -70,6 +70,7 @@ USER app
 WORKDIR /app
 
 COPY --chown=${UID}:${GID} src/ src/
+COPY --chown=${UID}:${GID} tests/ tests/
 
 # Copy dependencies to the image
 COPY --chown=${UID}:${GID} common_lib/ common_lib/
@@ -78,6 +79,6 @@ COPY --chown=${UID}:${GID} common_lib/ common_lib/
 COPY --chown=${UID}:${GID} ht_search/ ht_search/
 
 # Add the code and the dependencies to the PYTHONPATH
-ENV PYTHONPATH="/app/src:/app/common_lib:/app/ht_search"
+ENV PYTHONPATH="/app/src:/app/tests:/app/common_lib:/app/ht_search"
 
 CMD ["tail", "-f", "/dev/null"]
