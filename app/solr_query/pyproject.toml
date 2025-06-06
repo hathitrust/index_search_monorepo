@@ -10,14 +10,14 @@ addopts = "-ra -q -p no:cacheprovider"
 # The [project] table is the format that most build backends use to specify the project’s basic metadata,
 # such as the dependencies, your name, etc.
 [tool.poetry]
-name = "solr_query_interface"
+name = "solr_query"
 version = "0.1.0"
 description = "Package for search in Solr"
 readme = "README.md"
 authors = ["lisepul <lisepul@umich.edu>"]
 keywords = ["solr", "full-text-search", "HathiTrust"]
 packages = [
-    {include = "solr_query_interface", from = "src"},
+    {include = "solr_query", from = "src"},
 ]
 
 [tool.poetry.dependencies]

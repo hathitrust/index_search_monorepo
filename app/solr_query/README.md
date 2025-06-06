@@ -1,11 +1,11 @@
 <br/>
   <p align="center">
-    Solr Query Interface
+    Solr Query
     <br/>
     <br/>
-    <a href="https://github.com/hathitrust/index_search_monorepo/tree/main/app/solr_query_interface">README.md</a>
+    <a href="https://github.com/hathitrust/index_search_monorepo/tree/main/app/solr_query">README.md</a>
     -
-    <a href="https://github.com/hathitrust/ht_full_text_search/issues">Request Feature</a>
+    <a href="https://github.com/hathitrust/index_search_monorepo/tree/main/app/solr_query">Request Feature</a>
   </p>
 
 ## Table Of Contents
@@ -72,7 +72,7 @@ container.
 
 In the work directory, you can run the following commands to set up the application:
 ```bash
-cd app/solr_query_interface
+cd app/solr_query
 # Build the Docker image
 make build
 # Create the Docker container and set up the environment variables
@@ -100,13 +100,13 @@ When the container is running, some services will be started, including:
 
 In your workdir,
   
-      * `cd app/solr_query_interface` # Change to the solr_query_interface directory
+      * `cd app/solr_query` # Change to the solr_query directory
       * `poetry init` # It will set up your local environment and repository details
       * `poetry env use python` # To find the virtual environment directory, created by poetry
-      * `source ~/solr_query_interface-TUsF9qpC-py3.11/bin/activate` # Activate the virtual environment in Mac
+      * `source ~/solr_query-TUsF9qpC-py3.11/bin/activate` # Activate the virtual environment in Mac
       * `poetry install` # Install the dependencies in the virtual environment
       * `poetry update` # Update poetry.lock file with the latest versions of the dependencies
-      * `C:\Users\user_name\AppData\Local\pypoetry\Cache\virtualenvs\solr_query_interface-d4ARlKJT-py3.12\Scripts\Activate.ps1` # Activate the virtual environment in Windows
+      * `C:\Users\user_name\AppData\Local\pypoetry\Cache\virtualenvs\solr_query-d4ARlKJT-py3.12\Scripts\Activate.ps1` # Activate the virtual environment in Windows
       * ** Note **: 
               If you are using a Mac, poetry creates their files in the home directory, e.g. /Users/user_name/Library/Caches/pypoetry/.
               If you are using Windows, poetry creates their files in the home directory, e.g. C:\Users\user_name\AppData\Local\pypoetry\
@@ -254,7 +254,7 @@ example of the name of the CSV file:
 
 **Use case 3**: Compare the results with the expected ones or with the results of another query or search engine
 
-This use case is implemented in the `solr_query_interface/src/data_analysis/compare_results.py` script.It was created as part of the experiments 
+This use case is implemented in the `solr_query/src/data_analysis/compare_results.py` script.It was created as part of the experiments 
 to compare the results of the full-text search in Solr (dev) with the results of the full-text search 
 in the HathiTrust full-text search service (prod). When this use case was created, two Solr servers were running. 
 The production server was running Solr 6 in standalone mode, and the development server was running Solr 8 in cloud mode.
@@ -267,7 +267,7 @@ You can find [here](https://hathitrust.atlassian.net/wiki/spaces/HAT/pages/27422
 The script receives the following parameters:
   * `--list_phrase_file` TXT file containing the list of phrase to search in the Solr server
 
-To run the script, you should have CSV files in `solr_query_interface/src/data_analysis/query_results`
+To run the script, you should have CSV files in `solr_query/src/data_analysis/query_results`
 folder with the results of the queries in PROD and DEV servers.
 
 * Example of command to run the application with the queries you want to search in the Solr server
@@ -290,7 +290,7 @@ To check the API is running, you can access the URL `http://localhost:8000/docs`
 
 You will see the following screen with the API endpoints:
 
-![search_api_documentation.png](../../app/solr_query_interface/documentation/search_api_documentation.png)
+![search_api_documentation.png](../../app/solr_query/documentation/search_api_documentation.png)
 
 * Query endpoint: 
 

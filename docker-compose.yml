@@ -78,7 +78,7 @@ services:
       retries: 3
   solr-lss-dev:
     image: ghcr.io/hathitrust/full-text-search-cloud:shards-docker
-    profiles: [ indexer, indexer_tests, solr_query_interface, solr_query_interface_tests ]
+    profiles: [ indexer, indexer_tests, solr_query, solr_query_tests ]
     container_name: solr-lss-dev
     ports:
       - "8983:8983"
@@ -99,7 +99,7 @@ services:
       retries: 10
   zoo1:
     image: zookeeper:3.8.0
-    profiles: [ indexer, indexer_tests, solr_query_interface, solr_query_interface_tests ]
+    profiles: [ indexer, indexer_tests, solr_query, solr_query_tests ]
     container_name: zoo1
     restart: always
     hostname: zoo1
@@ -209,9 +209,9 @@ services:
       document_retriever: *healthy
   ###############################SolrQueryInterface###############################
   solr_query_api:
-    image: solr_query_interface
+    image: solr_query
     container_name: full_text_search_api
-    profiles: [ solr_query_interface ]
+    profiles: [ solr_query ]
     stdin_open: true
     depends_on:
       solr-lss-dev: *healthy
@@ -222,9 +222,9 @@ services:
       <<: *env_common
     command: [ "python", "src/ht_full_text_search/main.py", "--env",  "dev"]
   data_loader: # It is probably for this application I should create the image first
-    image: solr_query_interface
+    image: solr_query
     container_name: data_loader
-    profiles: [ solr_query_interface, solr_query_interface_tests ]
+    profiles: [ solr_query, solr_query_tests ]
     stdin_open: true
     tty: true
     environment:
@@ -234,8 +234,8 @@ services:
     entrypoint: ["/bin/sh", "-c" ,"src/indexing_data.sh http://solr-lss-dev:8983 src/solr_dataset core-x" ]
   ht_search_tests:
     container_name: ht_search_tests
-    image: solr_query_interface
-    profiles: [ solr_query_interface_tests ]
+    image: solr_query
+    profiles: [ solr_query_tests ]
     environment: *env_common
     command: [ "python", "-m", "pytest"]
     depends_on:

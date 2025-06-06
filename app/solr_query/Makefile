@@ -1,6 +1,6 @@
 TMP_DIR := $(shell mktemp -d)
 # The name of the image for solr query interface
-IMAGE_NAME := solr_query_interface
+IMAGE_NAME := solr_query
 
 default: build
 .PHONY: all build dep
@@ -28,9 +28,9 @@ build:
 
 # Run ht_indexer application in the docker container. The docker compose is in the root directory
 run:
-	docker compose --profile solr_query_interface up -d
+	docker compose --profile solr_query up -d
 
 # Run ht_indexer tests in the docker container. The docker compose is in the root directory
 test:
-	docker compose --profile solr_query_interface_tests up -d --wait
-	DOCKER_COMPOSE_PROFILES=solr_query_interface_tests docker compose run --rm ht_search_tests
+	docker compose --profile solr_query_tests up -d --wait
+	DOCKER_COMPOSE_PROFILES=solr_query_tests docker compose run --rm ht_search_tests
