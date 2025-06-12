@@ -9,8 +9,8 @@ from ht_utils.ht_utils import get_solr_url
 
 current = os.path.dirname(__file__)
 
-
-def get_rabbitmq_host_name():
+@pytest.fixture
+def get_rabbit_mq_host_name():
     """
     This function is used to create the host name for the RabbitMQ
     """
@@ -47,11 +47,15 @@ def solr_catalog_url():
 
 # Fixtures to instantiate the queue consumer and producer
 @pytest.fixture
-def retriever_parameters(request):
+def retriever_parameters(request, get_rabbit_mq_host_name):
     """
     This function is used to create the parameters for the queue
     """
-    return request.param
+    param = request.param.copy() if isinstance(request.param, dict) else request.param
+
+    if param["host"] == "get_rabbit_mq_host_name":
+        param["host"] = get_rabbit_mq_host_name
+    return param
 
 
 @pytest.fixture

@@ -2,15 +2,11 @@ import tempfile
 from pathlib import Path
 
 import pytest
-from conftest import get_rabbitmq_host_name
 from document_retriever_service.ht_status_retriever_service import get_non_processed_ids
 from document_retriever_service.run_retriever_service_by_file import retrieve_documents_by_file
 
-#current = os.path.dirname(__file__)
-
 current_dir = Path(__file__).parent
 
-rabbit_mq_host = get_rabbitmq_host_name()
 
 
 @pytest.fixture()
@@ -39,11 +35,13 @@ class TestRunRetrieverServiceByFile:
             assert len(ids2process) == 12
             assert len(processed_ids) == 0
 
-    @pytest.mark.parametrize("retriever_parameters", [{"user": "guest", "password": "guest", "host": rabbit_mq_host,
+    @pytest.mark.parametrize("retriever_parameters", [{"user": "guest", "password": "guest",
+                                                       "host": "get_rabbit_mq_host_name",
                                                        "queue_name": "test_producer_queue",
                                                        "requeue_message": False,
                                                        "query_field": "item",
-                                                       "batch_size": 1}])
+                                                       "batch_size": 1}],
+                             indirect=["retriever_parameters"])
     def test_run_retriever_service_by_file(self, retriever_parameters, get_input_file, get_status_file,
                                            consumer_instance, solr_catalog_url, get_retriever_service_solr_parameters):
 
