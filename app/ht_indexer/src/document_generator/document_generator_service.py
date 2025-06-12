@@ -6,7 +6,7 @@ from pathlib import Path
 from full_text_document_generator import FullTextDocumentGenerator
 from generator_arguments import GeneratorServiceArguments
 from ht_document.ht_document import HtDocument
-from ht_queue_service.queue_consumer import QueueConsumer, positive_acknowledge
+from ht_queue_service.queue_consumer import QueueConsumer
 from ht_queue_service.queue_producer import QueueProducer
 from ht_utils.ht_logger import get_ht_logger
 from ht_utils.ht_utils import get_error_message_by_document, get_general_error_message
@@ -85,7 +85,7 @@ class DocumentGeneratorService:
                                                                      e, document)
 
         logger.error(f"Document {document.get('ht_id')} failed {error_info}")
-        self.src_queue_consumer.reject_message(self.src_queue_consumer.conn.ht_channel,
+        self.src_queue_consumer.reject_message(self.src_queue_consumer.ht_channel,
                                                delivery_tag)
 
     def consume_messages(self):
@@ -110,7 +110,7 @@ class DocumentGeneratorService:
             self.publish_document(full_text_document)
             # Acknowledge the message to src_queue if the message is processed successfully and published in
             # the other queue
-            positive_acknowledge(self.src_queue_consumer.conn.ht_channel,
+            self.src_queue_consumer.positive_acknowledge(self.src_queue_consumer.ht_channel,
                                  delivery_tag)
         except Exception as e:
             self.log_error_document_generator_service(e, message, delivery_tag)

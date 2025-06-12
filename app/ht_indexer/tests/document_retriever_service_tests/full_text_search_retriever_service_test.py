@@ -1,11 +1,16 @@
 import json
+import time
 
 import pytest
 from document_retriever_service.full_text_search_retriever_service import (
     FullTextSearchRetrieverQueueService,
 )
 from ht_indexer_api.ht_indexer_api import HTSolrAPI
+from ht_queue_service.queue_consumer import QueueConsumer
 from ht_utils.query_maker import make_solr_term_query
+from ht_utils.ht_logger import get_ht_logger
+
+logger = get_ht_logger(name=__name__)
 
 @pytest.fixture
 def get_catalog_retriever_service_solr_fake_solr_url():
@@ -16,9 +21,11 @@ def get_solr_request(solr_catalog_url):
     return HTSolrAPI(solr_catalog_url, 'solr_user', 'solr_password')
 
 @pytest.fixture
-def get_document_retriever_service(solr_catalog_url, get_retriever_service_solr_parameters, get_rabbit_mq_host_name):
-    return FullTextSearchRetrieverQueueService(
-                                               "test_producer_queue",
+
+def get_document_retriever_service(solr_catalog_url, get_retriever_service_solr_parameters,
+                                   get_rabbit_mq_host_name, random_queue_name):
+
+    return FullTextSearchRetrieverQueueService(random_queue_name,
                                                get_rabbit_mq_host_name,
                                                "guest",
                                                "guest",
@@ -58,51 +65,67 @@ class TestFullTextRetrieverService:
         assert metadata.get('countryOfPubStr') == ['India']
         assert item_id == list_documents[0]
 
-    @pytest.mark.parametrize(
-        "retriever_parameters",
-        [
-            {
-                "user": "guest",
-                "password": "guest",
-                "host": "get_rabbit_mq_host_name",
-                "queue_name": "test_producer_queue",
-                "requeue_message": False,
-                "query_field": "item",
-                "batch_size": 1,
-            }
-        ],
-        indirect=["retriever_parameters"],
-    )
-    def test_something(self, retriever_parameters):
-        # retriever_parameters["host"] will be the value from the fixture
-        assert retriever_parameters["host"] == "rabbitmq"
+    def test_full_text_search_retriever_service(self, get_rabbit_mq_host_name,
+                                                get_retriever_service_solr_parameters,
+                                                solr_catalog_url):
 
-    @pytest.mark.parametrize("retriever_parameters", [{"user": "guest", "password": "guest",
-                                                       "host": "get_rabbit_mq_host_name",
-                                                       "queue_name": "test_producer_queue",
-                                                       "requeue_message": False,
-                                                       "query_field": "item",
-                                                       "batch_size": 1}],
-                             indirect=["retriever_parameters"])
-    def test_full_text_search_retriever_service(self, retriever_parameters, get_document_retriever_service,
-                                                consumer_instance):
         """ Use case: Check if the message is sent to the queue"""
+
+        queue_name = "test_full_text_search_retriever_service"
+        queue_user = "guest"
+        queue_pass = "guest"
+        # Define the consumer instance
+        consumer_instance = QueueConsumer(
+            queue_user,
+            queue_pass,
+            get_rabbit_mq_host_name,
+            queue_name,
+            False,
+            1
+        )
+
         # Clean up the queue
-        consumer_instance.conn.ht_channel.queue_purge(consumer_instance.queue_name)
+        consumer_instance.ht_channel.queue_purge(consumer_instance.queue_name)
 
         list_documents = ['nyp.33433082002258', 'not_exist_document']
 
-        get_document_retriever_service.full_text_search_retriever_service(
-            list_documents,
-            retriever_parameters["query_field"]
+        document_retriever_service_obj = FullTextSearchRetrieverQueueService(
+            queue_name,
+            get_rabbit_mq_host_name,
+            queue_user,
+            queue_pass,
+            solr_catalog_url,
+            "solr_user",
+            "solr_password",
+            get_retriever_service_solr_parameters
         )
 
-        assert 1 == consumer_instance.conn.get_total_messages()
+        # Service to push a message
+        document_retriever_service_obj.full_text_search_retriever_service(
+            list_documents,
+    "item"
+        )
 
-        # Clean up the queue
-        consumer_instance.conn.ht_channel.queue_purge(consumer_instance.queue_name)
+        #time.sleep(1) # Give RabbitMQ time to register the message
 
-    def test_retrieve_documents_by_item(self, get_document_retriever_service, get_solr_request):
+        # Service to consume the message
+        for method_frame, properties, body in consumer_instance.consume_message(inactivity_timeout=5):
+
+            if method_frame:
+                output_message = json.loads(body.decode('utf-8'))
+                assert output_message.get("ht_id") == list_documents[0]
+
+                # Acknowledge the message if the message is processed successfully
+                consumer_instance.positive_acknowledge(consumer_instance.ht_channel, method_frame.delivery_tag)
+                break
+            else:
+                logger.info("The queue is empty: Test ended")
+                break
+
+        # Clean up the queue - To make sure the purge is done all the messages must be acknowledged
+        consumer_instance.ht_channel.queue_purge(consumer_instance.queue_name)
+
+    def test_retrieve_documents_by_item(self, get_solr_request, get_document_retriever_service):
         """Use case: Receive a list of items (ht_id) to index and retrieve the metadata from Catalog
         We want to index only the item that appear in the list and not all the items of each record.
         """
@@ -123,7 +146,11 @@ class TestFullTextRetrieverService:
 
         assert len(record_metadata_list) == 9
 
-    def test_retrieve_documents_by_record(self, get_document_retriever_service, get_solr_request):
+    def test_retrieve_documents_by_record(self, get_solr_request,
+                                          get_rabbit_mq_host_name,
+                                          get_retriever_service_solr_parameters,
+                                          solr_catalog_url,
+                                          get_document_retriever_service):
         """Use case: Receive one record to process all their items"""
 
         list_documents = ["008394936"]
