@@ -1,0 +1,37 @@
+[virtualenvs]
+in-project = true
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+# -p no:cacheprovider is to avoid pytest warning about pytest_cache fixture
+# -ra is to show extra test summary info; -q is to suppress pytest header
+addopts = "-ra -q -p no:cacheprovider"
+
+# The [project] table is the format that most build backends use to specify the project’s basic metadata,
+# such as the dependencies, your name, etc.
+[tool.poetry]
+name = "solr_query"
+version = "0.1.0"
+description = "Package for search in Solr"
+readme = "README.md"
+authors = ["lisepul <lisepul@umich.edu>"]
+keywords = ["solr", "full-text-search", "HathiTrust"]
+packages = [
+    {include = "solr_query", from = "src"},
+]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+fastapi ="^0.111.1"
+uvicorn ="^0.30.3"
+openpyxl ="^3.1.5"
+ht-search = {path = "../../libs/ht_search"}
+ht-utils = {path = "../../libs/common_lib"}
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0.2"
+
+[build-system]
+requires = ["poetry-core>=2.1.1"] # Define the list of dependencies required to build your package. It is a mandatory field
+build-backend = "poetry.core.masonry.api" # The Python object used to perform the build
+

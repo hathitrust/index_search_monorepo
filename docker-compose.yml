@@ -1,19 +1,42 @@
+x-condition-healthy: &healthy
+  condition: service_healthy
+
+x-healthcheck-defaults: &healthcheck-defaults
+  interval: 30s
+  timeout: 10s
+  start_period: 30s
+  retries: 5
+
+# Common environment variables for all services
+x-env-common: &env_common
+    SOLR_USER: admin
+    SOLR_PASSWORD: solrRocks
+    POETRY_VERSION: 1.5.1
+    ENV: dev
+
+# Environment variables specific to the indexer services
+x-env-indexer: &env_indexer
+    QUEUE_HOST: rabbitmq
+    QUEUE_PASS: guest
+    QUEUE_USER: guest
+    MYSQL_HOST: mysql-sdr
+    MYSQL_USER: mdp-admin
+    MYSQL_PASS: mdp-admin
+    SDR_DIR: /sdr1/obj
+    MYSQL_DATABASE: ht
+    MYSQL_RANDOM_ROOT_PASSWORD: 1
+
 services:
   ht_indexer_tracker:
     container_name: ht_indexer_tracker
     profiles: [ indexer,indexer_tests ]
     image: ht_indexer
     environment:
+      << : [*env_common, *env_indexer]
       SOLR_URL: http://solr-sdr-catalog:9033/solr/catalog/
-      SOLR_USER: solr
-      SOLR_PASSWORD: 'solrRocks'
-      MYSQL_USER: mdp-admin
-      MYSQL_PASS: mdp-admin
     depends_on:
-      solr-sdr-catalog:
-        condition: service_healthy
-      mysql-sdr:
-        condition: service_healthy
+      solr-sdr-catalog: *healthy
+      mysql-sdr: *healthy
     tty: true
     stdin_open: true
   document_retriever:
@@ -22,28 +45,18 @@ services:
     image: ht_indexer
     volumes:
       - ../tmp:/tmp
-      - ./projects/ht_indexer:/app
+      - ./app/ht_indexer:/app
       - ../sdr1/obj:/sdr1/obj
     ports:
       - "8081:8081"
     environment:
+      << : [*env_common, *env_indexer]
       SOLR_URL: http://solr-sdr-catalog:9033/solr/catalog/
-      QUEUE_HOST: rabbitmq
       QUEUE_NAME: retriever_queue
-      QUEUE_PASS: guest
-      QUEUE_USER: guest
-      SOLR_USER: solr
-      SOLR_PASSWORD: 'solrRocks'
-      MYSQL_USER: mdp-admin
-      MYSQL_PASS: mdp-admin
-      SDR_DIR: /sdr1/obj
     depends_on:
-      solr-sdr-catalog:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-      mysql-sdr:
-        condition: service_healthy
+      solr-sdr-catalog: *healthy
+      rabbitmq: *healthy
+      mysql-sdr: *healthy
     tty: true
     stdin_open: true
     command: [ "python", "src/document_retriever_service/full_text_search_retriever_service.py", "--query_field", "item" ]
@@ -56,49 +69,37 @@ services:
     ports:
       - "3306:3306"
     environment:
-      MYSQL_HOST: mysql-sdr
-      MYSQL_USER: mdp-admin
-      MYSQL_PASS: mdp-admin
-      MYSQL_DATABASE: ht
-      MYSQL_RANDOM_ROOT_PASSWORD: 1
+      <<: *env_indexer
     healthcheck:
-      interval: 30s
-      retries: 3
+      <<: *healthcheck-defaults
       test:
-        [
-          "CMD",
-          "healthcheck.sh",
-          "--su-mysql",
-          "--connect"
-        ]
+        [ "CMD", "healthcheck.sh", "--su-mysql", "--connect" ]
       timeout: 30s
+      retries: 3
   solr-lss-dev:
     image: ghcr.io/hathitrust/full-text-search-cloud:shards-docker
-    profiles: [ indexer, indexer_tests ]
+    profiles: [ indexer, indexer_tests, solr_query, solr_query_tests ]
     container_name: solr-lss-dev
     ports:
       - "8983:8983"
     environment:
+      <<: *env_common
       ZK_HOST: zoo1:2181
       SOLR_OPTS: -XX:-UseLargePages
-      SOLR_USER: admin
-      SOLR_PASSWORD: solrRocks
     depends_on:
-      zoo1:
-        condition: service_healthy
+      zoo1: *healthy
     volumes:
       - solr1_data:/var/solr/data
     # start solr in the background, wait for it to start, then create the collection
     command: [ "sh", "-c", 'solr-foreground -c & sleep 150 && export SOLR_AUTHENTICATION_OPTS=-Dbasicauth=admin:solrRocks && solr create_collection -d /opt/solr/core-x -c core-x -shards 1 -replicationFactor 1 -p 8983 && wait' ]
     healthcheck:
+      <<: *healthcheck-defaults
       test: [ "CMD-SHELL", "curl -s -u admin:solrRocks 'http://localhost:8983/solr/admin/collections?action=CLUSTERSTATUS&collection=core-x' | grep -q '\"state\":\"active\"'" ]
-      interval: 30s
       timeout: 30s
-      start_period: 30s
       retries: 10
   zoo1:
     image: zookeeper:3.8.0
-    profiles: [ indexer, indexer_tests ]
+    profiles: [ indexer, indexer_tests, solr_query, solr_query_tests ]
     container_name: zoo1
     restart: always
     hostname: zoo1
@@ -113,20 +114,16 @@ services:
     volumes:
       - zoo1_data:/data
     healthcheck:
+      <<: *healthcheck-defaults
       test: [ "CMD", "echo", "ruok", "|", "nc", "localhost", "2181", "|", "grep", "imok" ]
-      interval: 30s
-      timeout: 10s
-      retries: 5
   solr-sdr-catalog:
     container_name: solr-sdr-catalog
     profiles: [ indexer, indexer_tests ]
     image: ghcr.io/hathitrust/catalog-solr-sample
     healthcheck:
+      <<: *healthcheck-defaults
       test: [ "CMD", "/usr/bin/curl", "-s", "-f", "http://localhost:9033/solr/catalog/admin/ping" ]
       interval: 5s
-      timeout: 10s
-      start_period: 30s
-      retries: 5
     ports:
       - "9033:9033"
     expose:
@@ -138,15 +135,14 @@ services:
     volumes:
       - ../tmp:/tmp:rm
       - ../sdr1/obj:/sdr1/obj
-      - ./projects/ht_indexer:/app
+      - ./app/ht_indexer:/app
     depends_on:
-      rabbitmq:
-        condition: service_healthy
-      mysql-sdr:
-        condition: service_healthy
+      rabbitmq: *healthy
+      mysql-sdr: *healthy
     tty: true
     stdin_open: true
     environment:
+      <<: *env_indexer
       SRC_QUEUE_HOST: rabbitmq
       SRC_QUEUE_NAME: retriever_queue
       SRC_QUEUE_PASS: guest
@@ -155,7 +151,6 @@ services:
       TGT_QUEUE_NAME: indexer_queue
       TGT_QUEUE_PASS: guest
       TGT_QUEUE_USER: guest
-      SDR_DIR: /sdr1/obj
     command: [ "python", "src/document_generator/document_generator_service.py" ]
   document_indexer:
     container_name: document_indexer
@@ -164,23 +159,17 @@ services:
     volumes:
       - ../tmp:/tmp:rm
       - ../sdr1/obj:/sdr1/obj
-      - ./projects/ht_indexer:/app
+      - ./app/ht_indexer:/app
     ports:
       - "8082:8082"
     depends_on:
-      solr-lss-dev:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
+      solr-lss-dev: *healthy
+      rabbitmq: *healthy
     tty: true
     stdin_open: true
     environment:
-      QUEUE_HOST: rabbitmq
+      << : [*env_common, *env_indexer]
       QUEUE_NAME: indexer_queue
-      QUEUE_PASS: guest
-      QUEUE_USER: guest
-      SOLR_USER: admin
-      SOLR_PASSWORD: 'solrRocks'
     command: [ "python", "src/document_indexer_service/document_indexer_service.py", "--solr_indexing_api", "http://solr-lss-dev:8983/solr/#/core-x/", "--batch_size", "100" ]
   rabbitmq:
     container_name: rabbitmq
@@ -193,39 +182,66 @@ services:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
     healthcheck:
+      <<: *healthcheck-defaults
       test: [ "CMD", "rabbitmqctl", "status" ]
       interval: 5s
       timeout: 10s
-      start_period: 30s
-      retries: 5
   all_tests:
     container_name: all_tests
     image: ht_indexer
-    profiles: [ indexer_tests, indexer_tests ]
+    profiles: [ indexer_tests ]
     volumes:
-      - ./projects/ht_indexer:/app
-      - ./projects/ht_indexer/tests:/tests
+      - ./app/ht_indexer:/app
+      - ./app/ht_indexer/tests:/tests
       - ../tmp:/tmp
       - ../sdr1/obj:/sdr1/obj
     command: [ "python", "-m", "pytest", "tests"]
     environment:
+      <<: *env_indexer
       SOLR_URL: http://solr-sdr-catalog:9033/solr/catalog/
-      SDR_DIR: /sdr1/obj
     depends_on:
-      solr-sdr-catalog:
-        condition: service_healthy
-      solr-lss-dev:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-      mysql-sdr:
-        condition: service_healthy
-      document_generator:
-        condition: service_started
-      document_indexer:
-        condition: service_started
-      document_retriever:
-        condition: service_started
+      solr-sdr-catalog: *healthy
+      solr-lss-dev: *healthy
+      rabbitmq: *healthy
+      mysql-sdr: *healthy
+      document_generator: *healthy
+      document_indexer: *healthy
+      document_retriever: *healthy
+  ###############################SolrQueryInterface###############################
+  solr_query_api:
+    image: solr_query
+    container_name: full_text_search_api
+    profiles: [ solr_query ]
+    stdin_open: true
+    depends_on:
+      solr-lss-dev: *healthy
+    tty: true
+    ports:
+      - "8000:8000"
+    environment:
+      <<: *env_common
+    command: [ "python", "src/ht_full_text_search/main.py", "--env",  "dev"]
+  data_loader: # It is probably for this application I should create the image first
+    image: solr_query
+    container_name: data_loader
+    profiles: [ solr_query, solr_query_tests ]
+    stdin_open: true
+    tty: true
+    environment:
+      <<: *env_common
+    depends_on:
+      solr-lss-dev: *healthy
+    entrypoint: ["/bin/sh", "-c" ,"src/indexing_data.sh http://solr-lss-dev:8983 src/solr_dataset core-x" ]
+  ht_search_tests:
+    container_name: ht_search_tests
+    image: solr_query
+    profiles: [ solr_query_tests ]
+    environment: *env_common
+    command: [ "python", "-m", "pytest"]
+    depends_on:
+      solr-lss-dev: *healthy
+      data_loader:
+        condition: service_completed_successfully
 volumes:
   mysql_sdr_data:
   solr1_data: null
