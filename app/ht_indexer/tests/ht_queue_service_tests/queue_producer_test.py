@@ -3,7 +3,7 @@ import multiprocessing
 import time
 
 import pytest
-from conftest import get_rabbitmq_host_name
+
 from ht_utils.ht_logger import get_ht_logger
 
 logger = get_ht_logger(name=__name__)
@@ -11,8 +11,6 @@ logger = get_ht_logger(name=__name__)
 PROCESSES = multiprocessing.cpu_count() - 1
 
 message = {"ht_id": "1234", "ht_title": "Hello World", "ht_author": "John Doe"}
-
-rabbit_mq_host = get_rabbitmq_host_name()
 
 @pytest.fixture
 def create_list_message():
@@ -25,8 +23,10 @@ def create_list_message():
 
 
 class TestHTProducerService:
-    @pytest.mark.parametrize("retriever_parameters", [{"user": "guest", "password": "guest", "host": rabbit_mq_host,
-                                                       "queue_name": "test_producer_queue"}])
+    @pytest.mark.parametrize("retriever_parameters", [{"user": "guest", "password": "guest",
+                                                       "host": "get_rabbit_mq_host_name",
+                                                       "queue_name": "test_producer_queue"}],
+                             indirect=["retriever_parameters"])
     def test_queue_produce_one_message(self, retriever_parameters, producer_instance):
         producer_instance.conn.ht_channel.queue_purge(producer_instance.queue_name)
         producer_instance.publish_messages(message)
@@ -47,8 +47,10 @@ class TestHTProducerService:
 
         logger.info(f"Time taken = {time.time() - start:.10f}")
 
-    @pytest.mark.parametrize("retriever_parameters", [{"user": "guest", "password": "guest", "host": rabbit_mq_host,
-                                                       "queue_name": "test_producer_queue"}])
+    @pytest.mark.parametrize("retriever_parameters", [{"user": "guest", "password": "guest",
+                                                       "host": "get_rabbit_mq_host_name",
+                                                       "queue_name": "test_producer_queue"}],
+                             indirect=["retriever_parameters"])
     def test_queue_reconnect(self, retriever_parameters, producer_instance):
         # Check if the connection is open
         assert producer_instance.conn.queue_connection.is_open
