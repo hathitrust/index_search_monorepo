@@ -44,22 +44,22 @@ jobs:
 
         steps:
             - name: Build HT Indexer
-              uses: hathitrust/github_actions/build@v1
+              uses: hathitrust/github_actions/build@ETT-376
               with:
                 image: ghcr.io/hathitrust/indexer
                 dockerfile: Dockerfile
-                build-args: "--target=ht_indexer"
+                target: "ht_indexer"
                 img_tag: ${{ inputs.img_tag }}
                 tag: ${{ inputs.ref }}
                 push_latest: ${{ inputs.push_latest}}
                 registry_token: ${{ github.token }}
                 rebuild: ${{ inputs.rebuild }}
             - name: Build Solr Query
-              uses: hathitrust/github_actions/build@v1
+              uses: hathitrust/github_actions/build@ETT-376
               with:
                 image: ghcr.io/hathitrust/solr_query
                 dockerfile: Dockerfile
-                build-args: "--target=solr_query"
+                target: "solr_query"
                 img_tag: ${{ inputs.img_tag }}
                 tag: ${{ inputs.ref }}
                 push_latest: ${{ inputs.push_latest}}
