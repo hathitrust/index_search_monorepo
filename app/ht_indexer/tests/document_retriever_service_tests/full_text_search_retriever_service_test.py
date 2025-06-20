@@ -1,14 +1,11 @@
 import json
 
 import pytest
-from conftest import get_rabbitmq_host_name
 from document_retriever_service.full_text_search_retriever_service import (
     FullTextSearchRetrieverQueueService,
 )
 from ht_indexer_api.ht_indexer_api import HTSolrAPI
 from ht_utils.query_maker import make_solr_term_query
-
-rabbit_mq_host = get_rabbitmq_host_name()
 
 @pytest.fixture
 def get_catalog_retriever_service_solr_fake_solr_url():
@@ -19,10 +16,10 @@ def get_solr_request(solr_catalog_url):
     return HTSolrAPI(solr_catalog_url, 'solr_user', 'solr_password')
 
 @pytest.fixture
-def get_document_retriever_service(solr_catalog_url, get_retriever_service_solr_parameters):
+def get_document_retriever_service(solr_catalog_url, get_retriever_service_solr_parameters, get_rabbit_mq_host_name):
     return FullTextSearchRetrieverQueueService(
                                                "test_producer_queue",
-                                               rabbit_mq_host,
+                                               get_rabbit_mq_host_name,
                                                "guest",
                                                "guest",
                                                solr_catalog_url,
@@ -61,11 +58,32 @@ class TestFullTextRetrieverService:
         assert metadata.get('countryOfPubStr') == ['India']
         assert item_id == list_documents[0]
 
-    @pytest.mark.parametrize("retriever_parameters", [{"user": "guest", "password": "guest", "host": rabbit_mq_host,
+    @pytest.mark.parametrize(
+        "retriever_parameters",
+        [
+            {
+                "user": "guest",
+                "password": "guest",
+                "host": "get_rabbit_mq_host_name",
+                "queue_name": "test_producer_queue",
+                "requeue_message": False,
+                "query_field": "item",
+                "batch_size": 1,
+            }
+        ],
+        indirect=["retriever_parameters"],
+    )
+    def test_something(self, retriever_parameters):
+        # retriever_parameters["host"] will be the value from the fixture
+        assert retriever_parameters["host"] == "rabbitmq"
+
+    @pytest.mark.parametrize("retriever_parameters", [{"user": "guest", "password": "guest",
+                                                       "host": "get_rabbit_mq_host_name",
                                                        "queue_name": "test_producer_queue",
                                                        "requeue_message": False,
                                                        "query_field": "item",
-                                                       "batch_size": 1}])
+                                                       "batch_size": 1}],
+                             indirect=["retriever_parameters"])
     def test_full_text_search_retriever_service(self, retriever_parameters, get_document_retriever_service,
                                                 consumer_instance):
         """ Use case: Check if the message is sent to the queue"""

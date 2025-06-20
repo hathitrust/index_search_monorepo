@@ -30,7 +30,7 @@ services:
   ht_indexer_tracker:
     container_name: ht_indexer_tracker
     profiles: [ indexer,indexer_tests ]
-    image: ht_indexer
+    image: ghcr.io/hathitrust/indexer:unstable #ht_indexer
     environment:
       << : [*env_common, *env_indexer]
       SOLR_URL: http://solr-sdr-catalog:9033/solr/catalog/
@@ -42,7 +42,7 @@ services:
   document_retriever:
     container_name: document_retriever
     profiles: [ indexer,indexer_tests ]
-    image: ht_indexer
+    image: ghcr.io/hathitrust/indexer:unstable #ht_indexer
     volumes:
       - ../tmp:/tmp
       - ./app/ht_indexer:/app
@@ -131,7 +131,7 @@ services:
   document_generator:
     container_name: document_generator
     profiles: [ indexer, indexer_tests ]
-    image: ht_indexer
+    image: ghcr.io/hathitrust/indexer:unstable #ht_indexer
     volumes:
       - ../tmp:/tmp:rm
       - ../sdr1/obj:/sdr1/obj
@@ -155,7 +155,7 @@ services:
   document_indexer:
     container_name: document_indexer
     profiles: [ indexer, indexer_tests ]
-    image: ht_indexer
+    image: ghcr.io/hathitrust/indexer:unstable #ht_indexer
     volumes:
       - ../tmp:/tmp:rm
       - ../sdr1/obj:/sdr1/obj
@@ -186,9 +186,9 @@ services:
       test: [ "CMD", "rabbitmqctl", "status" ]
       interval: 5s
       timeout: 10s
-  all_tests:
-    container_name: all_tests
-    image: ht_indexer
+  ht_indexer_tests:
+    container_name: ht_indexer_tests
+    image: ghcr.io/hathitrust/indexer:unstable #ht_indexer
     profiles: [ indexer_tests ]
     volumes:
       - ./app/ht_indexer:/app
@@ -204,9 +204,12 @@ services:
       solr-lss-dev: *healthy
       rabbitmq: *healthy
       mysql-sdr: *healthy
-      document_generator: *healthy
-      document_indexer: *healthy
-      document_retriever: *healthy
+      document_generator:
+        condition: service_started
+      document_indexer:
+        condition: service_started
+      document_retriever:
+        condition: service_started
   ###############################SolrQueryInterface###############################
   solr_query_api:
     image: solr_query
