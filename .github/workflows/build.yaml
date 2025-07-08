@@ -35,7 +35,7 @@ jobs:
 
         steps:
             - name: Build HT Indexer
-              uses: hathitrust/github_actions/build@ETT-376
+              uses: hathitrust/github_actions/build@v1
               with:
                 image: ghcr.io/hathitrust/indexer
                 dockerfile: Dockerfile
@@ -46,7 +46,7 @@ jobs:
                 registry_token: ${{ github.token }}
                 rebuild: ${{ inputs.rebuild }}
             - name: Build Solr Query
-              uses: hathitrust/github_actions/build@ETT-376
+              uses: hathitrust/github_actions/build@v1
               with:
                 image: ghcr.io/hathitrust/solr_query
                 dockerfile: Dockerfile
