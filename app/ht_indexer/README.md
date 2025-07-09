@@ -319,7 +319,10 @@ be one of the following: pending, processing, failed, completed.
 
 * **Run retriever service**
 
-``` docker compose exec ht_indexer_tracker python ht_indexer_monitoring/ht_indexer_tracktable.py --env dev --query "*:*" --num_found 100```
+``` 
+cd app/ht_indexer
+docker compose exec ht_indexer_tracker python src/ht_indexer_monitoring/ht_indexer_tracktable.py --env dev --query "*:*" --num_found 100
+```
 
 * --query "*:*" It retrieves all the documents on Solr server
 * --num_found = 100. It is the number of records to be retrieved. As each record could be 1 or more items and each row
@@ -355,7 +358,7 @@ docker compose up document_generator -d
 ```
 
 This container will automatically start the script `python document_generator/document_generator_service.py` that will
-be retrieving the documents from the retriever_queue and will be published a new message in indexer_queue
+be retrieving the documents from the retriever_queue and will publish a new message in indexer_queue
 
 * **Indexer service**
 

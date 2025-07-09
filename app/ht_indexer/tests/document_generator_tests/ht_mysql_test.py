@@ -6,7 +6,7 @@ from document_generator.ht_mysql import get_mysql_conn
 
 class TestHtMysql:
 
-    @patch('ht_utils.ht_mysql.HtMysql.get_connection_from_pool')
+    @patch('document_generator.ht_mysql.HtMysql.get_connection_from_pool')
     def test_create_table(self, mock_connect):
 
         # Create an instance of HtMysql and call the create_table method
@@ -38,7 +38,7 @@ class TestHtMysql:
         # Assert that the connection's commit method was called
         mock_conn.commit.assert_called_once()
 
-    @patch('ht_utils.ht_mysql.HtMysql.get_connection_from_pool')
+    @patch('document_generator.ht_mysql.HtMysql.get_connection_from_pool')
     def test_table_exits(self, mock_connect):
 
         ht_mysql = get_mysql_conn()

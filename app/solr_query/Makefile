@@ -11,20 +11,7 @@ dep:
 	poetry install
 
 build:
-    # Copy project files
-	cp -r src $(TMP_DIR)/src
-	cp -r tests $(TMP_DIR)/tests
-
-	cp Dockerfile .dockerignore $(TMP_DIR)
-	cp pyproject.toml poetry.lock README.md $(TMP_DIR)
-
-	# Copy the shared package written in pyproject.toml
-	cp -r ../../libs/common_lib $(TMP_DIR)/common_lib
-	cp -r ../../libs/ht_search $(TMP_DIR)/ht_search
-
-	docker build -t $(IMAGE_NAME) $(TMP_DIR)
-
-	rm -rf $(TMP_DIR)
+	docker image build --target solr_query -t solr_query ../../
 
 # Run ht_indexer application in the docker container. The docker compose is in the root directory
 run:
@@ -32,5 +19,4 @@ run:
 
 # Run ht_indexer tests in the docker container. The docker compose is in the root directory
 test:
-	docker compose --profile solr_query_tests up -d --wait
-	DOCKER_COMPOSE_PROFILES=solr_query_tests docker compose run --rm ht_search_tests
+	DOCKER_COMPOSE_PROFILES=solr_query_tests docker compose run --rm search_tests

@@ -1,12 +1,9 @@
 import pytest
-from conftest import get_rabbitmq_host_name
 from ht_queue_service.queue_connection import QueueConnection
 from ht_queue_service.queue_multiple_consumer import QueueMultipleConsumer, positive_acknowledge
 from ht_utils.ht_logger import get_ht_logger
 
 logger = get_ht_logger(name=__name__)
-
-rabbit_mq_host = get_rabbitmq_host_name()
 
 class HTMultipleConsumerServiceConcrete(QueueMultipleConsumer):
 
@@ -71,18 +68,18 @@ def list_messages():
     return messages
 
 @pytest.fixture
-def multiple_consumer_instance():
-    return HTMultipleConsumerServiceConcrete(user="guest", password="guest", host=rabbit_mq_host,
+def multiple_consumer_instance(get_rabbit_mq_host_name):
+    return HTMultipleConsumerServiceConcrete(user="guest", password="guest", host=get_rabbit_mq_host_name,
                                                  queue_name="test_producer_queue", requeue_message=False, batch_size=1)
 
 @pytest.fixture
-def multiple_consumer_instance_requeue_true_size_n():
-    return HTMultipleConsumerServiceConcrete(user="guest", password="guest", host=rabbit_mq_host,
+def multiple_consumer_instance_requeue_true_size_n(get_rabbit_mq_host_name):
+    return HTMultipleConsumerServiceConcrete(user="guest", password="guest", host=get_rabbit_mq_host_name,
                                                  queue_name="test_producer_queue", requeue_message=True, batch_size=10)
 
 @pytest.fixture
-def multiple_consumer_instance_requeue_false_size_n():
-    return HTMultipleConsumerServiceConcrete(user="guest", password="guest", host=rabbit_mq_host,
+def multiple_consumer_instance_requeue_false_size_n(get_rabbit_mq_host_name):
+    return HTMultipleConsumerServiceConcrete(user="guest", password="guest", host=get_rabbit_mq_host_name,
                                                  queue_name="test_producer_queue", requeue_message=False, batch_size=10)
 
 @pytest.fixture
@@ -115,9 +112,11 @@ def populate_queue_requeue_true(list_messages, producer_instance, multiple_consu
 
 class TestHTMultipleConsumerService:
 
-    @pytest.mark.parametrize("retriever_parameters", [{"user": "guest", "password": "guest", "host": rabbit_mq_host,
+    @pytest.mark.parametrize("retriever_parameters", [{"user": "guest", "password": "guest",
+                                                       "host": "get_rabbit_mq_host_name",
                                                        "queue_name": "test_producer_queue",
-                                                       "batch_size": 1}])
+                                                       "batch_size": 1}],
+                             indirect=["retriever_parameters"])
     def test_queue_consume_message(self, retriever_parameters, one_message, producer_instance, multiple_consumer_instance):
         """ Test for consuming a message from the queue
         One message is published and consumed, then at the end of the test the queue is empty
@@ -149,15 +148,16 @@ class TestHTMultipleConsumerService:
         multiple_consumer_instance.conn.ht_channel.queue_purge(multiple_consumer_instance.queue_name)
 
     @pytest.mark.parametrize("retriever_parameters",
-                             [{"user": "guest", "password": "guest", "host": rabbit_mq_host,
+                             [{"user": "guest", "password": "guest", "host": "get_rabbit_mq_host_name",
                                "queue_name": "test_producer_queue",
-                               "requeue_message": False, "batch_size": 10}])
+                               "requeue_message": False, "batch_size": 10}],
+                             indirect=["retriever_parameters"])
     def test_queue_requeue_message_requeue_false(self, retriever_parameters, populate_queue,
                                                  multiple_consumer_instance_requeue_false_size_n):
         """ Test for re-queueing a message from the queue, an error is raised, and the message is routed
         to the dead letter queue and discarded from the main queue"""
 
-        check_queue = QueueConnection("guest", "guest", rabbit_mq_host,
+        check_queue = QueueConnection("guest", "guest", retriever_parameters["host"],
                                       "test_producer_queue_dead_letter_queue")
 
         # Requeue = False, the message is routed to the dead letter queue
@@ -170,15 +170,17 @@ class TestHTMultipleConsumerService:
         check_queue.ht_channel.queue_purge(check_queue.queue_name)
 
     @pytest.mark.parametrize("retriever_parameters",
-                             [{"user": "guest", "password": "guest", "host": rabbit_mq_host,
+                             [{"user": "guest", "password": "guest", "host": "get_rabbit_mq_host_name",
                                "queue_name": "test_producer_queue",
-                               "requeue_message": True, "batch_size": 1}])
+                               "requeue_message": True, "batch_size": 1}],
+                             indirect=["retriever_parameters"])
     def test_queue_requeue_message_requeue_true(self, retriever_parameters, populate_queue_requeue_true,
-                                                multiple_consumer_instance_requeue_true_size_n):
+                                                multiple_consumer_instance_requeue_true_size_n,
+                                                get_rabbit_mq_host_name):
         """ Test for re-queueing a message from the queue, an error is raised, and instead of routing the message
         to the dead letter queue, it is requeue to the main queue """
 
-        check_queue = QueueConnection("guest", "guest", rabbit_mq_host,
+        check_queue = QueueConnection("guest", "guest", get_rabbit_mq_host_name,
                                       "test_producer_queue_dead_letter_queue", batch_size=1)
 
         assert multiple_consumer_instance_requeue_true_size_n.conn.get_total_messages() > 0

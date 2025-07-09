@@ -30,7 +30,10 @@ services:
   ht_indexer_tracker:
     container_name: ht_indexer_tracker
     profiles: [ indexer,indexer_tests ]
-    image: ht_indexer
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: indexer
     environment:
       << : [*env_common, *env_indexer]
       SOLR_URL: http://solr-sdr-catalog:9033/solr/catalog/
@@ -42,7 +45,10 @@ services:
   document_retriever:
     container_name: document_retriever
     profiles: [ indexer,indexer_tests ]
-    image: ht_indexer
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: indexer
     volumes:
       - ../tmp:/tmp
       - ./app/ht_indexer:/app
@@ -131,7 +137,10 @@ services:
   document_generator:
     container_name: document_generator
     profiles: [ indexer, indexer_tests ]
-    image: ht_indexer
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: indexer
     volumes:
       - ../tmp:/tmp:rm
       - ../sdr1/obj:/sdr1/obj
@@ -155,7 +164,10 @@ services:
   document_indexer:
     container_name: document_indexer
     profiles: [ indexer, indexer_tests ]
-    image: ht_indexer
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: indexer
     volumes:
       - ../tmp:/tmp:rm
       - ../sdr1/obj:/sdr1/obj
@@ -186,10 +198,13 @@ services:
       test: [ "CMD", "rabbitmqctl", "status" ]
       interval: 5s
       timeout: 10s
-  all_tests:
-    container_name: all_tests
-    image: ht_indexer
+  indexer_tests:
+    container_name: indexer_tests
     profiles: [ indexer_tests ]
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: indexer
     volumes:
       - ./app/ht_indexer:/app
       - ./app/ht_indexer/tests:/tests
@@ -204,14 +219,20 @@ services:
       solr-lss-dev: *healthy
       rabbitmq: *healthy
       mysql-sdr: *healthy
-      document_generator: *healthy
-      document_indexer: *healthy
-      document_retriever: *healthy
+      document_generator:
+        condition: service_started
+      document_indexer:
+        condition: service_started
+      document_retriever:
+        condition: service_started
   ###############################SolrQueryInterface###############################
   solr_query_api:
-    image: solr_query
     container_name: full_text_search_api
     profiles: [ solr_query ]
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: solr_query
     stdin_open: true
     depends_on:
       solr-lss-dev: *healthy
@@ -222,9 +243,12 @@ services:
       <<: *env_common
     command: [ "python", "src/ht_full_text_search/main.py", "--env",  "dev"]
   data_loader: # It is probably for this application I should create the image first
-    image: solr_query
     container_name: data_loader
     profiles: [ solr_query, solr_query_tests ]
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: solr_query
     stdin_open: true
     tty: true
     environment:
@@ -232,10 +256,13 @@ services:
     depends_on:
       solr-lss-dev: *healthy
     entrypoint: ["/bin/sh", "-c" ,"src/indexing_data.sh http://solr-lss-dev:8983 src/solr_dataset core-x" ]
-  ht_search_tests:
-    container_name: ht_search_tests
-    image: solr_query
+  search_tests:
+    container_name: search_tests
     profiles: [ solr_query_tests ]
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: solr_query
     environment: *env_common
     command: [ "python", "-m", "pytest"]
     depends_on:

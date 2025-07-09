@@ -167,6 +167,19 @@ Breaking changes in shared libraries are addressed across all dependent projects
 The modular design allows for the easy addition of new projects or shared libraries without disrupting the existing structure.
 The use of Docker ensures that new projects can be deployed independently.
 
+## CI/CD architecture
+
+How could we use git diff to detect the changes in the monorepo and decide what the service to deploy are?
+
+Next step: create a script to run `git diff` command to identify the changed paths
+
+
+If there are changes in the `libs` directory, we need to deploy all the services because all of them depend 
+on the shared libraries.
+
+
+
+
 ### Installation
 
 1. Clone the repo

@@ -9,15 +9,28 @@ on:
 
 jobs:
   # Run tests
-  test:
+  test_indexer:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up tests
+      - name: Set up Indexer
         run: |
-          docker compose build
+          docker compose --profile indexer_tests up -d --wait
 
       - name: Run tests
-        run: docker compose run all_tests
+        run: |
+          DOCKER_COMPOSE_PROFILES=indexer_tests docker compose run --rm indexer_tests
+
+  test_solr_query:
+      runs-on: ubuntu-latest
+      steps:
+        - uses: actions/checkout@v4
+
+        - name: Set up Solr
+          run: |
+            docker compose --profile solr_query_tests up -d --wait
+
+        - name: Run tests
+          run: |
+            DOCKER_COMPOSE_PROFILES=solr_query_tests docker compose run --rm search_tests

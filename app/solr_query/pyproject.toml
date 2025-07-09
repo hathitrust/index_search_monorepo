@@ -17,7 +17,9 @@ readme = "README.md"
 authors = ["lisepul <lisepul@umich.edu>"]
 keywords = ["solr", "full-text-search", "HathiTrust"]
 packages = [
-    {include = "solr_query", from = "src"},
+    {include = "data_analysis", from = "src"},
+    {include = "ht_full_text_search", from = "src"},
+    {include = "ht_solr_monitoring", from = "src"},
 ]
 
 [tool.poetry.dependencies]
