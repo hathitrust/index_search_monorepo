@@ -5,7 +5,7 @@ import sys
 import time
 
 from ht_indexer_api.ht_indexer_api import HTSolrAPI
-from ht_queue_service.queue_multiple_consumer import QueueMultipleConsumer, positive_acknowledge
+from ht_queue_service.queue_multiple_consumer import QueueMultipleConsumer
 from ht_utils.ht_logger import get_ht_logger
 from ht_utils.ht_utils import get_error_message_by_document
 from indexer_arguments import IndexerServiceArguments
@@ -25,7 +25,8 @@ class DocumentIndexerQueueService(QueueMultipleConsumer):
                          queue_parameters.get("queue_host"),
                          queue_parameters.get("queue_name"),
                          queue_parameters.get("requeue_message"),
-                        queue_parameters.get("batch_size"))
+                        queue_parameters.get("batch_size"),
+                         queue_parameters.get("shutdown_on_empty_queue"))
 
         self.solr_api_full_text = solr_api_full_text
         self.queue_parameters = queue_parameters
@@ -38,7 +39,7 @@ class DocumentIndexerQueueService(QueueMultipleConsumer):
         for message, delivery_tag in zip(messages, delivery_tags, strict=False):
             error_info = get_error_message_by_document("DocumentIndexerService", error, message)
             logger.error(f"Failed process=indexing error_detail={error_info}")
-            self.reject_message(self.conn.ht_channel, delivery_tag)
+            self.reject_message(self.queue_connection.ht_channel, delivery_tag)
 
     def process_batch(self, batch: list, delivery_tags: list):
         """Process a batch of messages from the queue.
@@ -50,7 +51,7 @@ class DocumentIndexerQueueService(QueueMultipleConsumer):
         :param delivery_tags: List of delivery tags to acknowledge
         """
         # TODO - Implement the process to validate if the message is well formatted to index in Solr.
-        # When the validation will be in place, instead of sending all the message to the dead letter queue,
+        # When the validation is in place, instead of sending all the messages to the dead letter queue,
         # we should add the logic to just sent the message that are not well formatted to the dead letter queue.
         start_time = time.time()
 
@@ -64,7 +65,7 @@ class DocumentIndexerQueueService(QueueMultipleConsumer):
 
             # Acknowledge all messages in batch
             for delivery_tag in delivery_tags:
-                positive_acknowledge(self.conn.ht_channel, delivery_tag)
+                self.positive_acknowledge(self.ht_channel, delivery_tag)
 
         except Exception as e:
             logger.info(f"Failed process=indexing with error={e}")

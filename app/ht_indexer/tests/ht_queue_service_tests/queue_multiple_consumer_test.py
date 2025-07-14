@@ -1,6 +1,9 @@
+import json
+from collections import defaultdict
 import pytest
-from ht_queue_service.queue_connection import QueueConnection
-from ht_queue_service.queue_multiple_consumer import QueueMultipleConsumer, positive_acknowledge
+
+from ht_queue_service.queue_multiple_consumer import QueueMultipleConsumer
+from ht_queue_service.queue_producer import QueueProducer
 from ht_utils.ht_logger import get_ht_logger
 
 logger = get_ht_logger(name=__name__)
@@ -9,14 +12,23 @@ class HTMultipleConsumerServiceConcrete(QueueMultipleConsumer):
 
     def __init__(self, user: str, password: str, host: str, queue_name: str, requeue_message: bool = False,
                  batch_size: int = 1, shutdown_on_empty_queue: bool = True):
-        super().__init__(user, password, host, queue_name, requeue_message, batch_size)
-        self.consume_one_message = None
+        super().__init__(user, password, host, queue_name, requeue_message, batch_size, shutdown_on_empty_queue)
+        self.consume_one_message = []
         self.shutdown_on_empty_queue = shutdown_on_empty_queue
+        # These two variables are used to track the redelivery count and seen messages
+        self.redelivery_count = 0  # Count how many times the message with ht_id=5 was redelivered
+        self.seen_messages = defaultdict(int) # Dictionary to track how many times each message_id has been seen
+        self.max_redelivery = 3  # maximum allowed redeliveries
 
     def process_batch(self, batch: list, delivery_tags: list):
 
         try:
             list_id = [doc.get("ht_id") for doc in batch]
+
+            # Increment count for each message_id
+            for message_id in list_id:
+                self.seen_messages[message_id] += 1
+
             received_messages = batch.copy()
             if "5" in list_id:
                 try:
@@ -27,25 +39,36 @@ class HTMultipleConsumerServiceConcrete(QueueMultipleConsumer):
 
             # Acknowledge the message if the message is processed successfully
             for tag in delivery_tags:
-                positive_acknowledge(self.conn.ht_channel, tag)
+                self.positive_acknowledge(self.ht_channel, tag)
             self.consume_one_message = received_messages
 
             batch.clear()
             delivery_tags.clear()
         except Exception as e:
-                logger.info(
-                    f"Message failed with error: {e}")
-                failed_messages_tags = delivery_tags.copy()
+            logger.info(f"Message failed with error: {e}")
+            failed_messages_tags = delivery_tags.copy()
 
-                # Reject the message
-                for delivery_tag in failed_messages_tags:
-                    self.reject_message(self.conn.ht_channel, delivery_tag)
-
+            # Reject the message
+            for delivery_tag in failed_messages_tags:
+                self.reject_message(self.ht_channel, delivery_tag)
+            # If requeue_message is True, the message will be requeued to the main queue
+            self.redelivery_count += 1
+        #time.sleep(1)
         # Stop consuming if the flag is set
-        if self.shutdown_on_empty_queue and self.conn.get_total_messages() == 0:
+        if self.shutdown_on_empty_queue and self.get_total_messages() == 0:
             logger.info("Stopping consumer...")
-            self.conn.ht_channel.stop_consuming()
+            self.ht_channel.stop_consuming()
             return False
+
+        # Check if the message with ht_id=5 has been seen more than max_redelivery times to stop consuming
+        if "5" in self.seen_messages:
+            # If the message with ht_id=5 is seen more than max_redelivery times, stop consuming
+            if self.seen_messages["5"] >= self.max_redelivery:
+                logger.info(f"Message with ht_id=5 was redelivered more than {self.max_redelivery} times. Stopping consumer.")
+                self.ht_channel.stop_consuming()
+                return False
+        return True
+
 
 @pytest.fixture
 def one_message():
@@ -67,127 +90,144 @@ def list_messages():
         messages.append({"ht_id": f"{i}", "ht_title": f"Hello World {i}", "ht_author": f"John Doe {i}"})
     return messages
 
-@pytest.fixture
-def multiple_consumer_instance(get_rabbit_mq_host_name):
-    return HTMultipleConsumerServiceConcrete(user="guest", password="guest", host=get_rabbit_mq_host_name,
-                                                 queue_name="test_producer_queue", requeue_message=False, batch_size=1)
+class TestHTMultipleQueueConsumer:
 
-@pytest.fixture
-def multiple_consumer_instance_requeue_true_size_n(get_rabbit_mq_host_name):
-    return HTMultipleConsumerServiceConcrete(user="guest", password="guest", host=get_rabbit_mq_host_name,
-                                                 queue_name="test_producer_queue", requeue_message=True, batch_size=10)
-
-@pytest.fixture
-def multiple_consumer_instance_requeue_false_size_n(get_rabbit_mq_host_name):
-    return HTMultipleConsumerServiceConcrete(user="guest", password="guest", host=get_rabbit_mq_host_name,
-                                                 queue_name="test_producer_queue", requeue_message=False, batch_size=10)
-
-@pytest.fixture
-def populate_queue(list_messages, producer_instance, multiple_consumer_instance_requeue_false_size_n, retriever_parameters):
-    """ Test for re-queueing a message from the queue, an error is raised, and the message is routed
-            to the dead letter queue and discarded from the main queue"""
-
-    # Clean up the queue
-    multiple_consumer_instance_requeue_false_size_n.conn.ht_channel.queue_purge(multiple_consumer_instance_requeue_false_size_n.queue_name)
-
-    for message in list_messages:
-        # Publish the message
-        producer_instance.publish_messages(message)
-
-    multiple_consumer_instance_requeue_false_size_n.start_consuming()
-
-@pytest.fixture
-def populate_queue_requeue_true(list_messages, producer_instance, multiple_consumer_instance_requeue_true_size_n, retriever_parameters):
-    """ Test for re-queueing a message from the queue, an error is raised, and the message is routed
-            to the dead letter queue and discarded from the main queue"""
-
-    # Clean up the queue
-    multiple_consumer_instance_requeue_true_size_n.conn.ht_channel.queue_purge(multiple_consumer_instance_requeue_true_size_n.queue_name)
-
-    for message in list_messages:
-        # Publish the message
-        producer_instance.publish_messages(message)
-
-    multiple_consumer_instance_requeue_true_size_n.start_consuming()
-
-class TestHTMultipleConsumerService:
-
-    @pytest.mark.parametrize("retriever_parameters", [{"user": "guest", "password": "guest",
-                                                       "host": "get_rabbit_mq_host_name",
-                                                       "queue_name": "test_producer_queue",
-                                                       "batch_size": 1}],
-                             indirect=["retriever_parameters"])
-    def test_queue_consume_message(self, retriever_parameters, one_message, producer_instance, multiple_consumer_instance):
+    def test_queue_consume_message(self, one_message, get_rabbit_mq_host_name):
         """ Test for consuming a message from the queue
         One message is published and consumed, then at the end of the test the queue is empty
         """
 
-        # Clean up the queue
-        multiple_consumer_instance.conn.ht_channel.queue_purge(multiple_consumer_instance.queue_name)
+        # Create a producer instance to publish the message
+        producer_instance = QueueProducer(
+            user="guest",
+            password="guest",
+            host=get_rabbit_mq_host_name,
+            queue_name="multiple_test_queue_consume_message",
+            batch_size=1,
+        )
 
-        # Publish the message
+        # Publish the message to the queue
         producer_instance.publish_messages(one_message)
+
+        # Create a consumer instance to consume the message
+        multiple_consumer_instance = HTMultipleConsumerServiceConcrete(user="guest",
+                                                                       password="guest",
+                                                                       host=get_rabbit_mq_host_name,
+                                                                       queue_name="multiple_test_queue_consume_message",
+                                                                       requeue_message=False,
+                                                                       batch_size=1)
 
         multiple_consumer_instance.start_consuming()
 
         output_message = multiple_consumer_instance.consume_one_message
+
         assert output_message[0] == one_message
 
-        # Queue is empty
-        assert 0 == multiple_consumer_instance.conn.get_total_messages()
+        assert 1 == len(output_message)
 
-        multiple_consumer_instance.conn.ht_channel.queue_purge(multiple_consumer_instance.queue_name)
-
-    def test_queue_consume_message_empty(self, multiple_consumer_instance):
+    def test_queue_consume_message_empty(self, get_rabbit_mq_host_name):
         """ Test for consuming a message from an empty queue"""
 
-        # Clean up the queue
-        multiple_consumer_instance.conn.ht_channel.queue_purge(multiple_consumer_instance.queue_name)
+        multiple_consumer_instance = HTMultipleConsumerServiceConcrete(
+            user="guest",
+            password="guest",
+            host=get_rabbit_mq_host_name,
+            queue_name="multiple_test_queue_consume_message_empty",
+            requeue_message=False,
+            batch_size=1,
+        )
 
-        assert 0 == multiple_consumer_instance.conn.get_total_messages()
-        multiple_consumer_instance.conn.ht_channel.queue_purge(multiple_consumer_instance.queue_name)
+        multiple_consumer_instance.start_consuming()
 
-    @pytest.mark.parametrize("retriever_parameters",
-                             [{"user": "guest", "password": "guest", "host": "get_rabbit_mq_host_name",
-                               "queue_name": "test_producer_queue",
-                               "requeue_message": False, "batch_size": 10}],
-                             indirect=["retriever_parameters"])
-    def test_queue_requeue_message_requeue_false(self, retriever_parameters, populate_queue,
-                                                 multiple_consumer_instance_requeue_false_size_n):
-        """ Test for re-queueing a message from the queue, an error is raised, and the message is routed
+        # The queue is empty, so consume 0 messages
+        count_messages = 0
+        for message in multiple_consumer_instance.consume_one_message:
+            count_messages += 1
+            logger.info(f"Consumed message: {message}")
+        assert 0 == count_messages
+
+    def test_queue_requeue_message_requeue_false(self, get_rabbit_mq_host_name, list_messages):
+        """ Test for re-queueing a message from the queue, an error is raised, and all the 10 messages is routed
         to the dead letter queue and discarded from the main queue"""
 
-        check_queue = QueueConnection("guest", "guest", retriever_parameters["host"],
-                                      "test_producer_queue_dead_letter_queue")
+        # Create a producer instance to publish the message
+        producer_instance = QueueProducer(
+            user="guest",
+            password="guest",
+            host=get_rabbit_mq_host_name,
+            queue_name="multiple_test_queue_requeue_message_requeue_false",
+            batch_size=1
+        )
+        # Publish the message to the queue
+        for message in list_messages:
+            # Publish the message
+            producer_instance.publish_messages(message)
 
-        # Requeue = False, the message is routed to the dead letter queue
-        # consumer_instance could be 0 message and the dead letter queue could be 1 message
-        assert 0 == multiple_consumer_instance_requeue_false_size_n.conn.get_total_messages()
-        # All the messages are back into the dead letter queue
-        assert 10 == check_queue.get_total_messages()
+        # Create a consumer instance to consume the message to simulate a failure that sends messages to the dead letter queue
+        multiple_consumer_instance = HTMultipleConsumerServiceConcrete(
+            user="guest",
+            password="guest",
+            host=get_rabbit_mq_host_name,
+            queue_name="multiple_test_queue_requeue_message_requeue_false",
+            requeue_message=False,
+            batch_size=10,
+        )
 
-        multiple_consumer_instance_requeue_false_size_n.conn.ht_channel.queue_purge(multiple_consumer_instance_requeue_false_size_n.queue_name)
-        check_queue.ht_channel.queue_purge(check_queue.queue_name)
+        multiple_consumer_instance.start_consuming()
 
-    @pytest.mark.parametrize("retriever_parameters",
-                             [{"user": "guest", "password": "guest", "host": "get_rabbit_mq_host_name",
-                               "queue_name": "test_producer_queue",
-                               "requeue_message": True, "batch_size": 1}],
-                             indirect=["retriever_parameters"])
-    def test_queue_requeue_message_requeue_true(self, retriever_parameters, populate_queue_requeue_true,
-                                                multiple_consumer_instance_requeue_true_size_n,
-                                                get_rabbit_mq_host_name):
+        logger.info(f"DLQ NAME: {multiple_consumer_instance.dlq_conn.queue_name}_dead_letter_queue")
+
+        # Running the test to consume messages from the dead letter queue
+        list_ids = []
+        # Consume messages from the dead letter queue
+        for method_frame, properties, body in multiple_consumer_instance.dlq_conn.ht_channel.consume(
+            f"{multiple_consumer_instance.queue_name}_dead_letter_queue",
+            inactivity_timeout=5,
+        ):
+            if method_frame:
+                output_message = json.loads(body.decode("utf-8"))
+                logger.info(f"Message in dead letter queue: {output_message}")
+
+                list_ids.append(output_message.get("ht_id"))
+            else:
+                logger.info("The dead letter queue is empty: Test ended")
+                break
+
+        logger.info(f"List of IDs consumed: {list_ids}")
+        assert len(list_ids) == 10
+        assert list_ids == ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"], \
+            "The messages in the dead letter queue do not match the expected IDs"
+
+
+    def test_queue_requeue_message_requeue_true(self, get_rabbit_mq_host_name, list_messages):
         """ Test for re-queueing a message from the queue, an error is raised, and instead of routing the message
         to the dead letter queue, it is requeue to the main queue """
 
-        check_queue = QueueConnection("guest", "guest", get_rabbit_mq_host_name,
-                                      "test_producer_queue_dead_letter_queue", batch_size=1)
+        # Create a producer instance to publish the message
+        producer_instance = QueueProducer(
+            user="guest",
+            password="guest",
+            host=get_rabbit_mq_host_name,
+            queue_name="multiple_queue_requeue_message_requeue_true",
+            batch_size=1
+        )
 
-        assert multiple_consumer_instance_requeue_true_size_n.conn.get_total_messages() > 0
-        assert 0 == check_queue.get_total_messages()
+        producer_instance.ht_channel.queue_purge(producer_instance.queue_name)
 
-        check_queue.ht_channel.queue_purge(check_queue.queue_name)
-        multiple_consumer_instance_requeue_true_size_n.conn.ht_channel.queue_purge(multiple_consumer_instance_requeue_true_size_n.queue_name)
+        # Publish the message to the queue
+        for message in list_messages:
+            # Publish the message
+            producer_instance.publish_messages(message)
 
+        # Create a consumer instance to consume the message to simulate a failure that sends messages to the dead letter queue
+        multiple_consumer_instance = HTMultipleConsumerServiceConcrete(
+            user="guest",
+            password="guest",
+            host=get_rabbit_mq_host_name,
+            queue_name="multiple_queue_requeue_message_requeue_true",
+            requeue_message=True,
+            batch_size=10,
+        )
 
-
+        multiple_consumer_instance.start_consuming()
+        assert multiple_consumer_instance.redelivery_count >= multiple_consumer_instance.max_redelivery  # Since we have 10 messages and the error occurs on the 5th message, it should be redelivered 3 times

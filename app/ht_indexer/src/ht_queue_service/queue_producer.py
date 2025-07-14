@@ -1,14 +1,16 @@
 # producer
 import json
+import pika.exceptions
 
 from ht_utils.ht_logger import get_ht_logger
 
 from ht_queue_service.queue_connection_dead_letter import QueueConnectionDeadLetter
+from ht_queue_service.queue_connection import QueueConnection
 
 logger = get_ht_logger(name=__name__)
 
 
-class QueueProducer:
+class QueueProducer(QueueConnection):
     """ Create a class to send messages to a rabbitMQ """
 
     def __init__(self, user: str, password: str, host: str, queue_name: str, batch_size: int = 1):
@@ -22,41 +24,47 @@ class QueueProducer:
         # Define credentials (user/password) as environment variables
         # declaring the credentials needed for connection like host, port, username, password, exchange etc
 
-        self.user = user
-        self.host = host
-        self.queue_name = queue_name
-        self.password = password
+        super().__init__(user, password, host, queue_name, batch_size)
 
         try:
-            self.conn = QueueConnectionDeadLetter(self.user, self.password, self.host, self.queue_name, batch_size)
+            self.dlq_conn = QueueConnectionDeadLetter(user, password, self.host, self.queue_name, batch_size)
         except Exception as e:
-            raise e
+            logger.error(
+                f"Failed to create dead-letter queue connection for {self.queue_name}: {e}"
+            )
+            raise
 
     def publish_messages(self, queue_message: dict) -> None:
+        # TODO Check if make sent to close the connection after publishing each message
 
         try:
-            # We are using the default exchange
-            # method used which we call to send messages to specific queue
-            # Do we need to create a new exchange our we could use the default
-            # routing_key is the name of the queue
-            self.conn.ht_channel.basic_publish(exchange=self.conn.exchange,
-                                               routing_key=self.queue_name,
-                                               body=json.dumps(queue_message)
-                                               )
 
-            logger.info("Message was confirmed in the queue")
+            if not self.ht_channel or self.ht_channel.is_closed:
+                self.queue_reconnect()
 
-        # TODO - Add a better exception handling
-        # pika.exceptions.ChannelWrongStateError add the method on_open_callback to check if the channel is oppened
-        # https://github.com/pika/pika/issues/1240
-        # pika examples: https://github.com/pika/pika/blob/main/examples/asynchronous_publisher_example.py
+            body = json.dumps(queue_message)
+            self.ht_channel.confirm_delivery() # Ensure the channel is in confirm mode
+            self.ht_channel.basic_publish(
+                exchange=self.exchange, routing_key=self.queue_name, body=body,
+                properties=pika.BasicProperties(delivery_mode=2, content_type="application/json") # make message persistent
+            )
+            logger.info(f"Published message to {self.queue_name}: {body}")
+
+        except (pika.exceptions.ChannelClosed, pika.exceptions.ConnectionClosed) as err:
+            logger.warning(f"RabbitMQ connection/channel closed: {err}. Reconnecting...")
+            self.queue_reconnect()
+            raise
+
         except Exception as err:
-            e_name = type(err).__name__
-            logger.debug(f"Message {queue_message.get('ht_id')} could not be confirmed: exception = {e_name} e = {err}")
-            logger.debug('Trying to reconnect to RabbitMQ in 5 seconds: %s', err)
-            raise err
+            logger.error(
+                f"Failed to publish message {queue_message.get('ht_id')}: {err}", exc_info=True
+            )
+            raise
+
         finally:
-            if self.conn.queue_connection:
-                self.conn.queue_connection.close()
-                logger.info("Connection to RabbitMQ closed")
-        self.conn.queue_reconnect()
+            if self.queue_connection and not self.queue_connection.is_closed:
+                try:
+                    self.queue_connection.close()
+                    logger.info("RabbitMQ connection closed.")
+                except Exception as close_err:
+                    logger.warning(f"Error closing RabbitMQ connection: {close_err}")

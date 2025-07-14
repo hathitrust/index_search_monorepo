@@ -1,10 +1,9 @@
 import json
 import os
+import uuid
 
 import pytest
 from catalog_metadata.catalog_metadata import CatalogItemMetadata, CatalogRecordMetadata
-from ht_queue_service.queue_consumer import QueueConsumer
-from ht_queue_service.queue_producer import QueueProducer
 from ht_utils.ht_utils import get_solr_url
 
 current = os.path.dirname(__file__)
@@ -14,7 +13,7 @@ def get_rabbit_mq_host_name():
     """
     This function is used to create the host name for the RabbitMQ
     """
-    return  "rabbitmq" #"localhost" #
+    return  "rabbitmq" #"localhost"
 
 @pytest.fixture
 def get_retriever_service_solr_parameters():
@@ -45,35 +44,6 @@ def get_item_metadata(get_record_data: dict, get_catalog_record_metadata: Catalo
 def solr_catalog_url():
     return get_solr_url()
 
-# Fixtures to instantiate the queue consumer and producer
 @pytest.fixture
-def retriever_parameters(request, get_rabbit_mq_host_name):
-    """
-    This function is used to create the parameters for the queue
-    """
-    param = request.param.copy() if isinstance(request.param, dict) else request.param
-
-    if param["host"] == "get_rabbit_mq_host_name":
-        param["host"] = get_rabbit_mq_host_name
-    return param
-
-
-@pytest.fixture
-def consumer_instance(retriever_parameters):
-    """
-    This function is used to consume messages from the queue
-    """
-
-    return QueueConsumer(retriever_parameters["user"], retriever_parameters["password"],
-                         retriever_parameters["host"], retriever_parameters["queue_name"],
-                         retriever_parameters["requeue_message"], retriever_parameters["batch_size"])
-
-
-@pytest.fixture
-def producer_instance(retriever_parameters):
-    """
-    This function is used to generate a message to the queue
-    """
-
-    return QueueProducer(retriever_parameters["user"], retriever_parameters["password"],
-                         retriever_parameters["host"], retriever_parameters["queue_name"], batch_size=1)
+def random_queue_name():
+    return f"test_queue_{uuid.uuid4().hex[:8]}"
