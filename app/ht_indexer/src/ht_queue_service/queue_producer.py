@@ -1,10 +1,9 @@
 # producer
 import json
-import pika.exceptions
 
+import pika.exceptions
 from ht_utils.ht_logger import get_ht_logger
 
-from ht_queue_service.queue_connection_dead_letter import QueueConnectionDeadLetter
 from ht_queue_service.queue_connection import QueueConnection
 
 logger = get_ht_logger(name=__name__)
@@ -26,27 +25,41 @@ class QueueProducer(QueueConnection):
 
         super().__init__(user, password, host, queue_name, batch_size)
 
-        try:
-            self.dlq_conn = QueueConnectionDeadLetter(user, password, self.host, self.queue_name, batch_size)
-        except Exception as e:
-            logger.error(
-                f"Failed to create dead-letter queue connection for {self.queue_name}: {e}"
-            )
-            raise
+        #try:
+        #    self.dlq_conn =  QueueConnectionDeadLetter(user, password, self.host, self.queue_name, batch_size)
+        #except Exception as e:
+        #    logger.error(
+        #        f"Failed to create dead-letter queue connection for {self.queue_name}: {e}"
+        #    )
+        #    raise
 
-    def publish_messages(self, queue_message: dict) -> None:
-        # TODO Check if make sent to close the connection after publishing each message
+    def publish_messages(self, queue_message: dict, auto_close=False) -> None:
+
+        """
+        Publish a message to the RabbitMQ queue.
+        Any process that use this method should close the connection when it is done and set auto_close to False.
+
+        :param queue_message: The message to be published, should be a dictionary.
+        :param auto_close: If True, the connection will be closed after publishing the message.
+        """
 
         try:
 
             if not self.ht_channel or self.ht_channel.is_closed:
                 self.queue_reconnect()
 
-            body = json.dumps(queue_message)
-            self.ht_channel.confirm_delivery() # Ensure the channel is in confirm mode
+            try:
+                body = json.dumps(queue_message)
+            except (TypeError, ValueError) as json_err:
+                logger.error(
+                    f"Failed to serialize message {queue_message.get('ht_id')}: {json_err}", exc_info=True
+                )
+                raise
+
             self.ht_channel.basic_publish(
                 exchange=self.exchange, routing_key=self.queue_name, body=body,
-                properties=pika.BasicProperties(delivery_mode=2, content_type="application/json") # make message persistent
+                properties=pika.BasicProperties(delivery_mode=2,  # make the message persistent
+                                                content_type="application/json")
             )
             logger.info(f"Published message to {self.queue_name}: {body}")
 
@@ -62,7 +75,7 @@ class QueueProducer(QueueConnection):
             raise
 
         finally:
-            if self.queue_connection and not self.queue_connection.is_closed:
+            if auto_close and self.queue_connection and not self.queue_connection.is_closed:
                 try:
                     self.queue_connection.close()
                     logger.info("RabbitMQ connection closed.")

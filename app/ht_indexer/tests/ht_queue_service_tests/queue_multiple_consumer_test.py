@@ -1,7 +1,7 @@
 import json
 from collections import defaultdict
-import pytest
 
+import pytest
 from ht_queue_service.queue_multiple_consumer import QueueMultipleConsumer
 from ht_queue_service.queue_producer import QueueProducer
 from ht_utils.ht_logger import get_ht_logger
@@ -158,6 +158,11 @@ class TestHTMultipleQueueConsumer:
             queue_name="multiple_test_queue_requeue_message_requeue_false",
             batch_size=1
         )
+
+        producer_instance.ht_channel.queue_purge(
+            f"{producer_instance.queue_name}_dead_letter_queue"
+        )
+
         # Publish the message to the queue
         for message in list_messages:
             # Publish the message
@@ -175,12 +180,12 @@ class TestHTMultipleQueueConsumer:
 
         multiple_consumer_instance.start_consuming()
 
-        logger.info(f"DLQ NAME: {multiple_consumer_instance.dlq_conn.queue_name}_dead_letter_queue")
+        logger.info(f"DLQ NAME: {multiple_consumer_instance.queue_name}_dead_letter_queue")
 
         # Running the test to consume messages from the dead letter queue
         list_ids = []
         # Consume messages from the dead letter queue
-        for method_frame, properties, body in multiple_consumer_instance.dlq_conn.ht_channel.consume(
+        for method_frame, properties, body in multiple_consumer_instance.dlx_channel.consume(
             f"{multiple_consumer_instance.queue_name}_dead_letter_queue",
             inactivity_timeout=5,
         ):
@@ -198,10 +203,24 @@ class TestHTMultipleQueueConsumer:
         assert list_ids == ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"], \
             "The messages in the dead letter queue do not match the expected IDs"
 
+        multiple_consumer_instance.ht_channel.queue_purge(
+            f"{multiple_consumer_instance.queue_name}_dead_letter_queue"
+        )
 
     def test_queue_requeue_message_requeue_true(self, get_rabbit_mq_host_name, list_messages):
         """ Test for re-queueing a message from the queue, an error is raised, and instead of routing the message
-        to the dead letter queue, it is requeue to the main queue """
+        to the dead letter queue, it is requeue to the main queue
+
+        The published messages appear in the main queue with status Ready, when the consumer consumes the messages,
+        all the messages will have status Unacked until the consumer acknowledges the messages.
+        In this test, when the consumer consumes the message with ht_id=5, it raises an error, so RabbitMQ will put
+         the 10 messages back into the front of the queue, making it eligible for immediate redelivery. so
+         the consumer will consume them again, increasing
+        the redelivery count for all the messages. If we do not limit the redelivery attempts the message loops
+        endlessly.
+        On this test, we set the maximum redelivery count to 3, so the consumer will stop, and we purge the queue.
+        We manually stop the consumer after the redelivery count is higher than 3.
+        """
 
         # Create a producer instance to publish the message
         producer_instance = QueueProducer(
@@ -230,4 +249,7 @@ class TestHTMultipleQueueConsumer:
         )
 
         multiple_consumer_instance.start_consuming()
-        assert multiple_consumer_instance.redelivery_count >= multiple_consumer_instance.max_redelivery  # Since we have 10 messages and the error occurs on the 5th message, it should be redelivered 3 times
+        # Since we have 10 messages and the error occurs on the 5th message, it should be redelivered 3 times
+        assert multiple_consumer_instance.redelivery_count >= multiple_consumer_instance.max_redelivery
+
+        multiple_consumer_instance.ht_channel.queue_purge(multiple_consumer_instance.queue_name)

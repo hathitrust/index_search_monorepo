@@ -1,22 +1,5 @@
-import pika
 
 from ht_queue_service.queue_connection import QueueConnection
-
-
-def ht_declare_dead_letter_queue(ht_channel: pika.connection, queue_name: str):
-    """
-    Declare the dead letter queue
-    """
-
-    # durable=True - the queue will survive a broker restart
-    # exclusive=False - the queue can be accessed in other channels
-    # auto_delete=False - the queue won't be deleted once the consumer is disconnected
-    # arguments - the dead-letter-exchange and dead-letter-routing-key are used to define the dead letter exchange
-    # and the routing key to use when a message is dead-lettered.
-    ht_channel.queue_declare(queue=queue_name, durable=True, exclusive=False, auto_delete=False,
-                             arguments={'x-dead-letter-exchange': 'dlx',
-                                        "x-dead-letter-routing-key": f"dlx_key_{queue_name}"}
-                             )
 
 
 class QueueConnectionDeadLetter(QueueConnection):
@@ -31,7 +14,7 @@ class QueueConnectionDeadLetter(QueueConnection):
         # Call the parent class constructor that initializes the connection to the queue
         super().__init__(user, password, host, queue_name, batch_size)
 
-    def ht_queue_connection(self):
+    def _create_channel(self):
         # queue a name is important when you want to share the queue between producers and consumers
         # channel - a channel is a virtual connection inside a connection
         # get a channel
@@ -46,7 +29,7 @@ class QueueConnectionDeadLetter(QueueConnection):
         ht_channel.exchange_declare("dlx", durable=True, exchange_type="direct")
 
         # Declare the dead letter exchange to the original queue
-        ht_declare_dead_letter_queue(ht_channel, self.queue_name)
+        _declare_queue_dead_letter_queue(ht_channel, self.queue_name)
 
         # Declare the dead letter queue
         ht_channel.queue_declare(f"{self.queue_name}_dead_letter_queue")

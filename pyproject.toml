@@ -20,6 +20,7 @@ python = "^3.11"
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.4.2"
 pytest = "^8.0.2"
+pytest-mock = "^3.10.0"
 
 [build-system]
 requires = ["poetry-core>=2.1.1"]
