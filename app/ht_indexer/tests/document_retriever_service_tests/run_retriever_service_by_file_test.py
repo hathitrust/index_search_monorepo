@@ -71,6 +71,7 @@ class TestRunRetrieverServiceByFile:
         logger.info(f"[DEBUG] Queue has {consumer_instance.get_total_messages()} messages after publishing")
 
         list_output_messages = []
+
         # Service to consume the message
         for method_frame, properties, body in consumer_instance.consume_message(inactivity_timeout=10):
 

@@ -211,6 +211,7 @@ class QueueConnection:
         """ Close the connection to RabbitMQ server """
         try:
             if self.queue_connection and not self.queue_connection.is_closed:
+                logger.info(f"Closing RabbitMQ connection at {self.host}")
                 self.queue_connection.close()
         except Exception as e:
             logger.warning(f"Error closing RabbitMQ connection: {e}")

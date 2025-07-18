@@ -9,6 +9,8 @@ message = {"ht_id": "12345678", "ht_title": "Hello World", "ht_author": "John Do
 class TestQueueProducer:
     def test_queue_produce_one_message(self, get_rabbit_mq_host_name):
 
+        """Test for producing one message to the queue"""
+
         producer_instance = QueueProducer(
             "guest",
             "guest",
@@ -35,6 +37,9 @@ class TestQueueProducer:
             producer_instance.close()
 
     def test_queue_reconnect(self, get_rabbit_mq_host_name):
+
+        """Test for reconnecting to the queue after closing the connection"""
+
         producer_instance = QueueProducer(
             "guest",
             "guest",
@@ -64,6 +69,9 @@ class TestQueueProducer:
         producer_instance.close()
 
     def test_publish_invalid_message_raises_type_error(self, get_rabbit_mq_host_name):
+
+        """Test non-serializable data - Invalid message format"""
+
         producer_instance = QueueProducer(
             "guest", "guest", get_rabbit_mq_host_name, "test_queue_invalid", batch_size=1
         )

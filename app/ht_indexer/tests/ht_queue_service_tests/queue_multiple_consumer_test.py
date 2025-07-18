@@ -55,7 +55,7 @@ class HTMultipleConsumerServiceConcrete(QueueMultipleConsumer):
             self.redelivery_count += 1
         #time.sleep(1)
         # Stop consuming if the flag is set
-        if self.shutdown_on_empty_queue and self.get_total_messages() == 0:
+        if self.shutdown_on_empty_queue and self.redelivery_count > self.max_redelivery:
             logger.info("Stopping consumer...")
             self.ht_channel.stop_consuming()
             return False
@@ -159,14 +159,17 @@ class TestHTMultipleQueueConsumer:
             batch_size=1
         )
 
-        producer_instance.ht_channel.queue_purge(
-            f"{producer_instance.queue_name}_dead_letter_queue"
-        )
+        # Clean up the queue
+        producer_instance.ht_channel.queue_purge(f"{producer_instance.queue_name}_dead_letter_queue")
+        producer_instance.ht_channel.queue_purge(f"{producer_instance.queue_name}")
 
         # Publish the message to the queue
         for message in list_messages:
             # Publish the message
             producer_instance.publish_messages(message)
+
+        # Close the producer channel
+        producer_instance.ht_channel.close()
 
         # Create a consumer instance to consume the message to simulate a failure that sends messages to the dead letter queue
         multiple_consumer_instance = HTMultipleConsumerServiceConcrete(
@@ -237,6 +240,9 @@ class TestHTMultipleQueueConsumer:
         for message in list_messages:
             # Publish the message
             producer_instance.publish_messages(message)
+
+        # Close the producer channel
+        producer_instance.ht_channel.close()
 
         # Create a consumer instance to consume the message to simulate a failure that sends messages to the dead letter queue
         multiple_consumer_instance = HTMultipleConsumerServiceConcrete(

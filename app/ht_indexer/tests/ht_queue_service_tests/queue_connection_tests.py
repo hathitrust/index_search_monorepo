@@ -6,6 +6,8 @@ logger = get_ht_logger(name=__name__)
 
 def test_init_creates_connection(get_rabbit_mq_host_name):
 
+    """Test for creating a connection to RabbitMQ"""
+
     queue_connection = QueueConnection(
         "guest", "guest", get_rabbit_mq_host_name, "test_create_conn", batch_size=1
     )
@@ -22,18 +24,6 @@ def test_init_creates_connection(get_rabbit_mq_host_name):
     finally:
         if queue_connection.ht_channel and queue_connection.ht_channel.is_open:
             queue_connection.ht_channel.close()
-
-@patch("pika.BlockingConnection")
-def test_queue_reconnect_closes_existing_and_reconnects(mock_blocking_connection):
-    qc = QueueConnection(user="u", password="p", host="localhost", queue_name="test")
-    qc.queue_connection = MagicMock()
-    qc.queue_connection.is_closed = False
-
-    qc._connect = MagicMock()
-    qc.queue_reconnect()
-
-    qc.queue_connection.close.assert_called_once()
-    qc._connect.assert_called_once()
 
 def test_is_ready_true():
     qc = QueueConnection(user="u", password="p", host="localhost", queue_name="test")

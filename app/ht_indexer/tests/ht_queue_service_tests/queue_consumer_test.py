@@ -133,7 +133,6 @@ class TestQueueConsumer:
                         consumer_instance.ht_channel, method_frame.delivery_tag
                     )
                     logger.info(f"Rejected Message: {output_message}")
-                    #time.sleep(1)  # Wait for the message to be routed to the dead letter queue
 
                     break
                 else:
@@ -145,10 +144,8 @@ class TestQueueConsumer:
             else:
                 logger.info("The queue is empty: Test ended")
                 break
-        # f"{self.queue_name}_dead_letter_queue"
-        logger.info(f"DLQ NAME: {consumer_instance.queue_name}_dead_letter_queue")
 
-        #logger.info(f"DLQ NAME: {consumer_instance.dlq_conn.queue_name}_dead_letter_queue")
+        logger.info(f"DLQ NAME: {consumer_instance.queue_name}_dead_letter_queue")
 
         # Running the test to consume messages from the dead letter queue
         list_ids = []
