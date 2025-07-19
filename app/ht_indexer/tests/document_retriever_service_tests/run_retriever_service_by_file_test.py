@@ -59,16 +59,23 @@ class TestRunRetrieverServiceByFile:
                                    get_status_file,
                                    parallelize=False)
 
-
-        # Define the consumer instance
+        # Wait for a while to ensure messages are published
+        timeout = 3  # seconds
+        start = time.time()
         consumer_instance = QueueConsumer(
             queue_user, queue_pass, get_rabbit_mq_host_name, queue_name, False, 1
         )
+        while time.time() - start < timeout:
+
+            count = consumer_instance.get_total_messages()
+            if count >= 9:
+                break
+            time.sleep(0.1)
 
         # This log is used to check the number of messages in the queue before consuming. I have noticed there are
         # upstream on the retrieve_documents_by_file function, so that the queue has less than the expected
         # number of messages
-        # logger.info(f"[DEBUG] Queue has {consumer_instance.get_total_messages()} messages after publishing")
+        logger.info(f"[DEBUG] Queue has {consumer_instance.get_total_messages()} messages after publishing")
 
         list_output_messages = []
 
@@ -89,10 +96,15 @@ class TestRunRetrieverServiceByFile:
         logger.info(f"Number of messages: {len(list_output_messages)}")
         logger.info(list_output_messages)
         # Check if at least any message is retrieved; otherwise, print a message with the number of messages found
-        assert all(item in list_output_messages for item in ["nyp.33433082002258", "uiug.30112118465605", "mdp.39015086515536",
-                                                  "coo.31924093038853", "wu.89039292644",
-                                                  "mdp.35112103801405", "mdp.35112103801975", "umn.31951001997704p",
-                                                  "uiug.30112037580229"])
+        assert all(item in list_output_messages for item in ["nyp.33433082002258", #
+                                                             "uiug.30112118465605", #
+                                                             "mdp.39015086515536", #
+                                                             "umn.31951001997704p", #
+                                                             "wu.89039292644", #
+                                                            "coo.31924093038853", #
+                                                            "mdp.35112103801405", #
+                                                            "mdp.35112103801975", #
+                                                            "uiug.30112037580229"]) #
                                                     # "mdp.39015078560292",
         #assert (
         #    len(list_output_messages) > 1
