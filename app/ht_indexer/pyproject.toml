@@ -46,6 +46,7 @@ ht-utils = {path = "../../libs/common_lib"}
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.2"
+pytest-mock = "^3.10.0"
 
 [build-system]
 requires = ["poetry-core>=2.1.1"]

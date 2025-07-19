@@ -1,8 +1,8 @@
-import pytest
 from pathlib import Path
-from ht_search import config_files
 
+import pytest
 from ht_full_text_search.ht_full_text_searcher import HTFullTextSearcher
+from ht_search import config_files
 from ht_search.ht_query.ht_query import HTSearchQuery
 
 QUERY_PARAMETER_CONFIG_FILE = Path(config_files.config_files_path, "full_text_search/config_query.yaml")

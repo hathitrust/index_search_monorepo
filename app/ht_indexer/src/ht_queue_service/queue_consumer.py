@@ -1,7 +1,7 @@
 # consumer
-from ht_queue_service.queue_connection import QueueConnection
 from ht_utils.ht_logger import get_ht_logger
 
+from ht_queue_service.queue_connection import QueueConnection
 from ht_queue_service.queue_connection_dead_letter import QueueConnectionDeadLetter
 
 logger = get_ht_logger(name=__name__)
@@ -23,11 +23,11 @@ class QueueConsumer(QueueConnection):
         super().__init__(user, password, host, queue_name, batch_size if batch_size else 1)
         self.requeue_message = requeue_message
 
-        try:
-            self.dlq_conn = QueueConnectionDeadLetter(self.user, self.password, self.host, self.queue_name, batch_size)
-        except Exception as e:
-            logger.error(f"Failed to establish RabbitMQ connection: {e}")
-            raise
+        #try:
+        #    self.dlq_conn = QueueConnectionDeadLetter(self.user, self.password, self.host, self.queue_name, batch_size)
+        #except Exception as e:
+        #    logger.error(f"Failed to establish RabbitMQ connection: {e}")
+        #    raise
 
     def consume_message(self, inactivity_timeout: int = None) -> dict or None:
         """

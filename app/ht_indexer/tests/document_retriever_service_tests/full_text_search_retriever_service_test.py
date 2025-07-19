@@ -1,5 +1,4 @@
 import json
-import time
 
 import pytest
 from document_retriever_service.full_text_search_retriever_service import (
@@ -105,8 +104,6 @@ class TestFullTextRetrieverService:
             list_documents,
     "item"
         )
-
-        #time.sleep(1) # Give RabbitMQ time to register the message
 
         # Service to consume the message
         for method_frame, properties, body in consumer_instance.consume_message(inactivity_timeout=5):

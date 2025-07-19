@@ -1,20 +1,15 @@
 # consumer
-import time
 from abc import ABC, abstractmethod
 
 import orjson
-
-from ht_queue_service.queue_connection import QueueConnection
 from ht_utils.ht_logger import get_ht_logger
 
+from ht_queue_service.queue_connection import QueueConnection
 from ht_queue_service.queue_connection_dead_letter import QueueConnectionDeadLetter
 
 logger = get_ht_logger(name=__name__)
 
-
-
-
-class QueueMultipleConsumer(ABC, QueueConnection):
+class QueueMultipleConsumer(QueueConnection, ABC):
     def __init__(self, user: str, password: str, host: str, queue_name: str,
                  requeue_message: bool = False, batch_size: int = 1, shutdown_on_empty_queue: bool = False):
 
@@ -29,7 +24,6 @@ class QueueMultipleConsumer(ABC, QueueConnection):
         """
 
         super().__init__(user, password, host, queue_name, batch_size if batch_size else 1)
-        self.requeue_message = requeue_message
 
         # Requeue_message is a boolean to requeue the message to the queue.
         # If it is False, the message will be rejected, and it will be sent to the Dead Letter Queue.
@@ -38,14 +32,14 @@ class QueueMultipleConsumer(ABC, QueueConnection):
         # It is used for testing purposes.
         self.shutdown_on_empty_queue = shutdown_on_empty_queue
 
-        try:
-            self.dlq_conn = QueueConnectionDeadLetter(self.user, self.password, self.host, self.queue_name, batch_size)
-        except Exception as e:
-            raise e
 
     @abstractmethod
     def process_batch(self, batch: list, delivery_tag: list):
         """ Abstract method for processing a batch of messages. Must be implemented by subclasses.
+
+        :param batch: List of messages to process
+        :param delivery_tag: List of delivery tags for acknowledging messages
+        :return: True to continue processing, False to stop
 
         Steps to implement on the subclass:
         Method to process the batch of messages.
@@ -74,7 +68,6 @@ class QueueMultipleConsumer(ABC, QueueConnection):
 
             # long-polling is used to wait for messages in the queue
             if not batch and not self.shutdown_on_empty_queue:
-                #time.sleep(2)  # Avoid busy looping
                 continue
             # If the batch is empty and shutdown_on_empty_queue is True, stop consuming messages.
             if not batch and self.shutdown_on_empty_queue:

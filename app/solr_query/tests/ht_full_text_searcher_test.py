@@ -1,8 +1,7 @@
 import os
 
-from ht_search import config_search
-
 from ht_full_text_search.ht_full_text_searcher import HTFullTextSearcher
+from ht_search import config_search
 
 
 class TestHTFullTextSearcher:

@@ -237,6 +237,9 @@ class FullTextSearchRetrieverQueueService:
             # Publish the documents in the queue
             FullTextSearchRetrieverQueueService.publishing_documents(queue_producer, record_metadata_list, mysql_db)
 
+        # Close the Queue producer connection
+        queue_producer.close()
+
 
 def run_retriever_service(list_documents, by_field, document_retriever_service, parallelize: bool = False):
     """
@@ -263,6 +266,7 @@ def run_retriever_service(list_documents, by_field, document_retriever_service, 
 
         start_time = time.time()
 
+        # Each process will instantiate a connection to the MySQL database, to the queue and to Solr
         processes = [multiprocessing.Process(target=document_retriever_service.full_text_search_retriever_service,
                                              args=(list_documents[i:i + batch_size],
                                                    by_field))
