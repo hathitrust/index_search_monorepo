@@ -11,14 +11,14 @@ logger = get_ht_logger(name=__name__)
 class HTMultipleConsumerServiceConcrete(QueueMultipleConsumer):
 
     def __init__(self, user: str, password: str, host: str, queue_name: str, requeue_message: bool = False,
-                 batch_size: int = 1, shutdown_on_empty_queue: bool = True):
+                 batch_size: int = 1, shutdown_on_empty_queue: bool = True, max_redelivery: int = 3):
         super().__init__(user, password, host, queue_name, requeue_message, batch_size, shutdown_on_empty_queue)
         self.consume_one_message = []
         self.shutdown_on_empty_queue = shutdown_on_empty_queue
         # These two variables are used to track the redelivery count and seen messages
         self.redelivery_count = 0  # Count how many times the message with ht_id=5 was redelivered
         self.seen_messages = defaultdict(int) # Dictionary to track how many times each message_id has been seen
-        self.max_redelivery = 3  # maximum allowed redeliveries
+        self.max_redelivery = max_redelivery  # maximum allowed redeliveries
 
     def process_batch(self, batch: list, delivery_tags: list):
 
@@ -179,6 +179,8 @@ class TestHTMultipleQueueConsumer:
             queue_name="multiple_test_queue_requeue_message_requeue_false",
             requeue_message=False,
             batch_size=10,
+            shutdown_on_empty_queue=True,
+            max_redelivery=1  # Set the maximum redelivery count to 3
         )
 
         multiple_consumer_instance.start_consuming()
@@ -195,7 +197,12 @@ class TestHTMultipleQueueConsumer:
             if method_frame:
                 output_message = json.loads(body.decode("utf-8"))
                 logger.info(f"Message in dead letter queue: {output_message}")
-
+                #multiple_consumer_instance.positive_acknowledge(used_channel=multiple_consumer_instance.queue_name,
+                #                                                delivery_tag=method_frame.delivery_tag)
+                # Acknowledge the message if the message is processed successfully
+                multiple_consumer_instance.positive_acknowledge(
+                    multiple_consumer_instance.dlx_channel, method_frame.delivery_tag
+                )
                 list_ids.append(output_message.get("ht_id"))
             else:
                 logger.info("The dead letter queue is empty: Test ended")
@@ -206,9 +213,9 @@ class TestHTMultipleQueueConsumer:
         assert list_ids == ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"], \
             "The messages in the dead letter queue do not match the expected IDs"
 
-        multiple_consumer_instance.ht_channel.queue_purge(
-            f"{multiple_consumer_instance.queue_name}_dead_letter_queue"
-        )
+        # Clean up the queue
+        multiple_consumer_instance.dlx_channel.queue_purge(f"{multiple_consumer_instance.queue_name}_dead_letter_queue")
+        multiple_consumer_instance.ht_channel.queue_purge(f"{multiple_consumer_instance.queue_name}")
 
     def test_queue_requeue_message_requeue_true(self, get_rabbit_mq_host_name, list_messages):
         """ Test for re-queueing a message from the queue, an error is raised, and instead of routing the message
@@ -252,6 +259,8 @@ class TestHTMultipleQueueConsumer:
             queue_name="multiple_queue_requeue_message_requeue_true",
             requeue_message=True,
             batch_size=10,
+            shutdown_on_empty_queue=True,
+            max_redelivery=3  # Set the maximum redelivery count to 3
         )
 
         multiple_consumer_instance.start_consuming()
