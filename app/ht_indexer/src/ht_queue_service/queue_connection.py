@@ -155,8 +155,6 @@ class QueueConnection:
         # pika.exceptions.AMQPConnectionError - Catch all the issue related to the AMQP protocol (Advanced Message Queuing Protocol)
         # Something went wrong at the protocol level
         # pika.exceptions.ProbableAuthenticationError - Raised when the authentication fails
-        # socket.gaierror - Raised when the host name could not be resolved
-        # socket.timeout - Raised when the connection times out
         except (
             pika.exceptions.ProbableAuthenticationError,
             pika.exceptions.AMQPConnectionError
@@ -189,7 +187,7 @@ class QueueConnection:
             exclusive=False,
             auto_delete=False,
             arguments={
-                "x-dead-letter-exchange": self.dlx_exchange, #"dlx",
+                "x-dead-letter-exchange": self.dlx_exchange,
                 "x-dead-letter-routing-key": f"dlx_key_{self.queue_name}",
             },
         )

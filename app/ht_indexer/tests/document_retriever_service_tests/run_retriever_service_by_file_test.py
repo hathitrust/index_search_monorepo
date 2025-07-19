@@ -89,11 +89,11 @@ class TestRunRetrieverServiceByFile:
         logger.info(f"Number of messages: {len(list_output_messages)}")
         logger.info(list_output_messages)
         # Check if at least any message is retrieved; otherwise, print a message with the number of messages found
-        #assert any(item in list_output_messages for item in ["nyp.33433082002258", "uiug.30112118465605", "mdp.39015086515536",
-        #                                          "mdp.39015078560292", "coo.31924093038853", "wu.89039292644",
-        #                                          "mdp.35112103801405", "mdp.35112103801975", "umn.31951001997704p",
-        #                                          "uiug.30112037580229"])
-
-        assert (
-            len(list_output_messages) > 1
-        ), f"Expected 9 messages, found {len(list_output_messages)}"
+        assert all(item in list_output_messages for item in ["nyp.33433082002258", "uiug.30112118465605", "mdp.39015086515536",
+                                                  "coo.31924093038853", "wu.89039292644",
+                                                  "mdp.35112103801405", "mdp.35112103801975", "umn.31951001997704p",
+                                                  "uiug.30112037580229"])
+                                                    # "mdp.39015078560292",
+        #assert (
+        #    len(list_output_messages) > 1
+        #), f"Expected 9 messages, found {len(list_output_messages)}"

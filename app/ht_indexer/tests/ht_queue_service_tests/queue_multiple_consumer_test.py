@@ -197,8 +197,7 @@ class TestHTMultipleQueueConsumer:
             if method_frame:
                 output_message = json.loads(body.decode("utf-8"))
                 logger.info(f"Message in dead letter queue: {output_message}")
-                #multiple_consumer_instance.positive_acknowledge(used_channel=multiple_consumer_instance.queue_name,
-                #                                                delivery_tag=method_frame.delivery_tag)
+
                 # Acknowledge the message if the message is processed successfully
                 multiple_consumer_instance.positive_acknowledge(
                     multiple_consumer_instance.dlx_channel, method_frame.delivery_tag
