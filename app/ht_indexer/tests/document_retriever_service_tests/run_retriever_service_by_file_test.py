@@ -59,18 +59,9 @@ class TestRunRetrieverServiceByFile:
                                    get_status_file,
                                    parallelize=False)
 
-        # Wait for a while to ensure messages are published
-        timeout = 3  # seconds
-        start = time.time()
         consumer_instance = QueueConsumer(
             queue_user, queue_pass, get_rabbit_mq_host_name, queue_name, False, 1
         )
-        while time.time() - start < timeout:
-
-            count = consumer_instance.get_total_messages()
-            if count >= 9:
-                break
-            time.sleep(0.1)
 
         # This log is used to check the number of messages in the queue before consuming. I have noticed there are
         # upstream on the retrieve_documents_by_file function, so that the queue has less than the expected

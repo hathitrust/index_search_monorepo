@@ -25,9 +25,6 @@ class TestQueueProducer:
 
         # If you publish a message to RabbitMQ and immediately check the message count, but it shows 0,
         # the cause is likely message prefetching and unacknowledged delivery.
-        #assert producer_instance.get_total_messages() == 0
-
-        #producer_instance.close()
         assert producer_instance.get_total_messages() == 1
 
         producer_instance.ht_channel.queue_purge(producer_instance.queue_name)

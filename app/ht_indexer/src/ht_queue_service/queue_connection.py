@@ -206,15 +206,38 @@ class QueueConnection:
             pass
         self._connect()
 
+
     def close(self):
-        """ Close the connection to RabbitMQ server """
+        try:
+            if self.ht_channel and self.ht_channel.is_open:
+                self.ht_channel.close()
+                logger.info("RabbitMQ main channel closed.")
+        except Exception as e:
+            logger.warning(f"Failed to close main channel cleanly: {e}", exc_info=True)
+
+        try:
+            if self.dlx_channel and self.dlx_channel.is_open:
+                self.dlx_channel.close()
+                logger.info("RabbitMQ dead-letter channel closed.")
+        except Exception as e:
+            logger.warning(f"Failed to close dead-letter channel cleanly: {e}", exc_info=True)
+
+        try:
+            if self.queue_connection and self.queue_connection.is_open:
+                self.queue_connection.close()
+                logger.info("RabbitMQ connection closed.")
+        except Exception as e:
+            logger.warning(f"Failed to close connection cleanly: {e}", exc_info=True)
+    """
+    def close(self):
+         Close the connection to RabbitMQ server 
         try:
             if self.queue_connection and not self.queue_connection.is_closed:
                 logger.info(f"Closing RabbitMQ connection at {self.host}")
                 self.queue_connection.close()
         except Exception as e:
             logger.warning(f"Error closing RabbitMQ connection: {e}")
-
+    """
     def is_ready(self) -> bool:
         return self.queue_connection and self.ht_channel and not self.ht_channel.is_closed
 
