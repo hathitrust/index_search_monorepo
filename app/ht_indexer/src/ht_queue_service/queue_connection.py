@@ -131,6 +131,7 @@ class QueueConnection:
                                              self.durable,
                                              self.auto_delete)
 
+
             # Create a channel for the dead-letter exchange
             self.dlx_channel = create_channel(self.queue_connection,
                                               f"{self.queue_name}_dead_letter_queue",

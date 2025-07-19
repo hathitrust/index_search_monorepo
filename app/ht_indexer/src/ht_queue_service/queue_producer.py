@@ -25,6 +25,7 @@ class QueueProducer(QueueConnection):
 
         super().__init__(user, password, host, queue_name, batch_size)
 
+        self.ht_channel.confirm_delivery = True  # Enable publisher confirms for message delivery
         #try:
         #    self.dlq_conn =  QueueConnectionDeadLetter(user, password, self.host, self.queue_name, batch_size)
         #except Exception as e:
