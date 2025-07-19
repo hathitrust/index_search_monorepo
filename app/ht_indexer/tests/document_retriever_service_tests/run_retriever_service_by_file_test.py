@@ -68,7 +68,7 @@ class TestRunRetrieverServiceByFile:
         # This log is used to check the number of messages in the queue before consuming. I have noticed there are
         # upstream on the retrieve_documents_by_file function, so that the queue has less than the expected
         # number of messages
-        logger.info(f"[DEBUG] Queue has {consumer_instance.get_total_messages()} messages after publishing")
+        # logger.info(f"[DEBUG] Queue has {consumer_instance.get_total_messages()} messages after publishing")
 
         list_output_messages = []
 

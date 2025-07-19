@@ -160,7 +160,7 @@ class TestHTMultipleQueueConsumer:
         )
 
         # Clean up the queue
-        producer_instance.ht_channel.queue_purge(f"{producer_instance.queue_name}_dead_letter_queue")
+        producer_instance.dlx_channel.queue_purge(f"{producer_instance.queue_name}_dead_letter_queue")
         producer_instance.ht_channel.queue_purge(f"{producer_instance.queue_name}")
 
         # Publish the message to the queue
