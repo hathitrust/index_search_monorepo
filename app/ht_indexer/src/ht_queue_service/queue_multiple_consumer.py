@@ -99,14 +99,6 @@ class QueueMultipleConsumer(QueueConnection, ABC):
     def positive_acknowledge(self, used_channel, delivery_tag):
         used_channel.basic_ack(delivery_tag=delivery_tag)
 
-    def stop(self):
-        """Stop consuming messages
-        Use this function for testing purposes only.
-        """
-        # TODO: To stop the services we should add shutdown_on_empty_queue flag as a class attribute and we should return False
-        #         when the queue is empty on the method process_batch.
-        logger.info("Time's up! Stopping consumer...")
-        self.ht_channel.close()
 
 
 

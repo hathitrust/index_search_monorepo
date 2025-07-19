@@ -57,7 +57,7 @@ class HTMultipleConsumerServiceConcrete(QueueMultipleConsumer):
         # Stop consuming if the flag is set
         if self.shutdown_on_empty_queue and self.redelivery_count > self.max_redelivery:
             logger.info("Stopping consumer...")
-            self.ht_channel.stop_consuming()
+            #self.close() #stop_consuming()
             return False
 
         # Check if the message with ht_id=5 has been seen more than max_redelivery times to stop consuming
@@ -65,7 +65,7 @@ class HTMultipleConsumerServiceConcrete(QueueMultipleConsumer):
             # If the message with ht_id=5 is seen more than max_redelivery times, stop consuming
             if self.seen_messages["5"] >= self.max_redelivery:
                 logger.info(f"Message with ht_id=5 was redelivered more than {self.max_redelivery} times. Stopping consumer.")
-                self.ht_channel.stop_consuming()
+                # self.close()
                 return False
         return True
 
@@ -125,6 +125,7 @@ class TestHTMultipleQueueConsumer:
 
         assert 1 == len(output_message)
 
+
     def test_queue_consume_message_empty(self, get_rabbit_mq_host_name):
         """ Test for consuming a message from an empty queue"""
 
@@ -169,7 +170,7 @@ class TestHTMultipleQueueConsumer:
             producer_instance.publish_messages(message)
 
         # Close the producer channel
-        producer_instance.ht_channel.close()
+        producer_instance.close()
 
         # Create a consumer instance to consume the message to simulate a failure that sends messages to the dead letter queue
         multiple_consumer_instance = HTMultipleConsumerServiceConcrete(
@@ -215,6 +216,7 @@ class TestHTMultipleQueueConsumer:
         # Clean up the queue
         multiple_consumer_instance.dlx_channel.queue_purge(f"{multiple_consumer_instance.queue_name}_dead_letter_queue")
         multiple_consumer_instance.ht_channel.queue_purge(f"{multiple_consumer_instance.queue_name}")
+        multiple_consumer_instance.close()
 
     def test_queue_requeue_message_requeue_true(self, get_rabbit_mq_host_name, list_messages):
         """ Test for re-queueing a message from the queue, an error is raised, and instead of routing the message
@@ -248,7 +250,7 @@ class TestHTMultipleQueueConsumer:
             producer_instance.publish_messages(message)
 
         # Close the producer channel
-        producer_instance.ht_channel.close()
+        producer_instance.close()
 
         # Create a consumer instance to consume the message to simulate a failure that sends messages to the dead letter queue
         multiple_consumer_instance = HTMultipleConsumerServiceConcrete(
@@ -267,3 +269,4 @@ class TestHTMultipleQueueConsumer:
         assert multiple_consumer_instance.redelivery_count >= multiple_consumer_instance.max_redelivery
 
         multiple_consumer_instance.ht_channel.queue_purge(multiple_consumer_instance.queue_name)
+        multiple_consumer_instance.close()

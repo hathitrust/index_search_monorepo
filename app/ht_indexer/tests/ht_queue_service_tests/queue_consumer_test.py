@@ -41,6 +41,10 @@ class TestQueueConsumer:
             queue_name="test_queue_consume_message", batch_size=1
         )
 
+        # Publish the message
+        producer_instance.publish_messages(one_message)
+        producer_instance.close()
+
         consumer_instance = QueueConsumer(
             "guest",
             "guest",
@@ -52,10 +56,6 @@ class TestQueueConsumer:
 
         # Clean up the queue
         consumer_instance.ht_channel.queue_purge(consumer_instance.queue_name)
-
-        # Publish the message
-        producer_instance.publish_messages(one_message)
-        #producer_instance.ht_channel.close()
 
         for method_frame, properties, body in consumer_instance.consume_message(inactivity_timeout=5):
 
@@ -70,6 +70,7 @@ class TestQueueConsumer:
                 break
 
         consumer_instance.ht_channel.queue_purge(consumer_instance.queue_name)
+        consumer_instance.close()
 
     def test_queue_consume_message_empty(self, get_rabbit_mq_host_name):
         """ Test for consuming a message from an empty queue"""
@@ -87,6 +88,7 @@ class TestQueueConsumer:
         consumer_instance.ht_channel.queue_purge(consumer_instance.queue_name)
 
         assert 0 == consumer_instance.get_total_messages()
+        consumer_instance.close()
 
 
     def test_queue_requeue_message_requeue_false(self, list_messages, get_rabbit_mq_host_name):
@@ -119,7 +121,7 @@ class TestQueueConsumer:
         for item in list_messages:
             producer_instance.publish_messages(item)
 
-        producer_instance.ht_channel.close()
+        producer_instance.close()
         # Consume messages from the main queue to reject the message with ht_id=5
         for method_frame, properties, body in consumer_instance.consume_message(
             inactivity_timeout=5
@@ -167,6 +169,7 @@ class TestQueueConsumer:
         assert "5" in list_ids, "Message with ID '5' was not found in the dead letter queue"
 
         consumer_instance.dlx_channel.queue_purge(f"{consumer_instance.queue_name}_dead_letter_queue")
+        consumer_instance.close()
 
     def test_queue_requeue_message_requeue_true(self, get_rabbit_mq_host_name, list_messages):
         """ Test for re-queueing a message from the queue, the message with ht_id=5 is rejected, and instead of routing the message
@@ -191,6 +194,7 @@ class TestQueueConsumer:
         # Wait for the message to be published
         #time.sleep(0.5)
 
+        producer_instance.close()
         # Define the consumer instance
         consumer_instance = QueueConsumer(
             "guest",
@@ -245,3 +249,4 @@ class TestQueueConsumer:
 
         # Now you can assert that a message ht_id=5 has been seen more than once
         assert seen_messages["5"] > 1, "Message with ht_id=5 was not redelivered"
+        consumer_instance.close()
