@@ -76,9 +76,9 @@ class QueueProducer(QueueConnection):
             raise
 
         finally:
-            if auto_close and self.queue_connection and not self.queue_connection.is_closed:
+            if auto_close:
                 try:
-                    self.queue_connection.close()
+                    self.close()
                     logger.info("RabbitMQ connection closed.")
                 except Exception as close_err:
                     logger.warning(f"Error closing RabbitMQ connection: {close_err}")

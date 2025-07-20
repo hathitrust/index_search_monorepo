@@ -241,7 +241,8 @@ class TestQueueConsumer:
                     assert (
                         seen_messages[message_id] >= max_redelivery
                     ), f"Message with ht_id={message_id} was redelivered more than {max_redelivery} times"
-                    consumer_instance.close()
+                    #consumer_instance.close()
+                    break
 
             else:
                 logger.info("The queue is empty: Test ended")
