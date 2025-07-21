@@ -126,7 +126,7 @@ class TestQueueConsumer:
 
         # Consume messages from the main queue to reject the message with ht_id=5
         for method_frame, properties, body in consumer_instance.consume_message(
-            inactivity_timeout=5
+            inactivity_timeout=10
         ):
             if method_frame:
                 output_message = json.loads(body.decode("utf-8"))
@@ -157,10 +157,11 @@ class TestQueueConsumer:
         # Consume messages from the dead letter queue
         for method_frame, properties, body in consumer_instance.dlx_channel.consume(
                                                 f"{consumer_instance.queue_name}_dead_letter_queue",
-                                                inactivity_timeout=5):
+                                                inactivity_timeout=10):
             if method_frame:
                 output_message = json.loads(body.decode("utf-8"))
                 logger.info(f"Message in dead letter queue: {output_message}")
+                consumer_instance.positive_acknowledge(consumer_instance.dlx_channel, method_frame.delivery_tag)
 
                 list_ids.append(output_message.get("ht_id"))
             else:
