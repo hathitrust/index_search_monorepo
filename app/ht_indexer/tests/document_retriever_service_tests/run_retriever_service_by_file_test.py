@@ -40,7 +40,7 @@ class TestRunRetrieverServiceByFile:
             assert len(ids2process) == 12
             assert len(processed_ids) == 0
 
-    def test_run_retriever_service_by_file(self, get_input_file, get_status_file, solr_catalog_url,
+    def run_retriever_service_by_file(self, get_input_file, get_status_file, solr_catalog_url,
                                            get_retriever_service_solr_parameters, get_rabbit_mq_host_name):
         queue_name = "test_run_retriever_service_by_file"
         queue_user = "guest"

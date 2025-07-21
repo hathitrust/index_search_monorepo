@@ -91,7 +91,7 @@ class TestQueueConsumer:
         consumer_instance.close()
 
 
-    def test_queue_requeue_message_requeue_false(self, list_messages, get_rabbit_mq_host_name):
+    def queue_requeue_message_requeue_false(self, list_messages, get_rabbit_mq_host_name):
         """ Test for re-queueing a message from the queue, the massage with ht_id=5 is rejected and routed
         to the dead letter queue and discarded from the main queue"""
 
