@@ -1,4 +1,5 @@
 import json
+import time
 from collections import defaultdict
 
 import pytest
@@ -139,6 +140,7 @@ class TestQueueConsumer:
                     logger.info(f"Rejected Message: {output_message}")
 
                     #break
+
                 else:
                     # Acknowledge the message if the message is processed successfully
                     consumer_instance.positive_acknowledge(
@@ -152,12 +154,12 @@ class TestQueueConsumer:
         logger.info(f"DLQ NAME: {consumer_instance.queue_name}_dead_letter_queue")
 
         # Running the test to consume messages from the dead letter queue
-
+        time.sleep(1)
         list_ids = []
         # Consume messages from the dead letter queue
         for method_frame, properties, body in consumer_instance.dlx_channel.consume(
                                                 f"{consumer_instance.queue_name}_dead_letter_queue",
-                                                inactivity_timeout=10):
+                                                inactivity_timeout=5):
             if method_frame:
                 output_message = json.loads(body.decode("utf-8"))
                 logger.info(f"Message in dead letter queue: {output_message}")
@@ -165,7 +167,7 @@ class TestQueueConsumer:
 
                 list_ids.append(output_message.get("ht_id"))
             else:
-                logger.info("The dead letter queue is empty: Test ended")
+                logger.warning(f"None method_frame in {consumer_instance.queue_name}... Stopping batch consumption.")
                 break
 
         logger.info(f"List of IDs consumed: {list_ids}")
