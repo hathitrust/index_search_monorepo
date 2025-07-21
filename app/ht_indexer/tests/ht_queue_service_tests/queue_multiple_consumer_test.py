@@ -63,7 +63,6 @@ class HTMultipleConsumerServiceConcrete(QueueMultipleConsumer):
             # If the message with ht_id=5 is seen more than max_redelivery times, stop consuming
             if self.seen_messages["5"] >= self.max_redelivery:
                 logger.info(f"Message with ht_id=5 was redelivered more than {self.max_redelivery} times.")
-
                 return False
         return True
 
@@ -113,7 +112,7 @@ class TestHTMultipleQueueConsumer:
                                                                        host=get_rabbit_mq_host_name,
                                                                        queue_name="multiple_test_queue_consume_message",
                                                                        requeue_message=False,
-                                                                       batch_size=1,
+                                                                       batch_size=1,max_redelivery=1,  # Set the maximum redelivery count to 3
                                                                        shutdown_on_empty_queue=True)
 
         multiple_consumer_instance.start_consuming()
@@ -135,6 +134,7 @@ class TestHTMultipleQueueConsumer:
             queue_name="multiple_test_queue_consume_message_empty",
             requeue_message=False,
             batch_size=1,
+            max_redelivery=1,  # Set the maximum redelivery count to 3
             shutdown_on_empty_queue=True
         )
 
@@ -181,7 +181,7 @@ class TestHTMultipleQueueConsumer:
             requeue_message=False,
             batch_size=10,
             max_redelivery=1,  # Set the maximum redelivery count to 3
-            shutdown_on_empty_queue=False
+            shutdown_on_empty_queue=True
         )
 
         multiple_consumer_instance.start_consuming()
@@ -261,7 +261,7 @@ class TestHTMultipleQueueConsumer:
             requeue_message=True,
             batch_size=10,
             max_redelivery=3,  # Set the maximum redelivery count to 3
-            shutdown_on_empty_queue=False
+            shutdown_on_empty_queue=True
         )
 
         multiple_consumer_instance.start_consuming()
