@@ -73,9 +73,9 @@ class QueueMultipleConsumer(QueueConnection, ABC):
                 if method_frame:
                     batch.append(body)
                     delivery_tag.append(method_frame.delivery_tag)
-                else:
-                    logger.error(f"None method_frame in {self.queue_name}... Stopping batch consumption.")
-                    break  # Stop if no more messages in the queue
+                #else:
+                #    logger.warning(f"None method_frame in {self.queue_name}... Stopping batch consumption.")
+                #    break  # Stop if no more messages in the queue
 
             # long-polling is used to wait for messages in the queue
             if not batch:

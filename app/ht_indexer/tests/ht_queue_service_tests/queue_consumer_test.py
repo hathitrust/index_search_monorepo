@@ -255,4 +255,6 @@ class TestQueueConsumer:
 
         # Now you can assert that a message ht_id=5 has been seen more than once
         assert seen_messages["5"] > 1, "Message with ht_id=5 was not redelivered"
+        # Clean up the queue
+        consumer_instance.ht_channel.queue_purge(producer_instance.queue_name)
         consumer_instance.close()

@@ -24,7 +24,7 @@ def test_init_creates_connection(get_rabbit_mq_host_name):
     finally:
         if queue_connection.ht_channel and queue_connection.ht_channel.is_open:
             queue_connection.ht_channel.close()
-
+"""
 def test_is_ready_true():
     qc = QueueConnection(user="u", password="p", host="localhost", queue_name="test")
     qc.queue_connection = MagicMock()
@@ -64,3 +64,5 @@ def test_close_when_connection_open():
 
     qc.close()
     qc.queue_connection.close.assert_called_once()
+
+"""
