@@ -138,7 +138,7 @@ class TestQueueConsumer:
                     )
                     logger.info(f"Rejected Message: {output_message}")
 
-                    break
+                    #break
                 else:
                     # Acknowledge the message if the message is processed successfully
                     consumer_instance.positive_acknowledge(
