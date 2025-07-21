@@ -103,6 +103,17 @@ class TestQueueConsumer:
             "test_queue_requeue_message_requeue_false",
             batch_size=1
         )
+
+        # Clean up the queue
+        producer_instance.ht_channel.queue_purge(producer_instance.queue_name)
+        producer_instance.dlx_channel.queue_purge(f"{producer_instance.queue_name}_dead_letter_queue")
+
+        # Publish the messages to run the test
+        for item in list_messages:
+            producer_instance.publish_messages(item)
+
+        producer_instance.close()
+
         # Define the consumer instance
         consumer_instance = QueueConsumer(
             "guest",
@@ -113,15 +124,6 @@ class TestQueueConsumer:
             1
         )
 
-        # Clean up the queue
-        consumer_instance.ht_channel.queue_purge(consumer_instance.queue_name)
-        consumer_instance.dlx_channel.queue_purge(f"{consumer_instance.queue_name}_dead_letter_queue")
-
-        # Publish the messages to run the test
-        for item in list_messages:
-            producer_instance.publish_messages(item)
-
-        producer_instance.close()
         # Consume messages from the main queue to reject the message with ht_id=5
         for method_frame, properties, body in consumer_instance.consume_message(
             inactivity_timeout=5
@@ -150,6 +152,7 @@ class TestQueueConsumer:
         logger.info(f"DLQ NAME: {consumer_instance.queue_name}_dead_letter_queue")
 
         # Running the test to consume messages from the dead letter queue
+
         list_ids = []
         # Consume messages from the dead letter queue
         for method_frame, properties, body in consumer_instance.dlx_channel.consume(
@@ -168,6 +171,7 @@ class TestQueueConsumer:
         assert len(list_ids) == 1
         assert "5" in list_ids, "Message with ID '5' was not found in the dead letter queue"
 
+        consumer_instance.ht_channel.queue_purge(consumer_instance.queue_name)
         consumer_instance.dlx_channel.queue_purge(f"{consumer_instance.queue_name}_dead_letter_queue")
         consumer_instance.close()
 

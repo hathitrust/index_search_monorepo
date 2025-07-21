@@ -1,7 +1,9 @@
 # consumer
-from abc import ABC, abstractmethod
-
+import time
 import orjson
+
+from abc import ABC, abstractmethod
+import pika.exceptions
 from ht_utils.ht_logger import get_ht_logger
 
 from ht_queue_service.queue_connection import QueueConnection
@@ -56,10 +58,18 @@ class QueueMultipleConsumer(QueueConnection, ABC):
             batch = [] # It stores messages for batch processing
             delivery_tag = [] # It stores delivery tags for acknowledging messages
             for _ in range(self.batch_size):
-                # Use basic_get to retrieve a batch of messages and auto_ack=False to tell RabbitMQ to not wait for
-                # an acknowledgment of the message.We will manually acknowledge them
-                method_frame, properties, body = self.ht_channel.basic_get(queue=self.queue_name,
-                                                                                            auto_ack=False)
+                try:
+                    # Use basic_get to retrieve a batch of messages and auto_ack=False to tell RabbitMQ to not wait for
+                    # an acknowledgment of the message.We will manually acknowledge them
+                    method_frame, properties, body = self.ht_channel.basic_get(queue=self.queue_name,
+                                                                                                auto_ack=False)
+                except pika.exceptions.ChannelClosedByBroker as e:
+                    logger.error(f"Channel closed by broker while consuming: {e}")
+                    return
+                except Exception as e:
+                    logger.error(f"Unexpected error while consuming: {e}")
+                    raise
+
                 if method_frame:
                     batch.append(body)
                     delivery_tag.append(method_frame.delivery_tag)
@@ -67,23 +77,25 @@ class QueueMultipleConsumer(QueueConnection, ABC):
                     break  # Stop if no more messages in the queue
 
             # long-polling is used to wait for messages in the queue
-            if not batch and not self.shutdown_on_empty_queue:
-                continue
-            # If the batch is empty and shutdown_on_empty_queue is True, stop consuming messages.
-            if not batch and self.shutdown_on_empty_queue:
-                logger.info("Queue is empty. Stopping consumer...")
-                return
-
+            if not batch:
+                if self.shutdown_on_empty_queue:
+                    logger.info("Queue is empty. Stopping consumer...")
+                    return
+                else:
+                    time.sleep(0.5)  # Wait before checking for more messages
+                    continue
             try:
                 batch_data = [orjson.loads(body) for body in batch]
                 # Process batch of messages and acknowledge them if successful
                 # If the process_batch method returns False, stop consuming messages from the queue.
                 # We use it for testing purposes. However, we could add a flag to the service to stop consuming messages.
                 if not self.process_batch(batch_data, delivery_tag):
+                    logger.info("Batch processing returned False. Stopping consumption.")
                     break
 
             except Exception as e:
-                logger.error(f"[!] Error processing batch: {e}")
+                logger.error(f"Error processing batch: {e}")
+                #TODO It probably make sense to NACK the message here if something went wrong. if needed
                 raise e
 
     def start_consuming(self):
