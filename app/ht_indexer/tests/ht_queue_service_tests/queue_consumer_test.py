@@ -139,7 +139,7 @@ class TestQueueConsumer:
                     )
                     logger.info(f"Rejected Message: {output_message}")
 
-                    #break
+                    break
 
                 else:
                     # Acknowledge the message if the message is processed successfully
@@ -154,7 +154,7 @@ class TestQueueConsumer:
         logger.info(f"DLQ NAME: {consumer_instance.queue_name}_dead_letter_queue")
 
         # Running the test to consume messages from the dead letter queue
-        time.sleep(1)
+        #time.sleep(1)
         list_ids = []
         # Consume messages from the dead letter queue
         for method_frame, properties, body in consumer_instance.dlx_channel.consume(

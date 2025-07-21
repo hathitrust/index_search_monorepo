@@ -59,7 +59,7 @@ class QueueProducer(QueueConnection):
                 raise
 
             self.ht_channel.basic_publish(
-                exchange=self.exchange, routing_key=self.queue_name, body=body,
+                exchange=self.main_exchange, routing_key=self.queue_name, body=body,
                 properties=pika.BasicProperties(delivery_mode=2,  # make the message persistent
                                                 content_type="application/json")
             )

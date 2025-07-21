@@ -23,7 +23,7 @@ class QueueConnectionDeadLetter(QueueConnection):
         # exchange - this can be assumed as a bridge name which needs to be declared so that queues can be accessed
         # declare the exchange
         # Direct – the exchange forwards the message to a queue based on a routing key
-        ht_channel.exchange_declare(self.exchange, durable=True, exchange_type="direct", auto_delete=False)
+        ht_channel.exchange_declare(self.main_exchange, durable=True, exchange_type="direct", auto_delete=False)
 
         # Declare the dead letter exchange
         ht_channel.exchange_declare("dlx", durable=True, exchange_type="direct")
@@ -41,7 +41,7 @@ class QueueConnectionDeadLetter(QueueConnection):
 
         # The relationship between exchange and a queue is called a binding.
         # Link the exchange to the queue to send messages.
-        ht_channel.queue_bind(self.queue_name, self.exchange, routing_key=self.queue_name)
+        ht_channel.queue_bind(self.queue_name, self.main_exchange, routing_key=self.queue_name)
 
         # The value defines the maximum number of unacknowledged deliveries that are permitted on a channel.
         # When the number reaches the configured count, RabbitMQ will stop delivering more messages on the

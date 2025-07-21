@@ -91,11 +91,11 @@ class QueueConnection:
         password (str): Password for the RabbitMQ connection.
         host (str): Host address of the RabbitMQ server.
         queue_name (str): Name of the queue to interact with.
-        exchange (str): Name of the RabbitMQ exchange to declare. Default is 'ht_channel'.
+        main_exchange (str): Name of the RabbitMQ exchange to declare. Default is 'ht_channel'.
         batch_size (int): Prefetch count to define the maximum number of unacknowledged messages on a channel.
     """
     def __init__(self, user: str, password: str, host: str, queue_name: str, batch_size: int = 1,
-                 exchange_name: str = 'ht_channel',
+                 exchange_name: str = 'channel',
                  exchange_type: str = 'direct',
                  durable: bool = True,
                  auto_delete: bool = False):
@@ -108,8 +108,8 @@ class QueueConnection:
         self.password = password
         self.host = host
         self.queue_name = queue_name
-        self.exchange = exchange_name
-        self.dlx_exchange = "dlx"  # Dead-letter exchange
+        self.main_exchange = f"{exchange_name}_{queue_name}"  # Main exchange for the queue
+        self.dlx_exchange = f"dlx_{queue_name}"  # Dead-letter exchange
         self.batch_size = batch_size
         self.exchange_type = exchange_type
         self.durable = durable  # Ensures the exchange and queue survive broker restarts
@@ -126,7 +126,7 @@ class QueueConnection:
             # Create the channel for the main queue.
             self.ht_channel = create_channel(self.queue_connection,
                                              self.queue_name,
-                                             self.exchange,
+                                             self.main_exchange,
                                              self.exchange_type,
                                              self.queue_name,
                                              self.durable,
@@ -149,7 +149,7 @@ class QueueConnection:
             self._declare_queue_dead_letter_queue()
 
             # Bind the main queue to the exchange
-            self.ht_channel.queue_bind(self.queue_name, self.exchange, routing_key=self.queue_name)
+            self.ht_channel.queue_bind(self.queue_name, self.main_exchange, routing_key=self.queue_name)
             self.dlx_channel.queue_bind(f"{self.queue_name}_dead_letter_queue", self.dlx_exchange,
                                          routing_key=f"dlx_key_{self.queue_name}")
 
