@@ -1,3 +1,4 @@
+from sys import exc_info
 
 import pika
 import pika.exceptions
@@ -195,16 +196,21 @@ class QueueConnection:
 
     def queue_reconnect(self):
 
-        """ Reconnect to RabbitMQ server """
+        """ Reconnect to RabbitMQ server and fully reset connection and channels."""
 
         logger.info(f"Reconnecting to RabbitMQ at {self.host}")
+        # Guarantee a clean state before reconnecting
         try:
-            if self.queue_connection and not self.queue_connection.is_closed:
-                self.queue_connection.close()
-        except Exception:
-            logger.error(f"RabbitMQ connection error: {self.queue_connection}")
-            pass
-        self._connect()
+            self.close()
+        except Exception as e:
+            logger.warning(f"Error while closing before reconnect {e}", exc_info=True)
+        # Reset the connection and channels
+        try:
+            self._connect()
+            logger.info("Reconnection successful.")
+        except QueueConnectionError as e:
+            logger.error(f"Reconnection failed: {e}")
+            raise QueueConnectionError(f"Failed to reconnect to RabbitMQ: {e}.") from e
 
 
     def close(self):
@@ -214,18 +220,27 @@ class QueueConnection:
                 logger.info("RabbitMQ main channel closed.")
         except Exception as e:
             logger.warning(f"Failed to close main channel cleanly: {e}", exc_info=True)
+        finally:
+            # Set channels to None to avoid using them after closing
+            self.ht_channel = None
         try:
             if self.dlx_channel and self.dlx_channel.is_open:
                 self.dlx_channel.close()
                 logger.info("RabbitMQ dead-letter channel closed.")
         except Exception as e:
             logger.warning(f"Failed to close dead-letter channel cleanly: {e}", exc_info=True)
+        finally:
+            # Set channels to None to avoid using them after closing
+            self.dlx_channel = None
         try:
             if self.queue_connection and self.queue_connection.is_open:
                 self.queue_connection.close()
                 logger.info("RabbitMQ connection closed.")
         except Exception as e:
             logger.warning(f"Failed to close connection cleanly: {e}", exc_info=True)
+        finally:
+            # Set the connection to None to avoid using it after closing
+            self.queue_connection = None
     """
     def close(self):
          Close the connection to RabbitMQ server 

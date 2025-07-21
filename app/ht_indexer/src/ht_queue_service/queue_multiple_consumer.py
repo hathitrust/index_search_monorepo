@@ -74,6 +74,7 @@ class QueueMultipleConsumer(QueueConnection, ABC):
                     batch.append(body)
                     delivery_tag.append(method_frame.delivery_tag)
                 else:
+                    logger.error(f"None method_frame in {self.queue_name}... Stopping batch consumption.")
                     break  # Stop if no more messages in the queue
 
             # long-polling is used to wait for messages in the queue
@@ -83,6 +84,7 @@ class QueueMultipleConsumer(QueueConnection, ABC):
                     return
                 else:
                     time.sleep(0.5)  # Wait before checking for more messages
+                    logger.info("No messages in the queue. Waiting for more messages...")
                     continue
             try:
                 batch_data = [orjson.loads(body) for body in batch]
