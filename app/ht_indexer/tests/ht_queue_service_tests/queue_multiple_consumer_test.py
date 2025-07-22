@@ -55,17 +55,17 @@ class HTMultipleConsumerServiceConcrete(QueueMultipleConsumer):
             self.redelivery_count += 1
         #time.sleep(1)
         # Stop consuming if the flag is set
-        if self.shutdown_on_empty_queue and self.get_total_messages() == 0:
-            logger.info("Stopping consumer...")
-            self.ht_channel.stop_consuming()
-            return False
+        #if self.shutdown_on_empty_queue and self.get_total_messages() == 0:
+        #    logger.info("Stopping consumer...")
+        #    self.ht_channel.stop_consuming()
+        #    return False
 
         # Check if the message with ht_id=5 has been seen more than max_redelivery times to stop consuming
         if "5" in self.seen_messages:
             # If the message with ht_id=5 is seen more than max_redelivery times, stop consuming
             if self.seen_messages["5"] >= self.max_redelivery:
                 logger.info(f"Message with ht_id=5 was redelivered more than {self.max_redelivery} times. Stopping consumer.")
-                self.ht_channel.stop_consuming()
+                #self.ht_channel.stop_consuming()
                 return False
         return True
 

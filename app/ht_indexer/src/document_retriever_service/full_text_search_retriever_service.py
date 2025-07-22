@@ -350,7 +350,7 @@ def main():
                 time.sleep(WAITING_TIME_QUEUE_PRODUCER) # Wait 5 minutes to send documents in the queue
                 total_messages_in_queue = queue_producer.get_total_messages()
                 total_time_waiting += WAITING_TIME_QUEUE_PRODUCER
-            queue_producer.close()
+            queue_producer.ht_channel.close()
 
 
 if __name__ == "__main__":

@@ -64,7 +64,7 @@ class TestQueueConsumer:
                 assert output_message == one_message
                 break
             else:
-                logger.info("The queue is empty: Test ended")
+                logger.warning(f"None method_frame in {consumer_instance.queue_name}... Stopping batch consumption.")
                 break
 
         consumer_instance.ht_channel.queue_purge(consumer_instance.queue_name)
