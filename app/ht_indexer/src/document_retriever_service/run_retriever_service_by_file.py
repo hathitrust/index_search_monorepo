@@ -68,15 +68,12 @@ def retrieve_documents_by_file(queue_name, queue_host, queue_user, queue_passwor
                                     parallelize=parallelize
                                       )
                 logger.info(f"Closing producer channel:")
-                queue_producer.ht_channel.close()
+                queue_producer.close()
                 logger.info(f"Total time to retrieve and generate documents {time.time() - start_time:.10f}")
 
     else:
         logger.info("Provide the file with the list of ids to process is a required parameter")
         exit()
-
-    return queue_producer
-
 
 def main():
     parser = argparse.ArgumentParser()

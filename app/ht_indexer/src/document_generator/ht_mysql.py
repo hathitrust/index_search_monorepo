@@ -152,8 +152,9 @@ class HtMysql:
             conn = self.get_connection_from_pool()
             cursor = conn.cursor()
             cursor.executemany(update_query, update_values)
-            conn.commit()
             logger.info(f"Updated {cursor.rowcount} records successfully.")
+            conn.commit()
+
         except connector.Error as e:
             logger.error(f"Error updating status: {e}")
             conn.rollback()

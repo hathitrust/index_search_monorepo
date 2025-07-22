@@ -46,6 +46,14 @@ class TestRunRetrieverServiceByFile:
         queue_user = "guest"
         queue_pass = "guest"
 
+        # Define the consumer instance
+        consumer_instance = QueueConsumer(
+            queue_user, queue_pass, get_rabbit_mq_host_name, queue_name, False, 1
+        )
+
+        # Clean up the queue
+        consumer_instance.ht_channel.queue_purge(consumer_instance.queue_name)
+
         retrieve_documents_by_file(queue_name,
                                    get_rabbit_mq_host_name,
                                    queue_user,
@@ -61,10 +69,6 @@ class TestRunRetrieverServiceByFile:
 
 
 
-        # Define the consumer instance
-        consumer_instance = QueueConsumer(
-            queue_user, queue_pass, get_rabbit_mq_host_name, queue_name, False, 1
-        )
 
         # This log is used to check the number of messages in the queue before consuming. I have noticed there are
         # upstream on the retrieve_documents_by_file function, so that the queue has less than the expected
@@ -73,7 +77,7 @@ class TestRunRetrieverServiceByFile:
 
         list_output_messages = []
         # Service to consume the message
-        for method_frame, properties, body in consumer_instance.consume_message(inactivity_timeout=10):
+        for method_frame, properties, body in consumer_instance.consume_message(inactivity_timeout=5):
 
             if method_frame:
                 list_output_messages.append(json.loads(body.decode("utf-8"))["ht_id"])
