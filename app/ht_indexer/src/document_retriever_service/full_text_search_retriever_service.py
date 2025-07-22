@@ -237,6 +237,8 @@ class FullTextSearchRetrieverQueueService:
             # Publish the documents in the queue
             FullTextSearchRetrieverQueueService.publishing_documents(queue_producer, record_metadata_list, mysql_db)
 
+        queue_producer.close()
+
 
 def run_retriever_service(list_documents, by_field, document_retriever_service, parallelize: bool = False):
     """
@@ -343,13 +345,13 @@ def main():
             # Create a connection to the queue to produce messages
             queue_producer = document_retriever_service.get_queue_producer()
 
-            #total_messages_in_queue = queue_producer.get_total_messages()
+            total_messages_in_queue = queue_producer.get_total_messages()
 
-            #while total_messages_in_queue > MAX_DOCUMENT_IN_QUEUE:
-            #    logger.info (f"Waiting: There are {total_messages_in_queue} or more documents in the {queue_producer.queue_name}")
-            #    time.sleep(WAITING_TIME_QUEUE_PRODUCER) # Wait 5 minutes to send documents in the queue
-            #    total_messages_in_queue = queue_producer.get_total_messages()
-            #    total_time_waiting += WAITING_TIME_QUEUE_PRODUCER
+            while total_messages_in_queue > MAX_DOCUMENT_IN_QUEUE:
+                logger.info (f"Waiting: There are {total_messages_in_queue} or more documents in the {queue_producer.queue_name}")
+                time.sleep(WAITING_TIME_QUEUE_PRODUCER) # Wait 5 minutes to send documents in the queue
+                total_messages_in_queue = queue_producer.get_total_messages()
+                total_time_waiting += WAITING_TIME_QUEUE_PRODUCER
             queue_producer.close()
 
 

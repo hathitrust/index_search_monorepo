@@ -74,7 +74,7 @@ class TestRunRetrieverServiceByFile:
             queue_user, queue_pass, get_rabbit_mq_host_name, queue_name, False, 1
         )
 
-        logger.info(f"[DEBUG] Queue has {consumer_instance.get_total_messages()} messages after publishing")
+        #logger.info(f"[DEBUG] Queue has {consumer_instance.get_total_messages()} messages after publishing")
 
 
         list_output_messages = []
