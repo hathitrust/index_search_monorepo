@@ -15,6 +15,7 @@ from ht_indexer_monitoring.ht_indexer_tracktable import (
     HT_INDEXER_TRACKTABLE,
     PROCESSING_STATUS_TABLE_NAME,
 )
+from ht_queue_service.channel_creator import ChannelCreator
 from ht_queue_service.queue_connection import MAX_DOCUMENT_IN_QUEUE
 from ht_queue_service.queue_producer import QueueProducer
 from ht_utils.ht_logger import get_ht_logger
@@ -74,15 +75,20 @@ class FullTextSearchRetrieverQueueService:
         self.solr_user = solr_user
         self.solr_password = solr_password
         self.solr_retriever_query_params = solr_retriever_query_params
+        self.queue_producer_conn = self.get_queue_producer()
 
+        # ChannelCreator is used to create a channel to produce messages in the queue
+        # QueueSetUp
+        # When initializing the QueueProducer, the connection is
 
     def get_queue_producer(self) -> QueueProducer | None:
 
         """Establish a connection to the queue to publish the documents"""
 
         try:
-            queue_producer = QueueProducer(self.queue_user, self.queue_password, self.queue_host, self.queue_name)
+            queue_producer = QueueProducer(self.queue_user, self.queue_password, self.queue_host, self.queue_name,batch_size=1)
             return queue_producer
+
         except Exception as e:
             logger.error(f"Environment variables required: "
                          f"{get_general_error_message('DocumentGeneratorService', e)}")
@@ -103,7 +109,7 @@ class FullTextSearchRetrieverQueueService:
         return item_metadata, item_id
 
     @staticmethod
-    def publishing_documents(queue_producer, result, mysql_db):
+    def publishing_documents(queue_producer_conn, result, mysql_db):
 
         processed_items = []
         failed_items = []
@@ -115,7 +121,7 @@ class FullTextSearchRetrieverQueueService:
 
             # Try to publish the document in the queue, if an error occurs, log the error and continue to the next
             try:
-                RetrieverServicesUtils.publish_document(queue_producer, item_metadata)
+                RetrieverServicesUtils.publish_document(queue_producer_conn, item_metadata)
                 processed_items.append(('processing', 'completed', get_current_time(), item_id))
 
             except Exception as e:
@@ -209,6 +215,8 @@ class FullTextSearchRetrieverQueueService:
 
         # Create a connection to the queue to produce messages
         queue_producer = self.get_queue_producer()
+        # Create a new channel to produce messages for each batch of documents
+        #channel = self.queue_producer_conn.channel_creator.get_channel()
 
         solr_retriever = HTSolrAPI(self.solr_host, self.solr_user, self.solr_password)
 
@@ -235,7 +243,10 @@ class FullTextSearchRetrieverQueueService:
             logger.info(f"Metadata generator: Total time = {time.time() - start_time}")
 
             # Publish the documents in the queue
-            FullTextSearchRetrieverQueueService.publishing_documents(queue_producer, record_metadata_list, mysql_db)
+            FullTextSearchRetrieverQueueService.publishing_documents(self.queue_producer_conn, record_metadata_list, mysql_db)
+
+        # Close the channel after processing all the documents
+        #channel.close()
 
 
 def run_retriever_service(list_documents, by_field, document_retriever_service, parallelize: bool = False):

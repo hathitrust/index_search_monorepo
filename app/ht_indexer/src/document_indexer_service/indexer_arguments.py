@@ -52,7 +52,7 @@ class IndexerServiceArguments:
             "queue_name": os.getenv("QUEUE_NAME") if os.getenv("QUEUE_NAME") else indexer_queue_name,
             "requeue_message": indexer_requeue_message,
             "batch_size": int(self.args.batch_size) if self.args.batch_size else indexer_batch_size,
-            "shutdown_on_empty_queue": False  # The indexer process is a long-running service
+            "shutdown_on_empty_queue": False,  # The indexer process is a long-running service
                 # that does not stop when the queue is empty.
         }
 

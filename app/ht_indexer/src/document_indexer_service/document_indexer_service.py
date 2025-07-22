@@ -30,18 +30,19 @@ class DocumentIndexerQueueService(QueueMultipleConsumer):
 
         self.solr_api_full_text = solr_api_full_text
         self.queue_parameters = queue_parameters
+        self.queue_name = queue_parameters.get("queue_name")
 
-    def requeue_failed_messages(self, messages=None, delivery_tags=None, error: Exception = None):
+    def requeue_failed_messages(self, messages=None, delivery_tags=None, error: Exception = None, channel=None):
         """Requeue failed messages into the Dead Letter Queue."""
 
-        logger.info(f"Send total_messages={len(delivery_tags)} to the {self.queue_name}_dead_letter_queue.")
+        logger.info(f"Send total_messages={len(delivery_tags)} to the {self.queue_name}_dlq.")
 
         for message, delivery_tag in zip(messages, delivery_tags, strict=False):
             error_info = get_error_message_by_document("DocumentIndexerService", error, message)
             logger.error(f"Failed process=indexing error_detail={error_info}")
-            self.reject_message(self.queue_connection.ht_channel, delivery_tag)
+            self.reject_message(channel, delivery_tag)
 
-    def process_batch(self, batch: list, delivery_tags: list):
+    def process_batch(self, batch: list, delivery_tags: list) -> bool:
         """Process a batch of messages from the queue.
         If the indexing process is successful, acknowledge all the messages in the batch.
         If the indexing process fails, requeue all the failed messages to the Dead Letter Queue.
@@ -65,14 +66,14 @@ class DocumentIndexerQueueService(QueueMultipleConsumer):
 
             # Acknowledge all messages in batch
             for delivery_tag in delivery_tags:
-                self.positive_acknowledge(self.ht_channel, delivery_tag)
+                self.positive_acknowledge(self.channel, delivery_tag)
 
         except Exception as e:
             logger.info(f"Failed process=indexing with error={e}")
             failed_messages = batch #self.batch
             failed_messages_tags = delivery_tags.copy()
             # Requeue the full list of failed messages to the Dead Letter Queue
-            self.requeue_failed_messages(failed_messages, failed_messages_tags, e)
+            self.requeue_failed_messages(failed_messages, failed_messages_tags, e, self.channel)
 
         batch.clear()
         delivery_tags.clear()
@@ -80,6 +81,8 @@ class DocumentIndexerQueueService(QueueMultipleConsumer):
 
 def start_service(solr_api_full_text: HTSolrAPI, queue_parameters: dict):
     document_indexer_queue_service = DocumentIndexerQueueService(solr_api_full_text, queue_parameters)
+    logger.info(f"Starting Document Indexer Service with queue: {document_indexer_queue_service.queue_name}")
+    # Start consuming messages from the queue
     document_indexer_queue_service.start_consuming()
 
 def main():

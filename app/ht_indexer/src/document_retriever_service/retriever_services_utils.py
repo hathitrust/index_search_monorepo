@@ -11,7 +11,7 @@ class RetrieverServicesUtils:
     """
 
     @staticmethod
-    def publish_document(queue_producer: QueueProducer, content: dict = None):
+    def publish_document(queue_producer_conn: QueueProducer, content: dict = None):
         """
         Publish the document in a queue
         :param queue_producer: QueueProducer object
@@ -20,8 +20,8 @@ class RetrieverServicesUtils:
         message = content
         entry_data = json.dumps(message)
         entry_size = len(entry_data.encode('utf-8'))  # Convert to bytes and get length
-        logger.info(f"Sending message with id {content.get('ht_id')} and Size={entry_size} bytes to queue {queue_producer.queue_name}")
-        queue_producer.publish_messages(message)
+        logger.info(f"Sending message with id {content.get('ht_id')} and Size={entry_size} bytes to queue {queue_producer_conn.queue_name}")
+        queue_producer_conn.publish_messages(message)
 
     @staticmethod
     def get_catalog_object(item_id: str,
