@@ -2,7 +2,7 @@ import pika
 
 from ht_queue_service.queue_connection import QueueConnection
 
-
+"""Class to set up RabbitMQ"""
 def ht_declare_dead_letter_queue(ht_channel: pika.connection, queue_name: str):
     """
     Declare the dead letter queue
