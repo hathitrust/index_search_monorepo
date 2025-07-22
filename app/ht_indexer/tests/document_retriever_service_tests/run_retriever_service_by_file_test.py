@@ -60,6 +60,7 @@ class TestRunRetrieverServiceByFile:
                                    parallelize=False)
 
 
+
         # Define the consumer instance
         consumer_instance = QueueConsumer(
             queue_user, queue_pass, get_rabbit_mq_host_name, queue_name, False, 1

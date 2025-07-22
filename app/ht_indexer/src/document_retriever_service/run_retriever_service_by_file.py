@@ -63,16 +63,19 @@ def retrieve_documents_by_file(queue_name, queue_host, queue_user, queue_passwor
 
                 logger.info(f"Total of documents to process {len(list_documents)}")
 
-                run_retriever_service(list_documents, query_field,
+                queue_producer = run_retriever_service(list_documents, query_field,
                                       document_retriever_service,
                                     parallelize=parallelize
                                       )
-
+                logger.info(f"Closing producer channel:")
+                queue_producer.ht_channel.close()
                 logger.info(f"Total time to retrieve and generate documents {time.time() - start_time:.10f}")
 
     else:
         logger.info("Provide the file with the list of ids to process is a required parameter")
         exit()
+
+    return queue_producer
 
 
 def main():

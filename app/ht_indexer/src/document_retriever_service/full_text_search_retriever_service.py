@@ -237,6 +237,8 @@ class FullTextSearchRetrieverQueueService:
             # Publish the documents in the queue
             FullTextSearchRetrieverQueueService.publishing_documents(queue_producer, record_metadata_list, mysql_db)
 
+        return queue_producer
+
 
 def run_retriever_service(list_documents, by_field, document_retriever_service, parallelize: bool = False):
     """
@@ -277,10 +279,11 @@ def run_retriever_service(list_documents, by_field, document_retriever_service, 
         logger.info(f"Process=retrieving: Total time to retrieve a batch documents {time.time() - start_time:.10f}")
 
     else:
-        document_retriever_service.full_text_search_retriever_service(
+        queue_producer = document_retriever_service.full_text_search_retriever_service(
             list_documents,
             by_field
         )
+    return queue_producer
 
 def main():
     parser = argparse.ArgumentParser()
