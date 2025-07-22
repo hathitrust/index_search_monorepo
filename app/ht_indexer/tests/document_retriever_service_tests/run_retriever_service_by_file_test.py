@@ -67,13 +67,15 @@ class TestRunRetrieverServiceByFile:
         # This log is used to check the number of messages in the queue before consuming. I have noticed there are
         # upstream on the retrieve_documents_by_file function, so that the queue has less than the expected
         # number of messages
-        #logger.info(f"[DEBUG] Queue has {consumer_instance.get_total_messages()} messages after publishing")
-
+        #
 
         # Define the consumer instance
         consumer_instance = QueueConsumer(
             queue_user, queue_pass, get_rabbit_mq_host_name, queue_name, False, 1
         )
+
+        logger.info(f"[DEBUG] Queue has {consumer_instance.get_total_messages()} messages after publishing")
+
 
         list_output_messages = []
         counter = 0
@@ -93,8 +95,8 @@ class TestRunRetrieverServiceByFile:
                 counter += 1
                 time.sleep(0.5)  # Wait before checking for more messages
                 logger.info("No messages in the queue. Waiting for more messages...")
-                
-                if counter > 3:
+
+                if counter > 10:
                     logger.info("The queue is empty: Test ended")
                     break
                 else:

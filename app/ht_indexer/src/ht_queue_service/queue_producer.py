@@ -61,10 +61,10 @@ class QueueProducer(QueueConnection):
             )
             raise
 
-        #finally:
-        #    if self.queue_connection and not self.queue_connection.is_closed:
-        #        try:
-        #            self.queue_connection.close()
-        #            logger.info("RabbitMQ connection closed.")
-        #        except Exception as close_err:
-        #            logger.warning(f"Error closing RabbitMQ connection: {close_err}")
+        finally:
+            if self.queue_connection and not self.queue_connection.is_closed:
+                try:
+                    self.queue_connection.close()
+                    logger.info("RabbitMQ connection closed.")
+                except Exception as close_err:
+                    logger.warning(f"Error closing RabbitMQ connection: {close_err}")
