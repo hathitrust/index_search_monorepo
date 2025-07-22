@@ -67,21 +67,18 @@ class TestRunRetrieverServiceByFile:
                                    get_status_file,
                                    parallelize=False)
 
-
-
-
         # This log is used to check the number of messages in the queue before consuming. I have noticed there are
         # upstream on the retrieve_documents_by_file function, so that the queue has less than the expected
         # number of messages
         logger.info(f"[DEBUG] Queue has {consumer_instance.get_total_messages()} messages after publishing")
 
         list_output_messages = []
+        time.sleep(5)
         # Service to consume the message
         for method_frame, properties, body in consumer_instance.ht_channel.consume(queue_name,
                                                                                auto_ack=False,
                                                                                inactivity_timeout=5
-                                                                               ): #consume_message(inactivity_timeout=5):
-
+                                                                               ):
             if method_frame:
                 list_output_messages.append(json.loads(body.decode("utf-8"))["ht_id"])
 

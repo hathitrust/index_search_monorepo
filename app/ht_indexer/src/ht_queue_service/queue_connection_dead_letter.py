@@ -26,6 +26,9 @@ class QueueConnectionDeadLetter(QueueConnection):
     See a detail explanation of dead letter exchanges here: https://www.rabbitmq.com/docs/dlx#overview
     A message is dead-lettered if it is negatively acknowledged and requeued, or if it times out.
     """
+    # TODO Rename this class to QueueSetUp
+    # On this class we set up the queue, exchange, and dead letter exchange
+    # Pass the parameters durable, exclusive, and auto_delete to the queue_declare method ...
 
     def __init__(self, user: str, password: str, host: str, queue_name: str, batch_size: int = 1):
         # Call the parent class constructor that initializes the connection to the queue

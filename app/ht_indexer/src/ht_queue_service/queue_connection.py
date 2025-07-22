@@ -30,6 +30,7 @@ class QueueConnection:
         self.user = user
         self.password = password
         self.host = host
+        # TODO remove the queue_name from the constructor, it should be set in the producer/consumer
         self.queue_name = queue_name
         # TODO: make the exchange name configurable
         self.exchange = 'ht_channel'

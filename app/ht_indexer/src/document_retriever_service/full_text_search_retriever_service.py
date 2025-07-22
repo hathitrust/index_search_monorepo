@@ -237,8 +237,6 @@ class FullTextSearchRetrieverQueueService:
             # Publish the documents in the queue
             FullTextSearchRetrieverQueueService.publishing_documents(queue_producer, record_metadata_list, mysql_db)
 
-        return queue_producer
-
 
 def run_retriever_service(list_documents, by_field, document_retriever_service, parallelize: bool = False):
     """
@@ -279,11 +277,10 @@ def run_retriever_service(list_documents, by_field, document_retriever_service, 
         logger.info(f"Process=retrieving: Total time to retrieve a batch documents {time.time() - start_time:.10f}")
 
     else:
-        queue_producer = document_retriever_service.full_text_search_retriever_service(
+        document_retriever_service.full_text_search_retriever_service(
             list_documents,
             by_field
         )
-    return queue_producer
 
 def main():
     parser = argparse.ArgumentParser()
@@ -353,7 +350,7 @@ def main():
                 time.sleep(WAITING_TIME_QUEUE_PRODUCER) # Wait 5 minutes to send documents in the queue
                 total_messages_in_queue = queue_producer.get_total_messages()
                 total_time_waiting += WAITING_TIME_QUEUE_PRODUCER
-            #queue_producer.ht_channel.close()
+            queue_producer.close()
 
 
 if __name__ == "__main__":

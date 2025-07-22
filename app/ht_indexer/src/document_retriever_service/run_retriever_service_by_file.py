@@ -18,7 +18,7 @@ current = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()
 parent = os.path.dirname(current)
 sys.path.insert(0, parent)
 
-PARALLELIZE = True
+PARALLELIZE = False
 
 def retrieve_documents_by_file(queue_name, queue_host, queue_user, queue_password,
                                query_field, solr_host, solr_user, solr_password, solr_retriever_query_params,
@@ -63,17 +63,17 @@ def retrieve_documents_by_file(queue_name, queue_host, queue_user, queue_passwor
 
                 logger.info(f"Total of documents to process {len(list_documents)}")
 
-                queue_producer = run_retriever_service(list_documents, query_field,
+                run_retriever_service(list_documents, query_field,
                                       document_retriever_service,
                                     parallelize=parallelize
                                       )
-                logger.info(f"Closing producer channel:")
-                queue_producer.close()
+
                 logger.info(f"Total time to retrieve and generate documents {time.time() - start_time:.10f}")
 
     else:
         logger.info("Provide the file with the list of ids to process is a required parameter")
         exit()
+
 
 def main():
     parser = argparse.ArgumentParser()
