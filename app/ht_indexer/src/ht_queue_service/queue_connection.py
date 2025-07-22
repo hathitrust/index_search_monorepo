@@ -180,7 +180,7 @@ class QueueConnection:
         # and the routing key to use when a message is dead-lettered.
 
         # Declare the dead letter queue
-        self.dlx_channel.queue_declare(f"{self.queue_name}_dead_letter_queue", durable=True)
+        self.ht_channel.queue_declare(f"{self.queue_name}_dead_letter_queue", durable=True)
 
         # Declare the main queue with dead-letter configuration
         self.ht_channel.queue_declare(
@@ -242,6 +242,24 @@ class QueueConnection:
         finally:
             # Set channels to None to avoid using them after closing
             self.ht_channel = None
+        try:
+            if self.dlx_channel and self.dlx_channel.is_open:
+                self.dlx_channel.close()
+                logger.info("RabbitMQ dead-letter channel closed.")
+        except Exception as e:
+            logger.warning(f"Failed to close dead-letter channel cleanly: {e}", exc_info=True)
+        finally:
+            # Set channels to None to avoid using them after closing
+            self.dlx_channel = None
+        try:
+            if self.queue_connection and self.queue_connection.is_open:
+                self.queue_connection.close()
+                logger.info("RabbitMQ connection closed.")
+        except Exception as e:
+            logger.warning(f"Failed to close connection cleanly: {e}", exc_info=True)
+        finally:
+            # Set the connection to None to avoid using it after closing
+            self.queue_connection = None
 
 
     def is_ready(self) -> bool:
