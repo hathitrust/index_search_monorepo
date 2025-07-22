@@ -78,7 +78,7 @@ class TestRunRetrieverServiceByFile:
 
 
         list_output_messages = []
-        counter = 0
+        #counter = 0
         # Service to consume the message
         for method_frame, properties, body in consumer_instance.consume_message(inactivity_timeout=5):
             if method_frame:
@@ -90,17 +90,17 @@ class TestRunRetrieverServiceByFile:
             # This check was added to avoid the test from running indefinitely because the queue is not empty, and
             # it is stuck
             else:
-                #logger.info("The queue is empty: Test ended")
-                #break
-                counter += 1
-                time.sleep(0.5)  # Wait before checking for more messages
-                logger.info("No messages in the queue. Waiting for more messages...")
+                logger.info("The queue is empty: Test ended")
+                break
+                #counter += 1
+                #time.sleep(0.5)  # Wait before checking for more messages
+                #logger.info("No messages in the queue. Waiting for more messages...")
 
-                if counter > 10:
-                    logger.info("The queue is empty: Test ended")
-                    break
-                else:
-                    continue
+                #if counter > 10:
+                #    logger.info("The queue is empty: Test ended")
+                #    break
+                #else:
+                #    continue
         logger.info(f"Number of messages: {len(list_output_messages)}")
         logger.info(list_output_messages)
         # Check if at least any message is retrieved; otherwise, print a message with the number of messages found

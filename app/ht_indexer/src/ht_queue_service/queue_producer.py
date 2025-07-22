@@ -42,11 +42,17 @@ class QueueProducer(QueueConnection):
             if not self.ht_channel or self.ht_channel.is_closed:
                 self.queue_reconnect()
 
-            body = json.dumps(queue_message)
+            try:
+                body = json.dumps(queue_message)
+            except (TypeError, ValueError) as json_err:
+                logger.error(
+                    f"Failed to serialize message {queue_message.get('ht_id')}: {json_err}", exc_info=True
+                )
+                raise
 
             self.ht_channel.basic_publish(
                 exchange=self.exchange, routing_key=self.queue_name, body=body,
-                properties=pika.BasicProperties(delivery_mode=2, content_type="application/json") # make message persistent
+                properties=pika.BasicProperties(delivery_mode=2, content_type="application/json") # make a message persistent
             )
             logger.info(f"Published message to {self.queue_name}: {body}")
 
@@ -61,10 +67,10 @@ class QueueProducer(QueueConnection):
             )
             raise
 
-        finally:
-            if self.queue_connection and not self.queue_connection.is_closed:
-                try:
-                    self.queue_connection.close()
-                    logger.info("RabbitMQ connection closed.")
-                except Exception as close_err:
-                    logger.warning(f"Error closing RabbitMQ connection: {close_err}")
+        #finally:
+        #    if self.queue_connection and not self.queue_connection.is_closed:
+        #        try:
+        #            self.queue_connection.close()
+        #            logger.info("RabbitMQ connection closed.")
+        #        except Exception as close_err:
+        #            logger.warning(f"Error closing RabbitMQ connection: {close_err}")

@@ -24,6 +24,24 @@ class TestQueueProducer:
 
         producer_instance.ht_channel.queue_purge(producer_instance.queue_name)
 
+    def test_publish_invalid_message_raises_type_error(self, get_rabbit_mq_host_name):
+
+        """Test non-serializable data - Invalid message format"""
+
+        producer_instance = QueueProducer(
+            "guest", "guest", get_rabbit_mq_host_name, "test_queue_invalid", batch_size=1
+        )
+
+        class NonSerializable:
+            pass
+
+        with pytest.raises(TypeError):
+            producer_instance.publish_messages({"ht_id": "123", "payload": NonSerializable()})
+
+        # Add close method to ensure the connection is closed after the test
+        producer_instance.close()
+
+
     def test_queue_reconnect(self, get_rabbit_mq_host_name):
         producer_instance = QueueProducer(
             "guest",
