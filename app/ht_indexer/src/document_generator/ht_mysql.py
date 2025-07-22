@@ -153,8 +153,9 @@ class HtMysql:
             cursor = conn.cursor()
             cursor.executemany(update_query, update_values)
             conn.commit()
+            logger.info(f"Updated {cursor.rowcount} records successfully.")
         except connector.Error as e:
-            print(f"Error updating status: {e}")
+            logger.error(f"Error updating status: {e}")
             conn.rollback()
         finally:
             if cursor:
@@ -173,6 +174,7 @@ def get_mysql_conn(pool_size: int = 1) -> HtMysql:
 
     try:
         mysql_user = os.getenv("MYSQL_USER", "mdp-lib")
+        logger.info(f"Connected to MySql_User: {mysql_user}")
     except KeyError:
         logger.error("Error: `MYSQL_USER` environment variable required")
         sys.exit(1)
