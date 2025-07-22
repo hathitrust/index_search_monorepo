@@ -46,13 +46,10 @@ class TestRunRetrieverServiceByFile:
         queue_user = "guest"
         queue_pass = "guest"
 
-        # Define the consumer instance
-        consumer_instance = QueueConsumer(
-            queue_user, queue_pass, get_rabbit_mq_host_name, queue_name, False, 1
-        )
+
 
         # Clean up the queue
-        consumer_instance.ht_channel.queue_purge(consumer_instance.queue_name)
+        #consumer_instance.ht_channel.queue_purge(consumer_instance.queue_name)
 
         retrieve_documents_by_file(queue_name,
                                    get_rabbit_mq_host_name,
@@ -70,15 +67,18 @@ class TestRunRetrieverServiceByFile:
         # This log is used to check the number of messages in the queue before consuming. I have noticed there are
         # upstream on the retrieve_documents_by_file function, so that the queue has less than the expected
         # number of messages
-        logger.info(f"[DEBUG] Queue has {consumer_instance.get_total_messages()} messages after publishing")
+        #logger.info(f"[DEBUG] Queue has {consumer_instance.get_total_messages()} messages after publishing")
+
+
+        # Define the consumer instance
+        consumer_instance = QueueConsumer(
+            queue_user, queue_pass, get_rabbit_mq_host_name, queue_name, False, 1
+        )
 
         list_output_messages = []
-        time.sleep(5)
+        counter = 0
         # Service to consume the message
-        for method_frame, properties, body in consumer_instance.ht_channel.consume(queue_name,
-                                                                               auto_ack=False,
-                                                                               inactivity_timeout=5
-                                                                               ):
+        for method_frame, properties, body in consumer_instance.consume_message(inactivity_timeout=5):
             if method_frame:
                 list_output_messages.append(json.loads(body.decode("utf-8"))["ht_id"])
 
@@ -88,8 +88,17 @@ class TestRunRetrieverServiceByFile:
             # This check was added to avoid the test from running indefinitely because the queue is not empty, and
             # it is stuck
             else:
-                logger.info("The queue is empty: Test ended")
-                break
+                #logger.info("The queue is empty: Test ended")
+                #break
+                counter += 1
+                time.sleep(0.5)  # Wait before checking for more messages
+                logger.info("No messages in the queue. Waiting for more messages...")
+                
+                if counter > 3:
+                    logger.info("The queue is empty: Test ended")
+                    break
+                else:
+                    continue
         logger.info(f"Number of messages: {len(list_output_messages)}")
         logger.info(list_output_messages)
         # Check if at least any message is retrieved; otherwise, print a message with the number of messages found
