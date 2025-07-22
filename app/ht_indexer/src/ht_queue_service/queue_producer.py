@@ -25,7 +25,7 @@ class QueueProducer(QueueConnection):
         # declaring the credentials needed for connection like host, port, username, password, exchange etc
 
         super().__init__(user, password, host, queue_name, batch_size)
-
+        self.ht_channel.confirm_delivery() # Ensure the channel is in confirm mode
         try:
             self.dlq_conn = QueueConnectionDeadLetter(user, password, self.host, self.queue_name, batch_size)
         except Exception as e:
@@ -43,7 +43,7 @@ class QueueProducer(QueueConnection):
                 self.queue_reconnect()
 
             body = json.dumps(queue_message)
-            self.ht_channel.confirm_delivery() # Ensure the channel is in confirm mode
+
             self.ht_channel.basic_publish(
                 exchange=self.exchange, routing_key=self.queue_name, body=body,
                 properties=pika.BasicProperties(delivery_mode=2, content_type="application/json") # make message persistent
@@ -61,10 +61,10 @@ class QueueProducer(QueueConnection):
             )
             raise
 
-        finally:
-            if self.queue_connection and not self.queue_connection.is_closed:
-                try:
-                    self.queue_connection.close()
-                    logger.info("RabbitMQ connection closed.")
-                except Exception as close_err:
-                    logger.warning(f"Error closing RabbitMQ connection: {close_err}")
+        #finally:
+        #    if self.queue_connection and not self.queue_connection.is_closed:
+        #        try:
+        #            self.queue_connection.close()
+        #            logger.info("RabbitMQ connection closed.")
+        #        except Exception as close_err:
+        #            logger.warning(f"Error closing RabbitMQ connection: {close_err}")
