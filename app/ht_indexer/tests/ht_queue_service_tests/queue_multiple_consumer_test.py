@@ -11,14 +11,14 @@ logger = get_ht_logger(name=__name__)
 class HTMultipleConsumerServiceConcrete(QueueMultipleConsumer):
 
     def __init__(self, user: str, password: str, host: str, queue_name: str, requeue_message: bool = False,
-                 batch_size: int = 1, shutdown_on_empty_queue: bool = True):
+                 batch_size: int = 1, shutdown_on_empty_queue: bool = True, max_redelivery: int = 3):
         super().__init__(user, password, host, queue_name, requeue_message, batch_size, shutdown_on_empty_queue)
         self.consume_one_message = []
         self.shutdown_on_empty_queue = shutdown_on_empty_queue
         # These two variables are used to track the redelivery count and seen messages
         self.redelivery_count = 0  # Count how many times the message with ht_id=5 was redelivered
         self.seen_messages = defaultdict(int) # Dictionary to track how many times each message_id has been seen
-        self.max_redelivery = 3  # maximum allowed redeliveries
+        self.max_redelivery = max_redelivery  # maximum allowed redeliveries
 
     def process_batch(self, batch: list, delivery_tags: list):
 
@@ -64,7 +64,7 @@ class HTMultipleConsumerServiceConcrete(QueueMultipleConsumer):
         if "5" in self.seen_messages:
             # If the message with ht_id=5 is seen more than max_redelivery times, stop consuming
             if self.seen_messages["5"] >= self.max_redelivery:
-                logger.info(f"Message with ht_id=5 was redelivered more than {self.max_redelivery} times. Stopping consumer.")
+                logger.info(f"Message with ht_id=5 was redelivered more than {self.max_redelivery} times.")
                 #self.ht_channel.stop_consuming()
                 return False
         return True
@@ -115,7 +115,9 @@ class TestHTMultipleQueueConsumer:
                                                                        host=get_rabbit_mq_host_name,
                                                                        queue_name="multiple_test_queue_consume_message",
                                                                        requeue_message=False,
-                                                                       batch_size=1)
+                                                                       batch_size=1,
+                                                                       shutdown_on_empty_queue=True,
+                                                                       max_redelivery=1)
 
         multiple_consumer_instance.start_consuming()
 
@@ -135,6 +137,8 @@ class TestHTMultipleQueueConsumer:
             queue_name="multiple_test_queue_consume_message_empty",
             requeue_message=False,
             batch_size=1,
+            shutdown_on_empty_queue=True,
+            max_redelivery=1
         )
 
         multiple_consumer_instance.start_consuming()
@@ -171,6 +175,8 @@ class TestHTMultipleQueueConsumer:
             queue_name="multiple_test_queue_requeue_message_requeue_false",
             requeue_message=False,
             batch_size=10,
+            shutdown_on_empty_queue=True,
+            max_redelivery=1
         )
 
         multiple_consumer_instance.start_consuming()
@@ -227,6 +233,8 @@ class TestHTMultipleQueueConsumer:
             queue_name="multiple_queue_requeue_message_requeue_true",
             requeue_message=True,
             batch_size=10,
+            shutdown_on_empty_queue=True,
+            max_redelivery=3
         )
 
         multiple_consumer_instance.start_consuming()

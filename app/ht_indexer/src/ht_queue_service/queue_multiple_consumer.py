@@ -71,20 +71,25 @@ class QueueMultipleConsumer(ABC, QueueConnection):
                     break  # Stop if no more messages in the queue
 
             # long-polling is used to wait for messages in the queue
-            if not batch and not self.shutdown_on_empty_queue:
+            #if not batch and not self.shutdown_on_empty_queue:
                 #time.sleep(2)  # Avoid busy looping
-                continue
+            #    continue
             # If the batch is empty and shutdown_on_empty_queue is True, stop consuming messages.
-            if not batch and self.shutdown_on_empty_queue:
-                logger.info("Queue is empty. Stopping consumer...")
-                return
-
+            if not batch:
+                if self.shutdown_on_empty_queue:
+                    logger.info("Queue is empty. Stopping consumer...")
+                    return
+                else:
+                    time.sleep(0.5)  # Wait before checking for more messages
+                    logger.info("No messages in the queue. Waiting for more messages...")
+                    continue
             try:
                 batch_data = [orjson.loads(body) for body in batch]
                 # Process batch of messages and acknowledge them if successful
                 # If the process_batch method returns False, stop consuming messages from the queue.
                 # We use it for testing purposes. However, we could add a flag to the service to stop consuming messages.
                 if not self.process_batch(batch_data, delivery_tag):
+                    logger.info("Batch processing returned False. Stopping consumption.")
                     break
 
             except Exception as e:
