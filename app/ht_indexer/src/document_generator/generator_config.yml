@@ -1,0 +1,46 @@
+# Queue configuration file for retriever service
+
+src_queue:
+    # The name of the queue
+    queue_name: retriever_queue
+    batch_size: 1
+    requeue_message: false
+    shutdown_on_empty_queue: false
+    # The queue type
+    exchange_type: direct
+    # The queue durable flag
+    durable: true
+    # The queue auto delete flag
+    auto_delete: false
+    # The queue exclusive flag
+    exclusive: false
+    # The queue arguments
+    arguments: { }
+    # The queue heartbeat interval
+    heartbeat: 60
+    # The queue connection timeout
+    connection_timeout: 10
+    # The queue retry interval
+    retry_interval: 5
+tgt_queue:
+    # The name of the queue
+    queue_name: indexer_queue
+    batch_size: 1
+    requeue_message: false
+    shutdown_on_empty_queue: false
+    # The queue type
+    exchange_type: direct
+    # The queue durable flag
+    durable: true
+    # The queue auto delete flag
+    auto_delete: false
+    # The queue exclusive flag
+    exclusive: false
+    # The queue arguments
+    arguments: { }
+    # The queue heartbeat interval
+    heartbeat: 60
+    # The queue connection timeout
+    connection_timeout: 10
+    # The queue retry interval
+    retry_interval: 5

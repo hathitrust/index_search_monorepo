@@ -37,8 +37,23 @@ documents in a Solr server. The workflow instantiates two solr servers, through 
 * Catalog (solr-sdr-catalog), for retrieving documents and
 * Full-text (solr-lss-dev) search index for indexing them.
 
-All the services are started using docker-compose.yml file, and it integrates a queue system to communicate the
+All the services are started using `docker-compose.yml` file, and it integrates a queue system to communicate the
 systems involved in the flow to index documents in Full-text search index. The queue system is based on RabbitMQ.
+
+In `config/global_config` there is a `config.yml` file to set up the different variables that are common for all the services
+of `ht_indexer` application. For example, the RabbitMQ URL, RabbitMQ user and password.These variables are also stored
+in as environment variables in the `docker-compose.yml` file. The environment variables have precedence over the default
+values defined in `config.yml file`.
+
+The application is structured in three main services:
+* **document_retriever_service**: Retrieve documents from Catalog index.
+* **document_generator**: Generate the document to index in the Full-text search index.
+* **document_indexer_service**: Index the documents in Full-text search index.
+
+Each of these services has a queue associated with it to manage the flow of documents to be indexed in Full-text search index.
+As each of them has a `config.yml` file to set up the different variables that are specific for each service. 
+The `global_config/config.yml` and the per app `config.yml` files are managed by the script `src/ht_queue_service/queue_config.py`
+that instantiates a config object with all the variables needed for each service to set up the queue system.
 
 ## Built With
 
@@ -59,12 +74,25 @@ systems involved in the flow to index documents in Full-text search index. The q
       document_indexer_service and use a queue system to manage the flow of documents to be indexed in Full-text search.
 * **Phase 4**: Create the MySQL table fulltext_item_processing_status to store the status of the documents
   being processed by the pipeline.
+* **Phase 5**: Integrate ht_indexer inside the monorepo repository.
+* **Phase 6**: Decoupling queue architecture by refactoring the RabbitMQ queue service components 
+to separate connection management, channel creation, and queue management responsibilities.
 * **Next steps**:
     * The process to retrieve the message from the dead-letter-exchange is not implemented yet.
     * Implement the query to reprocess all the documents in Catalog index.
         * If the list of documents is empty, so do a `--query *:*` and the query_field will be id to retrieve
           all the documents in the Catalog index.
     * Storage the different status of the documents that are being processed by ht_indexer pipeline.
+* Phase 7: Use threading instead of multiprocessing in document_retriever_service to improve performance.
+  * Decoupling QueueConnection from QueueChannelCreator to create a single TCP connection and multiple channels.
+* Phase 8: Propagate the use of config.yml to all the services in the application.
+* Phase 9: Refactor the document generator service to improve code maintainability and readability.
+  * Added logging and error handling.
+  * Modularized the code into smaller functions.
+  * Improved configuration management.
+  * Enhanced documentation and comments.
+  * Optimized performance and resource management.
+  * Typed the code using type hints.
 
 ## Project Set Up
 
@@ -147,48 +175,38 @@ Two queues are available in the application to manage the flow of documents to b
 
 ## Project Structure
 
-The project is structured as follows:
+The project is structured as follows, separating the source code from the tests. Each service has its own folder.
 
 ```
 ht_indexer/
-├── catalog_metada/
-│ ├── __init__.py
-│ ├── catalog_metadata.py
-│ └── catalog_metadata_test.py
-├── document_generator/
-│ ├── __init__.py
-│ ├── document_generator_service.py
-│ └── document_generator_service_local.py
-| └──test_document_generator.py
-├── document_indexer_service/
-│ ├── __init__.py
-│ └── document_indexer_service.py
-| └──test_document_indexer_service.py
-├── ht_indexer_monitoring/
-│ ├── __init__.py
-│ ├── ht_indexer_tracktable.py
-│ ├── ht_indexer_tracktable_test.py
-│ └── monitoring_arguments.py
-├── document_retriever_service/
-│ ├── __init__.py
-│ ├── full_text_search_retriever_service.py
-│ ├── full_text_search_retriever_service_test.py
-│ ├── ht_status_retriever_service.py
-│ ├── retriever_arguments.py
-│ ├── retriever_services_utils.py
-│ ├── retriever_services_utils_test.py.py
-│ └── run_retriever_service_by_file_test.py
-│ └── run_retriever_service_by_file.py
-├── ht_utils/
-│ ├── __init__.py
-│ └── sample_data/
-│ ├── __init__.py
-│ ├── sample_data_creator.sh
-│ └── sample_data_generator.py
-├── Dockerfile
-├── docker-compose.yml
+├── src/
+    ├── catalog_metada/
+        │ ├── __init__.py
+        │ ├── catalog_metadata.py
+    ├── document_generator/
+        │ ├── __init__.py
+        │ ├── document_generator_service.py
+        │ └── document_generator_service_local.py
+        | └──test_document_generator.py
+        .
+        .
+        .
+├── test/
+    ├── catalog_metada_test/
+        │ ├── __init__.py
+        │ └── catalog_metadata_test.py
+    ├── document_generator_test/
+        │ ├── __init__.py
+        │ ├── document_generator_test.py
+        │ └── ht_mysyql_test.py
+        | └──mets_file_extractor_test.py
+    .
+    .
+    .
 ├── pyproject.toml
+├── poetry.lock
 ├── README.md
+Makefile
 ```
 
 ## Design
@@ -214,6 +232,9 @@ with the messages in the dead-letter-exchange.
 
 Find [here](https://www.rabbitmq.com/docs/dlx#overview) more details about dead letter exchanges.
 
+Fine [here](https://github.com/hathitrust/index_search_monorepo/wiki/HT%E2%80%90Indexer:-RabbitMQ-implementation) a detailed
+description of the RabbitMQ implementation used in this project.
+
 Each of the defined queues (queue_retriever and queue_indexer) has a dead-letter-exchange associated with it
 (retriever_queue_dead_letter_queue and indexer_queue_dead_letter_queue).
 
@@ -226,7 +247,7 @@ When a consumer client receives a message from the queue, it will try to process
 * If the message is processed without issues, the message is acknowledged and removed from the queue.
 * If the message is not processed, the message is re-queued in the dead-letter-exchange.
   As an example of this logic, you can see the code in the file
-  `document_generator/document_generator_service.py` in the function `generate_document()`.
+    `document_generator/document_generator_service.py` in the function `test_queue_requeue_message_requeue_false()`.
 
 ## Functionality
 

@@ -4,8 +4,11 @@ import sys
 
 from document_generator.ht_mysql import get_mysql_conn
 from ht_indexer_monitoring.ht_indexer_tracktable import PROCESSING_STATUS_TABLE_NAME
+from ht_queue_service.queue_config import QueueConfig
 from ht_utils.ht_logger import get_ht_logger
 from ht_utils.ht_utils import comma_separated_list, get_general_error_message, get_solr_url
+from config import config_queue_file_path
+from . import retriever_config_file_path
 
 logger = get_ht_logger(name=__name__)
 
@@ -31,13 +34,22 @@ class RetrieverServiceArguments:
 
         try:
             # Using queue or local machine
-            self.queue_name = os.environ["QUEUE_NAME"]
-            self.queue_host = os.environ["QUEUE_HOST"]
-            self.queue_user = os.environ["QUEUE_USER"]
-            self.queue_password = os.environ["QUEUE_PASS"]
+            ############### QUEUE CONFIGURATION ####################
+            # Build resource file paths using Traversable's '/' operator
+            global_config = config_queue_file_path / 'global_config.yml'
+            app_config = retriever_config_file_path / 'retriever_config.yml'
+            # Validate that the files actually exist
+            if not global_config.is_file():
+                logger.error(f"Queue config file {global_config} does not exist")
+                sys.exit(1)
+            if not app_config.is_file():
+                logger.error(f"Queue config file {app_config} does not exist")
+                sys.exit(1)
+            self.queue_config = QueueConfig(global_config, app_config, config_key="queue")
+
         except KeyError as e:
             logger.error(f"Environment variables required: "
-                         f"{get_general_error_message('DocumentGeneratorService', e)}")
+                         f"{get_general_error_message('DocumentIndexerService', e)}")
 
             sys.exit(1)
         self.args = parser.parse_args()

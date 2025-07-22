@@ -2,6 +2,7 @@
 
 #Git
 .gitignore
+.vscode/
 
 # Docker
 .dockerignore

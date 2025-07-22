@@ -6,8 +6,8 @@ import multiprocessing
 import os
 import sys
 import time
-
 import requests
+
 from catalog_metadata.catalog_metadata import CatalogItemMetadata, CatalogRecordMetadata
 from document_generator.ht_mysql import get_mysql_conn
 from ht_indexer_api.ht_indexer_api import HTSolrAPI
@@ -15,6 +15,8 @@ from ht_indexer_monitoring.ht_indexer_tracktable import (
     HT_INDEXER_TRACKTABLE,
     PROCESSING_STATUS_TABLE_NAME,
 )
+
+from ht_queue_service.queue_config import QueueParams
 from ht_queue_service.queue_connection import MAX_DOCUMENT_IN_QUEUE
 from ht_queue_service.queue_producer import QueueProducer
 from ht_utils.ht_logger import get_ht_logger
@@ -26,8 +28,8 @@ from ht_utils.ht_utils import (
 )
 from ht_utils.query_maker import make_solr_term_query
 
-from document_retriever_service.retriever_arguments import RetrieverServiceArguments
-from document_retriever_service.retriever_services_utils import RetrieverServicesUtils
+from .retriever_arguments import RetrieverServiceArguments
+from .retriever_services_utils import RetrieverServicesUtils
 
 logger = get_ht_logger(name=__name__)
 
@@ -41,7 +43,7 @@ WAITING_TIME_MYSQL = 60 # Wait 1 minute to query MySQL checking if there are doc
 MYSQL_COLUMN_UPDATE = 'retriever_status'
 SUCCESS_UPDATE_STATUS = f"UPDATE {PROCESSING_STATUS_TABLE_NAME} SET status = %s, {MYSQL_COLUMN_UPDATE} = %s, processed_at = %s WHERE ht_id = %s"
 FAILURE_UPDATE_STATUS = f"UPDATE {PROCESSING_STATUS_TABLE_NAME} SET status = %s, {MYSQL_COLUMN_UPDATE} = %s, processed_at = %s, error = %s WHERE ht_id = %s"
-PARALLELIZE = True
+PARALLELIZE = False
 SOLR_BATCH_SIZE = 200 # The chunk size is 200, because Solr will fail with the status code 414. The chunk size was determined
 # by testing the Solr query with different values (e.g., 100-500 and with 200 ht_ids it worked.
 
@@ -56,9 +58,7 @@ class FullTextSearchRetrieverQueueService:
     All the entries are published in a queue
     """
 
-    def __init__(self, queue_name: str = 'retriever_queue', queue_host: str = None,
-                 queue_user: str = None,
-                 queue_password: str = None,
+    def __init__(self, queue_params: QueueParams = None,
                  solr_host: str = None,
                  solr_user: str = None,
                  solr_password: str = None,
@@ -66,23 +66,23 @@ class FullTextSearchRetrieverQueueService:
                  ):
 
 
-        self.queue_name = queue_name
-        self.queue_host = queue_host
-        self.queue_user = queue_user
-        self.queue_password = queue_password
         self.solr_host = solr_host
         self.solr_user = solr_user
         self.solr_password = solr_password
         self.solr_retriever_query_params = solr_retriever_query_params
 
+        # Queue configuration
+        self.queue_params = queue_params
+        self.queue_producer_conn = self.get_queue_producer()
 
     def get_queue_producer(self) -> QueueProducer | None:
 
         """Establish a connection to the queue to publish the documents"""
 
         try:
-            queue_producer = QueueProducer(self.queue_user, self.queue_password, self.queue_host, self.queue_name)
+            queue_producer = QueueProducer(self.queue_params)
             return queue_producer
+
         except Exception as e:
             logger.error(f"Environment variables required: "
                          f"{get_general_error_message('DocumentGeneratorService', e)}")
@@ -103,7 +103,7 @@ class FullTextSearchRetrieverQueueService:
         return item_metadata, item_id
 
     @staticmethod
-    def publishing_documents(queue_producer, result, mysql_db):
+    def publishing_documents(queue_producer_conn, result, mysql_db):
 
         processed_items = []
         failed_items = []
@@ -115,7 +115,7 @@ class FullTextSearchRetrieverQueueService:
 
             # Try to publish the document in the queue, if an error occurs, log the error and continue to the next
             try:
-                RetrieverServicesUtils.publish_document(queue_producer, item_metadata)
+                RetrieverServicesUtils.publish_document(queue_producer_conn, item_metadata)
                 processed_items.append(('processing', 'completed', get_current_time(), item_id))
 
             except Exception as e:
@@ -209,6 +209,8 @@ class FullTextSearchRetrieverQueueService:
 
         # Create a connection to the queue to produce messages
         queue_producer = self.get_queue_producer()
+        # Create a new channel to produce messages for each batch of documents
+        #channel = self.queue_producer_conn.channel_creator.get_channel()
 
         solr_retriever = HTSolrAPI(self.solr_host, self.solr_user, self.solr_password)
 
@@ -235,7 +237,7 @@ class FullTextSearchRetrieverQueueService:
             logger.info(f"Metadata generator: Total time = {time.time() - start_time}")
 
             # Publish the documents in the queue
-            FullTextSearchRetrieverQueueService.publishing_documents(queue_producer, record_metadata_list, mysql_db)
+            FullTextSearchRetrieverQueueService.publishing_documents(self.queue_producer_conn, record_metadata_list, mysql_db)
 
 
 def run_retriever_service(list_documents, by_field, document_retriever_service, parallelize: bool = False):
@@ -293,10 +295,7 @@ def main():
         sys.exit(1)
 
     document_retriever_service = FullTextSearchRetrieverQueueService(
-        init_args_obj.queue_name,
-        init_args_obj.queue_host,
-        init_args_obj.queue_user,
-        init_args_obj.queue_password,
+        init_args_obj.queue_config.queue_params,
     init_args_obj.solr_host,
     init_args_obj.solr_user,
     init_args_obj.solr_password,
@@ -343,14 +342,14 @@ def main():
             # Create a connection to the queue to produce messages
             queue_producer = document_retriever_service.get_queue_producer()
 
-            total_messages_in_queue = queue_producer.get_total_messages()
+            total_messages_in_queue = queue_producer.queue_manager.get_total_messages(queue_producer.channel)
 
             while total_messages_in_queue > MAX_DOCUMENT_IN_QUEUE:
-                logger.info (f"Waiting: There are {total_messages_in_queue} or more documents in the {queue_producer.queue_name}")
+                logger.info (f"Waiting: There are {total_messages_in_queue} or more documents in the {queue_producer.queue_manager.queue_name}")
                 time.sleep(WAITING_TIME_QUEUE_PRODUCER) # Wait 5 minutes to send documents in the queue
-                total_messages_in_queue = queue_producer.get_total_messages()
+                total_messages_in_queue = queue_producer.queue_manager.get_total_messages(queue_producer.channel)
                 total_time_waiting += WAITING_TIME_QUEUE_PRODUCER
-            queue_producer.close()
+            queue_producer.channel.close()
 
 
 if __name__ == "__main__":

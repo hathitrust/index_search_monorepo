@@ -1,12 +1,35 @@
 import os
 import sys
-from pathlib import Path
-
+import tempfile
 import arrow
 
+from pathlib import Path
+from typing import Dict, Any
+
 from ht_utils.ht_logger import get_ht_logger
+import yaml
 
 logger = get_ht_logger(name=__name__)
+
+# Data definitions
+FlexibleDict = Dict[str, int | str | Dict[str, Any]]
+
+def update_dict_fields(target: dict[str, Any], keys: list[str], values: list[Any]) -> dict[str, Any]:
+    """
+    Updates multiple fields in a dictionary given lists of keys and values.
+
+    :param target: The dictionary to update.
+    :param keys: A list of keys to update.
+    :param values: A list of values corresponding to the keys.
+    :return: The updated dictionary.
+    """
+    if len(keys) != len(values):
+        raise ValueError("Length of keys and values must match.")
+
+    for key, value in zip(keys, values):
+        target[key] = value
+
+    return target
 
 def get_solr_url():
     # Get Solr URL
@@ -78,3 +101,29 @@ def find_sdr1_obj():
         return candidate
     else:
         raise FileNotFoundError("Folder '/sdr1/obj' not found in the container root")
+
+def get_queue_message_id(message: dict) -> str:
+    """
+    Extracts the message ID from a queue message.
+    :param message: The message dictionary
+    :return: The message ID
+    """
+    if 'ht_id' in message:
+        return message['ht_id']
+    elif 'id' in message:
+        return message['id']
+    else:
+        return 'unknown_id'
+
+def create_temporary_yaml_file(data: Dict[str, Any]) -> str:
+    """
+    Creates a temporary YAML file from a dictionary.
+    """
+    yaml_str = yaml.safe_dump(data)
+
+    with tempfile.NamedTemporaryFile(mode="w+", suffix=".yml", delete=False) as tmp:
+        tmp.write(yaml_str)
+        tmp.flush()
+        tmp_path = tmp.name  # This is the path you can use
+
+    return tmp_path

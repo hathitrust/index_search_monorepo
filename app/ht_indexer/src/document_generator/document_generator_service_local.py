@@ -3,8 +3,8 @@ import json
 import os
 
 from catalog_metadata.ht_indexer_config import DOCUMENT_LOCAL_PATH
-from document_generator_service import DocumentGeneratorService
-from generator_arguments import GeneratorServiceArguments
+from .document_generator_service import DocumentGeneratorService
+from .generator_arguments import GeneratorServiceArguments
 from ht_queue_service.queue_consumer import QueueConsumer
 from ht_utils.ht_logger import get_ht_logger
 
@@ -17,7 +17,7 @@ class DocumentGeneratorServiceLocal(DocumentGeneratorService):
                  document_local_path: str = DOCUMENT_LOCAL_PATH,
                  document_repository: str = None,
                  document_local_folder: str = "indexing_data",
-                 not_required_tgt_queue: bool = True):
+                 tgt_local: bool = True):
         """
         This class is responsible to retrieve from the queue a message with metadata at item level and generates
         the full text search entry and publish the document in a local folder
@@ -27,12 +27,13 @@ class DocumentGeneratorServiceLocal(DocumentGeneratorService):
         :param document_local_path: Path of the folder where the documents (.xml file to index) are stored.
         :param document_local_folder: Folder where the documents are stored
         :param document_repository: The plain text of the item is in the local or remote repository
+        :param tgt_local: Indicates if the document will be published in a queue or locally
         """
 
         super().__init__(db_conn, src_queue_consumer,
                          None,
                          document_repository=document_repository,
-                         not_required_tgt_queue=not_required_tgt_queue
+                         tgt_local=tgt_local
                          )
 
         self.document_local_folder = document_local_folder
@@ -75,7 +76,7 @@ def main():
                                                                document_local_path=init_args_obj.document_local_path,
                                                                document_repository=init_args_obj.document_repository,
                                                                document_local_folder="indexing_data",
-                                                               not_required_tgt_queue=init_args_obj.not_required_tgt_queue)
+                                                               tgt_local=init_args_obj.tgt_local)
     document_generator_service.consume_messages()
 
 
