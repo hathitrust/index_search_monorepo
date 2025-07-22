@@ -212,6 +212,16 @@ class QueueConnection:
             logger.error(f"Reconnection failed: {e}")
             raise QueueConnectionError(f"Failed to reconnect to RabbitMQ: {e}.") from e
 
+    def close_connection(self):
+        try:
+            if self.queue_connection and self.queue_connection.is_open:
+                self.queue_connection.close()
+                logger.info("RabbitMQ connection closed.")
+        except Exception as e:
+            logger.warning(f"Failed to close connection cleanly: {e}", exc_info=True)
+        finally:
+        # Set the connection to None to avoid using it after closing
+            self.queue_connection = None
 
     def close(self):
         try:
@@ -232,15 +242,7 @@ class QueueConnection:
         finally:
             # Set channels to None to avoid using them after closing
             self.ht_channel = None
-        try:
-            if self.queue_connection and self.queue_connection.is_open:
-                self.queue_connection.close()
-                logger.info("RabbitMQ connection closed.")
-        except Exception as e:
-            logger.warning(f"Failed to close connection cleanly: {e}", exc_info=True)
-        finally:
-            # Set the connection to None to avoid using it after closing
-            self.queue_connection = None
+
 
     def is_ready(self) -> bool:
         return (self.queue_connection and

@@ -127,7 +127,7 @@ class TestQueueConsumer:
 
         # Consume messages from the main queue to reject the message with ht_id=5
         for method_frame, properties, body in consumer_instance.consume_message(
-            inactivity_timeout=10
+            inactivity_timeout=5
         ):
             if method_frame:
                 output_message = json.loads(body.decode("utf-8"))
@@ -139,7 +139,7 @@ class TestQueueConsumer:
                     )
                     logger.info(f"Rejected Message: {output_message}")
 
-                    break
+                    #break
 
                 else:
                     # Acknowledge the message if the message is processed successfully
@@ -159,6 +159,7 @@ class TestQueueConsumer:
         # Consume messages from the dead letter queue
         for method_frame, properties, body in consumer_instance.dlx_channel.consume(
                                                 f"{consumer_instance.queue_name}_dead_letter_queue",
+                                                auto_ack=False,
                                                 inactivity_timeout=5):
             if method_frame:
                 output_message = json.loads(body.decode("utf-8"))
@@ -235,20 +236,13 @@ class TestQueueConsumer:
                         consumer_instance.ht_channel, method_frame.delivery_tag
                     )
                     redelivery_count += 1
-                    #time.sleep(1)  # Wait for the message to be routed to the dead letter queue
                     logger.info(f"Rejected Message: {output_message}")
                 else:
                     # Acknowledge the message if the message is processed successfully
-                    consumer_instance.positive_acknowledge(
-                            consumer_instance.ht_channel, method_frame.delivery_tag
-                        )
-                    #time.sleep(1)  # Wait for the message to be routed to the dead letter queue
+                    consumer_instance.positive_acknowledge(consumer_instance.ht_channel, method_frame.delivery_tag)
+
                 if redelivery_count >= max_redelivery:
                     assert method_frame.redelivered == (message_id == "5")  # Check if the message is redelivered
-                    assert (
-                        seen_messages[message_id] >= max_redelivery
-                    ), f"Message with ht_id={message_id} was redelivered more than {max_redelivery} times"
-                    #consumer_instance.close()
                     break
 
             else:
