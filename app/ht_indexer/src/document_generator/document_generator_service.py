@@ -85,14 +85,15 @@ class DocumentGeneratorService:
                                                                      e, document)
 
         logger.error(f"Document {document.get('ht_id')} failed {error_info}")
-        self.src_queue_consumer.reject_message(self.src_queue_consumer.ht_channel,
+        self.src_queue_consumer.reject_message(self.src_queue_consumer.channel,
                                                delivery_tag)
 
     def consume_messages(self):
         try:
             for method_frame, _properties, body in self.src_queue_consumer.consume_message():
-                message = json.loads(body.decode('utf-8'))
-                self.generate_document(message, method_frame.delivery_tag)
+                if method_frame:
+                    message = json.loads(body.decode('utf-8'))
+                    self.generate_document(message, method_frame.delivery_tag)
         except Exception as e:
             logger.error(f"There is something wrong with the queue connection: "
                          f"{get_general_error_message('DocumentGeneratorService', e)}")
@@ -110,7 +111,7 @@ class DocumentGeneratorService:
             self.publish_document(full_text_document)
             # Acknowledge the message to src_queue if the message is processed successfully and published in
             # the other queue
-            self.src_queue_consumer.positive_acknowledge(self.src_queue_consumer.ht_channel,
+            self.src_queue_consumer.positive_acknowledge(self.src_queue_consumer.channel,
                                  delivery_tag)
         except Exception as e:
             self.log_error_document_generator_service(e, message, delivery_tag)

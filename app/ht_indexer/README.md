@@ -59,6 +59,9 @@ systems involved in the flow to index documents in Full-text search index. The q
       document_indexer_service and use a queue system to manage the flow of documents to be indexed in Full-text search.
 * **Phase 4**: Create the MySQL table fulltext_item_processing_status to store the status of the documents
   being processed by the pipeline.
+* **Phase 5**: Integrate ht_indexer inside the monorepo repository.
+* **Phase 6**: Decoupling queue architecture by refactoring the RabbitMQ queue service components 
+to separate connection management, channel creation, and queue management responsibilities.
 * **Next steps**:
     * The process to retrieve the message from the dead-letter-exchange is not implemented yet.
     * Implement the query to reprocess all the documents in Catalog index.
@@ -151,44 +154,82 @@ The project is structured as follows:
 
 ```
 ht_indexer/
-├── catalog_metada/
-│ ├── __init__.py
-│ ├── catalog_metadata.py
-│ └── catalog_metadata_test.py
-├── document_generator/
-│ ├── __init__.py
-│ ├── document_generator_service.py
-│ └── document_generator_service_local.py
-| └──test_document_generator.py
-├── document_indexer_service/
-│ ├── __init__.py
-│ └── document_indexer_service.py
-| └──test_document_indexer_service.py
-├── ht_indexer_monitoring/
-│ ├── __init__.py
-│ ├── ht_indexer_tracktable.py
-│ ├── ht_indexer_tracktable_test.py
-│ └── monitoring_arguments.py
-├── document_retriever_service/
-│ ├── __init__.py
-│ ├── full_text_search_retriever_service.py
-│ ├── full_text_search_retriever_service_test.py
-│ ├── ht_status_retriever_service.py
-│ ├── retriever_arguments.py
-│ ├── retriever_services_utils.py
-│ ├── retriever_services_utils_test.py.py
-│ └── run_retriever_service_by_file_test.py
-│ └── run_retriever_service_by_file.py
-├── ht_utils/
-│ ├── __init__.py
-│ └── sample_data/
-│ ├── __init__.py
-│ ├── sample_data_creator.sh
-│ └── sample_data_generator.py
-├── Dockerfile
-├── docker-compose.yml
+├── src/
+    ├── catalog_metada/
+        │ ├── __init__.py
+        │ ├── catalog_metadata.py
+    ├── document_generator/
+        │ ├── __init__.py
+        │ ├── document_generator_service.py
+        │ └── document_generator_service_local.py
+        | └──test_document_generator.py
+    ├── document_indexer_service/
+        │ ├── __init__.py
+        │ └── document_indexer_service.py
+        | └──test_document_indexer_service.py
+    ├── ht_indexer_monitoring/
+        │ ├── __init__.py
+        │ ├── ht_indexer_tracktable.py
+        │ └── monitoring_arguments.py
+    ├── document_retriever_service/
+        │ ├── __init__.py
+        │ ├── full_text_search_retriever_service.py
+        │ ├── ht_status_retriever_service.py
+        │ ├── retriever_arguments.py
+        │ ├── retriever_services_utils.py
+        │ └── run_retriever_service_by_file.py
+    ├── ht_document/
+        │ ├── __init__.py
+        │ └── ht_document.py
+    ├── ht_indexer_api/
+        │ ├── __init__.py
+        │ └── ht_indexer_api.py
+    ├── ht_indexer_tracker/
+        │ ├── __init__.py
+        │ └── ht_indexer_tracker.py
+    ├── ht_queue_service/
+        │ ├── __init__.py
+        │ ├── channel_creator.py
+        │ ├── queue_connection.py
+        │ ├── queue_manager.py
+        │ └── queue_consumer.py
+        │ └── queue_multiple_consumer.py
+        │ └── queue_producer.py
+├── test/
+    ├── catalog_metada_test/
+        │ ├── __init__.py
+        │ └── catalog_metadata_test.py
+    ├── document_generator_test/
+        │ ├── __init__.py
+        │ ├── document_generator_test.py
+        │ └── ht_mysyql_test.py
+        | └──mets_file_extractor_test.py
+    ├── document_indexer_service_test/
+        │ ├── __init__.py
+        │ └── document_indexer_service_test.py
+    ├── document_retriever_service_test/
+        │ ├── __init__.py
+        │ ├── full_text_search_retriever_service_test.py
+        │ ├── retriever_services_utils_test.py.py
+        │ └── run_retriever_service_by_file_test.py
+    ├── ht_document_test/
+        │ ├── __init__.py
+        │ ├── ht_document_test.py
+    ├── ht_indexer_monitoring_test/
+        │ ├── __init__.py
+        │ └── ht_indexer_tracktable_test.py
+    ├── ht_queue_service_test/
+        │ ├── __init__.py
+        │ ├── channel_creator_test.py
+        │ ├── queue_connection_test.py
+        │ ├── queue_manager_test.py
+        │ └── queue_consumer_test.py
+        │ └── queue_multiple_consumer_test.py
+        │ └── queue_producer_test.py
 ├── pyproject.toml
+├── poetry.lock
 ├── README.md
+Makefile
 ```
 
 ## Design
@@ -214,6 +255,9 @@ with the messages in the dead-letter-exchange.
 
 Find [here](https://www.rabbitmq.com/docs/dlx#overview) more details about dead letter exchanges.
 
+Fine [here](https://hathitrust.atlassian.net/wiki/spaces/HAT/pages/3643899915/RabbitMQ+implementation) a detailed
+description of the RabbitMQ implementation used in this project.
+
 Each of the defined queues (queue_retriever and queue_indexer) has a dead-letter-exchange associated with it
 (retriever_queue_dead_letter_queue and indexer_queue_dead_letter_queue).
 
@@ -226,7 +270,7 @@ When a consumer client receives a message from the queue, it will try to process
 * If the message is processed without issues, the message is acknowledged and removed from the queue.
 * If the message is not processed, the message is re-queued in the dead-letter-exchange.
   As an example of this logic, you can see the code in the file
-  `document_generator/document_generator_service.py` in the function `generate_document()`.
+    `document_generator/document_generator_service.py` in the function `test_queue_requeue_message_requeue_false()`.
 
 ## Functionality
 

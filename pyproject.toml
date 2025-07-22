@@ -20,6 +20,7 @@ python = "^3.12"
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.4.2"
 pytest = "^8.0.2"
+mypy = "^1.12.0"
 
 [build-system]
 requires = ["poetry-core>=2.1.1"]
@@ -50,5 +51,12 @@ exclude = ["build", "dist", ".venv", ".git", "__pycache__"]
 
 # Autofix issues when possible
 fix = true
+
+
+[tool.mypy]
+# Tell mypy to ignore missing imports, some libraries may not have type stubs (e.g., pika)
+# module = "pika"
+strict = true
+ignore_missing_imports = true
 
 

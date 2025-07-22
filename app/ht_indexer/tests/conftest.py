@@ -1,19 +1,82 @@
+import copy
 import json
 import os
 import uuid
-
 import pytest
+
+from typing import Dict
+
 from catalog_metadata.catalog_metadata import CatalogItemMetadata, CatalogRecordMetadata
-from ht_utils.ht_utils import get_solr_url
+from ht_utils.ht_utils import get_solr_url, update_dict_fields
+from ht_utils.ht_utils import FlexibleDict
 
 current = os.path.dirname(__file__)
+
+@pytest.fixture
+def get_queue_config():
+    """
+    This function is used to create the queue configuration
+    """
+    return {
+        "queue_name": None,
+        "main_exchange_name": None,
+        "dlx_exchange": None,
+        "exchange_type": "direct",
+        "durable": True,
+        "auto_delete": False,
+        "arguments": {
+            "x-dead-letter-exchange": None,
+            "x-dead-letter-routing-key": None
+        },
+        "batch_size": 1
+    }
+
+def create_queue_config_attributes(get_queue_config: FlexibleDict, queue_name: str, batch_size: int) -> Dict:
+    """
+    This function is used to create the queue configuration attributes for a specific queue name.
+    :param get_queue_config: The base queue configuration dictionary.
+    :param queue_name: The name of the queue to create the configuration for.
+    :param batch_size: The batch size for the queue.
+    :return: A dictionary with the queue configuration attributes.
+    """
+    config = copy.deepcopy(get_queue_config)
+    config["queue_name"] = queue_name
+    config["main_exchange_name"] = f"{queue_name}_exchange"
+    config["dlx_exchange"] = f"{queue_name}_dlx_exchange"
+    config["arguments"]["x-dead-letter-exchange"] = f"{queue_name}_dlx_exchange"
+    config["arguments"]["x-dead-letter-routing-key"] = f"dlx_key_{queue_name}" #f"{queue_name}_dlq" #queue_name
+    config["batch_size"] = batch_size
+    return config
+
+def personalize_queue_config(get_queue_config: FlexibleDict, queue_name: str, batch_size: int) -> FlexibleDict:
+    """
+    This function is used to create the queue configuration for a specific queue name.
+    :param get_queue_config: The base queue configuration dictionary.
+    :param queue_name: The name of the queue to create the configuration for.
+    :param batch_size: The batch size for the queue.
+    :return: A dictionary with the queue configuration.
+    """
+
+    # Create a copy of the queue configuration and update it with the test parameters
+    # This ensures that the original configuration remains unchanged.
+    queue_parameters = create_queue_config_attributes(get_queue_config, queue_name, batch_size)
+
+    return queue_parameters
 
 @pytest.fixture
 def get_rabbit_mq_host_name():
     """
     This function is used to create the host name for the RabbitMQ
     """
-    return  "rabbitmq" #"localhost"
+    return  "rabbitmq" # "localhost"
+
+@pytest.fixture()
+def rabbit_mq_connection(get_rabbit_mq_host_name):
+    """
+    This function is used to create a RabbitMQ connection
+    """
+    from ht_queue_service.queue_connection import QueueConnection
+    return QueueConnection(user='guest', password='guest', host=get_rabbit_mq_host_name)
 
 @pytest.fixture
 def get_retriever_service_solr_parameters():

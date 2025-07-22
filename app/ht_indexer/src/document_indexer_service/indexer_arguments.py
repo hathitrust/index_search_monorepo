@@ -45,14 +45,25 @@ class IndexerServiceArguments:
 
         self.document_local_path = self.args.document_local_path
 
+        queue_name = os.getenv("QUEUE_NAME") if os.getenv("QUEUE_NAME") else indexer_queue_name
         self.queue_parameters = {
             "queue_user": os.getenv("QUEUE_USER"),
             "queue_pass": os.getenv("QUEUE_PASS"),
             "queue_host": os.getenv("QUEUE_HOST"),
-            "queue_name": os.getenv("QUEUE_NAME") if os.getenv("QUEUE_NAME") else indexer_queue_name,
+            "queue_name": queue_name,
+            "main_exchange_name": f"{queue_name}_exchange",
+            "dlx_exchange": f"{queue_name}_dlx_exchange",
+            "exchange_type": "direct",
+            "durable": True,
+            "routing_key": queue_name,
+            "auto_delete": False,
             "requeue_message": indexer_requeue_message,
             "batch_size": int(self.args.batch_size) if self.args.batch_size else indexer_batch_size,
-            "shutdown_on_empty_queue": False  # The indexer process is a long-running service
+            "shutdown_on_empty_queue": False,  # The indexer process is a long-running service
                 # that does not stop when the queue is empty.
+            "arguments": {
+                "x-dead-letter-exchange": f"{queue_name}_dlx_exchange",
+                "x-dead-letter-routing-key": f"dlx_key_{queue_name}"
+            }
         }
 

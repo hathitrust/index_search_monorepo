@@ -49,6 +49,14 @@ The monorepo structure is to maintain and supports collaborative development, an
 * [Makefile](https://www.gnu.org/software/make/)
 * [Black](https://black.readthedocs.io/en/stable/)
 * [Ruff](https://ruff.rs/)
+* [mypy](https://mypy.readthedocs.io/en/stable/)
+
+* Python development tools
+  * Poetry—Dependency management and packaging tool for Python
+  * Pytest—Testing framework
+  * Mypy—Static type checker
+  * Ruff—Multi-purpose tool that combines linting (including docstring checks) and formatter for Python code
+
 
 ## Phases
 
@@ -289,6 +297,7 @@ On the monorepo root directory, run the following commands:
 `poetry env use python ` # To find the virtual environment directory, created by poetry
 `source ~/index_search_monorepo-TUsF9qpC-py3.11/bin/activate` # Activate the virtual environment in Mac
 `ruff check . --fix` # To check and fix the code style and linting issues
+`mypy .` # To check the type hints and static typing issues
 ```
 
 ## Resources

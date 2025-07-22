@@ -92,6 +92,7 @@ IDENTICAL_CATALOG_METADATA = [
 # indexer queue
 queue_host = os.getenv("QUEUE_HOST") if os.getenv("QUEUE_HOST") else "localhost"
 indexer_queue_name = "indexer_queue"
+retriever_queue_name = "retriever_queue"
 
 # False means that the message will be discarded from the queue and for our service they will be published
 # in a dead letter queue
