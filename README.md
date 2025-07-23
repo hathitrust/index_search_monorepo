@@ -272,7 +272,7 @@ index_search_monorepo
 
 
 
-To update or istall the dependencies of the monorepo, you can use the `poetry update` command in each project directory:
+To update or install the dependencies of the monorepo, you can use the `poetry update` command in each project directory:
 
 ```
 cd app/ht_indexer
@@ -316,3 +316,66 @@ Recommendation: Use brew to install python and pyenv to manage the python versio
     * Inside the application folder: See the virtual environment used by the application `` poetry env use python ``
     * Activate the virtual environment: ``source ~/ht-indexer-GQmvgxw4-py3.11/bin/activate``, in Mac poetry creates
       their files in the home directory, e.g. /Users/user_name/Library/Caches/pypoetry/.
+
+### Upgrade python version 
+
+To upgrade the python version, you can use the following steps:
+
+**Local environment**:
+```
+# Check the current python version
+python --version
+# Upgrade python to the latest version
+brew install python@3.12
+# Check the python version again
+python --version
+```
+Update the Poetry project's Python version. You must update the `pyproject.toml` file of all the applications.
+```
+[tool.poetry.dependencies]
+python = "^3.12"
+```
+
+Then, go into the folder of each application and run the following command to update the dependencies:
+```
+poetry env use python3.12
+# Activate the virtual environment
+source ~/index_search_monorepo-TUsF9qpC-py3.12/bin/activate
+poetry lock
+poetry install
+```
+
+Run tests to ensure everything works as expected:
+```
+python -m pytest
+```
+
+**Docker environment**:
+
+Update the `Dockerfile` to use the new python version.
+```bash
+FROM python:3.12-slim-buster
+```
+
+Update the Poetry project's Python version. You must update the `pyproject.toml` file of all the applications.
+```
+[tool.poetry.dependencies]
+python = "^3.12"
+```
+
+Then, go into the folder of each application and run the following command to update the dependencies:
+```
+poetry env use python3.12
+# Activate the virtual environment
+source ~/index_search_monorepo-TUsF9qpC-py3.12/bin/activate
+poetry lock
+poetry install
+```
+Run the `make build` command to build the Docker image with the new python version.
+
+## Tests
+To run the tests, you can use the following command in each project directory:
+```
+make test
+```
+

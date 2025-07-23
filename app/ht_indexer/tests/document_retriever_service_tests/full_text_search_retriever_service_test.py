@@ -1,5 +1,4 @@
 import json
-import time
 
 import pytest
 from document_retriever_service.full_text_search_retriever_service import (
@@ -7,8 +6,8 @@ from document_retriever_service.full_text_search_retriever_service import (
 )
 from ht_indexer_api.ht_indexer_api import HTSolrAPI
 from ht_queue_service.queue_consumer import QueueConsumer
-from ht_utils.query_maker import make_solr_term_query
 from ht_utils.ht_logger import get_ht_logger
+from ht_utils.query_maker import make_solr_term_query
 
 logger = get_ht_logger(name=__name__)
 

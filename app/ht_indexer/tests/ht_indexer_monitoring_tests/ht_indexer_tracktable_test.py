@@ -1,14 +1,16 @@
 import time
 from pathlib import Path
-from unittest.mock import Mock
 
 import pytest
+
+
 from ht_indexer_monitoring.ht_indexer_tracktable import (
     PROCESSING_STATUS_TABLE_NAME,
     HTIndexerTrackData,
     HTIndexerTracktable,
 )
 
+from unittest.mock import Mock
 
 @pytest.fixture
 def mock_db_conn():
@@ -83,7 +85,7 @@ class TestHTIndexerTracktable:
             )
         ]
         ht_indexer_tracktable_instance.insert_batch(data)
-        assert mock_db_conn.insert_batch.called_once()
+        mock_db_conn.insert_batch.assert_called_once()
         # Check the arguments passed to the insert_batch method, position 0 is the query, position 1 is the data
         assert mock_db_conn.insert_batch.call_args[0][0].startswith(f"INSERT IGNORE INTO {PROCESSING_STATUS_TABLE_NAME}")
         # Check the number of items to be inserted (position 1)

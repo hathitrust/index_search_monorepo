@@ -1,14 +1,12 @@
 import json
-from collections import defaultdict
-
 import pytest
 
+from collections import defaultdict
 from ht_queue_service.queue_consumer import QueueConsumer
 from ht_queue_service.queue_producer import QueueProducer
 from ht_utils.ht_logger import get_ht_logger
 
 logger = get_ht_logger(name=__name__)
-
 
 @pytest.fixture
 def one_message():
