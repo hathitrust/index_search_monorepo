@@ -90,7 +90,7 @@ def list_messages():
         messages.append({"ht_id": f"{i}", "ht_title": f"Hello World {i}", "ht_author": f"John Doe {i}"})
     return messages
 
-class TestHTMultipleQueueConsumer:
+class HTMultipleQueueConsumer:
 
     def test_queue_consume_message(self, one_message, get_rabbit_mq_host_name):
         """ Test for consuming a message from the queue

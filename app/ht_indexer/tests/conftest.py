@@ -15,6 +15,14 @@ def get_rabbit_mq_host_name():
     """
     return  "rabbitmq" # "localhost" #
 
+@pytest.fixture()
+def rabbit_mq_connection(get_rabbit_mq_host_name):
+    """
+    This function is used to create a RabbitMQ connection
+    """
+    from ht_queue_service.queue_connection import QueueConnection
+    return QueueConnection(user='guest', password='guest', host=get_rabbit_mq_host_name)
+
 @pytest.fixture
 def get_retriever_service_solr_parameters():
     return {'q': '*:*','rows': 10, 'wt': 'json'}

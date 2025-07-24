@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 from document_retriever_service.ht_status_retriever_service import get_non_processed_ids
 from document_retriever_service.run_retriever_service_by_file import retrieve_documents_by_file
+from ht_queue_service.channel_factory import ChannelFactory
 from ht_queue_service.queue_consumer import QueueConsumer
 from ht_utils.ht_logger import get_ht_logger
 
@@ -46,8 +47,6 @@ class TestRunRetrieverServiceByFile:
         queue_user = "guest"
         queue_pass = "guest"
 
-
-
         # Clean up the queue
         #consumer_instance.ht_channel.queue_purge(consumer_instance.queue_name)
 
@@ -62,7 +61,7 @@ class TestRunRetrieverServiceByFile:
                                    get_retriever_service_solr_parameters,
                                    get_input_file,
                                    get_status_file,
-                                   parallelize=False)
+                                   False)
 
         # This log is used to check the number of messages in the queue before consuming. I have noticed there are
         # upstream on the retrieve_documents_by_file function, so that the queue has less than the expected
@@ -71,21 +70,25 @@ class TestRunRetrieverServiceByFile:
 
         # Define the consumer instance
         consumer_instance = QueueConsumer(
-            queue_user, queue_pass, get_rabbit_mq_host_name, queue_name, False, 1
+            queue_user, queue_pass, get_rabbit_mq_host_name, queue_name, False, 1,
+            exchange_name="ht_exchange"
         )
 
         #logger.info(f"[DEBUG] Queue has {consumer_instance.get_total_messages()} messages after publishing")
 
+        # Create the channel
+        channel_factory = ChannelFactory(consumer_instance)
+        consumer_channel = channel_factory.get_channel()
 
         list_output_messages = []
         #counter = 0
         # Service to consume the message
-        for method_frame, properties, body in consumer_instance.consume_message(inactivity_timeout=5):
+        for method_frame, properties, body in consumer_instance.consume_message(consumer_channel, inactivity_timeout=5):
             if method_frame:
                 list_output_messages.append(json.loads(body.decode("utf-8"))["ht_id"])
 
                 # Acknowledge the message if the message is processed successfully
-                consumer_instance.positive_acknowledge(consumer_instance.ht_channel, method_frame.delivery_tag)
+                consumer_instance.positive_acknowledge(consumer_channel, method_frame.delivery_tag)
                 #time.sleep(0.1)
             # This check was added to avoid the test from running indefinitely because the queue is not empty, and
             # it is stuck
