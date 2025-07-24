@@ -25,9 +25,10 @@ class QueueMultipleConsumer(ABC, QueueConnection):
         :param requeue_message: boolean to requeue the message to the queue
         :param batch_size: size of the batch to be consumed
         """
-
-        super().__init__(user, password, host, queue_name, batch_size if batch_size else 1)
+        # , queue_name, batch_size if batch_size else 1
+        super().__init__(user, password, host)
         self.requeue_message = requeue_message
+        self.queue_name = queue_name
 
         # Requeue_message is a boolean to requeue the message to the queue.
         # If it is False, the message will be rejected, and it will be sent to the Dead Letter Queue.
@@ -37,6 +38,7 @@ class QueueMultipleConsumer(ABC, QueueConnection):
         self.shutdown_on_empty_queue = shutdown_on_empty_queue
 
         try:
+            # , self.queue_name, batch_size
             self.dlq_conn = QueueConnectionDeadLetter(self.user, self.password, self.host, self.queue_name, batch_size)
         except Exception as e:
             raise e

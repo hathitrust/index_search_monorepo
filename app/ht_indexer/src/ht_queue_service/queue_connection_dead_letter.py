@@ -32,7 +32,7 @@ class QueueConnectionDeadLetter(QueueConnection):
 
     def __init__(self, user: str, password: str, host: str, queue_name: str, batch_size: int = 1):
         # Call the parent class constructor that initializes the connection to the queue
-        super().__init__(user, password, host, queue_name, batch_size)
+        super().__init__(user, password, host)
 
     def ht_queue_connection(self):
         # queue a name is important when you want to share the queue between producers and consumers

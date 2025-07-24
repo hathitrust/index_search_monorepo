@@ -30,6 +30,7 @@ class DocumentIndexerQueueService(QueueMultipleConsumer):
 
         self.solr_api_full_text = solr_api_full_text
         self.queue_parameters = queue_parameters
+        self.queue_name = queue_parameters.get("queue_name")
 
     def requeue_failed_messages(self, messages=None, delivery_tags=None, error: Exception = None):
         """Requeue failed messages into the Dead Letter Queue."""
