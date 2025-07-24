@@ -26,6 +26,7 @@ class QueueMultipleConsumer(ABC, QueueConnection):
         """
         # , queue_name, batch_size if batch_size else 1
         super().__init__(user, password, host)
+        
 
         # Queue setup
         self.requeue_message = requeue_message
