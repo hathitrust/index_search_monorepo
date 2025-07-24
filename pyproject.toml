@@ -15,7 +15,7 @@ authors = ["lisepul <lisepul@umich.edu>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.11"
+python = "^3.12"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.4.2"
@@ -27,7 +27,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.ruff]
 # Target Python version
-target-version = "py311"
+target-version = "py312"
 
 # Max line length to match Black
 line-length = 100

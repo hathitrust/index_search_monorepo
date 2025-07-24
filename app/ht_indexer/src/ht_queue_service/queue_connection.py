@@ -1,6 +1,5 @@
 import pika
 import pika.exceptions
-
 from ht_utils.ht_logger import get_ht_logger
 
 logger = get_ht_logger(name=__name__)

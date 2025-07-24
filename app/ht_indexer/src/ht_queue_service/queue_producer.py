@@ -1,11 +1,11 @@
 # producer
 import json
-import pika.exceptions
 
+import pika.exceptions
 from ht_utils.ht_logger import get_ht_logger
 
-from ht_queue_service.queue_connection_dead_letter import QueueConnectionDeadLetter
 from ht_queue_service.queue_connection import QueueConnection
+from ht_queue_service.queue_connection_dead_letter import QueueConnectionDeadLetter
 
 logger = get_ht_logger(name=__name__)
 
