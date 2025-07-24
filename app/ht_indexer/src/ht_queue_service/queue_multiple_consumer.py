@@ -2,19 +2,18 @@
 from abc import ABC, abstractmethod
 
 import orjson
-from ht_utils.ht_logger import get_ht_logger
 
 from ht_queue_service.queue_connection import QueueConnection
-from ht_queue_service.queue_connection_dead_letter import QueueConnectionDeadLetter
+from ht_queue_service.channel_factory import ChannelFactory
+from ht_queue_service.queue_setup import set_up_queue
+from ht_utils.ht_logger import get_ht_logger
 
 logger = get_ht_logger(name=__name__)
 
-
-
-
 class QueueMultipleConsumer(ABC, QueueConnection):
     def __init__(self, user: str, password: str, host: str, queue_name: str,
-                 requeue_message: bool = False, batch_size: int = 1, shutdown_on_empty_queue: bool = False):
+                 requeue_message: bool = False, batch_size: int = 1, shutdown_on_empty_queue: bool = False,
+                 exchange_name: str = "ht_exchange"):
 
         """
         This class is used to consume a batch of messages from the queue
@@ -27,8 +26,26 @@ class QueueMultipleConsumer(ABC, QueueConnection):
         """
         # , queue_name, batch_size if batch_size else 1
         super().__init__(user, password, host)
+
+        # Queue setup
         self.requeue_message = requeue_message
         self.queue_name = queue_name
+
+        self.exchange_name = exchange_name # Main exchange for the queue
+        self.batch_size = batch_size if batch_size else 1
+
+        #self.main_exchange = f"{exchange_name}_{queue_name}"  # Main exchange for the queue
+        self.dlx_exchange = f"dlx_{self.exchange_name}"  # Dead-letter exchange
+        self.exchange_type = "direct"  # Type of the exchange, can be 'direct', 'fanout', 'topic', etc.
+        self.durable = True # the queue will survive a broker restart
+        self.auto_delete = False # the queue won't be deleted once the consumer is disconnected
+        self.queue_arguments = {'x-dead-letter-exchange': self.dlx_exchange,
+                                "x-dead-letter-routing-key": f"dlx_key_{queue_name}"}
+
+        # Object to create channels
+        self.channel_factory = ChannelFactory(self)  # Factory to create channels
+        self.queue_setup = False  # Flag to check if the queue is set up
+
 
         # Requeue_message is a boolean to requeue the message to the queue.
         # If it is False, the message will be rejected, and it will be sent to the Dead Letter Queue.
@@ -37,11 +54,12 @@ class QueueMultipleConsumer(ABC, QueueConnection):
         # It is used for testing purposes.
         self.shutdown_on_empty_queue = shutdown_on_empty_queue
 
-        try:
+
+        #try:
             # , self.queue_name, batch_size
-            self.dlq_conn = QueueConnectionDeadLetter(self.user, self.password, self.host, self.queue_name, batch_size)
-        except Exception as e:
-            raise e
+        #    self.dlq_conn = QueueConnectionDeadLetter(self.user, self.password, self.host, self.queue_name, batch_size)
+        #except Exception as e:
+        #    raise e
 
     @abstractmethod
     def process_batch(self, batch: list, delivery_tag: list):
@@ -55,7 +73,14 @@ class QueueMultipleConsumer(ABC, QueueConnection):
         """
         pass
 
-    def consume_batch(self):
+    def consume_batch(self, channel):
+
+        if not self.queue_setup:
+            set_up_queue(channel, self.queue_name, self.exchange_name, self.dlx_exchange,
+                         self.exchange_type, self.durable, self.auto_delete, self.queue_arguments, self.batch_size)
+            self.queue_setup = True
+            logger.info(f"Queue {self.queue_name} set up successfully.")
+
 
         """ Retrieves a full batch of messages before processing """
         while True:
@@ -64,7 +89,7 @@ class QueueMultipleConsumer(ABC, QueueConnection):
             for _ in range(self.batch_size):
                 # Use basic_get to retrieve a batch of messages and auto_ack=False to tell RabbitMQ to not wait for
                 # an acknowledgment of the message.We will manually acknowledge them
-                method_frame, properties, body = self.ht_channel.basic_get(queue=self.queue_name,
+                method_frame, properties, body = self.channel_factory.channel.basic_get(queue=self.queue_name,
                                                                                             auto_ack=False)
                 if method_frame:
                     batch.append(body)
@@ -101,7 +126,8 @@ class QueueMultipleConsumer(ABC, QueueConnection):
     def start_consuming(self):
         """Starts consuming messages from the queue."""
         try:
-            self.consume_batch()
+            consumer_channel = self.channel_factory.get_channel()
+            self.consume_batch(consumer_channel)
         except Exception as e:
             logger.error(f"Something went wrong while consuming messages. {e}")
 
@@ -118,7 +144,7 @@ class QueueMultipleConsumer(ABC, QueueConnection):
         # TODO: To stop the services we should add shutdown_on_empty_queue flag as a class attribute and we should return False
         #         when the queue is empty on the method process_batch.
         logger.info("Time's up! Stopping consumer...")
-        self.ht_channel.close()
+        self.channel_factory.close_channel()
 
 
 
