@@ -161,28 +161,28 @@ services:
       TGT_QUEUE_PASS: guest
       TGT_QUEUE_USER: guest
     command: [ "python", "src/document_generator/document_generator_service.py" ]
-  document_indexer:
-    container_name: document_indexer
-    profiles: [ indexer, indexer_tests ]
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: indexer
-    volumes:
-      - ../tmp:/tmp:rm
-      - ../sdr1/obj:/sdr1/obj
-      - ./app/ht_indexer:/app
-    ports:
-      - "8082:8082"
-    depends_on:
-      solr-lss-dev: *healthy
-      rabbitmq: *healthy
-    tty: true
-    stdin_open: true
-    environment:
-      << : [*env_common, *env_indexer]
-      QUEUE_NAME: indexer_queue
-    command: [ "python", "src/document_indexer_service/document_indexer_service.py", "--solr_indexing_api", "http://solr-lss-dev:8983/solr/#/core-x/", "--batch_size", "100" ]
+  #document_indexer:
+  #  container_name: document_indexer
+  #  profiles: [ indexer, indexer_tests ]
+  #  build:
+  #    context: .
+  #    dockerfile: Dockerfile
+  #    target: indexer
+  #  volumes:
+  #    - ../tmp:/tmp:rm
+  #    - ../sdr1/obj:/sdr1/obj
+  #    - ./app/ht_indexer:/app
+  #  ports:
+  #    - "8082:8082"
+  #  depends_on:
+  #    solr-lss-dev: *healthy
+  #    rabbitmq: *healthy
+  #  tty: true
+  #  stdin_open: true
+  #  environment:
+  #    << : [*env_common, *env_indexer]
+  #    QUEUE_NAME: indexer_queue
+  #  command: [ "python", "src/document_indexer_service/document_indexer_service.py", "--solr_indexing_api", "http://solr-lss-dev:8983/solr/#/core-x/", "--batch_size", "100" ]
   rabbitmq:
     container_name: rabbitmq
     profiles: [ indexer, indexer_tests ]
@@ -221,8 +221,8 @@ services:
       mysql-sdr: *healthy
       document_generator:
         condition: service_started
-      document_indexer:
-        condition: service_started
+  #    document_indexer:
+  #      condition: service_started
       document_retriever:
         condition: service_started
   ###############################SolrQueryInterface###############################
