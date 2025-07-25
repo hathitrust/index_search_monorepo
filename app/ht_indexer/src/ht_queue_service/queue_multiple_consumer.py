@@ -26,12 +26,10 @@ class QueueMultipleConsumer(ABC, QueueConnection):
         """
         # , queue_name, batch_size if batch_size else 1
         super().__init__(user, password, host)
-        
+
 
         # Queue setup
-        self.requeue_message = requeue_message
         self.queue_name = queue_name
-
         self.exchange_name = exchange_name # Main exchange for the queue
         self.batch_size = batch_size if batch_size else 1
 
@@ -63,7 +61,7 @@ class QueueMultipleConsumer(ABC, QueueConnection):
         #    raise e
 
     @abstractmethod
-    def process_batch(self, batch: list, delivery_tag: list):
+    def process_batch(self, batch: list, delivery_tag: list, channel) -> bool:
         """ Abstract method for processing a batch of messages. Must be implemented by subclasses.
 
         Steps to implement on the subclass:
@@ -90,8 +88,7 @@ class QueueMultipleConsumer(ABC, QueueConnection):
             for _ in range(self.batch_size):
                 # Use basic_get to retrieve a batch of messages and auto_ack=False to tell RabbitMQ to not wait for
                 # an acknowledgment of the message.We will manually acknowledge them
-                method_frame, properties, body = self.channel_factory.channel.basic_get(queue=self.queue_name,
-                                                                                            auto_ack=False)
+                method_frame, properties, body = channel.basic_get(queue=self.queue_name,auto_ack=False)
                 if method_frame:
                     batch.append(body)
                     delivery_tag.append(method_frame.delivery_tag)
@@ -116,13 +113,48 @@ class QueueMultipleConsumer(ABC, QueueConnection):
                 # Process batch of messages and acknowledge them if successful
                 # If the process_batch method returns False, stop consuming messages from the queue.
                 # We use it for testing purposes. However, we could add a flag to the service to stop consuming messages.
-                if not self.process_batch(batch_data, delivery_tag):
+                if not self.process_batch(batch_data, delivery_tag, channel):
                     logger.info("Batch processing returned False. Stopping consumption.")
                     break
 
             except Exception as e:
                 logger.error(f"[!] Error processing batch: {e}")
                 raise e
+
+    def consume_dead_letter_messages(self, channel, inactivity_timeout: int = None, queue_name: str = None) -> dict or None:
+        """
+        This method consumes messages from the queue.
+        : param inactivity_timeout: time in seconds to wait for a message before returning None
+
+        :return: a generator that yields a dictionary with the method_frame, properties, and body of the message.
+        Always ask if method_frame is None when you use this function
+        We use channel.consume() to consume messages from the queue.
+        RabbitMQ registers the process, creating a consumer tag as an identifier for the consumer.
+        This register is active until you cancel the consumer or close the channel/connection,
+        Add a finally block to close the connection.
+        """
+        # Inactivity timeout is the time in seconds to wait for a message before returning None, the consumer will
+        try:
+
+            if not self.queue_setup:
+                #set_up_queue(channel, self.queue_name, self.exchange_name, self.dlx_exchange,
+                #             self.exchange_type, self.durable, self.auto_delete, self.queue_arguments, self.batch_size)
+                #self.queue_setup = True
+                #logger.info(f"Your queue must to be set up.")
+                raise Exception(f"Your queue must to be set up.")
+
+            for method_frame, properties, body in channel.consume(queue_name,
+                                                                 auto_ack=False,
+                                                                 inactivity_timeout=inactivity_timeout):
+                if method_frame:
+                    yield method_frame, properties, body
+                else:
+                    yield None, None, None
+
+        except Exception as e:
+            logger.error(f"Connection Interrupted: {e}")
+            raise e
+
 
     def start_consuming(self):
         """Starts consuming messages from the queue."""
