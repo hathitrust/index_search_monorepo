@@ -2,7 +2,7 @@ import pika
 
 from ht_queue_service.queue_connection import QueueConnection
 
-
+"""Class to set up RabbitMQ"""
 def ht_declare_dead_letter_queue(ht_channel: pika.connection, queue_name: str):
     """
     Declare the dead letter queue
@@ -26,10 +26,13 @@ class QueueConnectionDeadLetter(QueueConnection):
     See a detail explanation of dead letter exchanges here: https://www.rabbitmq.com/docs/dlx#overview
     A message is dead-lettered if it is negatively acknowledged and requeued, or if it times out.
     """
+    # TODO Rename this class to QueueSetUp
+    # On this class we set up the queue, exchange, and dead letter exchange
+    # Pass the parameters durable, exclusive, and auto_delete to the queue_declare method ...
 
     def __init__(self, user: str, password: str, host: str, queue_name: str, batch_size: int = 1):
         # Call the parent class constructor that initializes the connection to the queue
-        super().__init__(user, password, host, queue_name, batch_size)
+        super().__init__(user, password, host)
 
     def ht_queue_connection(self):
         # queue a name is important when you want to share the queue between producers and consumers

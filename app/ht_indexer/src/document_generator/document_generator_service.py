@@ -6,6 +6,7 @@ from pathlib import Path
 from full_text_document_generator import FullTextDocumentGenerator
 from generator_arguments import GeneratorServiceArguments
 from ht_document.ht_document import HtDocument
+from ht_queue_service.channel_factory import ChannelFactory
 from ht_queue_service.queue_consumer import QueueConsumer
 from ht_queue_service.queue_producer import QueueProducer
 from ht_utils.ht_logger import get_ht_logger
@@ -39,6 +40,14 @@ class DocumentGeneratorService:
         self.document_repository = document_repository
         if not not_required_tgt_queue:
             self.tgt_queue_producer = tgt_queue_producer
+
+            self.tgt_channel_factory_producer = ChannelFactory(self.tgt_queue_producer)
+            self.tgt_channel_producer = self.tgt_channel_factory_producer.get_channel()
+
+        self.src_channel_factory_consumer = ChannelFactory(self.src_queue_consumer)
+        self.src_channel_consumer = self.src_channel_factory_consumer.get_channel()
+
+
 
     def generate_full_text_entry(self, item_id: str, record: dict, document_repository: str):
 
@@ -85,12 +94,12 @@ class DocumentGeneratorService:
                                                                      e, document)
 
         logger.error(f"Document {document.get('ht_id')} failed {error_info}")
-        self.src_queue_consumer.reject_message(self.src_queue_consumer.ht_channel,
+        self.src_queue_consumer.reject_message(self.src_channel_consumer,
                                                delivery_tag)
 
     def consume_messages(self):
         try:
-            for method_frame, _properties, body in self.src_queue_consumer.consume_message():
+            for method_frame, _properties, body in self.src_queue_consumer.consume_message(self.src_channel_consumer):
                 message = json.loads(body.decode('utf-8'))
                 self.generate_document(message, method_frame.delivery_tag)
         except Exception as e:
@@ -110,7 +119,7 @@ class DocumentGeneratorService:
             self.publish_document(full_text_document)
             # Acknowledge the message to src_queue if the message is processed successfully and published in
             # the other queue
-            self.src_queue_consumer.positive_acknowledge(self.src_queue_consumer.ht_channel,
+            self.src_queue_consumer.positive_acknowledge(self.src_channel_consumer,
                                  delivery_tag)
         except Exception as e:
             self.log_error_document_generator_service(e, message, delivery_tag)

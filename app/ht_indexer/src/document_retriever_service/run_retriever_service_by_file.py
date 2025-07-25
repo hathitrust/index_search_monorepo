@@ -22,7 +22,7 @@ PARALLELIZE = True
 
 def retrieve_documents_by_file(queue_name, queue_host, queue_user, queue_password,
                                query_field, solr_host, solr_user, solr_password, solr_retriever_query_params,
-                               input_documents_file, status_file, parallelize=PARALLELIZE):
+                               input_documents_file, status_file, parallelize):
     """ This method is used to retrieve the documents from the Catalog and generate the full text search entry.
     The list of documents to index is extracted from a file.
 
