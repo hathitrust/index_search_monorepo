@@ -5,7 +5,7 @@ on:
         inputs:
             branch_hash:
                 description: Branch hash (default) or revision to deploy
-            environments:
+            environments: # Note: Do we want flexibility to deploy apps to different environments?
                 description: The environment to deploy to
                 type: choice
                 default: workshop_ictc
@@ -13,6 +13,18 @@ on:
                 - workshop_ictc
                 - staging
                 - production
+            deploy_indexer:
+                description: Check here to deploy ht_indexer.
+                type: boolean
+                default: false
+            deploy_solr:
+                description: Check here to deploy solr_query.
+                type: boolean
+                default: false
+            # deploy_sample_data: # Note: Do we need this?
+            #     description: Check here to deploy sample_data
+            #     type: boolean
+            #     default: false
 
 jobs:
     deploy-unstable:
@@ -21,11 +33,22 @@ jobs:
                 contents: read
                 packages: write
             steps:
-                - name: Deploy to workshop
+                - name: Deploy HT Indexer
+                  if: ${{ inputs.deploy_indexer }}
                   uses: hathitrust/github_actions/deploy@v1
                   with:
-                    image: ghcr.io/${{ github.repository }}:${{ inputs.branch_hash || github.sha}}
-                    file: environments/fulltext/${{inputs.environments}}/web-image.txt
+                    image: ghcr.io/hathitrust/indexer:${{ inputs.branch_hash || github.sha}}
+                    file: environments/fulltext/${{inputs.environments}}/indexer.txt
+                    CONFIG_REPO_RW_APP_ID: ${{ vars.CONFIG_REPO_RW_APP_ID }}
+                    CONFIG_REPO_FULL_NAME: ${{ vars.CONFIG_REPO_FULL_NAME }}
+                    CONFIG_REPO_RW_KEY: ${{secrets.CONFIG_REPO_RW_KEY}}
+
+                - name: Deploy Solr Query
+                  if: ${{ inputs.deploy_solr}}
+                  uses: hathitrust/github_actions/deploy@v1
+                  with:
+                    image: ghcr.io/hathitrust/solr_query:${{ inputs.branch_hash || github.sha}}
+                    file: environments/fulltext/${{inputs.environments}}/solr_query.txt
                     CONFIG_REPO_RW_APP_ID: ${{ vars.CONFIG_REPO_RW_APP_ID }}
                     CONFIG_REPO_FULL_NAME: ${{ vars.CONFIG_REPO_FULL_NAME }}
                     CONFIG_REPO_RW_KEY: ${{secrets.CONFIG_REPO_RW_KEY}}
