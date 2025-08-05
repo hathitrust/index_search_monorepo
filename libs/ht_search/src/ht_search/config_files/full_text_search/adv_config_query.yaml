@@ -1,0 +1,159 @@
+all:
+  pf:
+    - [title_ab, 10000]
+    - [title_a, 8000]
+    - [titleProper, 1500]
+    - [title_topProper, 1000]
+    - [title_restProper, 800]
+    - [series, 100]
+    - [series2, 100]
+    - [author, 1600]
+    - [author2, 800]
+    - [author_top, 100]
+    - [author_rest, 50]
+    # - [fullgeographic, 200]
+    - [topicProper, 200]
+    # - [fullgenre, 200]
+    # - [hlb3, 200]
+    - [allfieldsProper, 100]
+  qf:
+    - [allfieldsProper, 2]
+    - [allfields, 1]
+    - [titleProper, 50]
+    - [title_topProper, 30]
+    - [title_restProper, 15]
+    - [title, 10]
+    - [title_top, 5]
+    - [title_rest, 2]
+    - [series, 5]
+    - [series2, 5]
+    - [author, 80]
+    - [author2, 50]
+    - [author_top, 30]
+    - [author_rest, 15]
+    - [issn, 1]
+    - [isbn, 1]
+    - [lccn, 1]
+    - [oclc, 1]
+    - [sdrnum, 1]
+    # - [ctrlnum, 1]
+    # - [ht_id, 1]
+    - [isn_related, 1]
+    - [rptnum, 1]
+    - [topicProper, 2]
+    - [topic, 1]
+    # - [hlb3, 1]
+    # - [fullgeographic, 1]
+    # - [fullgenre, 1]
+    - [era, 1]
+  mm: "100%"
+  tie: 0.5
+
+ocronly:
+  qf:
+    - [ocr, 500000]
+  mm: "100%"
+  tie: 0.9
+
+ocr:
+  pf:
+    - [title_ab, 10000]
+    - [titleProper, 1500]
+    - [title_topProper, 1000]
+    - [title_restProper, 800]
+    - [series, 100]
+    - [series2, 100]
+    - [author, 1600]
+    - [author2, 800]
+    - [topicProper, 200]
+    - [fullgenre, 200]
+    - [hlb3, 200]
+    - [allfieldsProper, 100]
+  qf:
+    - [ocr, 50000]
+    - [allfieldsProper, 2]
+    - [allfields, 1]
+    - [titleProper, 50]
+    - [title_topProper, 30]
+    - [title_restProper, 15]
+    - [title, 10]
+    - [title_top, 5]
+    - [title_rest, 2]
+    - [series, 5]
+    - [series2, 5]
+    - [author, 80]
+    - [author2, 50]
+    - [issn, 1]
+    - [isbn, 1]
+    - [oclc, 1]
+    - [sdrnum, 1]
+    - [ctrlnum, 1]
+    - [id, 1]
+    - [rptnum, 1]
+    - [topicProper, 2]
+    - [topic, 1]
+    - [hlb3, 1]
+    - [fullgeographic, 1]
+    - [fullgenre, 1]
+    - [era, 1]
+  mm: "100%"
+  tie: 0.9
+
+title:
+  parser: "edismax"
+  debug: "all"
+  pf: # Fields used for boosting results
+    - [title_ab, 25000]
+    - [title_a, 15000]
+    - [titleProper, 1200]
+    - [title_topProper, 600]
+    - [title_restProper, 400]
+    - [series, 300]
+    - [series2, 300]
+  qf: # Fields used to find the results
+    - [titleProper, 120]
+    - [title_topProper, 60]
+    - [title_restProper, 40]
+    - [series, 50]
+    - [series2, 50]
+    - [title, 30]
+    - [title_top, 20]
+    - [title_rest, 10]
+  mm: "100%"
+  tie: 0.1
+
+author:
+  pf: # Fields used for boosting results
+    - [author, 25000]
+    - [author2, 20000]
+    - [author_top, 5000]
+    - [author_rest, 1000]
+  qf: # Fields used to find the results
+    - [author, 100]
+    - [author2, 50]
+    - [author_top, 20]
+    - [author_rest, 10]
+  mm: "100%"
+  tie: 0.1
+
+subject:
+  pf:
+    - [topicProper, 5]
+    - [topic, 1]
+    - [fullgeographic, 1]
+    - [fullgenre, 1]
+    - [era, 1]
+  qf:
+    - [topicProper, 5]
+    - [topic, 1]
+    - [fullgeographic, 1]
+    - [fullgenre, 1]
+    - [era, 1]
+  mm: "100%"
+  tie: 0.1
+
+year:
+  qf:
+    - [publishDateRange, 25000]
+  mm: "100%"
+  tie: 0.9

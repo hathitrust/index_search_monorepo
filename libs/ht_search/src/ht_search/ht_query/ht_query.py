@@ -1,7 +1,10 @@
-from functools import reduce
-
 import yaml
+
+from functools import reduce
+from typing import Text, List, Dict
+
 from ht_utils.ht_logger import get_ht_logger
+from ht_utils.query_maker import build_joined_query
 
 logger = get_ht_logger(name=__name__)
 
@@ -81,6 +84,35 @@ class HTSearchQuery:
         return " ".join(formatted_boosts)
 
     @staticmethod
+    def get_criteria_fields_query(criterias, field_operators, config_data):
+        # Process each criterion and collect all results
+
+        query_fields = []
+        fields = []
+        field_search_map = config_data["field_search_map"]
+
+        for criteria in criterias:
+            field = field_search_map.get(criteria.field, criteria.field)
+            fields.append(field)
+
+            # Map match_type to operator
+            operator = None  # Default for exact phrase
+            if criteria.match_type == "all of these words":
+                operator = "AND"
+            elif criteria.match_type == "any of these words":
+                operator = "OR"
+
+            # Get the formatted query using HTSearchQuery
+            formatted_query = HTSearchQuery.manage_string_query_solr6(criteria.query, operator, field if len(criterias)>1 else None)
+            query_fields.append(formatted_query)
+            # Get results for this criterion
+
+        joined_query = build_joined_query(query_fields, field_operators)
+
+        # query_fields = " OR ".join(query_fields)
+        return fields, joined_query
+
+    @staticmethod
     def facet_creator(facet_dictionary: dict = None) -> dict:
         return reduce(lambda key, value: {**key, **value}, facet_dictionary)
 
@@ -136,7 +168,7 @@ class HTSearchQuery:
             return query_string_dict
 
     @staticmethod
-    def manage_string_query_solr6(input_phrase: str, operator: str = None) -> str| None:
+    def manage_string_query_solr6(input_phrase: Text, operator: Text = None, field:str=None) -> str| None:
         """
         This function transform a query_string in Solr string format
 
@@ -149,10 +181,17 @@ class HTSearchQuery:
         """
 
         # query_string_dict = {"q": HTSearchQuery.get_exact_phrase_query(input_phrase)}
+        formatted_query = ""
         if operator == "OR" or operator == "AND":
-            return f" {operator} ".join(input_phrase.split())  # input_phrase
+            # " AND ".join(input_phrase.split())
+            formatted_query = f" {operator} ".join(input_phrase.split())
         elif operator is None:
-            return "\"" + input_phrase + "\""
+            formatted_query = "\"" + input_phrase + "\""
+
+        if field:
+            return f"({field}:{formatted_query})"
+        return formatted_query
+
 
     def create_params_dict(self, start: int = 0, rows: int = 100) -> dict:
 
@@ -220,6 +259,40 @@ class HTSearchQuery:
                                                                      [25, 15, 18, 1, 21, 23, 19, 13, 11, 20, 7, 10, 24,
                                                                       14, 17, 22, 12])})
         return params
+
+    @staticmethod
+    def get_criteria_fields_query(criterias, field_operators, config_data):
+        # Process each criterion and collect all results
+
+        query_fields = []
+        fields = []
+        field_search_map = config_data["field_search_map"]
+
+        for criteria in criterias:
+            field = field_search_map.get(criteria.field, criteria.field)
+            fields.append(field)
+
+            # Map match_type to operator
+            operator = None  # Default for exact phrase
+            if criteria.match_type == "all of these words":
+                operator = "AND"
+            elif criteria.match_type == "any of these words":
+                operator = "OR"
+
+            # Get the formatted query using HTSearchQuery
+            formatted_query = HTSearchQuery.manage_string_query_solr6(criteria.query, operator, field if len(criterias)>1 else None)
+            query_fields.append(formatted_query)
+            # Get results for this criterion
+
+        joined_query = query_fields[0]
+        for i in range(1, len(query_fields)):
+            if i - 1 < len(field_operators):  # check if operator at i-1 exists
+                op = field_operators[i - 1]
+            else:
+                op = "AND"
+            joined_query += f" {op} {query_fields[i]}"
+        # query_fields = " OR ".join(query_fields)
+        return fields, joined_query
 
 
 if __name__ == "__main__":
