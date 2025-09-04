@@ -1,0 +1,11 @@
+# Global parameters for queue configuration file for HT Indexer
+queue:
+    # The host of the queue
+    host: rabbitmq
+    # The port of the queue
+    port: 5672
+    # The username to connect to the
+    user: guest
+    # The password to connect to the queue
+    password: guest
+

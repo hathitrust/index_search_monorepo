@@ -1,15 +1,39 @@
 import json
-
 import pytest
-from document_retriever_service.full_text_search_retriever_service import (
-    FullTextSearchRetrieverQueueService,
-)
+
+import os
+
+from typing import Any
+from conftest import create_test_queue_config
+from document_retriever_service.full_text_search_retriever_service import FullTextSearchRetrieverQueueService
 from ht_indexer_api.ht_indexer_api import HTSolrAPI
 from ht_queue_service.queue_consumer import QueueConsumer
 from ht_utils.ht_logger import get_ht_logger
 from ht_utils.query_maker import make_solr_term_query
 
 logger = get_ht_logger(name=__name__)
+
+@pytest.fixture
+def get_queue_config(get_global_queue_config, get_app_queue_config) -> tuple[Any, Any, Any]:
+
+    """This function is used to create the queue configuration
+
+    :param get_global_queue_config: fixture to get the global queue configuration
+    :param get_app_queue_config: fixture to get the application queue configuration
+    : return: tuple containing the queue configuration object, global config path, and app config path
+
+    """
+
+    queue_name = "test_full_text_search_retriever_service"
+    batch_size = 1
+    requeue_message = False
+    producer_queue_config, global_path, app_path = create_test_queue_config(get_global_queue_config,
+                                                                            get_app_queue_config,
+                                                                            queue_name,
+                                                                            batch_size=batch_size,
+                                                                            requeue_message=requeue_message)
+
+    return producer_queue_config, global_path, app_path
 
 @pytest.fixture
 def get_catalog_retriever_service_solr_fake_solr_url():
@@ -20,14 +44,15 @@ def get_solr_request(solr_catalog_url):
     return HTSolrAPI(solr_catalog_url, 'solr_user', 'solr_password')
 
 @pytest.fixture
-
 def get_document_retriever_service(solr_catalog_url, get_retriever_service_solr_parameters,
-                                   get_rabbit_mq_host_name, random_queue_name):
-
-    return FullTextSearchRetrieverQueueService(random_queue_name,
-                                               get_rabbit_mq_host_name,
-                                               "guest",
-                                               "guest",
+                                   get_queue_config):
+    """ Fixture to create the document retriever service object
+    :param solr_catalog_url: fixture to get the Solr URL
+    :param get_retriever_service_solr_parameters: fixture to get the Solr parameters
+    :param get_queue_config: fixture to get the queue configuration
+    : return: FullTextSearchRetrieverQueueService object
+    """
+    return FullTextSearchRetrieverQueueService(get_queue_config[0].queue_params,
                                                solr_catalog_url,
                                                'solr_user',
                                                   'solr_password',
@@ -64,35 +89,28 @@ class TestFullTextRetrieverService:
         assert metadata.get('countryOfPubStr') == ['India']
         assert item_id == list_documents[0]
 
-    def test_full_text_search_retriever_service(self, get_rabbit_mq_host_name,
-                                                get_retriever_service_solr_parameters,
-                                                solr_catalog_url):
+    def test_full_text_search_retriever_service(self, get_retriever_service_solr_parameters: dict[str, Any],
+                                                solr_catalog_url: str,
+                                                get_queue_config
+                                                ) -> None:
 
         """ Use case: Check if the message is sent to the queue"""
 
-        queue_name = "test_full_text_search_retriever_service"
-        queue_user = "guest"
-        queue_pass = "guest"
+        queue_params = get_queue_config[0].queue_params
         # Define the consumer instance
-        consumer_instance = QueueConsumer(
-            queue_user,
-            queue_pass,
-            get_rabbit_mq_host_name,
-            queue_name,
-            False,
-            1
-        )
+        consumer_instance = QueueConsumer(queue_params)
 
-        # Clean up the queue
-        consumer_instance.ht_channel.queue_purge(consumer_instance.queue_name)
+        logger.info(f"Checking if the queue {queue_params.queue_name} exists before the test")
+        if not consumer_instance.queue_manager.is_ready(consumer_instance.channel):
+            # If the queue is already set up, purge it to remove any existing messages
+            consumer_instance.queue_reconnect()
+        logger.info(f"Purging the queue {queue_params.queue_name} before the test")
+        consumer_instance.channel.queue_purge(consumer_instance.queue_manager.queue_name)
 
         list_documents = ['nyp.33433082002258', 'not_exist_document']
 
         document_retriever_service_obj = FullTextSearchRetrieverQueueService(
-            queue_name,
-            get_rabbit_mq_host_name,
-            queue_user,
-            queue_pass,
+            queue_params,
             solr_catalog_url,
             "solr_user",
             "solr_password",
@@ -105,8 +123,6 @@ class TestFullTextRetrieverService:
     "item"
         )
 
-        #time.sleep(1) # Give RabbitMQ time to register the message
-
         # Service to consume the message
         for method_frame, properties, body in consumer_instance.consume_message(inactivity_timeout=5):
 
@@ -115,14 +131,27 @@ class TestFullTextRetrieverService:
                 assert output_message.get("ht_id") == list_documents[0]
 
                 # Acknowledge the message if the message is processed successfully
-                consumer_instance.positive_acknowledge(consumer_instance.ht_channel, method_frame.delivery_tag)
+                consumer_instance.positive_acknowledge(consumer_instance.channel, method_frame.delivery_tag)
                 break
             else:
                 logger.info("The queue is empty: Test ended")
                 break
 
-        # Clean up the queue - To make sure the purge is done all the messages must be acknowledged
-        consumer_instance.ht_channel.queue_purge(consumer_instance.queue_name)
+            # Clean up the queue, if the queue is already set up
+        if not consumer_instance.queue_manager.is_ready(consumer_instance.channel):
+            # Clean up the queue - To make sure the purge is done all the messages must be acknowledged
+            consumer_instance.queue_reconnect()
+
+        consumer_instance.channel.queue_purge(consumer_instance.queue_manager.queue_name)
+
+        # Close the channel
+        consumer_instance.channel.close()
+        # Close the consumer instance - TCP connection
+        consumer_instance.channel_creator.connection.queue_connection.close()
+
+        # Delete the temporary files
+        os.remove(get_queue_config[1])
+        os.remove(get_queue_config[2])
 
     def test_retrieve_documents_by_item(self, get_solr_request, get_document_retriever_service):
         """Use case: Receive a list of items (ht_id) to index and retrieve the metadata from Catalog
@@ -146,7 +175,6 @@ class TestFullTextRetrieverService:
         assert len(record_metadata_list) == 9
 
     def test_retrieve_documents_by_record(self, get_solr_request,
-                                          get_rabbit_mq_host_name,
                                           get_retriever_service_solr_parameters,
                                           solr_catalog_url,
                                           get_document_retriever_service):

@@ -65,7 +65,7 @@ services:
       mysql-sdr: *healthy
     tty: true
     stdin_open: true
-    command: [ "python", "src/document_retriever_service/full_text_search_retriever_service.py", "--query_field", "item" ]
+    command: [ "python", "-m" ,"document_retriever_service.full_text_search_retriever_service", "--query_field", "item" ]
   mysql-sdr:
     image: ghcr.io/hathitrust/db-image
     profiles: [ indexer, indexer_tests ]
@@ -160,7 +160,7 @@ services:
       TGT_QUEUE_NAME: indexer_queue
       TGT_QUEUE_PASS: guest
       TGT_QUEUE_USER: guest
-    command: [ "python", "src/document_generator/document_generator_service.py" ]
+    command: [ "python", "-m" ,"document_generator.document_generator_service" ]
   document_indexer:
     container_name: document_indexer
     profiles: [ indexer, indexer_tests ]
@@ -182,7 +182,7 @@ services:
     environment:
       << : [*env_common, *env_indexer]
       QUEUE_NAME: indexer_queue
-    command: [ "python", "src/document_indexer_service/document_indexer_service.py", "--solr_indexing_api", "http://solr-lss-dev:8983/solr/#/core-x/", "--batch_size", "100" ]
+    command: [ "python", "-m","document_indexer_service.document_indexer_service", "--solr_indexing_api", "http://solr-lss-dev:8983/solr/#/core-x/", "--batch_size", "100" ]
   rabbitmq:
     container_name: rabbitmq
     profiles: [ indexer, indexer_tests ]

@@ -1,7 +1,7 @@
 from catalog_metadata.ht_indexer_config import MAX_ITEM_IDS
 from ht_utils.ht_logger import get_ht_logger
 
-from document_generator.ht_mysql import HtMysql
+from .ht_mysql import HtMysql
 
 logger = get_ht_logger(name=__name__)
 

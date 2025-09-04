@@ -1,12 +1,12 @@
 import os
+import sys
 
-from catalog_metadata.ht_indexer_config import (
-    indexer_batch_size,
-    indexer_queue_name,
-    indexer_requeue_message,
-)
+from . import indexer_config_file_path
+from config import config_queue_file_path
 from ht_indexer_api.ht_indexer_api import HTSolrAPI
+from ht_queue_service.queue_config import QueueConfig
 from ht_utils.ht_logger import get_ht_logger
+from ht_utils.ht_utils import get_general_error_message
 
 logger = get_ht_logger(name=__name__)
 
@@ -45,14 +45,26 @@ class IndexerServiceArguments:
 
         self.document_local_path = self.args.document_local_path
 
-        self.queue_parameters = {
-            "queue_user": os.getenv("QUEUE_USER"),
-            "queue_pass": os.getenv("QUEUE_PASS"),
-            "queue_host": os.getenv("QUEUE_HOST"),
-            "queue_name": os.getenv("QUEUE_NAME") if os.getenv("QUEUE_NAME") else indexer_queue_name,
-            "requeue_message": indexer_requeue_message,
-            "batch_size": int(self.args.batch_size) if self.args.batch_size else indexer_batch_size,
-            "shutdown_on_empty_queue": False  # The indexer process is a long-running service
-                # that does not stop when the queue is empty.
-        }
+        try:
+            # Using queue or local machine
+            ############### QUEUE CONFIGURATION ####################
+            # Build resource file paths using Traversable's '/' operator
+            global_config = config_queue_file_path / 'global_config.yml'
+            app_config = indexer_config_file_path / 'indexer_config.yml'
+            # Validate that the files actually exist
+            if not global_config.is_file():
+                logger.error(f"Queue config file {global_config} does not exist")
+                sys.exit(1)
+            if not app_config.is_file():
+                logger.error(f"Queue config file {app_config} does not exist")
+                sys.exit(1)
+            self.queue_config = QueueConfig(global_config, app_config, config_key="queue")
+
+        except KeyError as e:
+            logger.error(f"Environment variables required: "
+                         f"{get_general_error_message('DocumentIndexerService', e)}")
+
+            sys.exit(1)
+
+
 
