@@ -51,7 +51,7 @@ poetry run mypy src/
 ## Available Commands
 
 - ✅ `tkseal version` - Show current version
-- 🚧 `tkseal ready` - Check dependencies (WIP)
+- 👩‍💻 `tkseal ready` - Check dependencies (WIP)
 - 🚧 `tkseal diff PATH` - Show differences between plain_secrets.json and cluster
 - 🚧 `tkseal pull PATH` - Extract secrets from cluster to plain_secrets.json
 - 🚧 `tkseal seal PATH` - Convert plain_secrets.json to sealed_secrets.json
