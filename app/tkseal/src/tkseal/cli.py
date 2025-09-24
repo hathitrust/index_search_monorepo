@@ -2,7 +2,7 @@
 
 import click
 
-from . import __version__
+from tkseal import __version__
 
 
 @click.group()
@@ -19,9 +19,9 @@ def version():
 @cli.command()
 def ready():
     """Check that the CLI dependencies are available in your shell."""
-    from .kubectl import KubeCtl
-    from .tk import TK
-    from .kubeseal import KubeSeal
+    from tkseal.kubectl import KubeCtl
+    from tkseal.tk import TK
+    from tkseal.kubeseal import KubeSeal
 
     if KubeCtl.exists():
         click.echo("✅ Kubectl is installed")
