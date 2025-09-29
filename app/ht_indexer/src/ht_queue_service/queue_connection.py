@@ -39,8 +39,8 @@ class QueueConnection:
             return pika.BlockingConnection(
                 pika.ConnectionParameters(host=self.host, credentials=self.credentials, heartbeat=0)
             )
-        # pika.exceptions.AMQPConnectionError - Catch all the issue related to the
-        # AMQP protocol (Advanced Message Queuing Protocol)
+        # pika.exceptions.AMQPConnectionError - Catch all the issue related to the AMQP
+        # protocol (Advanced Message Queuing Protocol)
         # Something went wrong at the protocol level
         # pika.exceptions.ProbableAuthenticationError - Raised when the authentication fails
         except (

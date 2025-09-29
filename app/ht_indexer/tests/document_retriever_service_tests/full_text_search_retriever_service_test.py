@@ -10,6 +10,7 @@ from ht_indexer_api.ht_indexer_api import HTSolrAPI
 from ht_queue_service.queue_consumer import QueueConsumer
 from ht_utils.ht_logger import get_ht_logger
 from ht_utils.query_maker import make_solr_term_query
+from unittest.mock import MagicMock
 
 logger = get_ht_logger(name=__name__)
 
@@ -116,11 +117,13 @@ class TestFullTextRetrieverService:
             "solr_password",
             get_retriever_service_solr_parameters
         )
+        mysql_db = MagicMock()  # Mock MySQL connection
 
         # Service to push a message
         document_retriever_service_obj.full_text_search_retriever_service(
+            mysql_db,
             list_documents,
-    "item"
+            "item"
         )
 
         # Service to consume the message

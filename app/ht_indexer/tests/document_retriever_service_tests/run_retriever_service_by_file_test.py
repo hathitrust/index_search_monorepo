@@ -2,6 +2,7 @@ import json
 import os
 import tempfile
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -55,8 +56,7 @@ class TestRunRetrieverServiceByFile:
                                                                                 batch_size=batch_size,
                                                                                 requeue_message=requeue_message)
 
-
-
+        mysql_db = MagicMock()  # Mock MySQL connection
         retrieve_documents_by_file(producer_queue_config.queue_params,
                                     "item",
                                    solr_catalog_url,
@@ -65,7 +65,9 @@ class TestRunRetrieverServiceByFile:
                                    get_retriever_service_solr_parameters,
                                    get_input_file,
                                    get_status_file,
-                                   False)
+                                   False,
+                                    mysql_db,
+                                   1)
 
         consumer_instance = QueueConsumer(producer_queue_config.queue_params)
 
