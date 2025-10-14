@@ -7,19 +7,19 @@ import inspect
 
 from ht_document.ht_document import logger
 
-from .full_text_search_retriever_service import FullTextSearchRetrieverQueueService, run_retriever_service
-from .ht_status_retriever_service import get_non_processed_ids
-from .retriever_arguments import RetrieverServiceByFileArguments
+from document_retriever_service.full_text_search_retriever_service import FullTextSearchRetrieverQueueService, run_retriever_service_threads
+from document_retriever_service.ht_status_retriever_service import get_non_processed_ids
+from document_retriever_service.retriever_arguments import RetrieverServiceByFileArguments
 
 current = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 parent = os.path.dirname(current)
 sys.path.insert(0, parent)
 
-PARALLELIZE = True
-
 def retrieve_documents_by_file(queue_params,
                                query_field, solr_host, solr_user, solr_password, solr_retriever_query_params,
-                               input_documents_file, status_file, parallelize) -> None:
+                               input_documents_file, status_file, parallelize,
+                               db_conn,
+                               max_workers) -> None:
     """ This method is used to retrieve the documents from the Catalog and generate the full-text search entry.
     The list of documents to index is extracted from a file.
 
@@ -32,6 +32,8 @@ def retrieve_documents_by_file(queue_params,
     :param input_documents_file: The file containing the list of documents to process
     :param status_file: The file to store the status of the documents
     :param parallelize: If True, the processing will be done in parallel
+    :param db_conn: The database connection
+    :param max_workers: The maximum number of workers to use in parallel processing
     """
 
     document_retriever_service = FullTextSearchRetrieverQueueService(queue_params,
@@ -57,10 +59,21 @@ def retrieve_documents_by_file(queue_params,
 
                 logger.info(f"Total of documents to process {len(list_documents)}")
 
-                run_retriever_service(list_documents, query_field,
-                                      document_retriever_service,
-                                    parallelize=parallelize
-                                      )
+                if parallelize:
+                    # Run retriever service in threads
+                    run_retriever_service_threads(
+                        db_conn,
+                        list_documents,
+                        query_field,
+                        document_retriever_service,
+                        max_workers
+                    )
+
+                else:
+                    # Run retriever service sequentially
+                    document_retriever_service.full_text_search_retriever_service(
+                        db_conn, list_documents, query_field
+                    )
 
                 logger.info(f"Total time to retrieve and generate documents {time.time() - start_time:.10f}")
 
@@ -85,7 +98,9 @@ def main():
                                init_args_obj.solr_retriever_query_params,
                                init_args_obj.input_documents_file,
                                status_file,
-                               parallelize=PARALLELIZE)
+                               init_args_obj.parallelize,
+                               init_args_obj.db_conn,
+                               init_args_obj.max_workers)
 
 if __name__ == "__main__":
     main()

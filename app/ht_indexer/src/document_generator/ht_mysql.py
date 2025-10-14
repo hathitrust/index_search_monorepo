@@ -1,6 +1,8 @@
 import os
 import sys
+import threading
 from typing import Any
+import time
 
 from ht_utils.ht_logger import get_ht_logger
 from ht_utils.ht_utils import get_general_error_message
@@ -10,14 +12,20 @@ logger = get_ht_logger(name=__name__)
 
 class HtMysql:
 
+    # TODO: This class should be implemented on common utils package to be reused by other services
+
     _pool = None # Class variable to store the connection pool
+    _lock = threading.Lock() # Lock for thread-safe pool creation
 
     def __init__(self, host: str = None, user: str = None, password: str = None, database: str = None,
                  pool_size: int = 5):
         """Initialize MySQL connection using the connection pooling"""
         if not HtMysql._pool:
-            HtMysql.create_connection_pool(host=host, user=user, password=password, database=database,
-                                           pool_size=pool_size)
+            # Use the lock to ensure only one thread can execute the pool creation code at a time (double-checked locking pattern).
+            with HtMysql._lock:
+                if not HtMysql._pool:
+                    HtMysql.create_connection_pool(host=host, user=user, password=password, database=database,
+                                                   pool_size=pool_size)
 
     def query_mysql(self, query: str = None) -> list[Any] | None | list[dict[Any, Any]]:
 
@@ -81,7 +89,22 @@ class HtMysql:
         Retrieve a connection from the pool.
         """
         try:
-            return HtMysql._pool.get_connection()
+            # Add timeout to prevent indefinite blocking when pool is exhausted
+            timeout = 30  # 30 seconds timeout
+            start_time = time.time()
+            # Retry mechanism to handle temporary pool exhaustion - If pool is exhausted, it retries every 500ms
+            # instead of failing immediately
+            while True:
+                try:
+                    return HtMysql._pool.get_connection()
+                except connector.PoolError as e:
+                    # Logs warning when pool is temporarily exhausted and retries
+                    if time.time() - start_time > timeout:
+                        logger.error(f"Timeout getting connection from pool after {timeout}s: "
+                                     f"{get_general_error_message('DatabaseConnection', e)}")
+                        raise
+                    logger.warning(f"Pool temporarily exhausted, retrying... ({e})")
+                    time.sleep(0.5)  # Wait 500ms before retry
         except connector.Error as e:
             logger.error(f"Error getting connection from pool: "
                          f"{get_general_error_message('DatabaseConnection', e)}")
@@ -157,12 +180,24 @@ class HtMysql:
 
         except connector.Error as e:
             logger.error(f"Error updating status: {e}")
-            conn.rollback()
+            if conn:
+                try:
+                    conn.rollback()
+                except Exception as rollback_error:
+                    logger.error(f"Error during rollback: {rollback_error}")
+        # Connection cleanup in case of error to ensure no connections are left hanging and preventing leaks
+        # Ensure cursors and connections are closed properly
         finally:
             if cursor:
-                cursor.close()
+                try:
+                    cursor.close()
+                except Exception as cursor_error:
+                    logger.error(f"Error closing cursor: {cursor_error}")
             if conn:
-                conn.close()
+                try:
+                    conn.close()
+                except Exception as conn_error:
+                    logger.error(f"Error closing connection: {conn_error}")
 
 def get_mysql_conn(pool_size: int = 1) -> HtMysql:
     # MySql connection

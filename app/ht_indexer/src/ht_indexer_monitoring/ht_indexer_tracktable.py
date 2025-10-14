@@ -9,7 +9,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from document_generator.ht_mysql import HtMysql, get_mysql_conn
+from ht_utils.ht_mysql import HtMysql, get_mysql_conn
 from ht_search.export_all_results import SolrExporter
 from ht_utils.ht_logger import get_ht_logger
 
@@ -107,11 +107,19 @@ class HTIndexerTracktable:
             return
 
         insert_query = f"""INSERT IGNORE INTO {PROCESSING_STATUS_TABLE_NAME} (ht_id, record_id,  status, retriever_status, generator_status, indexer_status, error) 
-            VALUES (%s, %s, %s, %s, %s, %s, %s);
+            VALUES (:ht_id, :record_id,  :status, :retriever_status, :generator_status, :indexer_status, :error);
             """
         batch_values = [
-                (item.ht_id, item.record_id, item.status, item.retriever_status, item.generator_status, item.indexer_status, item.error)
-                for item in list_items
+            {
+                "ht_id": item.ht_id,
+                "record_id": item.record_id,
+                "status": item.status,
+                "retriever_status": item.retriever_status,
+                "generator_status": item.generator_status,
+                "indexer_status": item.indexer_status,
+                "error": item.error
+             }
+            for item in list_items
     ]
         self.mysql_obj.insert_batch(insert_query, batch_values)
 

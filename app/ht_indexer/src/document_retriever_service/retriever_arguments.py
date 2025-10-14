@@ -1,8 +1,9 @@
 import inspect
 import os
 import sys
+import multiprocessing
 
-from document_generator.ht_mysql import get_mysql_conn
+from ht_utils.ht_mysql import get_mysql_conn
 from ht_indexer_monitoring.ht_indexer_tracktable import PROCESSING_STATUS_TABLE_NAME
 from ht_queue_service.queue_config import QueueConfig
 from ht_utils.ht_logger import get_ht_logger
@@ -19,7 +20,7 @@ sys.path.insert(0, parent)
 SOLR_ROW_START = 0
 SOLR_TOTAL_ROWS = 200
 TOTAL_MYSQL_ROWS = 24000
-
+MAX_WORKERS = 20
 
 class RetrieverServiceArguments:
     def __init__(self, parser):
@@ -31,6 +32,11 @@ class RetrieverServiceArguments:
                             help="Could be item or record. If item, the query contains the ht_id of the item",
                             default="ht_id"
                             )
+        parser.add_argument("--parallelize",
+                            help="Retrieve documents in parallel using multiple threads",
+                            action='store_true',
+                            default=False)
+
 
         try:
             # Using queue or local machine
@@ -46,6 +52,7 @@ class RetrieverServiceArguments:
                 logger.error(f"Queue config file {app_config} does not exist")
                 sys.exit(1)
             self.queue_config = QueueConfig(global_config, app_config, config_key="queue")
+            ########################################################
 
         except KeyError as e:
             logger.error(f"Environment variables required: "
@@ -54,14 +61,21 @@ class RetrieverServiceArguments:
             sys.exit(1)
         self.args = parser.parse_args()
 
+        self.parallelize = self.args.parallelize
+        mysql_pool_size = 1
+        self.max_workers = 1
+        if self.parallelize:
+            self.max_workers = min(multiprocessing.cpu_count() * 2, MAX_WORKERS)
+            mysql_pool_size = self.max_workers * 2
+
         # MySql connection
-        self.db_conn = get_mysql_conn(pool_size=1)
+        self.db_conn = get_mysql_conn(pool_size=mysql_pool_size)
 
         self.list_documents = self.args.list_documents
         self.query_field = self.args.query_field
 
         # Retriever 24k items from the database
-        self.retriever_query = f"SELECT ht_id, record_id FROM {PROCESSING_STATUS_TABLE_NAME} WHERE retriever_status = 'pending' LIMIT {TOTAL_MYSQL_ROWS}"
+        self.retriever_query = f"SELECT ht_id, record_id FROM {PROCESSING_STATUS_TABLE_NAME} WHERE retriever_status = :status LIMIT {TOTAL_MYSQL_ROWS}"
 
         # TODO Remove the line below once SolrExporter been updated self.solr_url = f"{solr_url}/query"
 
