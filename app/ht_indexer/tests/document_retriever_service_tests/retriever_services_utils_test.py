@@ -15,3 +15,26 @@ class TestRetrieverServicesUtils:
         assert len(results) == 1
         assert results[0].ht_id == "mdp.39015078560292"
         assert results[0].metadata.get("vol_id") == "mdp.39015078560292"
+
+    def test_extract_hathitrust_ids(self):
+        docs = [
+            {"ht_id": 101, "record_id": "A"},
+            {"ht_id": 202, "record_id": "B"},
+            {"ht_id": 303, "record_id": "C"},
+        ]
+        result = RetrieverServicesUtils.extract_hathitrust_ids(docs)
+        assert result == [101, 202, 303]
+        # Empty list
+        assert RetrieverServicesUtils.extract_hathitrust_ids([]) == []
+
+    def test_extract_catalog_record_id(self):
+        docs = [
+            {"ht_id": 101, "record_id": "A"},
+            {"ht_id": 202, "record_id": "B"},
+            {"ht_id": 303, "record_id": "C"},
+        ]
+        result = RetrieverServicesUtils.extract_catalog_record_id(docs)
+        assert  result == ["A", "B", "C"]
+
+        # Empty list
+        assert RetrieverServicesUtils.extract_catalog_record_id([]) == []

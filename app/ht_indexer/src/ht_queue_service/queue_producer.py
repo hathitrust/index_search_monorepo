@@ -25,7 +25,7 @@ class QueueProducer:
       and ready via `QueueManager`.
     - Uses a thread-local channel for each non-main thread to avoid sharing non-thread-safe
       Pika channels across threads.
-    - Makes published messages persistent (delivery mode \= 2) and JSON-encodes payloads.
+    - Makes published messages persistent (delivery mode = 2) and JSON-encodes payloads.
     - Detects closed channels/connections, reconnects, and retries the publish once.
 
     Attributes:

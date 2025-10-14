@@ -91,8 +91,8 @@ class GeneratorServiceArguments:
             sys.exit(1)
 
         try:
-            src_queue_config = QueueConfig(global_config, app_config, config_key="src_queue")
-            tgt_queue_config = QueueConfig(global_config, app_config, config_key="tgt_queue")
+            src_queue_config = QueueConfig(global_config, app_config, config_key="src_queue", prefix="SRC_")
+            tgt_queue_config = QueueConfig(global_config, app_config, config_key="tgt_queue", prefix="TGT_")
             return src_queue_config, tgt_queue_config
         except KeyError as e:
             logger.error(
