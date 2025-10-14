@@ -45,6 +45,13 @@ FAILURE_UPDATE_STATUS = f"UPDATE {PROCESSING_STATUS_TABLE_NAME} SET status = :st
 SOLR_BATCH_SIZE = 200 # The chunk size is 200, because Solr will fail with the status code 414. The chunk size was determined
 # by testing the Solr query with different values (e.g., 100-500 and with 200 ht_ids it worked.
 
+# TODO: Apply the Strategy Pattern on this module to encapsulate the logic of extracting the documents by ht_id or
+#  record_id, it will reduce the if-else statements in the code
+SOLR_ID_EXTRACTION_STRATEGIES = {
+    "item": RetrieverServicesUtils.extract_hathitrust_ids,
+    "record": RetrieverServicesUtils.extract_catalog_record_id,
+}
+
 class FullTextSearchRetrieverQueueService:
     """
     This class is responsible to retrieve the documents from the Catalog and generate the full text search entry
@@ -327,10 +334,12 @@ def main():
     if len(init_args_obj.list_documents) > 0:
 
         # If the list of documents is provided, the process will run only for the documents in the list
-        list_ids = RetrieverServicesUtils.extract_ids_from_documents(init_args_obj.list_documents, by_field)
-        logger.info(f"Process=retrieving: Total of documents to process {len(list_ids)}")
+        #list_ids = RetrieverServicesUtils.extract_ids_from_documents(init_args_obj.list_documents, by_field)
+        logger.info(f"Process=retrieving: Total of documents to process {len(init_args_obj.list_documents)}")
 
-        document_retriever_service.full_text_search_retriever_service(init_args_obj.db_conn, list_ids, by_field)
+        document_retriever_service.full_text_search_retriever_service(init_args_obj.db_conn,
+                                                                      init_args_obj.list_documents,
+                                                                      by_field)
     else:
 
         # If the table does not exist, stop the process
@@ -349,8 +358,12 @@ def main():
                 time.sleep(WAITING_TIME_MYSQL)
                 continue
             else:
-                list_ids = RetrieverServicesUtils.extract_ids_from_documents(list_documents, by_field)
 
+                extract_ids = SOLR_ID_EXTRACTION_STRATEGIES.get(by_field)
+                if extract_ids is None:
+                    logger.error(f"Error: by_field {by_field} not supported")
+                    sys.exit(1)
+                list_ids = extract_ids(list_documents)
             logger.info(f"Process=retrieving: Total of documents to process {len(list_ids)}")
 
             if init_args_obj.parallelize:

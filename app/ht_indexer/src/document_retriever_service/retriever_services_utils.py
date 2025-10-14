@@ -1,4 +1,5 @@
 import json
+from typing import List
 
 from catalog_metadata.catalog_metadata import CatalogItemMetadata, CatalogRecordMetadata
 from ht_queue_service.queue_producer import QueueProducer
@@ -32,19 +33,26 @@ class RetrieverServicesUtils:
         return catalog_item_metadata
 
     @staticmethod
-    def extract_ids_from_documents(list_documents, by_field):
+    def extract_hathitrust_ids(list_documents: List[dict]) -> list[str]:
         """
         Prepare the list of ids to be processed
-        :param list_documents: list of documents to process
-        :param by_field: field to search by (item=ht_id or record=id)
+        :param list_documents: list of records
         :return: list of ids to be processed
         """
 
-        if by_field == 'record':
-            list_documents = [record['record_id'] for record in list_documents]
+        list_documents = [record["ht_id"] for record in list_documents]
 
-        if by_field == 'item':
-            list_documents = [record['ht_id'] for record in list_documents]
+        return list_documents
+
+    @staticmethod
+    def extract_catalog_record_id(list_documents: List[dict]) -> list[str]:
+        """
+        Prepare the list of ids to be processed
+        :param list_documents: list of records
+        :return: list of ids to be processed
+        """
+
+        list_documents = [record["record_id"] for record in list_documents]
 
         return list_documents
 

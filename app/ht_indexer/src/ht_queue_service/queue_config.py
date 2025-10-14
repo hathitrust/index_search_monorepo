@@ -38,22 +38,33 @@ def _load_config(config_path: Path) -> dict[str, Any]:
 
 class QueueConfig:
 
-    ENV_MAPPING = {
-        "host": "QUEUE_HOST",
-        "port": "QUEUE_PORT",
-        "user": "QUEUE_USER",
-        "password": "QUEUE_PASS",
-        "queue_name": "QUEUE_NAME"
-    }
-
-    def __init__(self, global_path: Path, app_path: Path, config_key: str="queue") -> None:
+    def __init__(self, global_path: Path, app_path: Path, config_key: str="queue", prefix:str="") -> None:
         """
         Initialize the QueueConfig with default values or load from a YAML file.
 
         :param global_path: Path to the global YAML configuration file.
         :param app_path: Path to the application-specific YAML configuration file.
         :param config_key: Key to identify the specific queue configuration in the YAML files.
+        :param prefix: Optional prefix for environment variables to initialize the queue configuration
+        for document_generator service that has a source (_SRC) and target (_TGT) queues.
         """
+
+        self.env_mapping = {
+            "host": "QUEUE_HOST",
+            "port": "QUEUE_PORT",
+            "user": "QUEUE_USER",
+            "password": "QUEUE_PASS",
+            "queue_name": "QUEUE_NAME"
+        }
+
+        if prefix:
+            self.env_mapping = {
+            "host": f"{prefix}QUEUE_HOST",
+            "port": f"{prefix}QUEUE_PORT",
+            "user": f"{prefix}QUEUE_USER",
+            "password": f"{prefix}QUEUE_PASS",
+            "queue_name": f"{prefix}QUEUE_NAME"
+        }
 
         default_global_config = _load_config(global_path)["queue"]
 
@@ -82,7 +93,7 @@ class QueueConfig:
 
         # Override with environment variables if they exist
         # Environment variables take precedence over config file values
-        for key, env_var in self.ENV_MAPPING.items():
+        for key, env_var in self.env_mapping.items():
             env_value = os.getenv(env_var)
             if env_value is not None:
                 if key == "port":  # cast port to int if overridden
