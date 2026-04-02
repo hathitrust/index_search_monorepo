@@ -1,0 +1,35 @@
+[virtualenvs]
+in-project = true
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+# -p no:cacheprovider is to avoid pytest warning about pytest_cache fixture
+# -ra is to show extra test summary info; -q is to suppress pytest header
+addopts = "-ra -q -p no:cacheprovider"
+
+# The [project] table is the format that most build backends use to specify the project’s basic metadata,
+# such as the dependencies, your name, etc.
+[tool.poetry]
+name = "data_operations"
+version = "0.1.0"
+description = "Package for retrieving and analyzing data related to HathiTrust"
+readme = "README.md"
+authors = ["lisepul <lisepul@umich.edu>"]
+keywords = ["data retrieval", "metadata" , "HathiTrust"]
+packages = [
+    {include = "metadata_extractor", from = "src"},
+]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+ht-utils = {path = "../../libs/common_lib", develop = true}
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0.2"
+ruff = "^0.0.283"
+mypy = "^1.5"
+pymarc = "^5.3.1"
+
+[build-system]
+requires = ["poetry-core>=2.1.1"] # Define the list of dependencies required to build your package. It is a mandatory field
+build-backend = "poetry.core.masonry.api" # The Python object used to perform the build

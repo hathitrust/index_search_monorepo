@@ -22,6 +22,11 @@ jobs:
         run: |
           DOCKER_COMPOSE_PROFILES=indexer_tests docker compose run --rm indexer_tests
 
+      # 👇 ADD DEBUG STEP HERE
+      - name: Dump ZooKeeper logs
+        if: failure()
+        run: docker logs zoo1
+
   test_solr_query:
       runs-on: ubuntu-latest
       steps:
