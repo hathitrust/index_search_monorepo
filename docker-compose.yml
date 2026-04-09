@@ -104,25 +104,23 @@ services:
       test: [ "CMD-SHELL", "curl -s -u admin:solrRocks 'http://localhost:8983/solr/admin/collections?action=CLUSTERSTATUS&collection=core-x' | grep -q '\"state\":\"active\"'" ]
       timeout: 30s
       retries: 10
-  zoo1:
+  zoo1: # Zookeeper run in standalone mode for development and testing purposes. In production, we would use a Zookeeper ensemble for high availability.
     image: zookeeper:3.8.0
     profiles: [ indexer, indexer_tests, solr_query, solr_query_tests ]
     container_name: zoo1
-    restart: always
+    restart: "no"
     hostname: zoo1
     ports:
       - 2181:2181
-      - 7001:7000
+      # - 7001:7000
     environment:
       ZOO_MY_ID: 1
-      ZOO_SERVERS: server.1=zoo1:2888:3888;2181
-      ZOO_4LW_COMMANDS_WHITELIST: mntr, conf, ruok
-      ZOO_CFG_EXTRA: "metricsProvider.className=org.apache.zookeeper.metrics.prometheus.PrometheusMetricsProvider metricsProvider.httpPort=7000 metricsProvider.exportJvmInfo=true"
+      JVMFLAGS: "-XX:-UseContainerSupport"
     volumes:
       - zoo1_data:/data
     healthcheck:
       <<: *healthcheck-defaults
-      test: [ "CMD", "echo", "ruok", "|", "nc", "localhost", "2181", "|", "grep", "imok" ]
+      test: ["CMD", "nc", "-z", "-w", "2", "localhost", "2181"] # Check if ZooKeeper is listening on port 2181
   solr-sdr-catalog:
     container_name: solr-sdr-catalog
     profiles: [ indexer, indexer_tests ]
@@ -270,9 +268,22 @@ services:
       solr-lss-dev: *healthy
       data_loader:
         condition: service_completed_successfully
+  ###############################data_operations###############################
+  data_operations:
+      container_name: data_operations
+      profiles: [ data_operations ]
+      build:
+        context: .
+        dockerfile: Dockerfile
+        target: data_operations
+      volumes:
+        - ./app/data_operations/src/metadata_extractor/data:/app/src/metadata_extractor/data:ro
+        - ./app/data_operations/src/metadata_extractor/output:/app/src/metadata_extractor/output
+      tty: true
+      stdin_open: true
+############ Volumes ## ############################
 volumes:
   mysql_sdr_data:
   solr1_data: null
   zoo1_data: null
   mysql_retriever_data:
-

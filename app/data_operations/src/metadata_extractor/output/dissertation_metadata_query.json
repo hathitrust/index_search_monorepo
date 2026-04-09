@@ -1,0 +1,23 @@
+{
+  "generated_at": "2026-04-07T23:24:53.708934+00:00",
+  "input_file": "src/metadata_extractor/data/zephir_upd_20260401.json.gz",
+  "output_file": "src/metadata_extractor/output/yy.csv",
+  "keywords": [
+    "dissertation",
+    "phd",
+    "ph.d.",
+    "doctoral",
+    "degree of doctor"
+  ],
+  "marc fields": [
+    "245",
+    "502",
+    "653",
+    "655",
+    "650",
+    "651",
+    "500",
+    "533"
+  ],
+  "description": "Records whose MARC fields contain dissertation or PhD identifiers."
+}

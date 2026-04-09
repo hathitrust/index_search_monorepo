@@ -108,3 +108,30 @@ WORKDIR /app
 ENV PYTHONPATH="/app/solr_query/src:/app/solr_query/tests:/libs/common_lib:/libs/ht_search"
 
 CMD ["tail", "-f", "/dev/null"]
+
+# Builder data_operations stage
+FROM base AS data_operations
+
+WORKDIR /app
+
+COPY --chown=${UID}:${GID} app/data_operations/ .
+
+# Installing data_operations package and its dependencies
+RUN if [ "${ENV}" = "dev" ]; then \
+    echo "Installing dev dependencies" && \
+    poetry config virtualenvs.create false && \
+    poetry install  --with dev; \
+    else \
+    echo "Skipping dev dependencies" && \
+    poetry config virtualenvs.create false && \
+    poetry install  --without dev && rm -rf ${POETRY_CACHE_DIR}; \
+    fi
+
+USER app
+
+WORKDIR /app
+
+# Add the code and the dependencies to the PYTHONPATH
+ENV PYTHONPATH="/app/data_operations/src:/app/data_operations/tests:/libs/common_lib:/libs/ht_search"
+
+CMD ["tail", "-f", "/dev/null"]
