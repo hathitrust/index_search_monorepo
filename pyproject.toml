@@ -1,5 +1,33 @@
-[virtualenvs]
-in-project = true
+[project]
+name = "index_search_monorepo"
+version = "0.1.0"
+description = "Indexing and Searching documents in Solr"
+authors = [{ name = "lisepul", email = "lisepul@umich.edu" }]
+requires-python = ">=3.12,<4"
+readme = "README.md"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.4.2,<0.5",
+    "pytest>=8.0.2,<9",
+    "mypy>=1.12.0,<2",
+    "types-pyyaml>=6.0.12,<7",
+    "types-requests>=2.31.12,<3",
+]
+
+[tool.uv.workspace]
+members = ["app/*", "libs/*"]
+exclude = []  # Exclude the individual packages to avoid trying to build/install them as part of the monorepo root.
+
+[tool.uv]
+# default-groups = "all"
+package = false # This is the monorepo root, not a package itself. So we set this to false to avoid trying to build/install it as a package.
 
 [tool.pytest.ini_options]
 minversion = "6.0"
@@ -7,26 +35,6 @@ minversion = "6.0"
 # -ra is to show  extra test summary info; -q is to suppress pytest header
 addopts = "-ra -q -p no:cacheprovider"
 
-[tool.poetry]
-name = "index_search_monorepo"
-version = "0.1.0"
-description = "Indexing and Searching documents in Solr"
-authors = ["lisepul <lisepul@umich.edu>"]
-readme = "README.md"
-
-[tool.poetry.dependencies]
-python = "^3.12"
-
-[tool.poetry.group.dev.dependencies]
-ruff = "^0.4.2"
-pytest = "^8.0.2"
-mypy = "^1.12.0"
-types-pyyaml = "^6.0.12"
-types-requests = "^2.31.12"
-
-[build-system]
-requires = ["poetry-core>=2.1.1"]
-build-backend = "poetry.core.masonry.api"
 
 [tool.ruff]
 # Target Python version

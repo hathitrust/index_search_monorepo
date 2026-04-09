@@ -17,14 +17,14 @@ from ht_utils.ht_logger import get_ht_logger
 logger = get_ht_logger(name=__name__)
 
 DEFAULT_KEYWORDS = ("dissertation", "phd", "ph.d.", "doctoral", "degree of doctor")
-KEYWORD_FIELDS = ("245", "502", "653", "655", "650", "651", "500", "533")
+KEYWORD_FIELDS = ("502", "653", "655", "650", "651", "500", "533") # "245",
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Extract dissertation metadata from Zephir MARC JSON.")
     parser.add_argument(
         "--input-file",
-        "-i",
+        "-f",
         type=Path,
         default=Path(__file__).parent / "data" / "zephir_full_20260331_vufind.json.gz",
         help="Path to the Zephir MARC JSON export (gzipped).",
@@ -33,7 +33,7 @@ def parse_args() -> argparse.Namespace:
         "--output-file",
         "-o",
         type=Path,
-        default=Path(__file__).parent / "output" / "dissertation_metadata.csv",
+        default=Path(__file__).parent / "output" / "full_dissertation_metadata_MUI.csv",
         help="CSV file where dissertation metadata will be written.",
     )
     parser.add_argument(
@@ -42,6 +42,14 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         default=Path(__file__).parent / "output" / "dissertation_metadata_query.json",
         help="Metadata document describing the filters used.",
+    )
+
+    parser.add_argument(
+        "--institution_id",
+        "-i",
+        type=str,
+        default="MIU",
+        help="The institution identifier to filter records by (e.g., 'MIU' for University of Michigan). Records will be included if they have this identifier in the 974$b subfield.",
     )
     return parser.parse_args()
 
@@ -84,16 +92,41 @@ def keyword_text(record: Record) -> str:
     """
 
     texts: list[str] = []
-    title = record.title
-    if title:
-        texts.append(title)
     for field in record.get_fields(*KEYWORD_FIELDS):
         texts.append(field.format_field())
     return " ".join(texts).lower()
 
+def get_specific_institution_records(record: Record, institution_id: str = 'MIU') -> bool:
+
+    """
+    Determines if a record belongs to a specific institution by analyzing its fields
+    and subfields.
+
+    The function iterates through the fields and subfields of a given record to check
+    if there is a specific value ('MIU') present. If found, it confirms the association
+    with the institution by returning a boolean result.
+
+    Args:
+        record (Record): The record object containing fields to be evaluated.
+
+    Returns:
+        bool: Returns True if the record belongs to the specific institution, otherwise
+        returns False.
+    """
+
+    belong_institution = False
+    for field in record.get_fields("974"):
+        for sub in field.get_subfields("b"):
+            if institution_id==sub:
+                belong_institution = True
+                return belong_institution
+    return belong_institution
 
 def record_matches(record: Record, keywords: Sequence[str]) -> bool:
     text = keyword_text(record)
+    for keyword in keywords:
+        if keyword.lower() in text:
+            return True
     return any(keyword.lower() in text for keyword in keywords)
 
 
@@ -195,7 +228,7 @@ def build_metadata_row(record: Record) -> dict[str, str]:
     subjects = collect_subjects(record)
     other_sources = extract_identifiers(record)
 
-    return {
+    dicio = {
         "control_number": extract_control_number(record),
         "title": record.title or "",
         "author": record.author or "",
@@ -203,11 +236,11 @@ def build_metadata_row(record: Record) -> dict[str, str]:
         "discipline": "; ".join(subjects),
         "other_sources": "; ".join(other_sources)
     }
+    return dicio
 
-
-def generate_dissertation_rows(path: Path, keywords: Sequence[str] = DEFAULT_KEYWORDS) -> Iterable[dict[str, str]]:
+def generate_dissertation_rows(path: Path, keywords: Sequence[str] = DEFAULT_KEYWORDS, institution_id: str = 'MIU') -> Iterable[dict[str, str]]:
     for record in iter_marc_records(path):
-        if record_matches(record, keywords):
+        if record_matches(record, keywords) and get_specific_institution_records(record, institution_id):
             yield build_metadata_row(record)
 
 
@@ -234,6 +267,7 @@ def write_metadata_document(query_file: Path, input_file: Path, output_file: Pat
         "output_file": str(output_file),
         "keywords": list(keywords),
         "marc fields": list(KEYWORD_FIELDS),
+        "marc fields institution": "974$b",
         "description": "Records whose MARC fields contain dissertation or PhD identifiers.",
     }
     query_file.write_text(json.dumps(data, indent=2), encoding="utf-8")
@@ -245,7 +279,7 @@ def write_metadata_document(query_file: Path, input_file: Path, output_file: Pat
 def main() -> None:
     args = parse_args()
     logger.info("Reading Zephir export from %s", args.input_file)
-    rows = list(generate_dissertation_rows(args.input_file))
+    rows = list(generate_dissertation_rows(args.input_file, institution_id=args.institution_id))
     logger.info("Found %d dissertation records", len(rows))
     csv_path = write_csv(rows, args.output_file)
     write_metadata_document(args.metadata_file, args.input_file, csv_path, DEFAULT_KEYWORDS)

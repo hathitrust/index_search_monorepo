@@ -93,6 +93,9 @@ to separate connection management, channel creation, and queue management respon
   * Enhanced documentation and comments.
   * Optimized performance and resource management.
   * Typed the code using type hints.
+* Phase 10: Python dependency management migration from Poetry to UV and docker file refactor to use UV for dependency management and application execution.
+  * Refactor the Dockerfile to use UV for dependency management and application execution.
+  * Update the documentation to reflect the changes in the dependency management and Dockerfile.
 
 ## Project Set Up
 
@@ -206,7 +209,6 @@ ht_indexer/
 ├── pyproject.toml
 ├── poetry.lock
 ├── README.md
-Makefile
 ```
 
 ## Design
@@ -342,7 +344,7 @@ be one of the following: pending, processing, failed, completed.
 
 ``` 
 cd app/ht_indexer
-docker compose exec ht_indexer_tracker python src/ht_indexer_monitoring/ht_indexer_tracktable.py --env dev --query "*:*" --num_found 100
+docker compose exec ht_indexer_tracker uv run python -m ht_indexer_monitoring.ht_indexer_tracktable --env dev --query "*:*" --num_found 100
 ```
 
 * --query "*:*" It retrieves all the documents on Solr server
@@ -693,10 +695,6 @@ e.g. some compiler packages like GCC, then build the image takes time
 
 ### Reference used for python implementation
 
-Python Linter:
-Ruff: https://astral.sh/ruff
-Enhancing Python Code Quality: A Comprehensive Guide to Linting with
-Ruff: https://dev.to/ken_mwaura1/enhancing-python-code-quality-a-comprehensive-guide-to-linting-with-ruff-3d6g
 Parser XML files
 https://lxml.de/tutorial.html#parsing-from-strings-and-files
 https://pymotw.com/3/xml.etree.ElementTree/parse.html
