@@ -1,11 +1,9 @@
-from typing import Any
 
 import pika
+from ht_queue_service.queue_config import QueueParams
 from ht_utils.ht_logger import get_ht_logger
 from pika.channel import Channel
 from pika.exceptions import ChannelClosedByBroker
-
-from ht_queue_service.queue_config import QueueParams
 
 logger = get_ht_logger(name=__name__)
 

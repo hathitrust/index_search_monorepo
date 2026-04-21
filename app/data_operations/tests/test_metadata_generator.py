@@ -1,11 +1,15 @@
 import gzip
 import json
-
 from pathlib import Path
-from pymarc import Subfield, Record, Field
 
-from metadata_extractor.metadata_generator import DEFAULT_KEYWORDS, extract_identifiers, generate_dissertation_rows, record_matches
 from ht_utils.ht_marc_json_reader import dict_to_pymarc_record
+from metadata_extractor.metadata_generator import (
+    DEFAULT_KEYWORDS,
+    extract_identifiers,
+    generate_dissertation_rows,
+    record_matches,
+)
+from pymarc import Field, Record, Subfield
 
 SAMPLE_RECORD = {
     "leader": "00000nam a2200000 a 4500",

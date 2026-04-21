@@ -3,7 +3,7 @@ name = "solr_query"
 version = "0.1.0"
 description = "Package for search in Solr"
 authors = [{ name = "lisepul", email = "lisepul@umich.edu" }]
-requires-python = ">=3.12,<4"
+requires-python = ">=3.14"
 readme = "README.md"
 keywords = [
     "solr",
@@ -11,14 +11,11 @@ keywords = [
     "HathiTrust",
 ]
 classifiers = [
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
 ]
 dependencies = [
-    "fastapi>=0.111.1,<0.112",
-    "uvicorn>=0.30.3,<0.31",
+    "fastapi>=0.136.0,<0.137",
+    "uvicorn>=0.45.0,<0.46",
     "openpyxl>=3.1.5,<4",
     "ht-search",
     "ht-utils",

@@ -1,16 +1,14 @@
 # producer
 import json
 import threading
-from typing import Any, Dict
+from typing import Any
 
 import pika.exceptions
-from ht_queue_service.queue_config import QueueParams
-
-from ht_utils.ht_logger import get_ht_logger
-from ht_utils.ht_utils import FlexibleDict, get_queue_message_id
-
 from ht_queue_service.channel_creator import ChannelCreator
+from ht_queue_service.queue_config import QueueParams
 from ht_queue_service.queue_manager import QueueManager
+from ht_utils.ht_logger import get_ht_logger
+from ht_utils.ht_utils import get_queue_message_id
 
 logger = get_ht_logger(name=__name__)
 
@@ -134,7 +132,7 @@ class QueueProducer:
             logger.error(f"Failed to reinitialize queue setup: {err}", exc_info=True)
             raise
 
-    def publish_messages(self, queue_message: Dict[str, Any]) -> None:
+    def publish_messages(self, queue_message: dict[str, Any]) -> None:
 
         # TODO: Define a dataclass for the queue message to ensure type safety and validation
         # TODO: Define a retry mechanism with exponential backoff for publishing messages

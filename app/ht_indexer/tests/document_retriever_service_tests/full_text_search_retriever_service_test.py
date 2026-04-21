@@ -1,16 +1,17 @@
 import json
-import pytest
-
 import os
-
 from typing import Any
+from unittest.mock import MagicMock
+
+import pytest
 from conftest import create_test_queue_config
-from document_retriever_service.full_text_search_retriever_service import FullTextSearchRetrieverQueueService
+from document_retriever_service.full_text_search_retriever_service import (
+    FullTextSearchRetrieverQueueService,
+)
 from ht_indexer_api.ht_indexer_api import HTSolrAPI
 from ht_queue_service.queue_consumer import QueueConsumer
 from ht_utils.ht_logger import get_ht_logger
 from ht_utils.query_maker import make_solr_term_query
-from unittest.mock import MagicMock
 
 logger = get_ht_logger(name=__name__)
 
