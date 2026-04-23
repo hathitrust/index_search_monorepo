@@ -410,6 +410,8 @@ gradually, starting with the most critical ones, and then upgrading the rest of 
  — Check the current python version
 `python --version`
  — Upgrade python to the latest version
+`brew update`
+`brew upgrade`
 `brew install python@3.12`
  — Check the python version again
 `python --version`
@@ -466,6 +468,15 @@ issues early on and address them before upgrading all the dependencies and reduc
 
 Example: `uv lock --upgrade-package ruff`
 
+In `pyproject.toml` file, we control the versions of the dependencies e.g. `ruff>=0.4.2,<0.5`, so when we run 
+the command `uv lock --upgrade-package ruff` you won't upgrade to the latest version. My recommendation is to upgrade 
+the dependencies one by one updating the pyproject.toml file. 
+
+Use the command `uv tree` to see the dependency tree and check the dependencies that need to be updated. 
+You can use `uv tree | grep pytest ` to check the version of pytest and see if it is compatible with the new python version.
+
+Use [pip pages](https://pypi.org/project/openpyxl/) to check the latest version of the dependencies and update the `pyproject.toml` file accordingly.
+
 **Step 2 — Or upgrade everything**
 `uv lock --upgrade`
 
@@ -479,14 +490,14 @@ Step 1 — (Optional) Run checks
 Run this command for all the applications in the monorepo to check the code style and linting issues, 
 and to fix them if possible.
 ```
-make check-code APP_NAME=ht-indexer
-make fix-code APP_NAME=ht-indexer
+make check-code APP_PATH=app/ht_indexer
+make fix-code APP_PATH=app/ht_indexer
 ```
 
 Step 2 — Run typing checks
 
 ```
-make type-check APP_NAME=ht-indexer
+make type-check APP_PATH=app/ht_indexer
 ```
 
 Step 2 — Run tests

@@ -1,9 +1,8 @@
 import sys
-from typing import Optional
 
 from config import config_queue_file_path
 from ht_queue_service.queue_config import QueueConfig, QueueParams
-from . import generator_config_file_path
+
 # root imports
 from ht_queue_service.queue_consumer import QueueConsumer
 from ht_queue_service.queue_producer import QueueProducer
@@ -11,6 +10,8 @@ from ht_utils.ht_logger import get_ht_logger
 
 # utils
 from ht_utils.ht_utils import get_general_error_message
+
+from . import generator_config_file_path
 from .ht_mysql import get_mysql_conn
 
 logger = get_ht_logger(name=__name__)
@@ -53,14 +54,14 @@ class GeneratorServiceArguments:
         self.src_queue_consumer = GeneratorServiceArguments._make_consumer(self.src_queue_config.queue_params)
 
         self.tgt_local: bool = self.args.tgt_local
-        self.tgt_queue_producer: Optional[QueueProducer] = None
+        self.tgt_queue_producer: QueueProducer | None = None
 
         if not self.tgt_local:
             self.tgt_queue_producer = GeneratorServiceArguments._make_producer(self.tgt_queue_config.queue_params)
 
         # Local output options
         self.document_repository: str = self.args.document_repository
-        self.document_local_path: Optional[str] = self.args.document_local_path
+        self.document_local_path: str | None = self.args.document_local_path
 
     def get_db_conn(self, pool_size: int = 1):
         """Create (once) and return a MySQL connection."""

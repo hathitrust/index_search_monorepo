@@ -5,7 +5,6 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
-
 from conftest import create_test_queue_config
 from document_retriever_service.ht_status_retriever_service import get_non_processed_ids
 from document_retriever_service.run_retriever_service_by_file import retrieve_documents_by_file

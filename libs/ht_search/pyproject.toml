@@ -1,9 +1,9 @@
 [project]
 name = "ht-search"
-version = "0.1.0"
+version = "0.2.0"
 description = "Repository for full-text search in Solr"
 authors = [{ name = "lisepul", email = "lisepul@umich.edu" }]
-requires-python = ">=3.11,<4"
+requires-python = ">=3.14"
 readme = "README.md"
 keywords = [
     "solr",
@@ -11,17 +11,13 @@ keywords = [
     "HathiTrust",
 ]
 classifiers = [
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
 ]
 dependencies = [
-    "requests>=2.31.0,<3",
-    "pandas>=2.1.4,<3",
-    "pyyaml>=6.0.1,<7",
-    "matplotlib>=3.8.2,<4",
+    "requests>=2.33.0,<3",
+    "pandas>=3.0.2,<4",
+    "pyyaml>=6.0.3,<7",
+    "matplotlib>=3.10.8,<4",
 ]
 
 

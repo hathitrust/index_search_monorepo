@@ -9,11 +9,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from ht_utils.ht_mysql import HtMysql, get_mysql_conn
+from ht_indexer_monitoring.monitoring_arguments import MonitoringServiceArguments
 from ht_search.export_all_results import SolrExporter
 from ht_utils.ht_logger import get_ht_logger
-
-from ht_indexer_monitoring.monitoring_arguments import MonitoringServiceArguments
+from ht_utils.ht_mysql import HtMysql, get_mysql_conn
 
 current = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 parent = os.path.dirname(current)

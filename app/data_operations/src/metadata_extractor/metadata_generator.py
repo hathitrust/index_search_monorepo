@@ -5,14 +5,13 @@ import csv
 import gzip
 import json
 import re
-
-from datetime import datetime, UTC
+from collections.abc import Iterable, Iterator, Sequence
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Iterable, Iterator, Sequence
-from pymarc import Record
 
-from ht_utils.ht_marc_json_reader import MarcJsonReader, dict_to_pymarc_record
 from ht_utils.ht_logger import get_ht_logger
+from ht_utils.ht_marc_json_reader import MarcJsonReader, dict_to_pymarc_record
+from pymarc import Record
 
 logger = get_ht_logger(name=__name__)
 

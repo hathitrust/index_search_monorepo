@@ -1,9 +1,10 @@
 import copy
-import yaml
 import dataclasses
 import os
 from pathlib import Path
 from typing import Any
+
+import yaml
 
 
 @dataclasses.dataclass

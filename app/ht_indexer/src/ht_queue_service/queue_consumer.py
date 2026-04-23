@@ -2,11 +2,10 @@ from collections.abc import Generator
 from typing import Any
 
 import pika
-from ht_utils.ht_logger import get_ht_logger
-
 from ht_queue_service.channel_creator import ChannelCreator
 from ht_queue_service.queue_config import QueueParams
 from ht_queue_service.queue_manager import QueueManager
+from ht_utils.ht_logger import get_ht_logger
 
 logger = get_ht_logger(name=__name__)
 
