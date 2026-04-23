@@ -1,5 +1,6 @@
 from importlib.resources import files
 
+
 class DocumentRetrievalService:
     pass
 

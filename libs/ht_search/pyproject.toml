@@ -1,5 +1,28 @@
-[virtualenvs]
-in-project = true
+[project]
+name = "ht-search"
+version = "0.2.0"
+description = "Repository for full-text search in Solr"
+authors = [{ name = "lisepul", email = "lisepul@umich.edu" }]
+requires-python = ">=3.14"
+readme = "README.md"
+keywords = [
+    "solr",
+    "full-text-search",
+    "HathiTrust",
+]
+classifiers = [
+    "Programming Language :: Python :: 3.14",
+]
+dependencies = [
+    "requests>=2.33.0,<3",
+    "pandas>=3.0.2,<4",
+    "pyyaml>=6.0.3,<7",
+    "matplotlib>=3.10.8,<4",
+]
+
+
+[dependency-groups]
+dev = []
 
 [tool.pytest.ini_options]
 minversion = "6.0"
@@ -7,33 +30,11 @@ minversion = "6.0"
 # -ra is to show extra test summary info; -q is to suppress pytest header
 addopts = "-ra -q -p no:cacheprovider"
 
-# The [project] table is the format that most build backends use to specify the project’s basic metadata,
-# such as the dependencies, your name, etc.
-[tool.poetry]
-name = "ht-search"
-version = "0.1.0"
-description = "Repository for full-text search in Solr"
-readme = "README.md"
-authors = ["lisepul <lisepul@umich.edu>"]
-keywords = ["solr", "full-text-search", "HathiTrust"]
-packages = [
-    {include = "ht_search", from = "src"},
-]
+[tool.uv]
+default-groups = "all"
 
-[tool.poetry.dependencies]
-python = "^3.11"
-requests = "^2.31.0"
-pandas ="^2.1.4"
-pyyaml ="^6.0.1"
-#solrq = "^1.1.2"
-matplotlib ="^3.8.2"
+# Adding local sources to link the application to the shared libraries in the monorepo.
+[tool.uv.sources]
+ht-search = {workspace = true, editable = true}
 
-
-[tool.poetry.group.dev.dependencies]
-ruff = "^0.4.2"
-pytest = "^8.0.2"
-
-[build-system]
-requires = ["poetry-core>=2.1.1"] # Define the list of dependencies required to build your package. It is a mandatory field
-build-backend = "poetry.core.masonry.api" # The Python object used to perform the build
 

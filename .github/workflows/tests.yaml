@@ -16,16 +16,19 @@ jobs:
 
       - name: Set up Indexer
         run: |
-          docker compose --profile indexer_tests up -d --wait
+          docker compose --profile ht-indexer_tests up -d --wait
 
       - name: Run tests
         run: |
-          DOCKER_COMPOSE_PROFILES=indexer_tests docker compose run --rm indexer_tests
+          DOCKER_COMPOSE_PROFILES=ht-indexer_tests docker compose run --rm ht-indexer_tests
 
       # 👇 ADD DEBUG STEP HERE
       - name: Dump ZooKeeper logs
         if: failure()
         run: docker logs zoo1
+      - name: Dump docker logs on failure
+        if: failure()
+        uses: jwalton/gh-docker-logs@v2
 
   test_solr_query:
       runs-on: ubuntu-latest
@@ -34,8 +37,8 @@ jobs:
 
         - name: Set up Solr
           run: |
-            docker compose --profile solr_query_tests up -d --wait
+            docker compose --profile solr-query_tests up -d --wait
 
         - name: Run tests
           run: |
-            DOCKER_COMPOSE_PROFILES=solr_query_tests docker compose run --rm search_tests
+            DOCKER_COMPOSE_PROFILES=solr-query_tests docker compose run --rm solr-query_tests

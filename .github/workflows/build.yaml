@@ -39,19 +39,27 @@ jobs:
               with:
                 image: ghcr.io/hathitrust/indexer
                 dockerfile: Dockerfile
-                target: "indexer"
+                target: "runtime"
                 img_tag: ${{ inputs.img_tag }}
                 tag: ${{ inputs.ref }}
                 push_latest: ${{ inputs.push_latest}}
                 registry_token: ${{ github.token }}
                 rebuild: ${{ inputs.rebuild }}
                 platforms: ${{ inputs.platforms }}
+                build-args:
+                  # ENV=dev
+                  APP_NAME=ht-indexer
+                  APP_DIR=ht_indexer
             - name: Build Solr Query
               uses: hathitrust/github_actions/build@v1
               with:
                 image: ghcr.io/hathitrust/solr_query
                 dockerfile: Dockerfile
-                target: "solr_query"
+                target: "runtime"
+                build-args:
+                     # ENV=dev
+                     APP_NAME=solr-query
+                     APP_DIR=solr_query
                 img_tag: ${{ inputs.img_tag }}
                 tag: ${{ inputs.ref }}
                 push_latest: ${{ inputs.push_latest}}

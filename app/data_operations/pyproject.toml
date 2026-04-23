@@ -1,5 +1,22 @@
-[virtualenvs]
-in-project = true
+[project]
+name = "data_operations"
+version = "0.1.0"
+description = "Package for retrieving and analyzing data related to HathiTrust"
+authors = [{ name = "lisepul", email = "lisepul@umich.edu" }]
+requires-python = ">=3.14"
+readme = "README.md"
+keywords = [
+    "data retrieval",
+    "metadata",
+    "HathiTrust",
+]
+classifiers = [
+    "Programming Language :: Python :: 3.14",
+]
+dependencies = ["ht-utils"]
+
+[dependency-groups]
+dev = []
 
 [tool.pytest.ini_options]
 minversion = "6.0"
@@ -7,29 +24,11 @@ minversion = "6.0"
 # -ra is to show extra test summary info; -q is to suppress pytest header
 addopts = "-ra -q -p no:cacheprovider"
 
-# The [project] table is the format that most build backends use to specify the project’s basic metadata,
-# such as the dependencies, your name, etc.
-[tool.poetry]
-name = "data_operations"
-version = "0.1.0"
-description = "Package for retrieving and analyzing data related to HathiTrust"
-readme = "README.md"
-authors = ["lisepul <lisepul@umich.edu>"]
-keywords = ["data retrieval", "metadata" , "HathiTrust"]
-packages = [
-    {include = "metadata_extractor", from = "src"},
-]
+[tool.uv]
+default-groups = "all"
+package = true # This is the main application package, so we set this to true to allow building/installing it as a package.
 
-[tool.poetry.dependencies]
-python = "^3.12"
-ht-utils = {path = "../../libs/common_lib", develop = true}
+# Adding local sources to link the application to the shared libraries in the monorepo.
+[tool.uv.sources]
+ht-utils = {workspace = true, editable = true}
 
-[tool.poetry.group.dev.dependencies]
-pytest = "^8.0.2"
-ruff = "^0.0.283"
-mypy = "^1.5"
-pymarc = "^5.3.1"
-
-[build-system]
-requires = ["poetry-core>=2.1.1"] # Define the list of dependencies required to build your package. It is a mandatory field
-build-backend = "poetry.core.masonry.api" # The Python object used to perform the build

@@ -1,9 +1,15 @@
 import threading
-from pika.adapters.blocking_connection import BlockingChannel
-from pika.exceptions import ChannelClosed, ChannelClosedByBroker, ChannelWrongStateError, NoFreeChannels, AMQPError
-from ht_utils.ht_logger import get_ht_logger
 
 from ht_queue_service.queue_connection import QueueConnection
+from ht_utils.ht_logger import get_ht_logger
+from pika.adapters.blocking_connection import BlockingChannel
+from pika.exceptions import (
+    AMQPError,
+    ChannelClosed,
+    ChannelClosedByBroker,
+    ChannelWrongStateError,
+    NoFreeChannels,
+)
 
 logger = get_ht_logger(name=__name__)
 

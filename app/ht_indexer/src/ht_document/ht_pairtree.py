@@ -4,9 +4,8 @@ import subprocess
 import sys
 from pathlib import Path
 
-from ht_utils.ht_logger import get_ht_logger
-
 from ht_document.ht_document import HtDocument
+from ht_utils.ht_logger import get_ht_logger
 
 current = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 parent = os.path.dirname(current)

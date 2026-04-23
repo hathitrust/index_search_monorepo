@@ -1,7 +1,7 @@
 import pika
-from pika.exceptions import AMQPConnectionError, ProbableAuthenticationError
 from ht_utils.ht_errors import HTError
 from ht_utils.ht_logger import get_ht_logger
+from pika.exceptions import AMQPConnectionError, ProbableAuthenticationError
 
 logger = get_ht_logger(name=__name__)
 

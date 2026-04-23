@@ -47,36 +47,30 @@ It is based on the [requests](https://docs.python-requests.org/en/latest/) libra
     - Implement the logic to generate the filters to use in the Solr queries
 
 ## Project Set Up
-* This is a Python project that uses Poetry to manage dependencies and virtual environments. It should be used as a 
+* This is a Python project that uses UV to manage dependencies and virtual environments. It should be used as a 
 dependency in other Python projects if you want to access the Solr server and search documents in it.
 
 To include this library in other Python projects, you can add it to your `pyproject.toml` file as follows:
 
 ```toml 
-[tool.poetry.dependencies]
-ht-utils = {path = "../../libs/common_lib"}
+[tool.uv.sources]
+ht-search = {workspace = true, editable = true}
+```
+and also as a dependency in the `dependencies` section of your `pyproject.toml` file:
+
+```toml
+dependencies = [
+"ht-search",
+]
 ```
 
 ### Installation
 
-1. Clone the repo
-   ``` git clone https://github.com/hathitrust/index_search_monorepo.git```
+To install the library, you can use the following command:
 
-2. Set up a development environment with poetry
-
-    - Install [Poetry](https://python-poetry.org/docs/#installation) if you haven't already.
-    - Navigate to the project directory:
-      ```bash
-      cd index_search_monorepo/libs/ht_search
-      ```
-    - Install the dependencies:
-      ```bash
-      poetry install
-      ```
-    - If you want to update the dependencies, you can use:
-      ```bash
-      poetry update
-      ```
+```bash
+uv install ht-search
+```
 
 ## Content Structure
 
@@ -95,7 +89,6 @@ The project is structured as follows:
 libs/ht_search
 ├── pyproject.toml
 ├── README.md
-├── poetry.lock
 ├── src
 │   └── ht_search
 │       ├── __init__.py

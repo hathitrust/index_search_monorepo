@@ -2,15 +2,12 @@ import copy
 import json
 import os
 import uuid
-import pytest
-
 from pathlib import Path
 
+import pytest
 from catalog_metadata.catalog_metadata import CatalogItemMetadata, CatalogRecordMetadata
-from ht_utils.ht_utils import get_solr_url
 from ht_queue_service.queue_config import QueueConfig
-
-from ht_utils.ht_utils import create_temporary_yaml_file
+from ht_utils.ht_utils import create_temporary_yaml_file, get_solr_url
 
 current = os.path.dirname(__file__)
 

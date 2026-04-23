@@ -5,16 +5,17 @@ import json
 import os
 import sys
 import time
-import requests
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+import requests
 from catalog_metadata.catalog_metadata import CatalogItemMetadata, CatalogRecordMetadata
+from document_retriever_service.retriever_arguments import RetrieverServiceArguments
+from document_retriever_service.retriever_services_utils import RetrieverServicesUtils
 from ht_indexer_api.ht_indexer_api import HTSolrAPI
 from ht_indexer_monitoring.ht_indexer_tracktable import (
     HT_INDEXER_TRACKTABLE,
     PROCESSING_STATUS_TABLE_NAME,
 )
-
 from ht_queue_service.queue_config import QueueParams
 from ht_queue_service.queue_connection import MAX_DOCUMENT_IN_QUEUE
 from ht_queue_service.queue_producer import QueueProducer
@@ -26,9 +27,6 @@ from ht_utils.ht_utils import (
     split_into_batches,
 )
 from ht_utils.query_maker import make_solr_term_query
-
-from document_retriever_service.retriever_arguments import RetrieverServiceArguments
-from document_retriever_service.retriever_services_utils import RetrieverServicesUtils
 
 logger = get_ht_logger(name=__name__)
 

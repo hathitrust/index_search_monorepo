@@ -1,16 +1,14 @@
 import time
 from pathlib import Path
+from unittest.mock import Mock
 
 import pytest
-
-
 from ht_indexer_monitoring.ht_indexer_tracktable import (
     PROCESSING_STATUS_TABLE_NAME,
     HTIndexerTrackData,
     HTIndexerTracktable,
 )
 
-from unittest.mock import Mock
 
 @pytest.fixture
 def mock_db_conn():

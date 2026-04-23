@@ -1,12 +1,13 @@
 import os
 import sys
 
-from . import indexer_config_file_path
 from config import config_queue_file_path
 from ht_indexer_api.ht_indexer_api import HTSolrAPI
 from ht_queue_service.queue_config import QueueConfig
 from ht_utils.ht_logger import get_ht_logger
 from ht_utils.ht_utils import get_general_error_message
+
+from . import indexer_config_file_path
 
 logger = get_ht_logger(name=__name__)
 

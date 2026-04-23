@@ -1,15 +1,17 @@
 """This use case is for testing and processing a huge list of documents extracted from the production environment."""
 import argparse
-import os
-import time
-import sys
 import inspect
+import os
+import sys
+import time
 
-from ht_document.ht_document import logger
-
-from document_retriever_service.full_text_search_retriever_service import FullTextSearchRetrieverQueueService, run_retriever_service_threads
+from document_retriever_service.full_text_search_retriever_service import (
+    FullTextSearchRetrieverQueueService,
+    run_retriever_service_threads,
+)
 from document_retriever_service.ht_status_retriever_service import get_non_processed_ids
 from document_retriever_service.retriever_arguments import RetrieverServiceByFileArguments
+from ht_document.ht_document import logger
 
 current = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 parent = os.path.dirname(current)

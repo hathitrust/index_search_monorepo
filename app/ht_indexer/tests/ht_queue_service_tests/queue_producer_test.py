@@ -3,7 +3,6 @@ import os
 from typing import Any
 
 import pytest
-
 from conftest import create_test_queue_config
 from ht_queue_service.queue_consumer import QueueConsumer
 from ht_queue_service.queue_producer import QueueProducer
