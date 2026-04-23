@@ -271,7 +271,7 @@ services:
       - "8000:8000"
     environment:
       <<: *env_common
-    command: [ "/workspace/.venv/bin/python", "-m", "src/ht_full_text_search/main.py", "--env",  "dev"]
+    command: [ "/workspace/.venv/bin/python", "-m", "ht_full_text_search.main", "--env",  "dev"]
   data_loader: # It is probably for this application I should create the image first
     container_name: data_loader
     profiles: [ solr-query, solr-query_tests ]
@@ -307,7 +307,7 @@ services:
       solr-lss-dev: *healthy
       data_loader:
         condition: service_completed_successfully
-###############################data_operations###############################
+###############################data_operations-MARC###############################
   data_operations:
       container_name: data_operations
       profiles: [ data-operations ]
@@ -319,9 +319,10 @@ services:
           ENV: dev
           APP_NAME: data-operations
           APP_DIR: data_operations
+          MODULE_NAME: metadata_extractor
       volumes:
-        - ./app/data_operations/src/metadata_extractor/data:/app/src/metadata_extractor/data:ro
-        - ./app/data_operations/src/metadata_extractor/output:/app/src/metadata_extractor/output
+        - ./app/data_operations/src/${MODULE_NAME}/data:/app/src/${MODULE_NAME}/data:ro
+        - ./app/data_operations/src/${MODULE_NAME}/output:/app/src/${MODULE_NAME}/output
       tty: true
       stdin_open: true
 ############ Volumes ## ############################

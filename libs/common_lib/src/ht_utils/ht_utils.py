@@ -5,6 +5,7 @@ import arrow
 
 from pathlib import Path
 from typing import Dict, Any
+from collections.abc import Iterable, Sequence
 
 from ht_utils.ht_logger import get_ht_logger
 import yaml
@@ -86,10 +87,9 @@ def get_error_message_by_document(service_name: str, e: Exception, doc: dict) ->
             'timestamp': get_current_time()
             }
 
-def split_into_batches(documents, batch_size):
-    """Split the list of documents into batches of given size."""
-    for i in range(0, len(documents), batch_size):
-        yield documents[i:i + batch_size]
+def split_into_batches(values: Sequence[str], chunk_size: int) -> Iterable[list[str]]:
+    for index in range(0, len(values), chunk_size):
+        yield list(values[index : index + chunk_size])
 
 def comma_separated_list(arg):
     return arg.split(",")
@@ -127,3 +127,20 @@ def create_temporary_yaml_file(data: Dict[str, Any]) -> str:
         tmp_path = tmp.name  # This is the path you can use
 
     return tmp_path
+
+def normalize_catalog_id_pad_zeros(id_value: str) -> str:
+    """
+    Pad the Catalog ID with leading zeros to ensure it is 9 characters long. If the ID is already 9 characters or longer,
+    it will be returned as is.
+    """
+    id_str = str(id_value).strip()
+
+    if not id_str:
+        raise ValueError("ID cannot be empty")
+
+    return id_str if len(id_str) >= 9 else id_str.zfill(9)
+
+def normalize_catalog_id_stripped_zeros(raw_id: str) -> str:
+    """use solr field id, stripped of leading '0's, as title_id for KBART export"""
+    stripped = raw_id.lstrip("0")
+    return stripped or "0"

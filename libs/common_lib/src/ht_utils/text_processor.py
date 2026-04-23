@@ -68,3 +68,29 @@ def create_solr_string(data_dic: dict) -> str:
             solr_doc.append(field_tag(key, value))
 
     return f"<add><doc>{nl.join(solr_doc)}</doc></add>"
+
+def ensure_text(value: object) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value.strip()
+    return str(value).strip()
+
+
+def first_value(value: object) -> str:
+    if isinstance(value, (list, tuple)):
+        for item in value:
+            text = ensure_text(item)
+            if text:
+                return text
+        return ""
+    return ensure_text(value)
+
+
+def list_values(value: object) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, (list, tuple)):
+        return [ensure_text(item) for item in value if ensure_text(item)]
+    text = ensure_text(value)
+    return [text] if text else []

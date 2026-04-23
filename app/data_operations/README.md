@@ -228,4 +228,27 @@ docker compose exec data_operations python src/metadata_extractor/metadata_gener
 - Generate the list of metadata for titles with markers indicating they are Dissertations and save it in a csv file. The file should be saved in the `data_operations/output/` directory.
 
 Use case 1: Create an script to generate a list of metadata for titles with markers indicating they are Dissertations
-  
+Use case 2: Create a tab-delimited file (tsv) in KBART format using the specs as outlined in the file 
+app/data_operations/src/kbart_file_generator/data/KBART_base_columns_and_instructions_for_each_Sheet1.tsv. 
+The KBART file should contain one row for each title that matches OSU’s print holdings, regardless of access status. 
+The script will extract the matching bib IDs from that report app/data_operations/src/kbart_file_generator/data/data file 
+(column catalog_id)
+and then will query solr and/or hathifiles to pull the necessary metadata to populate the KBART file. 
+The script should be able to handle a large number of bib IDs and should be able to run efficiently. 
+The script should also be able to handle any errors that may occur during the data retrieval process and 
+should log any errors for later review. 
+The final output should be a tab-delimited file that can be easily imported into a spreadsheet or database for further analysis.
+
+Run the KBART generator locally with:
+
+```bash
+uv run python src/kbart_file_generator/kbart_file_generator.py \
+  -f src/kbart_file_generator/data/data \
+  -o src/kbart_file_generator/output/kbart_print_holdings.tsv \
+  -m src/kbart_file_generator/output/kbart_print_holdings.metadata.json \
+  -e src/kbart_file_generator/output/kbart_print_holdings.errors.tsv
+```
+
+The main TSV is written to `src/kbart_file_generator/output/kbart_print_holdings.tsv`.
+The metadata summary sidecar is written to `src/kbart_file_generator/output/kbart_print_holdings.metadata.json`.
+Any skipped `catalog_id` values and lookup failures are written to `src/kbart_file_generator/output/kbart_print_holdings.errors.tsv`.
