@@ -2,16 +2,16 @@
 
 import argparse
 import csv
-import gzip
 import json
 import re
-from collections.abc import Iterable, Iterator, Sequence
+from collections.abc import Iterable, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 
 from ht_utils.ht_logger import get_ht_logger
-from ht_utils.ht_marc_json_reader import MarcJsonReader, dict_to_pymarc_record
 from pymarc import Record
+
+from ht_utils.ht_marc_json_reader import iter_marc_records, extract_control_number
 
 logger = get_ht_logger(name=__name__)
 
@@ -51,25 +51,6 @@ def parse_args() -> argparse.Namespace:
         help="The institution identifier to filter records by (e.g., 'MIU' for University of Michigan). Records will be included if they have this identifier in the 974$b subfield.",
     )
     return parser.parse_args()
-
-
-def iter_marc_records(path: Path) -> Iterator[Record]:
-    """
-    The Zephir export is newline-delimited JSON with one MARC record per line, gzipped.
-    This function reads the gz file line by line via the helper class MarcJsonReader and iterates over MARC records
-    from a Zephir MARC JSON export.
-    MarcJsonReader already strips blank lines, skips malformed JSON, and yields one Record per line.
-    """
-    if not path.exists():
-        raise FileNotFoundError(f"Cannot find Zephir export at {path}")
-    # MarcJsonReader expects a text file-like object, so we open the gzipped file in text mode (rt) with UTF-8 encoding.
-    with gzip.open(path, "rt", encoding="utf-8", errors="ignore") as fh:
-
-        for record in MarcJsonReader(fh):
-            if record is None:
-                logger.warning("Skipped malformed MARC JSON record while iterating %s", path)
-                continue
-            yield dict_to_pymarc_record(record)
 
 def keyword_text(record: Record) -> str:
 
@@ -176,23 +157,6 @@ def collect_subjects(record: Record) -> list[str]:
         for field in record.get_fields(tag):
             subjects.extend(field.get_subfields("a"))
     return [subject.strip() for subject in subjects if subject and subject.strip()]
-
-def extract_control_number(record: Record) -> str:
-    """
-    Extracts the unique identifier assigned to the MARC record.
-
-    Parameters:
-    record (Record): The record object from which the control number is extracted.
-
-    Returns:
-    str: The extracted control number as a string, or an empty string if the field
-    is not present.
-    """
-    field = record.get_fields("001")
-    if field:
-        return field[0].value()
-    return ""
-
 
 def extract_publication_year(record: Record) -> str:
     """
