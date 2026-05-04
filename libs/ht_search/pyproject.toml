@@ -22,7 +22,9 @@ dependencies = [
 
 
 [dependency-groups]
-dev = []
+dev = [
+    "pytest>=9,<10",
+]
 
 [tool.pytest.ini_options]
 minversion = "6.0"
@@ -35,6 +37,5 @@ default-groups = "all"
 
 # Adding local sources to link the application to the shared libraries in the monorepo.
 [tool.uv.sources]
-ht-search = {workspace = true, editable = true}
 
 

@@ -222,7 +222,7 @@ See instructions to install uv in the [official documentation](https://docs.astr
 
   In your workdir,
     * Go to an application: `cd app/ht_indexer`
-    * `uv synch` # It will install the dependencies of the project and create a virtual environment for the project
+    * `uv sync` # It will install the dependencies of the project and create a virtual environment for the project
     * `uv run pytest app/ht_indexer -v`  It will run the tests of the project using the virtual environment created
     * Use `uv build` to build the project and create a wheel file in the dist/ directory.
 
@@ -251,6 +251,9 @@ To use the monorepo, follow these steps:
 ```
    make test APP_NAME=ht-indexer
 ```
+
+Use the command `uv run pytest libs/common_lib/tests/ht_utils_test.py` if you want to run specific tests in your local 
+environment.
 
 ### Creating A Pull Request
 

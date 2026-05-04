@@ -12,7 +12,8 @@ FULL_TEXT_SOLR_URL = {
 }
 
 CATALOG_SOLR_URL = {
-    "dev": "http://localhost:8983"
+    "dev": "http://localhost:9033",
+    "prod": "http://localhost:9033"
 }
 
 FULL_TEXT_SEARCH_SHARDS_X = ','.join([f"http://solr-sdr-search-{i}:8081/solr/core-{i}x" for i in range(1, 12)])
