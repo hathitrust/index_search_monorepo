@@ -247,6 +247,8 @@ make up APP_NAME=data-operations
 
 docker compose exec data_operations python src/metadata_extractor/metadata_generator.py -i src/metadata_extractor/data/zephir_upd_20260401.json.gz -o src/metadata_extractor/output/yy.csv
 
+docker compose exec data_operations /workspace/.venv/bin/python src/metadata_extractor/report_generation.py -f src/metadata_extractor/data/zephir_full_20260430_vufind.json.gz -o src/metadata_extractor/output/language_report.tsv -m src/metadata_extractor/output/iso639_language_report.metadata.json --iso6395-file src/metadata_extractor/data/iso639-5.tsv
+
 # Run tests using the command below. 
 docker compose exec data_operations /workspace/.venv/bin/python -m pytest
 

@@ -240,9 +240,6 @@ def match_record(record: Record, iso6395_codes: set[str]) -> dict[str, str] | No
     if not matched_codes or not matched_set_types:
         return None
 
-    if len(matched_codes) > 1:
-        print(matched_set_types)
-
     return build_report_row(
         record,
         matched_codes=matched_codes,
