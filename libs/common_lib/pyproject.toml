@@ -3,7 +3,7 @@ name = "ht-utils"
 version = "0.2.0"
 description = "Python utilities for HathiTrust indexing and searching"
 authors = [{ name = "lisepul", email = "lisepul@umich.edu" }]
-requires-python = ">=3.11,<3.14"
+requires-python = ">=3.14"
 readme = "README.md"
 classifiers = [
     "Programming Language :: Python :: 3.14",
