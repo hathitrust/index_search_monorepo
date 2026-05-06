@@ -95,13 +95,12 @@ def get_specific_institution_records(record: Record, institution_id: str = "MIU"
         returns False.
     """
 
-    belong_institution = False
+    normalized_institution_id = institution_id.strip().casefold()
     for field in record.get_fields("974"):
         for sub in field.get_subfields("b"):
-            if institution_id == sub:
-                belong_institution = True
-                return belong_institution
-    return belong_institution
+            if normalized_institution_id == sub.strip().casefold():
+                return True
+    return False
 
 
 def record_matches(record: Record, keywords: Sequence[str]) -> bool:

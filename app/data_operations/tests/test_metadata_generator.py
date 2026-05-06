@@ -24,6 +24,7 @@ SAMPLE_RECORD = {
         {"260": {"subfields": [{"c": "2022"}]}},
         {"650": {"subfields": [{"a": "History"}]}},
         {"500": {"subfields": [{"a": "Dissertation Title"}]}},
+        {"974": {"subfields": [{"b": "MiU"}]}},
     ],
 }
 
@@ -84,9 +85,10 @@ def test_extract_identifiers() -> None:
 
 def test_generate_dissertation_rows(tmp_path: Path) -> None:
     gzipped = tmp_path / "sample.json.gz"
+
     write_sample(gzipped, [SAMPLE_RECORD, NON_DISSERTATION_RECORD])
-    rows = list(generate_dissertation_rows(gzipped))
-    print(rows)
+    rows = list(generate_dissertation_rows(gzipped, institution_id="MIU"))
+
     assert len(rows) == 1
     row = rows[0]
     assert row["title"] == "Dissertation Title"
