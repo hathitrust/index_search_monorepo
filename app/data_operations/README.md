@@ -237,13 +237,19 @@ python metadata_generator.py -i ~/data_operations/src/data/zephir_upd_20260329.j
 Run in docker environment:
 ```bash
 # Build the Docker image
-make build
+make build APP_NAME=data-operations APP_DIR=data_operations  
 # Create the Docker container and set up the environment variables
-make run
+
+make up APP_NAME=data-operations
+
 # Run the script inside the container. The `docker-compose` now mounts `src/metadata_extractor/data` and `src/metadata_extractor/output`,
 # so you can edit the Zephir export on your host machine and read the generated CSV without copying files out of the container.
 
 docker compose exec data_operations python src/metadata_extractor/metadata_generator.py -i src/metadata_extractor/data/zephir_upd_20260401.json.gz -o src/metadata_extractor/output/yy.csv
+
+# Run tests using the command below. 
+docker compose exec data_operations /workspace/.venv/bin/python -m pytest
+
 ```
 
 **Phase 1**
