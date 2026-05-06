@@ -2,13 +2,15 @@ import os
 import sys
 import tempfile
 import arrow
+import csv
+import json
+import yaml
 
 from pathlib import Path
 from typing import Dict, Any
 from collections.abc import Iterable, Sequence
 
 from ht_utils.ht_logger import get_ht_logger
-import yaml
 
 logger = get_ht_logger(name=__name__)
 
@@ -144,3 +146,26 @@ def normalize_catalog_id_stripped_zeros(raw_id: str) -> str:
     """use solr field id, stripped of leading '0's, as title_id for KBART export"""
     stripped = raw_id.lstrip("0")
     return stripped or "0"
+
+def write_tsv(rows: Iterable[dict[str, str]], path: Path, columns_name:Sequence[str]) -> tuple[Path, int]:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    written_rows = 0
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=columns_name, delimiter="\t")
+        writer.writeheader()
+        for row in rows:
+            writer.writerow({field: row.get(field, "") for field in columns_name})
+            written_rows += 1
+    return path, written_rows
+
+def write_metadata_summary(path_file: Path, data:  dict[str, Any]) -> Path:
+    """
+    Function use by data_opperations to write the metadata summary file,
+    it receives a dictionary with the data to write and the path where to write the file,
+    it creates the file and writes the data in json format
+    """
+
+    path_file.parent.mkdir(parents=True, exist_ok=True)
+
+    path_file.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    return path_file

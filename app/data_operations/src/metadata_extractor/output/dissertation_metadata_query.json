@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-04-17T23:05:29.739749+00:00",
-  "input_file": "/Users/lisepul/Documents/repositories/python/index_search_monorepo/app/data_operations/src/metadata_extractor/data/zephir_full_20260331_vufind.json.gz",
+  "generated_at": "2026-05-06T21:08:25.716614+00:00",
+  "input_file": "/Users/lisepul/Documents/repositories/python/index_search_monorepo/app/data_operations/src/metadata_extractor/data/zephir_full_20260430_vufind.json.gz",
   "output_file": "/Users/lisepul/Documents/repositories/python/index_search_monorepo/app/data_operations/src/metadata_extractor/output/full_dissertation_metadata_MUI.csv",
   "keywords": [
     "dissertation",

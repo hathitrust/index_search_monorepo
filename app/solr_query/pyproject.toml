@@ -3,7 +3,7 @@ name = "solr-query"
 version = "0.1.0"
 description = "Package for search in Solr"
 authors = [{ name = "lisepul", email = "lisepul@umich.edu" }]
-requires-python = ">=3.14"
+requires-python = ">=3.11,<3.14"
 readme = "README.md"
 keywords = [
     "solr",

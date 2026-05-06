@@ -57,14 +57,29 @@ def test_record_matches_detects_dissertation_keywords() -> None:
 def test_extract_identifiers() -> None:
 
     record = Record()
-    record.add_field(Field(tag="035", indicators=[" ", " "], subfields=[Subfield(code="a", value="(ProQuest)disstheses AAI999")]))  # type: ignore[no-untyped-call,arg-type]
-    record.add_field(Field(tag="502", indicators=[" ", " "], subfields=[Subfield(code="o", value="AAI8999")]))  # type: ignore[no-untyped-call,arg-type]
-    record.add_field(Field(tag="035", indicators=[" ", " "], subfields=[Subfield(code="a", value="(MiU)990027275210106381")]))  # type: ignore[no-untyped-call,arg-type]
+    record.add_field(
+        Field(
+            tag="035",
+            indicators=[" ", " "],
+            subfields=[Subfield(code="a", value="(ProQuest)disstheses AAI999")],
+        )
+    )  # type: ignore[no-untyped-call,arg-type]
+    record.add_field(
+        Field(tag="502", indicators=[" ", " "], subfields=[Subfield(code="o", value="AAI8999")])
+    )  # type: ignore[no-untyped-call,arg-type]
+    record.add_field(
+        Field(
+            tag="035",
+            indicators=[" ", " "],
+            subfields=[Subfield(code="a", value="(MiU)990027275210106381")],
+        )
+    )  # type: ignore[no-untyped-call,arg-type]
 
     identifiers = extract_identifiers(record)
     assert "(ProQuest)disstheses AAI999" in identifiers
     assert "AAI8999" in identifiers
     assert "(MiU)990027275210106381" in identifiers
+
 
 def test_generate_dissertation_rows(tmp_path: Path) -> None:
     gzipped = tmp_path / "sample.json.gz"

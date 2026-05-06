@@ -198,6 +198,31 @@ The JSON serialization supports UTF-8 character encoding, so you do not deal wit
   - e.g. 264 #1$aNew York :$bPenguin,$c2020. 
          264 #4$c©2019
 
+### MARC fields used to identify language and rights per record:
+
+- 008: It is a fixed-length control field that contains coded information about the bibliographic record
+  - It does not use subfields
+  - It always has 40 characters and each character position has a predefined meaning.
+  - There's a general structure but the interpretation of each position depends on the type of material 
+  (book, maps, serials, etc.)
+  - Position 35–37 is the Language (3-letter code)
+  - e.g. 008 001129s2001 xxu f000 0 eng d -> language = eng
+
+- 041: is the Language Code field. It provides detailed information about the languages associated with 
+the content of a resource—more precise than what you get from the 008 field
+  - This field is used when  a resource contains multiple languages or there are translations or you want to 
+  distinguish between the original language and the language of the text.
+  - First indicator:
+    - 0 → Item is not a translation
+    - 1 → Item is a translation
+  - Second indicator:
+    - Usually blank (#)
+  - $a -> Language of the text
+  - $b -> Language of summaries or abstracts
+  - e.g. multiple language 041 0# $a eng $a fre $a ger
+
+Check here for guidelines for the use of ISO 639-3 languages codes in MARC records
+
 ## Usage
 
 Run it locally:
@@ -238,6 +263,15 @@ The script should be able to handle a large number of bib IDs and should be able
 The script should also be able to handle any errors that may occur during the data retrieval process and 
 should log any errors for later review. 
 The final output should be a tab-delimited file that can be easily imported into a spreadsheet or database for further analysis.
+Use case 3: Generate ISO 639-3 and ISO 639-5 language report from Zephir marc export
+- Running `app/data_operations/src/metadata_extractor/report_generation.py` against a Zephir MARC export to produces a 
+TSV report containing only `pd` and `pdus` titles that satisfy either the ISO 639-5 or ISO 639-3 criteria.
+- Set 1 matches are driven only by codes listed in `app/data_operations/src/metadata_extractor/data/iso639-5.tsv`, 
+not by generic three-letter MARC language-code matching.
+- Set 2 matches require `041` second indicator `7` and `$2 iso639-3`.
+- Output rows include the requested title identifier, title, OCLC number, matched code, 041 value, 546 value where 
+relevant, and rights code, with exactly one row per record.
+- Automated tests cover both language sets, rights filtering, overlap handling, and TSV output shape.
 
 Run the KBART generator locally with:
 
@@ -252,3 +286,13 @@ uv run python src/kbart_file_generator/kbart_file_generator.py \
 The main TSV is written to `src/kbart_file_generator/output/kbart_print_holdings.tsv`.
 The metadata summary sidecar is written to `src/kbart_file_generator/output/kbart_print_holdings.metadata.json`.
 Any skipped `catalog_id` values and lookup failures are written to `src/kbart_file_generator/output/kbart_print_holdings.errors.tsv`.
+
+Run the language report generator locally with:
+
+```bash
+uv run python src/metadata_extractor/report_generation.py \
+  -f src/metadata_extractor/data/zephir_full_20260430_vufind.json.gz \
+  -o src/metadata_extractor/output/language_report.tsv \
+  -m src/metadata_extractor/output/iso639_language_report.metadata.json \
+  --iso6395-file src/metadata_extractor/data/iso639-5.tsv
+``` 

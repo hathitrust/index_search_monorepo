@@ -11,12 +11,13 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from ht_utils.ht_logger import get_ht_logger
+from ht_utils.ht_marc_json_reader import extract_control_number, iter_marc_records
+from ht_utils.ht_utils import write_metadata_summary, write_tsv
 from pymarc import Field, Record
-from ht_utils.ht_marc_json_reader import iter_marc_records, extract_control_number
 
 logger = get_ht_logger(name=__name__)
 
-DEFAULT_INPUT_FILE = Path(__file__).parent / "data" / "zephir_full_20260331_vufind.json.gz"
+DEFAULT_INPUT_FILE = Path(__file__).parent / "data" / "zephir_full_20260430_vufind.json.gz"
 DEFAULT_OUTPUT_FILE = Path(__file__).parent / "output" / "iso639_language_report.tsv"
 DEFAULT_METADATA_FILE = Path(__file__).parent / "output" / "iso639_language_report.metadata.json"
 # I am using this file to match the language code
@@ -38,7 +39,9 @@ ISO6393_SOURCE = "iso639-3"
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Generate an ISO 639 language report from Zephir MARC JSON.")
+    parser = argparse.ArgumentParser(
+        description="Generate an ISO 639 language report from Zephir MARC JSON."
+    )
     parser.add_argument(
         "--input-file",
         "-f",
@@ -81,7 +84,6 @@ def load_iso6395_codes(path: Path) -> set[str]:
         # Load the language code to compare with the MARC language codes.
         codes = {(row.get("code") or "").strip().lower() for row in reader}
 
-
     return codes
 
 
@@ -95,7 +97,10 @@ def unique_preserve_order(values: Iterable[str]) -> list[str]:
 
 
 def extract_rights_code(record: Record) -> str:
+    """Extract the rights code from a MARC record as a string.
     # =974  \\$bMIU$cMIU$d20260228$sgoogle$umdp.39015006324142$zv.2$y1968$rpdus$qgfv
+    """
+
     for field in record.get_fields("974"):
         for value in field.get_subfields("r"):
             normalized = value.strip().lower()
@@ -121,6 +126,9 @@ def extract_oclc_number(record: Record) -> str:
 
 
 def extract_008_language_code(record: Record) -> str:
+    """
+    Extract the language code from a MARC record as a string.
+    """
     field_008 = record.get_fields("008")
     if not field_008:
         return ""
@@ -132,19 +140,30 @@ def extract_008_language_code(record: Record) -> str:
 
 
 def get_041_codes(field: Field) -> list[str]:
-    # 041	1	⊔	‡aeng ‡hpol
+    """
+
+    Retrieve all the language codes from a MARC record as a list.
+
+    Example:
+    041	1	⊔	‡aeng ‡hpol
+    041 1# $a eng $a fre $h ger $b eng
+
+    """
     return unique_preserve_order(value.strip().lower() for value in field.get_subfields("a"))
 
 
 def is_iso6393_field(field: Field) -> bool:
-
     """
     set 2: ISO 639-3
-    Criteria: 041$a with a code from ISO 639-3. This will be indicated by a 2nd ind = 7 and $2 iso639-3. Only pd or pdus titles should be included.
+    Criteria: 041$a with a code from ISO 639-3. This will be indicated by a 2nd ind = 7 and $2 iso639-3.
+
+    Example: 041 07 $a fra $a gsl $2 iso639-3 (Used to show the record includes French and a specific, less common language identified via ISO 639-3)
 
     """
-
-    return ""
+    indicators = getattr(field, "indicators", None) or [" ", " "]
+    if len(indicators) < 2 or indicators[1] != "7":
+        return False
+    return any(value.strip().lower() == ISO6393_SOURCE for value in field.get_subfields("2"))
 
 
 def format_fields(fields: Sequence[Field]) -> str:
@@ -185,6 +204,7 @@ def match_record(record: Record, iso6395_codes: set[str]) -> dict[str, str] | No
     # set 1: ISO 639-5
     # TODO: I can create a function for each set
     code_008 = extract_008_language_code(record)
+
     if code_008 and code_008 in iso6395_codes:
         matched_codes.append(code_008)
         matched_set_types.append("iso639-5")
@@ -193,7 +213,10 @@ def match_record(record: Record, iso6395_codes: set[str]) -> dict[str, str] | No
     for field in record.get_fields("041"):
         field_codes = get_041_codes(field)
 
+        # Check if the language code match with the list of codes given as input
         iso6395_matches = [code for code in field_codes if code in iso6395_codes]
+
+        # Add all the languages that appear in the record.
         if iso6395_matches:
             matched_codes.extend(iso6395_matches)
             matched_set_types.append("iso639-5")
@@ -204,14 +227,21 @@ def match_record(record: Record, iso6395_codes: set[str]) -> dict[str, str] | No
         if is_iso6393_field(field) and field_codes:
             matched_codes.extend(field_codes)
             matched_set_types.append("iso639-3")
-            relevant_041_fields.append(field)
+            relevant_041_fields.append(field)  # e.g. [=041  \7$adeu$aeng$afra$2iso639-3]
 
     matched_codes = unique_preserve_order(matched_codes)
     matched_set_types = unique_preserve_order(matched_set_types)
-    relevant_041_fields = [field for index, field in enumerate(relevant_041_fields) if field not in relevant_041_fields[:index]]
+    relevant_041_fields = [
+        field
+        for index, field in enumerate(relevant_041_fields)
+        if field not in relevant_041_fields[:index]
+    ]
 
     if not matched_codes or not matched_set_types:
         return None
+
+    if len(matched_codes) > 1:
+        print(matched_set_types)
 
     return build_report_row(
         record,
@@ -224,22 +254,12 @@ def match_record(record: Record, iso6395_codes: set[str]) -> dict[str, str] | No
 
 
 def generate_relevant_rows(path: Path, iso6395_codes: set[str]) -> Iterable[dict[str, str]]:
+    # Iterate for each record
     for record in iter_marc_records(path):
+        # Look for the record that meet the input criteria
         row = match_record(record, iso6395_codes)
         if row is not None:
             yield row
-
-
-def write_tsv(rows: Iterable[dict[str, str]], path: Path) -> tuple[Path, int]:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    written_rows = 0
-    with path.open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=OUTPUT_COLUMNS, delimiter="\t")
-        writer.writeheader()
-        for row in rows:
-            writer.writerow({field: row.get(field, "") for field in OUTPUT_COLUMNS})
-            written_rows += 1
-    return path, written_rows
 
 
 def write_metadata_document(
@@ -288,14 +308,37 @@ def main() -> None:
     rows_path, written_rows = write_tsv(
         generate_relevant_rows(args.input_file, iso6395_codes),
         args.output_file,
+        columns_name=OUTPUT_COLUMNS,
     )
-    write_metadata_document(
-        args.metadata_file,
-        input_file=args.input_file,
-        output_file=rows_path,
-        iso6395_file=args.iso6395_file,
-        written_rows=written_rows,
-    )
+
+    metadata_summary = {
+        "generated_at": datetime.now(UTC).isoformat(),
+        "input_file": str(args.input_file),
+        "output_file": str(rows_path),
+        "iso6395_file": str(args.iso6395_file),
+        "written_rows": written_rows,
+        "column_order": OUTPUT_COLUMNS,
+        "set_1": {
+            "name": "iso639-5",
+            "criteria": "008/35-37 or 041$a contains a code from iso639-5.tsv, with 974$r in {pd, pdus}",
+            "include_546_when_present": True,
+        },
+        "set_2": {
+            "name": "iso639-3",
+            "criteria": "041 second indicator is 7, 041$2 is iso639-3, and 041$a is present, with 974$r in {pd, pdus}",
+            "include_546_when_present": False,
+        },
+        "row_shape": "one row per record",
+        "multiple_match_handling": {
+            "matched_code": "semicolon-separated unique codes in first-seen order",
+            "set_type": "semicolon-separated unique set labels in first-seen order",
+            "field_041": "pipe-separated unique rendered 041 fields in first-seen order",
+        },
+        "rights_source": "974$r",
+    }
+
+    write_metadata_summary(args.metadata_file, metadata_summary)
+
     logger.info("Generated %d language-report rows at %s", written_rows, rows_path)
 
 
