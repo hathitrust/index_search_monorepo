@@ -8,7 +8,7 @@ import csv
 import json
 import multiprocessing
 import os
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from datetime import UTC, datetime
 from pathlib import Path
@@ -23,6 +23,8 @@ from ht_utils.ht_utils import (
     normalize_catalog_id_pad_zeros,
     normalize_catalog_id_stripped_zeros,
     split_into_batches,
+    write_metadata_summary,
+    write_tsv,
 )
 from ht_utils.query_maker import make_solr_term_query
 from ht_utils.text_processor import first_value, list_values
@@ -67,10 +69,15 @@ SOLR_FIELDS = [
     "oclc",
 ]
 
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Generate a KBART TSV from a holdings report.")
-    parser.add_argument("--input-file", "-f", type=Path, default=DEFAULT_INPUT_FILE, help="Input holdings TSV path.")
-    parser.add_argument("--output-file", "-o", type=Path, default=DEFAULT_OUTPUT_FILE, help="Output KBART TSV path.")
+    parser.add_argument(
+        "--input-file", "-f", type=Path, default=DEFAULT_INPUT_FILE, help="Input holdings TSV path."
+    )
+    parser.add_argument(
+        "--output-file", "-o", type=Path, default=DEFAULT_OUTPUT_FILE, help="Output KBART TSV path."
+    )
     parser.add_argument(
         "--metadata-file",
         "-m",
@@ -91,10 +98,12 @@ def parse_args() -> argparse.Namespace:
         default=DEFAULT_BATCH_SIZE,
         help="Maximum number of catalog_ids to include per Solr request.",
     )
-    parser.add_argument("--env", default=os.environ.get("HT_ENVIRONMENT", "dev"), help="Lookup environment.")
+    parser.add_argument(
+        "--env", default=os.environ.get("HT_ENVIRONMENT", "dev"), help="Lookup environment."
+    )
     parser.add_argument(
         "--solr-url",
-        default = os.environ.get("SOLR_URL"),
+        default=os.environ.get("SOLR_URL"),
         help="Override Solr base URL, e.g. http://localhost:8983/solr/catalog.",
     )
     return parser.parse_args()
@@ -116,6 +125,7 @@ def read_catalog_ids(path: Path) -> list[str]:
                 ordered_catalog_ids.setdefault(catalog_id, None)
     return list(ordered_catalog_ids)
 
+
 def filter_out_dates(value: str) -> str:
     """
     date_first_issue_online and date_last_issue_online, are not populate if the value
@@ -127,12 +137,14 @@ def filter_out_dates(value: str) -> str:
     else:
         return value
 
+
 def check_bib_fmt_field(title_dates: Mapping[str, object]) -> str:
 
     if first_value((title_dates or {}).get("bib_fmt")) != "SE":
         return ""
     else:
         return filter_out_dates(first_value((title_dates or {}).get("date_last_issue_online")))
+
 
 def build_kbart_row(
     metadata: Mapping[str, object],
@@ -152,7 +164,9 @@ def build_kbart_row(
         # value of solr isbn or issn.  Where multiple values, select only first value
         "print_identifier": first_value(identifiers),
         "online_identifier": "",
-        "date_first_issue_online": filter_out_dates(first_value((title_dates or {}).get("date_first_issue_online"))),
+        "date_first_issue_online": filter_out_dates(
+            first_value((title_dates or {}).get("date_first_issue_online"))
+        ),
         "num_first_vol_online": "",
         "num_first_issue_online": "",
         "date_last_issue_online": check_bib_fmt_field(title_dates),
@@ -168,13 +182,13 @@ def build_kbart_row(
         "oclc_number": oclc_number,
     }
 
+
 def fetch_title_dates_from_mysql_batch(
     batch: Sequence[str],
     db_conn: HtMysql,
 ) -> dict[str, dict[str, object]]:
     if not batch:
         return {}
-
 
     bind_names = [f"bib_num_{index}" for index, _ in enumerate(batch)]
     params = {bind_name: bib_num for bind_name, bib_num in zip(bind_names, batch, strict=False)}
@@ -216,7 +230,7 @@ def fetch_title_metadata_from_solr_batch(
         raw_auth = f"{os.environ['SOLR_USER']}:{os.environ['SOLR_PASSWORD']}".encode()
         headers["Authorization"] = f"Basic {base64.b64encode(raw_auth).decode('ascii')}"
 
-    normalized_batch = [ normalize_catalog_id_pad_zeros(catalog_id) for catalog_id in batch]
+    normalized_batch = [normalize_catalog_id_pad_zeros(catalog_id) for catalog_id in batch]
 
     params.update({"fq": make_solr_term_query(normalized_batch, "record")})
     request = Request(
@@ -229,7 +243,9 @@ def fetch_title_metadata_from_solr_batch(
         with urlopen(request, timeout=30) as response:
             payload = json.load(response)
     except HTTPError as exc:
-        raise RuntimeError(f"Solr query failed with HTTP {exc.code} for batch {list(batch)}") from exc
+        raise RuntimeError(
+            f"Solr query failed with HTTP {exc.code} for batch {list(batch)}"
+        ) from exc
     except URLError as exc:
         raise RuntimeError(f"Could not reach Solr at {query_url}") from exc
 
@@ -263,14 +279,14 @@ def fetch_lookup_results_in_parallel(
         for batch in id_batches:
             logger.info("Processing batch: %s", len(batch))
             future_to_source[executor.submit(fetch_title_metadata_from_solr_batch, batch)] = "solr"
-            future_to_source[executor.submit(fetch_title_dates_from_mysql_batch, batch, db_conn)] = "mysql"
+            future_to_source[
+                executor.submit(fetch_title_dates_from_mysql_batch, batch, db_conn)
+            ] = "mysql"
 
         try:
             for future in as_completed(future_to_source):
                 source = future_to_source[future]
-                batch_results = {
-                    key: dict(value) for key, value in future.result().items()
-                }
+                batch_results = {key: dict(value) for key, value in future.result().items()}
                 if source == "solr":
                     metadata_by_id.update(batch_results)
                 else:
@@ -280,19 +296,13 @@ def fetch_lookup_results_in_parallel(
                 pending_future.cancel()
             raise
 
-    logger.info("Parallel process: Extracted %d metadata from Solr and %d metadata from MySQL", len(metadata_by_id), len(date_by_id))
+    logger.info(
+        "Parallel process: Extracted %d metadata from Solr and %d metadata from MySQL",
+        len(metadata_by_id),
+        len(date_by_id),
+    )
 
     return metadata_by_id, date_by_id
-
-
-def write_kbart_tsv(rows: Iterable[dict[str, str]], path: Path) -> Path:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=KBART_COLUMN_ORDER, delimiter="\t")
-        writer.writeheader()
-        for row in rows:
-            writer.writerow({field: row.get(field, "") for field in KBART_COLUMN_ORDER})
-    return path
 
 
 def write_error_report(path: Path, errors: Sequence[dict[str, str]]) -> Path:
@@ -301,32 +311,9 @@ def write_error_report(path: Path, errors: Sequence[dict[str, str]]) -> Path:
         writer = csv.DictWriter(handle, fieldnames=["catalog_id", "reason"], delimiter="\t")
         writer.writeheader()
         for error in errors:
-            writer.writerow({"catalog_id": error.get("catalog_id", ""), "reason": error.get("reason", "")})
-    return path
-
-
-def write_metadata_summary(
-    path: Path,
-    *,
-    input_file: Path,
-    output_file: Path,
-    error_file: Path,
-    processed_ids: int,
-    written_rows: int,
-    skipped_rows: int,
-) -> Path:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    payload = {
-        "generated_at": datetime.now(UTC).isoformat(),
-        "input_file": str(input_file),
-        "output_file": str(output_file),
-        "error_file": str(error_file),
-        "processed_catalog_ids": processed_ids,
-        "written_rows": written_rows,
-        "skipped_rows": skipped_rows,
-        "column_order": KBART_COLUMN_ORDER,
-    }
-    path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+            writer.writerow(
+                {"catalog_id": error.get("catalog_id", ""), "reason": error.get("reason", "")}
+            )
     return path
 
 
@@ -335,9 +322,15 @@ def generate_kbart_rows(
     *,
     batch_size: int = DEFAULT_BATCH_SIZE,
 ) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
-    metadata_by_id, date_by_id = fetch_lookup_results_in_parallel(catalog_ids, batch_size=batch_size)
+    metadata_by_id, date_by_id = fetch_lookup_results_in_parallel(
+        catalog_ids, batch_size=batch_size
+    )
 
-    logger.info("Extracted %d metadata from Solr and %d metadata from MySQL", len(metadata_by_id), len(date_by_id))
+    logger.info(
+        "Extracted %d metadata from Solr and %d metadata from MySQL",
+        len(metadata_by_id),
+        len(date_by_id),
+    )
 
     rows: list[dict[str, str]] = []
     errors: list[dict[str, str]] = []
@@ -372,17 +365,21 @@ def generate_kbart_export(
         batch_size=batch_size,
     )
 
-    write_kbart_tsv(rows, output_file)
+    rows_path, written_rows = write_tsv(rows, output_file, columns_name=KBART_COLUMN_ORDER)
     write_error_report(error_file, errors)
-    write_metadata_summary(
-        metadata_file,
-        input_file=input_file,
-        output_file=output_file,
-        error_file=error_file,
-        processed_ids=len(catalog_ids),
-        written_rows=len(rows),
-        skipped_rows=len(errors),
-    )
+
+    metadata_summary = {
+        "generated_at": datetime.now(UTC).isoformat(),
+        "input_file": str(input_file),
+        "output_file": str(output_file),
+        "error_file": str(error_file),
+        "processed_catalog_ids": len(catalog_ids),
+        "written_rows": written_rows,
+        "skipped_rows": len(errors),
+        "column_order": KBART_COLUMN_ORDER,
+    }
+
+    write_metadata_summary(metadata_file, metadata_summary)
     return len(rows), errors
 
 
@@ -395,7 +392,6 @@ def main() -> None:
         args.metadata_file,
         args.error_file,
         batch_size=args.batch_size,
-
     )
     logger.info("Generated %d KBART rows", written_rows)
     if errors:

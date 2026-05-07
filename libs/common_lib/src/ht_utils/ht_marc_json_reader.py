@@ -1,8 +1,12 @@
+import gzip
 import json
 
+from pathlib import Path
 from typing import IO, Iterator, Dict, Any
 from pymarc import Record, Field, Subfield
+from ht_utils.ht_logger import get_ht_logger
 
+logger = get_ht_logger(name=__name__)
 
 class MarcJsonReader:
     '''Class to read multiple newline delimited JSON files
@@ -78,3 +82,37 @@ def dict_to_pymarc_record(data: dict) -> Record:
         record.add_field(field)
 
     return record
+
+def iter_marc_records(path: Path) -> Iterator[Record]:
+    """
+    The Zephir export is newline-delimited JSON with one MARC record per line, gzipped.
+    This function reads the gz file line by line via the helper class MarcJsonReader and iterates over MARC records
+    from a Zephir MARC JSON export.
+    MarcJsonReader already strips blank lines, skips malformed JSON, and yields one Record per line.
+    """
+    if not path.exists():
+        raise FileNotFoundError(f"Cannot find Zephir export at {path}")
+    # MarcJsonReader expects a text file-like object, so we open the gzipped file in text mode (rt) with UTF-8 encoding.
+    with gzip.open(path, "rt", encoding="utf-8", errors="ignore") as fh:
+
+        for record in MarcJsonReader(fh):
+            if record is None:
+                logger.warning("Skipped malformed MARC JSON record while iterating %s", path)
+                continue
+            yield dict_to_pymarc_record(record)
+
+def extract_control_number(record: Record) -> str:
+    """
+    Extracts the unique identifier assigned to the MARC record.
+
+    Parameters:
+    record (Record): The record object from which the control number is extracted.
+
+    Returns:
+    str: The extracted control number as a string, or an empty string if the field
+    is not present.
+    """
+    field = record.get_fields("001")
+    if field:
+        return field[0].value()
+    return ""

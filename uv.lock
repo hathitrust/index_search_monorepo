@@ -222,6 +222,7 @@ version = "0.1.0"
 source = { editable = "app/data_operations" }
 dependencies = [
     { name = "ht-utils" },
+    { name = "pyyaml" },
 ]
 
 [package.dev-dependencies]
@@ -230,7 +231,10 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "ht-utils", editable = "libs/common_lib" }]
+requires-dist = [
+    { name = "ht-utils", editable = "libs/common_lib" },
+    { name = "pyyaml", specifier = ">=6.0.3,<7" },
+]
 
 [package.metadata.requires-dev]
 dev = [{ name = "pytest", specifier = ">=9,<10" }]

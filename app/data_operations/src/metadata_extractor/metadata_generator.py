@@ -2,25 +2,26 @@
 
 import argparse
 import csv
-import gzip
-import json
 import re
-from collections.abc import Iterable, Iterator, Sequence
+from collections.abc import Iterable, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 
 from ht_utils.ht_logger import get_ht_logger
-from ht_utils.ht_marc_json_reader import MarcJsonReader, dict_to_pymarc_record
+from ht_utils.ht_marc_json_reader import extract_control_number, iter_marc_records
+from ht_utils.ht_utils import write_metadata_summary
 from pymarc import Record
 
 logger = get_ht_logger(name=__name__)
 
 DEFAULT_KEYWORDS = ("dissertation", "phd", "ph.d.", "doctoral", "degree of doctor")
-KEYWORD_FIELDS = ("502", "653", "655", "650", "651", "500", "533") # "245",
+KEYWORD_FIELDS = ("502", "653", "655", "650", "651", "500", "533")  # "245",
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Extract dissertation metadata from Zephir MARC JSON.")
+    parser = argparse.ArgumentParser(
+        description="Extract dissertation metadata from Zephir MARC JSON."
+    )
     parser.add_argument(
         "--input-file",
         "-f",
@@ -53,26 +54,7 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def iter_marc_records(path: Path) -> Iterator[Record]:
-    """
-    The Zephir export is newline-delimited JSON with one MARC record per line, gzipped.
-    This function reads the gz file line by line via the helper class MarcJsonReader and iterates over MARC records
-    from a Zephir MARC JSON export.
-    MarcJsonReader already strips blank lines, skips malformed JSON, and yields one Record per line.
-    """
-    if not path.exists():
-        raise FileNotFoundError(f"Cannot find Zephir export at {path}")
-    # MarcJsonReader expects a text file-like object, so we open the gzipped file in text mode (rt) with UTF-8 encoding.
-    with gzip.open(path, "rt", encoding="utf-8", errors="ignore") as fh:
-
-        for record in MarcJsonReader(fh):
-            if record is None:
-                logger.warning("Skipped malformed MARC JSON record while iterating %s", path)
-                continue
-            yield dict_to_pymarc_record(record)
-
 def keyword_text(record: Record) -> str:
-
     """
     Generate keyword text from a Record.
 
@@ -95,8 +77,8 @@ def keyword_text(record: Record) -> str:
         texts.append(field.format_field())
     return " ".join(texts).lower()
 
-def get_specific_institution_records(record: Record, institution_id: str = 'MIU') -> bool:
 
+def get_specific_institution_records(record: Record, institution_id: str = "MIU") -> bool:
     """
     Determines if a record belongs to a specific institution by analyzing its fields
     and subfields.
@@ -113,13 +95,13 @@ def get_specific_institution_records(record: Record, institution_id: str = 'MIU'
         returns False.
     """
 
-    belong_institution = False
+    normalized_institution_id = institution_id.strip().casefold()
     for field in record.get_fields("974"):
         for sub in field.get_subfields("b"):
-            if institution_id==sub:
-                belong_institution = True
-                return belong_institution
-    return belong_institution
+            if normalized_institution_id == sub.strip().casefold():
+                return True
+    return False
+
 
 def record_matches(record: Record, keywords: Sequence[str]) -> bool:
     text = keyword_text(record)
@@ -130,7 +112,6 @@ def record_matches(record: Record, keywords: Sequence[str]) -> bool:
 
 
 def extract_identifiers(record: Record) -> list[str]:
-
     """
     Extract identifiers from a Zephir MARC JSON record.
 
@@ -152,8 +133,8 @@ def extract_identifiers(record: Record) -> list[str]:
                     identifiers.append(sub.strip())
     return identifiers
 
-def collect_subjects(record: Record) -> list[str]:
 
+def collect_subjects(record: Record) -> list[str]:
     """
     It retrieves subjects from the MARC record by looking at specific fields (650, 651, 655, 653)
     instead of using the built-in pymarc helper record.subjects to remove duplicates and focus
@@ -166,32 +147,11 @@ def collect_subjects(record: Record) -> list[str]:
         List of subject strings extracted from the record's subject fields.
     """
 
-    #subjects: list[str] = []
-    #for field in getattr(record, "subjects", []):
-    #    subjects.extend(field.get_subfields("a"))
-    #return [subject.strip() for subject in subjects if subject and subject.strip()]
-
     subjects: list[str] = []
     for tag in ("650", "651", "655", "653"):
         for field in record.get_fields(tag):
             subjects.extend(field.get_subfields("a"))
     return [subject.strip() for subject in subjects if subject and subject.strip()]
-
-def extract_control_number(record: Record) -> str:
-    """
-    Extracts the unique identifier assigned to the MARC record.
-
-    Parameters:
-    record (Record): The record object from which the control number is extracted.
-
-    Returns:
-    str: The extracted control number as a string, or an empty string if the field
-    is not present.
-    """
-    field = record.get_fields("001")
-    if field:
-        return field[0].value()
-    return ""
 
 
 def extract_publication_year(record: Record) -> str:
@@ -233,19 +193,32 @@ def build_metadata_row(record: Record) -> dict[str, str]:
         "author": record.author or "",
         "year_published": extract_publication_year(record),
         "discipline": "; ".join(subjects),
-        "other_sources": "; ".join(other_sources)
+        "other_sources": "; ".join(other_sources),
     }
+
     return dicio
 
-def generate_dissertation_rows(path: Path, keywords: Sequence[str] = DEFAULT_KEYWORDS, institution_id: str = 'MIU') -> Iterable[dict[str, str]]:
+
+def generate_dissertation_rows(
+    path: Path, keywords: Sequence[str] = DEFAULT_KEYWORDS, institution_id: str = "MIU"
+) -> Iterable[dict[str, str]]:
     for record in iter_marc_records(path):
-        if record_matches(record, keywords) and get_specific_institution_records(record, institution_id):
+        if record_matches(record, keywords) and get_specific_institution_records(
+            record, institution_id
+        ):
             yield build_metadata_row(record)
 
 
 def write_csv(rows: Iterable[dict[str, str]], path: Path) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
-    fieldnames = ["control_number", "title", "author", "year_published", "discipline", "other_sources"]
+    fieldnames = [
+        "control_number",
+        "title",
+        "author",
+        "year_published",
+        "discipline",
+        "other_sources",
+    ]
     with path.open("w", newline="", encoding="utf-8") as fh:
         writer = csv.DictWriter(fh, fieldnames=fieldnames)
         writer.writeheader()
@@ -258,30 +231,24 @@ def write_csv(rows: Iterable[dict[str, str]], path: Path) -> Path:
     return path
 
 
-def write_metadata_document(query_file: Path, input_file: Path, output_file: Path, keywords: Sequence[str]) -> Path:
-    query_file.parent.mkdir(parents=True, exist_ok=True)
-    data = {
-        "generated_at": datetime.now(UTC).isoformat(),
-        "input_file": str(input_file),
-        "output_file": str(output_file),
-        "keywords": list(keywords),
-        "marc fields": list(KEYWORD_FIELDS),
-        "marc fields institution": "974$b",
-        "description": "Records whose MARC fields contain dissertation or PhD identifiers.",
-    }
-    query_file.write_text(json.dumps(data, indent=2), encoding="utf-8")
-    return query_file
-
-
-
-
 def main() -> None:
     args = parse_args()
     logger.info("Reading Zephir export from %s", args.input_file)
     rows = list(generate_dissertation_rows(args.input_file, institution_id=args.institution_id))
     logger.info("Found %d dissertation records", len(rows))
     csv_path = write_csv(rows, args.output_file)
-    write_metadata_document(args.metadata_file, args.input_file, csv_path, DEFAULT_KEYWORDS)
+
+    metadata_summary = {
+        "generated_at": datetime.now(UTC).isoformat(),
+        "input_file": str(args.input_file),
+        "output_file": str(csv_path),
+        "keywords": list(DEFAULT_KEYWORDS),
+        "marc fields": list(KEYWORD_FIELDS),
+        "marc fields institution": "974$b",
+        "description": "Records whose MARC fields contain dissertation or PhD identifiers.",
+    }
+
+    write_metadata_summary(args.metadata_file, metadata_summary)
     logger.info("Generated metadata CSV at %s", csv_path)
 
 

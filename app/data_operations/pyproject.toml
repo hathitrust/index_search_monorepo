@@ -13,7 +13,10 @@ keywords = [
 classifiers = [
     "Programming Language :: Python :: 3.14",
 ]
-dependencies = ["ht-utils"]
+dependencies = [
+    "ht-utils",
+    "pyyaml>=6.0.3,<7"
+]
 
 [dependency-groups]
 dev = [

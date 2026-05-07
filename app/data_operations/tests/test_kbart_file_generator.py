@@ -17,6 +17,7 @@ def write_holdings_report(path: Path, rows: list[dict[str, str]], fieldnames: li
         writer.writerows(rows)
     return path
 
+
 def test_read_catalog_ids_deduplicates_and_preserves_order(tmp_path: Path) -> None:
     report_path = write_holdings_report(
         tmp_path / "holdings.tsv",
@@ -45,10 +46,10 @@ def test_build_kbart_row_maps_solr_fields_to_expected_columns() -> None:
             "display_date": "1990",
         },
         {
-        "date_first_issue_online": "2001",
-        "date_last_issue_online": "2005",
-        "bib_fmt": "SE",
-        }
+            "date_first_issue_online": "2001",
+            "date_last_issue_online": "2005",
+            "bib_fmt": "SE",
+        },
     )
 
     assert list(row) == KBART_COLUMN_ORDER
@@ -79,7 +80,9 @@ def test_fetch_title_dates_from_mysql_batch_queries_one_batch(
     captured_queries: list[tuple[str, dict[str, str]]] = []
 
     class FakeMysqlConnection:
-        def query_mysql(self, query: str, params: dict[str, str] | None = None) -> list[dict[str, object]]:
+        def query_mysql(
+            self, query: str, params: dict[str, str] | None = None
+        ) -> list[dict[str, object]]:
             captured_queries.append((query, params or {}))
             if params == {"bib_num_0": "101703357", "bib_num_1": "000127531"}:
                 return [

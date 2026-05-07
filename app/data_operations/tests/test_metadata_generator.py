@@ -23,6 +23,8 @@ SAMPLE_RECORD = {
         {"502": {"subfields": [{"a": "viii, 200 p.", "o": "AAI1234567"}]}},
         {"260": {"subfields": [{"c": "2022"}]}},
         {"650": {"subfields": [{"a": "History"}]}},
+        {"500": {"subfields": [{"a": "Dissertation Title"}]}},
+        {"974": {"subfields": [{"b": "MiU"}]}},
     ],
 }
 
@@ -57,19 +59,36 @@ def test_record_matches_detects_dissertation_keywords() -> None:
 def test_extract_identifiers() -> None:
 
     record = Record()
-    record.add_field(Field(tag="035", indicators=[" ", " "], subfields=[Subfield(code="a", value="(ProQuest)disstheses AAI999")]))  # type: ignore[no-untyped-call,arg-type]
-    record.add_field(Field(tag="502", indicators=[" ", " "], subfields=[Subfield(code="o", value="AAI8999")]))  # type: ignore[no-untyped-call,arg-type]
-    record.add_field(Field(tag="035", indicators=[" ", " "], subfields=[Subfield(code="a", value="(MiU)990027275210106381")]))  # type: ignore[no-untyped-call,arg-type]
+    record.add_field(
+        Field(
+            tag="035",
+            indicators=[" ", " "],
+            subfields=[Subfield(code="a", value="(ProQuest)disstheses AAI999")],
+        )
+    )  # type: ignore[no-untyped-call,arg-type]
+    record.add_field(
+        Field(tag="502", indicators=[" ", " "], subfields=[Subfield(code="o", value="AAI8999")])
+    )  # type: ignore[no-untyped-call,arg-type]
+    record.add_field(
+        Field(
+            tag="035",
+            indicators=[" ", " "],
+            subfields=[Subfield(code="a", value="(MiU)990027275210106381")],
+        )
+    )  # type: ignore[no-untyped-call,arg-type]
 
     identifiers = extract_identifiers(record)
     assert "(ProQuest)disstheses AAI999" in identifiers
     assert "AAI8999" in identifiers
     assert "(MiU)990027275210106381" in identifiers
 
+
 def test_generate_dissertation_rows(tmp_path: Path) -> None:
     gzipped = tmp_path / "sample.json.gz"
+
     write_sample(gzipped, [SAMPLE_RECORD, NON_DISSERTATION_RECORD])
-    rows = list(generate_dissertation_rows(gzipped))
+    rows = list(generate_dissertation_rows(gzipped, institution_id="MIU"))
+
     assert len(rows) == 1
     row = rows[0]
     assert row["title"] == "Dissertation Title"

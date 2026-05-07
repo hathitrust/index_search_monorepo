@@ -1,0 +1,34 @@
+{
+  "generated_at": "2026-05-06T18:21:41.973318+00:00",
+  "input_file": "/Users/lisepul/Documents/repositories/python/index_search_monorepo/app/data_operations/src/metadata_extractor/data/zephir_full_20260430_vufind.json.gz",
+  "output_file": "/Users/lisepul/Documents/repositories/python/index_search_monorepo/app/data_operations/src/metadata_extractor/output/iso639_language_report.tsv",
+  "iso6395_file": "/Users/lisepul/Documents/repositories/python/index_search_monorepo/app/data_operations/src/metadata_extractor/data/iso639-5.tsv",
+  "written_rows": 2634,
+  "column_order": [
+    "record_id",
+    "title",
+    "oclc_number",
+    "matched_code",
+    "set_type",
+    "field_041",
+    "field_546",
+    "rights_code"
+  ],
+  "set_1": {
+    "name": "iso639-5",
+    "criteria": "008/35-37 or 041$a contains a code from iso639-5.tsv, with 974$r in {pd, pdus}",
+    "include_546_when_present": true
+  },
+  "set_2": {
+    "name": "iso639-3",
+    "criteria": "041 second indicator is 7, 041$2 is iso639-3, and 041$a is present, with 974$r in {pd, pdus}",
+    "include_546_when_present": false
+  },
+  "row_shape": "one row per record",
+  "multiple_match_handling": {
+    "matched_code": "semicolon-separated unique codes in first-seen order",
+    "set_type": "semicolon-separated unique set labels in first-seen order",
+    "field_041": "pipe-separated unique rendered 041 fields in first-seen order"
+  },
+  "rights_source": "974$r"
+}
