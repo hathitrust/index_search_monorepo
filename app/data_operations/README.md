@@ -97,10 +97,14 @@ The project is structured as follows:
 
 ```
     ├── data_operations
-    ├── documentation
-    │   ├── 
+    ├── docs
+    │   ├── one_off_reports.md
     ├── src
-        ├── metadata_generator.py
+        ├── metadata_extractor
+        │   ├── shared.py
+        │   ├── one_off_reports
+        │   │   ├── dissertation_metadata.py
+        │   │   ├── extract_041_language_codes.py
     ├── tests   
     ├── Dockerfile
     ├── poetry.lock
@@ -111,8 +115,10 @@ The project is structured as follows:
 
 ## Design
 
-The infrastructure of this application consists on different scripts. Each script will be used for a specific purpose. 
-For example, the script `metadata_generator.py` will be used to generate a list of metadata for titles with markers indicating they are Dissertations.
+The infrastructure of this application consists on different scripts. Each script is used for a specific purpose.
+One-off metadata reports now live under `src/metadata_extractor/one_off_reports/`, while
+reusable report scaffolding and generic MARC helpers live in `src/metadata_extractor/shared.py`.
+Detailed one-off report guidance lives in `docs/one_off_reports.md`.
 
 Use `pymarc` to manipulate MARC records. `pymarc` lets you treat those records as Python objects instead of raw text/binary.
 
@@ -225,63 +231,10 @@ Check here for guidelines for the use of ISO 639-3 languages codes in MARC recor
 
 ## Usage
 
-Run it locally:
+Detailed runbooks for one-off metadata reports now live in `docs/one_off_reports.md`.
+Use that guide for the dissertation report and the ISO 041 language report.
 
-Copy the .json.gz file (`/htapps/archive/catalog`) to your local environment (`metadata_extractor/data`) and run the script with the following command:
-
-```bash
-cd app/data_operations/src/metadata_extractor
-python metadata_generator.py -i ~/data_operations/src/data/zephir_upd_20260329.json.gz -o ~/data_operations/src/metadata_extractor/output/dissertation_metadata.csv
-```
-
-Run in docker environment:
-```bash
-# Build the Docker image
-make build APP_NAME=data-operations APP_DIR=data_operations  
-# Create the Docker container and set up the environment variables
-
-make up APP_NAME=data-operations
-
-# Run the script inside the container. The `docker-compose` now mounts `src/metadata_extractor/data` and `src/metadata_extractor/output`,
-# so you can edit the Zephir export on your host machine and read the generated CSV without copying files out of the container.
-
-docker compose exec data_operations python src/metadata_extractor/metadata_generator.py -i src/metadata_extractor/data/zephir_upd_20260401.json.gz -o src/metadata_extractor/output/yy.csv
-
-docker compose exec data_operations /workspace/.venv/bin/python src/metadata_extractor/report_generation.py -f src/metadata_extractor/data/zephir_full_20260430_vufind.json.gz -o src/metadata_extractor/output/language_report.tsv -m src/metadata_extractor/output/iso639_language_report.metadata.json --iso6395-file src/metadata_extractor/data/iso639-5.tsv
-
-# Run tests using the command below. 
-docker compose exec data_operations /workspace/.venv/bin/python -m pytest
-
-```
-
-**Phase 1**
-- Initially, run the script locally
-- Retrieve the zephir marc export
-- Run the script in docker environment
-- Generate the list of metadata for titles with markers indicating they are Dissertations and save it in a csv file. The file should be saved in the `data_operations/output/` directory.
-
-Use case 1: Create an script to generate a list of metadata for titles with markers indicating they are Dissertations
-Use case 2: Create a tab-delimited file (tsv) in KBART format using the specs as outlined in the file 
-app/data_operations/src/kbart_file_generator/data/KBART_base_columns_and_instructions_for_each_Sheet1.tsv. 
-The KBART file should contain one row for each title that matches OSU’s print holdings, regardless of access status. 
-The script will extract the matching bib IDs from that report app/data_operations/src/kbart_file_generator/data/data file 
-(column catalog_id)
-and then will query solr and/or hathifiles to pull the necessary metadata to populate the KBART file. 
-The script should be able to handle a large number of bib IDs and should be able to run efficiently. 
-The script should also be able to handle any errors that may occur during the data retrieval process and 
-should log any errors for later review. 
-The final output should be a tab-delimited file that can be easily imported into a spreadsheet or database for further analysis.
-Use case 3: Generate ISO 639-3 and ISO 639-5 language report from Zephir marc export
-- Running `app/data_operations/src/metadata_extractor/report_generation.py` against a Zephir MARC export to produces a 
-TSV report containing only `pd` and `pdus` titles that satisfy either the ISO 639-5 or ISO 639-3 criteria.
-- Set 1 matches are driven only by codes listed in `app/data_operations/src/metadata_extractor/data/iso639-5.tsv`, 
-not by generic three-letter MARC language-code matching.
-- Set 2 matches require `041` second indicator `7` and `$2 iso639-3`.
-- Output rows include the requested title identifier, title, OCLC number, matched code, 041 value, 546 value where 
-relevant, and rights code, with exactly one row per record.
-- Automated tests cover both language sets, rights filtering, overlap handling, and TSV output shape.
-
-Run the KBART generator locally with:
+Run the KBART generator locally from `app/data_operations` with:
 
 ```bash
 uv run python src/kbart_file_generator/kbart_file_generator.py \
@@ -294,13 +247,3 @@ uv run python src/kbart_file_generator/kbart_file_generator.py \
 The main TSV is written to `src/kbart_file_generator/output/kbart_print_holdings.tsv`.
 The metadata summary sidecar is written to `src/kbart_file_generator/output/kbart_print_holdings.metadata.json`.
 Any skipped `catalog_id` values and lookup failures are written to `src/kbart_file_generator/output/kbart_print_holdings.errors.tsv`.
-
-Run the language report generator locally with:
-
-```bash
-uv run python src/metadata_extractor/report_generation.py \
-  -f src/metadata_extractor/data/zephir_full_20260430_vufind.json.gz \
-  -o src/metadata_extractor/output/language_report.tsv \
-  -m src/metadata_extractor/output/iso639_language_report.metadata.json \
-  --iso6395-file src/metadata_extractor/data/iso639-5.tsv
-``` 

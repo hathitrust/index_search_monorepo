@@ -5,13 +5,13 @@ from pathlib import Path
 from typing import Any
 
 from ht_utils.ht_marc_json_reader import dict_to_pymarc_record
-from metadata_extractor.metadata_generator import (
+from metadata_extractor.one_off_reports.dissertation_metadata import (
     DEFAULT_KEYWORDS,
     extract_identifiers,
     generate_dissertation_rows,
     record_matches,
 )
-from pymarc import Field, Record, Subfield
+from pymarc import Field, Indicators, Record, Subfield
 
 SAMPLE_RECORD = {
     "leader": "00000nam a2200000 a 4500",
@@ -62,20 +62,24 @@ def test_extract_identifiers() -> None:
     record.add_field(
         Field(
             tag="035",
-            indicators=[" ", " "],
+            indicators=Indicators(" ", " "),
             subfields=[Subfield(code="a", value="(ProQuest)disstheses AAI999")],
         )
-    )  # type: ignore[no-untyped-call,arg-type]
+    )  # type: ignore[no-untyped-call]
     record.add_field(
-        Field(tag="502", indicators=[" ", " "], subfields=[Subfield(code="o", value="AAI8999")])
-    )  # type: ignore[no-untyped-call,arg-type]
+        Field(
+            tag="502",
+            indicators=Indicators(" ", " "),
+            subfields=[Subfield(code="o", value="AAI8999")],
+        )
+    )  # type: ignore[no-untyped-call]
     record.add_field(
         Field(
             tag="035",
-            indicators=[" ", " "],
+            indicators=Indicators(" ", " "),
             subfields=[Subfield(code="a", value="(MiU)990027275210106381")],
         )
-    )  # type: ignore[no-untyped-call,arg-type]
+    )  # type: ignore[no-untyped-call]
 
     identifiers = extract_identifiers(record)
     assert "(ProQuest)disstheses AAI999" in identifiers

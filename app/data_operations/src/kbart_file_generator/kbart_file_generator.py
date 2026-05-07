@@ -169,7 +169,7 @@ def build_kbart_row(
         ),
         "num_first_vol_online": "",
         "num_first_issue_online": "",
-        "date_last_issue_online": check_bib_fmt_field(title_dates),
+        "date_last_issue_online": check_bib_fmt_field(title_dates or {}),
         "num_last_vol_online": "",
         "num_last_issue_online": "",
         "title_url": f"https://catalog.hathitrust.org/Record/{title_id}",
