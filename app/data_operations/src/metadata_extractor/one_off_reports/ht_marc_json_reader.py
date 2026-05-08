@@ -8,11 +8,13 @@ from ht_utils.ht_logger import get_ht_logger
 
 logger = get_ht_logger(name=__name__)
 
+
 class MarcJsonReader:
     '''Class to read multiple newline delimited JSON files
     Combine this class with pymarc's Record class to parse each JSON object into a MARC record.
 
     '''
+
     def __init__(self, fh: IO[str]):
         self.fh = fh
 
@@ -27,6 +29,7 @@ class MarcJsonReader:
             except json.JSONDecodeError:
                 continue
             yield data
+
 
 def dict_to_pymarc_record(data: dict) -> Record:
     """
@@ -83,6 +86,7 @@ def dict_to_pymarc_record(data: dict) -> Record:
 
     return record
 
+
 def iter_marc_records(path: Path) -> Iterator[Record]:
     """
     The Zephir export is newline-delimited JSON with one MARC record per line, gzipped.
@@ -100,19 +104,3 @@ def iter_marc_records(path: Path) -> Iterator[Record]:
                 logger.warning("Skipped malformed MARC JSON record while iterating %s", path)
                 continue
             yield dict_to_pymarc_record(record)
-
-def extract_control_number(record: Record) -> str:
-    """
-    Extracts the unique identifier assigned to the MARC record.
-
-    Parameters:
-    record (Record): The record object from which the control number is extracted.
-
-    Returns:
-    str: The extracted control number as a string, or an empty string if the field
-    is not present.
-    """
-    field = record.get_fields("001")
-    if field:
-        return field[0].value()
-    return ""

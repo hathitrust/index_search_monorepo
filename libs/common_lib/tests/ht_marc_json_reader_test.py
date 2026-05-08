@@ -1,5 +1,5 @@
 from ht_utils.ht_logger import get_ht_logger
-from ht_utils.ht_marc_json_reader import dict_to_pymarc_record
+from metadata_extractor.one_off_reports.ht_marc_json_reader import dict_to_pymarc_record
 
 logger = get_ht_logger(name=__name__)
 

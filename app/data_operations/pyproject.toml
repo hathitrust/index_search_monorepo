@@ -15,7 +15,8 @@ classifiers = [
 ]
 dependencies = [
     "ht-utils",
-    "pyyaml>=6.0.3,<7"
+    "pyyaml>=6.0.3,<7",
+    "pymarc>=5.3.1",
 ]
 
 [dependency-groups]

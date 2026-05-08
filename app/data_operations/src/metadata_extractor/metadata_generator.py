@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from ht_utils.ht_logger import get_ht_logger
-from ht_utils.ht_marc_json_reader import extract_control_number, iter_marc_records
+from metadata_extractor.one_off_reports.ht_marc_json_reader import extract_control_number, iter_marc_records
 from ht_utils.ht_utils import write_metadata_summary
 from pymarc import Record
 

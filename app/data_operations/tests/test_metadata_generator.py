@@ -4,7 +4,7 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
-from ht_utils.ht_marc_json_reader import dict_to_pymarc_record
+from metadata_extractor.one_off_reports.ht_marc_json_reader import dict_to_pymarc_record
 from metadata_extractor.metadata_generator import (
     DEFAULT_KEYWORDS,
     extract_identifiers,
