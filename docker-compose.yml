@@ -85,7 +85,7 @@ services:
     command: [ "/workspace/.venv/bin/python", "-m" ,"document_retriever_service.full_text_search_retriever_service", "--query_field", "item",
                "--parallelize" ]
   mysql-sdr:
-    image: ghcr.io/hathitrust/db-image
+    image: ghcr.io/hathitrust/db-image:latest
     profiles: [ ht-indexer, ht-indexer_tests ]
     volumes:
       - mysql_sdr_data:/var/lib/mysql
