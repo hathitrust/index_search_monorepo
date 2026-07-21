@@ -27,6 +27,11 @@ x-env-indexer: &env_indexer
     MYSQL_RANDOM_ROOT_PASSWORD: 1
     ENV: dev
 
+# Common + indexer environment merged once, so services reference a single alias
+# instead of `<<: [*env_common, *env_indexer]`, which trips the compose schema linter
+x-env-common-indexer: &env_common_indexer
+    <<: [*env_common, *env_indexer]
+
 services:
   ht_indexer_tracker:
     container_name: ht_indexer_tracker
@@ -41,7 +46,7 @@ services:
         APP_NAME: ht-indexer
         APP_DIR: ht_indexer
     environment:
-      << : [*env_common, *env_indexer]
+      << : *env_common_indexer
       SOLR_URL: http://solr-sdr-catalog:9033/solr/catalog/
       PACKAGE: ht_indexer
     depends_on:
@@ -68,7 +73,7 @@ services:
     ports:
       - "8081:8081"
     environment:
-      << : [*env_common, *env_indexer]
+      << : *env_common_indexer
       SOLR_URL: http://solr-sdr-catalog:9033/solr/catalog/
       QUEUE_NAME: retriever_queue
     depends_on:
@@ -96,7 +101,7 @@ services:
       timeout: 30s
       retries: 3
   solr-lss-dev:
-    image: ghcr.io/hathitrust/full-text-search-cloud:shards-docker
+    image: ghcr.io/hathitrust/full-text-search-cloud:solr9-shards-docker
     profiles: [ ht-indexer, ht-indexer_tests, solr-query, solr-query_tests ]
     container_name: solr-lss-dev
     ports:
@@ -105,10 +110,11 @@ services:
       <<: *env_common
       ZK_HOST: zoo1:2181
       SOLR_OPTS: -XX:-UseLargePages
+      SOLR_MODULES: analysis-extras
     depends_on:
       zoo1: *healthy
     volumes:
-      - solr1_data:/var/solr/data
+      - solr1_data:/var/solr
     # start solr in the background, wait for it to start, then create the collection
     command: [ "sh", "-c", 'solr-foreground -c & sleep 150 && export SOLR_AUTHENTICATION_OPTS=-Dbasicauth=admin:solrRocks && solr create_collection -d /opt/solr/core-x -c core-x -shards 1 -replicationFactor 1 -p 8983 && wait' ]
     healthcheck:
@@ -117,17 +123,17 @@ services:
       timeout: 30s
       retries: 10
   zoo1: # Zookeeper run in standalone mode for development and testing purposes. In production, we would use a Zookeeper ensemble for high availability.
-    image: zookeeper:3.8.0
+    image: zookeeper:3.9.0
     profiles: [ ht-indexer, ht-indexer_tests, solr-query, solr-query_tests ]
     container_name: zoo1
-    restart: "no"
+    restart: "always"
     hostname: zoo1
     ports:
       - 2181:2181
-      # - 7001:7000
     environment:
       ZOO_MY_ID: 1
-      JVMFLAGS: "-XX:-UseContainerSupport"
+      ZOO_SERVERS: server.1=zoo1:2888:3888;2181
+      ZOO_4LW_COMMANDS_WHITELIST: mntr,conf,ruok
     volumes:
       - zoo1_data:/data
     healthcheck:
@@ -136,7 +142,7 @@ services:
   solr-sdr-catalog:
     container_name: solr-sdr-catalog
     profiles: [ ht-indexer, ht-indexer_tests ]
-    image: ghcr.io/hathitrust/catalog-solr-sample
+    image: ghcr.io/hathitrust/catalog-solr-sample-standalone:solr-standalone
     healthcheck:
       <<: *healthcheck-defaults
       test: [ "CMD", "/usr/bin/curl", "-s", "-f", "http://localhost:9033/solr/catalog/admin/ping" ]
@@ -201,7 +207,7 @@ services:
     tty: true
     stdin_open: true
     environment:
-      << : [*env_common, *env_indexer]
+      << : *env_common_indexer
       QUEUE_NAME: indexer_queue
     command: ["/workspace/.venv/bin/python", "-m","document_indexer_service.document_indexer_service", "--solr_indexing_api", "http://solr-lss-dev:8983/solr/#/core-x/", "--batch_size", "100" ]
   rabbitmq:
