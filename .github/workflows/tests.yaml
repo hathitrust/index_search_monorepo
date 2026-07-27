@@ -12,7 +12,7 @@ jobs:
   test_indexer:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Indexer
         run: |
@@ -28,12 +28,12 @@ jobs:
         run: docker logs zoo1
       - name: Dump docker logs on failure
         if: failure()
-        uses: jwalton/gh-docker-logs@v2
+        uses: jwalton/gh-docker-logs@2741064ab9d7af54b0b1ffb6076cf64c16f0220e # v2.2.2
 
   test_solr_query:
       runs-on: ubuntu-latest
       steps:
-        - uses: actions/checkout@v7
+        - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
         - name: Set up Solr
           run: |
