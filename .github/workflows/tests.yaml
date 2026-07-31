@@ -8,6 +8,46 @@ on:
   pull_request:
 
 jobs:
+  # Fast lane: tests that need no Solr, MySQL or RabbitMQ.
+  unit_tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          python-version: "3.14"
+          enable-cache: true
+
+      - name: Install workspace
+        run: uv sync --package ht-utils --package ht-search --package data-operations
+
+      - name: Run unit tests
+        run: uv run pytest -m "not integration" libs app/data_operations/tests
+
+  # Advisory for now: reports problems without failing the build. Flip continue-on-error
+  # off once the existing violations are cleared.
+  lint:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          python-version: "3.14"
+          enable-cache: true
+
+      - name: Ruff
+        run: |
+          uv run ruff check --no-fix app libs
+          uv run ruff format --check app libs
+
+      - name: Mypy
+        run: uv run mypy app libs
+
   # Run tests
   test_indexer:
     runs-on: ubuntu-latest
