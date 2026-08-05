@@ -1,9 +1,11 @@
 import gzip
 import json
-
+from collections.abc import Iterator
 from pathlib import Path
-from typing import IO, Iterator, Dict, Any
-from pymarc import Record, Field, Subfield
+from typing import IO, Any
+
+from pymarc import Field, Record, Subfield
+
 from ht_utils.ht_logger import get_ht_logger
 
 logger = get_ht_logger(name=__name__)
@@ -16,7 +18,7 @@ class MarcJsonReader:
     def __init__(self, fh: IO[str]):
         self.fh = fh
 
-    def __iter__(self) -> Iterator[Dict[str, Any]]:
+    def __iter__(self) -> Iterator[dict[str, Any]]:
         '''Yields Record objects parsed from the MARC JSON input.'''
         for line in self.fh:
             if not (line := line.strip()):

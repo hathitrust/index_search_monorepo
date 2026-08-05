@@ -54,15 +54,15 @@ if __name__ == "__main__":
         hits_dict = []
 
         for query in list_queries:
-            df_A = None
+            df_a = None
             logger.info("***************")
             logger.info(query)
 
             a_path = f'{query["query_fields"]}_{query["query_string"]}_{query["operator"]}_{engine}.csv'
             if pathlib.Path(a_path).is_file():
-                df_A = pd.read_csv("/".join([os.getcwd(), a_path]), sep="\t")
+                df_a = pd.read_csv("/".join([os.getcwd(), a_path]), sep="\t")
 
-                total_hits = df_A.shape[0]
+                total_hits = df_a.shape[0]
 
                 hits_dict.append({'engine': engine,
                                   'query_string': query['query_string'],

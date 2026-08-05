@@ -114,55 +114,55 @@ if __name__ == "__main__":
     total_comparison = 0
     hits_dict = {}
     for query in list_queries:
-        df_A = None
-        df_B = None
+        df_a = None
+        df_b = None
         logger.info("***************")
         logger.info(query)
 
         a_path = f'scripts/query_results/{query["query_fields"]}_{query["query_string"]}_{query["operator"]}_prod.csv'
         logger.info("/".join([os.getcwd(), a_path]))
         if pathlib.Path("/".join([os.getcwd(), a_path])).is_file():
-            df_A = pd.read_csv("/".join([os.getcwd(), a_path]), sep="\t")
+            df_a = pd.read_csv("/".join([os.getcwd(), a_path]), sep="\t")
         else:
             logger.info(f"File {a_path} does not exist")
             continue
         b_path = f'scripts/query_results/{query["query_fields"]}_{query["query_string"]}_{query["operator"]}_dev.csv'
         logger.info("/".join([os.getcwd(), b_path]))
         if pathlib.Path("/".join([os.getcwd(), b_path])).is_file():
-            df_B = pd.read_csv("/".join([os.getcwd(), b_path]), sep="\t")
+            df_b = pd.read_csv("/".join([os.getcwd(), b_path]), sep="\t")
         else:
             logger.info(f"File {b_path} does not exist")
             continue
 
         # total of difference
-        diff = get_different_sorted_ids(df_A["id"].to_list(), df_B["id"].to_list())
+        diff = get_different_sorted_ids(df_a["id"].to_list(), df_b["id"].to_list())
 
         count_diff.append(len(diff))
         total_comparison = total_comparison + 1
         try:
-            if df_A[["id", "author", "title"]].equals(df_B[["id", "author", "title"]]):
+            if df_a[["id", "author", "title"]].equals(df_b[["id", "author", "title"]]):
                 logger.info(
                     "Identical results")  # I did not expect this case, because at least the scores should be different
                 query_stats["ident_results"] += 1
 
-            if list(df_A["id"][0:5]) == list(df_B["id"][0:5]):
+            if list(df_a["id"][0:5]) == list(df_b["id"][0:5]):
                 logger.info("Identical ids in top 5")
                 query_stats["ident_id_top_5"] += 1
             else:
                 logger.info("Different ids in top 5")
                 query_stats["diff_id_top_5"] += 1
-            if list(df_A["id"][5:20]) == list(df_B["id"][5:20]):
+            if list(df_a["id"][5:20]) == list(df_b["id"][5:20]):
                 logger.info("Identical ids in the range 5 to 20")
                 query_stats["ident_id_range5-20"] += 1
             else:
                 logger.info("Different ids in the range 5 to 20")
                 query_stats["diff_id_range5-20"] += 1
 
-            if list(df_A["id"][20:]) != list(df_B["id"][20:]):
+            if list(df_a["id"][20:]) != list(df_b["id"][20:]):
                 logger.info("Different ids from top 20 to end")
                 query_stats["diff_id_top_20_to_end"] += 1
 
-            if len(get_different_ids(df_A["id"].to_list(), df_B["id"].to_list())) == 0:
+            if len(get_different_ids(df_a["id"].to_list(), df_b["id"].to_list())) == 0:
 
                 logger.info("The same ids in both engines")
                 query_stats["same_ids_both_engines"] += 1
@@ -170,8 +170,8 @@ if __name__ == "__main__":
                 logger.info("Different ids in both engines")
                 logger.info(query)
 
-            if len(set(df_A["id"].sort_values()) ^ set(df_B["id"].sort_values())) > 0:
-                logger.info(f"List of different ids {set(df_A['id']) ^ set(df_B['id'])}")
+            if len(set(df_a["id"].sort_values()) ^ set(df_b["id"].sort_values())) > 0:
+                logger.info(f"List of different ids {set(df_a['id']) ^ set(df_b['id'])}")
         except AttributeError as e_attribute:
             logger.error(f"Some of the dataframe does not exist Error {e_attribute}")
         except NameError as e_name:

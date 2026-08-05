@@ -128,7 +128,7 @@ class TestFullTextRetrieverService:
         )
 
         # Service to consume the message
-        for method_frame, properties, body in consumer_instance.consume_message(inactivity_timeout=5):
+        for method_frame, _properties, body in consumer_instance.consume_message(inactivity_timeout=5):
 
             if method_frame:
                 output_message = json.loads(body.decode('utf-8'))

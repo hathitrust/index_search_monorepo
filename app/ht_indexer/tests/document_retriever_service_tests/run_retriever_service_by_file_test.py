@@ -72,7 +72,7 @@ class TestRunRetrieverServiceByFile:
 
         list_output_messages = []
         # Service to consume the message
-        for method_frame, properties, body in consumer_instance.consume_message(inactivity_timeout=5):
+        for method_frame, _properties, body in consumer_instance.consume_message(inactivity_timeout=5):
             if method_frame:
                 list_output_messages.append(json.loads(body.decode("utf-8"))["ht_id"])
 

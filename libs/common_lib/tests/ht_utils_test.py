@@ -1,6 +1,5 @@
 import arrow
 import pytest
-
 from ht_utils.ht_utils import get_current_time, normalize_catalog_id_pad_zeros
 
 
