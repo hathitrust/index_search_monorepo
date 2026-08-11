@@ -131,7 +131,7 @@ class QueueMultipleConsumer(ABC):
                 raise e
 
     def consume_dead_letter_messages(self, channel: pika.adapters.blocking_connection.BlockingChannel,
-                                     inactivity_timeout: int = 3, queue_name: str = '') -> Generator[tuple[Any, Any, None], None, None]:
+                                     inactivity_timeout: int = 3, queue_name: str = '') -> Generator[tuple[Any, Any, None]]:
         """
          This method consumes messages from the queue.
         :param channel: The RabbitMQ channel to consume messages from.

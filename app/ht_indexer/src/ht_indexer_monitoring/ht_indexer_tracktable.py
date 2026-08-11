@@ -63,7 +63,7 @@ class HTIndexerTracktable:
     def get_catalog_data(self, query: str,
                          query_config_file_path: Path,
                          conf_query: str,
-                         list_output_fields: list[str]) -> Generator[list[HTIndexerTrackData], Any, None]:
+                         list_output_fields: list[str]) -> Generator[list[HTIndexerTrackData], Any]:
         """
         Get the data from the catalog.
         :return: List of data
