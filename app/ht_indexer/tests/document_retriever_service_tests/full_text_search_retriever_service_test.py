@@ -5,7 +5,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from conftest import create_test_queue_config
-from document_retriever_service import full_text_search_retriever_service as retriever_service_module
+from document_retriever_service import (
+    full_text_search_retriever_service as retriever_service_module,
+)
 from document_retriever_service.full_text_search_retriever_service import (
     FullTextSearchRetrieverQueueService,
 )
@@ -261,7 +263,7 @@ class TestFullTextRetrieverService:
             assert response is None
 
 
-class _StopPollLoop(Exception):
+class _StopPollLoopError(Exception):
     """Raised to break out of main()'s `while True` once the call under test has happened."""
 
 
@@ -282,12 +284,12 @@ class TestMainSerialBranch:
         ]
 
         mock_service_instance = MagicMock()
-        mock_service_instance.get_queue_producer.side_effect = _StopPollLoop
+        mock_service_instance.get_queue_producer.side_effect = _StopPollLoopError
 
         with patch.object(retriever_service_module, "RetrieverServiceArguments", return_value=mock_args), \
                 patch.object(retriever_service_module, "FullTextSearchRetrieverQueueService",
                               return_value=mock_service_instance), \
-                pytest.raises(_StopPollLoop):
+                pytest.raises(_StopPollLoopError):
             retriever_service_module.main()
 
         mock_service_instance.full_text_search_retriever_service.assert_called_once()
