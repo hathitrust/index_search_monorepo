@@ -1,3 +1,4 @@
+import copy
 import inspect
 import os
 import sys
@@ -40,9 +41,10 @@ def default_solr_params(env: str = "prod"):
     :param env:
     :return:
     """
+    params = copy.deepcopy(DEFAULT_SOLR_PARAMS)
     if env == "prod":
-        add_shards(DEFAULT_SOLR_PARAMS)
-    return DEFAULT_SOLR_PARAMS
+        add_shards(params)
+    return params
 
 
 def add_shards(params: dict):

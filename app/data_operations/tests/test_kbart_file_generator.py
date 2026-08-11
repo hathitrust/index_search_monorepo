@@ -1,11 +1,13 @@
 import csv
 from pathlib import Path
 
+import kbart_file_generator.kbart_file_generator as kbart_module
 import pytest
 from kbart_file_generator.kbart_file_generator import (
     KBART_COLUMN_ORDER,
     build_kbart_row,
     fetch_title_dates_from_mysql_batch,
+    generate_kbart_rows,
     read_catalog_ids,
 )
 
@@ -114,3 +116,43 @@ def test_fetch_title_dates_from_mysql_batch_queries_one_batch(
             "date_last_issue_online": "2005",
         },
     }
+
+
+def test_generate_kbart_rows_matches_zero_padded_ids_to_stripped_lookup_keys(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Lookup results are keyed by catalog id with leading zeros stripped; catalog_ids from
+    the input file are zero-padded."""
+
+    def fake_fetch_lookup_results_in_parallel(catalog_ids, batch_size=None):
+        return (
+            {
+                "9040": {
+                    "id": "0009040",
+                    "title_display": "Gerodontology",
+                    "isbn": ["07340664"],
+                    "mainauthor": "Beech Hill Enterprises",
+                    "publisher": ["Beech Hill Enterprises,"],
+                    "oclc": ["8731707"],
+                },
+            },
+            {
+                "9040": {
+                    "date_first_issue_online": "2001",
+                    "date_last_issue_online": "2005",
+                    "bib_fmt": "SE",
+                },
+            },
+        )
+
+    monkeypatch.setattr(
+        kbart_module, "fetch_lookup_results_in_parallel", fake_fetch_lookup_results_in_parallel
+    )
+
+    rows, errors = generate_kbart_rows(["0009040"])
+
+    assert errors == []
+    assert len(rows) == 1
+    assert rows[0]["title_id"] == "9040"
+    assert rows[0]["publication_title"] == "Gerodontology"
+    assert rows[0]["date_first_issue_online"] == "2001"

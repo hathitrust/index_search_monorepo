@@ -1,10 +1,11 @@
 import json
 import os
 from typing import Any
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from conftest import create_test_queue_config
+from document_retriever_service import full_text_search_retriever_service as retriever_service_module
 from document_retriever_service.full_text_search_retriever_service import (
     FullTextSearchRetrieverQueueService,
 )
@@ -258,4 +259,39 @@ class TestFullTextRetrieverService:
             response = FullTextSearchRetrieverQueueService.retrieve_documents_from_solr(query,
                                                                                     get_catalog_retriever_service_solr_fake_solr_url)
             assert response is None
+
+
+class _StopPollLoop(Exception):
+    """Raised to break out of main()'s `while True` once the call under test has happened."""
+
+
+class TestMainSerialBranch:
+    """main()'s polling loop passes MySQL rows straight to the single-thread branch instead of
+    the extracted id strings the parallel branch uses. make_solr_term_query() joins its input
+    with a comma, so a list of dicts blows up with a TypeError."""
+
+    def test_serial_branch_passes_extracted_ids_not_raw_mysql_rows(self):
+        mock_args = MagicMock()
+        mock_args.list_documents = []
+        mock_args.query_field = "item"
+        mock_args.parallelize = False
+        mock_args.db_conn.table_exists.return_value = True
+        mock_args.db_conn.query_mysql.return_value = [
+            {"ht_id": "nyp.001", "record_id": "1"},
+            {"ht_id": "nyp.002", "record_id": "2"},
+        ]
+
+        mock_service_instance = MagicMock()
+        mock_service_instance.get_queue_producer.side_effect = _StopPollLoop
+
+        with patch.object(retriever_service_module, "RetrieverServiceArguments", return_value=mock_args), \
+                patch.object(retriever_service_module, "FullTextSearchRetrieverQueueService",
+                              return_value=mock_service_instance), \
+                pytest.raises(_StopPollLoop):
+            retriever_service_module.main()
+
+        mock_service_instance.full_text_search_retriever_service.assert_called_once()
+        _, documents_arg, by_field_arg = mock_service_instance.full_text_search_retriever_service.call_args.args
+        assert documents_arg == ["nyp.001", "nyp.002"]
+        assert by_field_arg == "item"
 
