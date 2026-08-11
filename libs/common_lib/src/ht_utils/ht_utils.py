@@ -1,21 +1,21 @@
+import csv
+import json
 import os
 import sys
 import tempfile
-import arrow
-import csv
-import json
-import yaml
-
-from pathlib import Path
-from typing import Dict, Any
 from collections.abc import Iterable, Sequence
+from pathlib import Path
+from typing import Any
+
+import arrow
+import yaml
 
 from ht_utils.ht_logger import get_ht_logger
 
 logger = get_ht_logger(name=__name__)
 
 # Data definitions
-FlexibleDict = Dict[str, int | str | Dict[str, Any]]
+FlexibleDict = dict[str, int | str | dict[str, Any]]
 
 def update_dict_fields(target: dict[str, Any], keys: list[str], values: list[Any]) -> dict[str, Any]:
     """
@@ -29,7 +29,7 @@ def update_dict_fields(target: dict[str, Any], keys: list[str], values: list[Any
     if len(keys) != len(values):
         raise ValueError("Length of keys and values must match.")
 
-    for key, value in zip(keys, values):
+    for key, value in zip(keys, values, strict=True):
         target[key] = value
 
     return target
@@ -117,7 +117,7 @@ def get_queue_message_id(message: dict) -> str:
     else:
         return 'unknown_id'
 
-def create_temporary_yaml_file(data: Dict[str, Any]) -> str:
+def create_temporary_yaml_file(data: dict[str, Any]) -> str:
     """
     Creates a temporary YAML file from a dictionary.
     """

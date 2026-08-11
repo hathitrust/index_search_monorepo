@@ -132,7 +132,7 @@ def create_copyrights_status(df: pd.DataFrame) -> pd.DataFrame:
     df_new = pd.DataFrame()
     for key, values in rights_status.items():
         filtered = df[df['value'].isin(values)]
-        filtered['category'] = filtered["value"].apply(lambda x: key)
+        filtered['category'] = key
         df_new = pd.concat([df_new, filtered], ignore_index=True)
 
     df_new = df_new.groupby('category')['Count'].sum().reset_index()

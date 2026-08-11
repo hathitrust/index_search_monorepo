@@ -1,16 +1,18 @@
 import os
 import sys
 import threading
-from typing import Any, Optional, List, Dict
-from sqlalchemy import create_engine, text, exc
+from typing import Any
+
+from sqlalchemy import create_engine, exc, text
 from sqlalchemy.engine import Engine
+
 from ht_utils.ht_logger import get_ht_logger
 from ht_utils.ht_utils import get_general_error_message
 
 logger = get_ht_logger(name=__name__)
 
 class HtMysql:
-    _engine: Optional[Engine] = None # Class variable to store the SQLAlchemy engine
+    _engine: Engine | None = None # Class variable to store the SQLAlchemy engine
     _lock = threading.Lock() # Lock for thread-safe engine creation
     _engine_config = None # To store the configuration of the engine
 
@@ -36,7 +38,7 @@ class HtMysql:
             elif HtMysql._engine_config != config:
                 raise RuntimeError("Engine already created with different configuration.")
 
-    def query_mysql(self, query: str, params: Optional[dict] = None) -> List[Dict[str, Any]]:
+    def query_mysql(self, query: str, params: dict | None = None) -> list[dict[str, Any]]:
 
         """Execute a query in MySQL and return the results as a list of dictionaries
         :param query: The SQL query to execute
@@ -57,7 +59,7 @@ class HtMysql:
             logger.error(f"MySQL Query Error: {get_general_error_message('DatabaseQuery', e)}")
             return []
 
-    def table_exists(self, table_name: str) -> Optional[bool]:
+    def table_exists(self, table_name: str) -> bool | None:
         query = "SHOW TABLES LIKE :table"
         try:
             with HtMysql._engine.connect() as conn:
@@ -67,7 +69,7 @@ class HtMysql:
             logger.error(f"Error checking if table exists: {e}")
             return None
 
-    def insert_batch(self, insert_query: str, batch_values: List[dict]):
+    def insert_batch(self, insert_query: str, batch_values: list[dict]):
         try:
             with HtMysql._engine.begin() as conn:
                 conn.execute(text(insert_query), batch_values)
@@ -83,7 +85,7 @@ class HtMysql:
         except exc.SQLAlchemyError as e:
             logger.error(f"Failed to create table: {e}")
 
-    def update_status(self, update_query: str, update_values: List[dict]):
+    def update_status(self, update_query: str, update_values: list[dict]):
         try:
             with HtMysql._engine.begin() as conn:
                 conn.execute(text(update_query), update_values)
