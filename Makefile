@@ -1,37 +1,40 @@
 APPS_NAME = ht-indexer
 APPS_DIR = ht_indexer
-APP_PATH = app/$(APP_DIR)
 
-# TODO: Check install
+# Paths covered by the linters and type checker.
+LINT_PATHS = app libs
+
 install:
-	uv install
+	uv sync
 
 # Check the code with ruff. The first command checks for linting errors, while the second command checks for formatting issues.
-# Both commands target the application path defined by APP_PATH.
 check-code:
-	uv run --no-project -- ruff check $(APP_PATH)
-	uv run --no-project -- ruff format --check $(APP_PATH)
+	uv run ruff check $(LINT_PATHS)
+	uv run ruff format --check $(LINT_PATHS)
 
 # Fix the code with ruff.
 # The first command attempts to fix linting errors, while the second command formats the code.
-# Both commands target the application path defined by APP_PATH.
 # The '|| true' part ensures that even if the first command fails (e.g., due to unfixable issues), the second command will still run to format the code.
 # Apply safe fixes only
 fix-code:
-	uv run --no-project -- ruff check --fix $(APP_PATH) || true
-	uv run --no-project -- ruff format $(APP_PATH)
+	uv run ruff check --fix $(LINT_PATHS) || true
+	uv run ruff format $(LINT_PATHS)
 
 # Apply unsafe fixes as well. Use with caution, as it may change the behavior of the code.
 fix-code-unsafe:
-	uv run --no-project -- ruff check --fix --unsafe-fixes $(APP_PATH)
-	uv run --no-project -- ruff format $(APP_PATH)
+	uv run ruff check --fix --unsafe-fixes $(LINT_PATHS)
+	uv run ruff format $(LINT_PATHS)
 
 # Explicit typing check
 type-check:
-	uv run --no-project -- mypy $(APP_PATH)
+	uv run mypy $(LINT_PATHS)
+
+# Fast test lane: no Solr, MySQL or RabbitMQ required.
+test-unit:
+	uv run pytest -m "not integration" libs app/data_operations/tests
 
 test-all:
-	pytest .
+	uv run pytest .
 
 build-all:
 	for app in $(APPS_NAME); do \

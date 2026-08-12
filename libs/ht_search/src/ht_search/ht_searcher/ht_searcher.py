@@ -111,7 +111,7 @@ class HTSearcher:
             query_filter: bool = False,
             filter_dict: dict = None,
             rows: int = 100,
-            start: int = 0) -> Generator[Any, Any, None]:
+            start: int = 0) -> Generator[Any, Any]:
 
         """
         Query Solr and return the results

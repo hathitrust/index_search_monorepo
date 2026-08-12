@@ -58,7 +58,7 @@ class QueueConsumer:
             logger.error(f"Failed to reinitialize to queue set up: {err}.", exc_info=True)
             raise
 
-    def consume_message(self, inactivity_timeout: int = 5) -> Generator[tuple[Any, Any, None], None, None]:
+    def consume_message(self, inactivity_timeout: int = 5) -> Generator[tuple[Any, Any, None]]:
         """
         This method consumes messages from the queue.
         : param inactivity_timeout: time in seconds to wait for a message before returning None
@@ -90,7 +90,7 @@ class QueueConsumer:
             raise e
 
     def consume_dead_letter_messages(self, channel: pika.adapters.blocking_connection.BlockingChannel,
-                                     inactivity_timeout: int = 5, queue_name: str = '') -> Generator[tuple[Any, Any, None], None, None]:
+                                     inactivity_timeout: int = 5, queue_name: str = '') -> Generator[tuple[Any, Any, None]]:
         """
         This method consumes messages from the queue.
         :param channel: The RabbitMQ channel to consume messages from.

@@ -77,6 +77,7 @@ def ht_searcher_fixture():
     )
 
 
+@pytest.mark.integration
 class TestHTSearcher:
 
     def test_get_query_response(self, ht_searcher_fixture):

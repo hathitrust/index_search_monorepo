@@ -31,11 +31,15 @@ minversion = "6.0"
 # -p no:cacheprovider is to avoid pytest warning about pytest_cache fixture
 # -ra is to show  extra test summary info; -q is to suppress pytest header
 addopts = "-ra -q -p no:cacheprovider"
+markers = [
+    "integration: requires a live service (Solr, MySQL or RabbitMQ)",
+]
 
 
 [tool.ruff]
-# Target Python version
-target-version = "py312"
+# Target Python version. Must match requires-python above, or pyupgrade (UP) rules
+# hold back autofixes to an older-than-necessary syntax level.
+target-version = "py314"
 
 # Max line length to match Black
 line-length = 100
