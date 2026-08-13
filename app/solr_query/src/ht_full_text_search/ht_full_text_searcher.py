@@ -68,18 +68,19 @@ class HTFullTextSearcher(HTSearcher):
         :return:
         """
 
-        # Processing long queries
-        if len(list_ids) > 100:
-            # processing the query in batches
-            while list_ids:
-                chunk, list_ids = list_ids[:100], list_ids[100:]
+        if not list_ids:
+            return
 
-                list_docs, list_debug = self.solr_result_output(q_string=q_string, fl=fl, operator=operator, filter_dict={"id": chunk},
-                    q_filter=q_filter
-                )
-                logger.info(f"One batch of results {len(chunk)}")
+        # Processing the query in batches of 100 ids per Solr query
+        while list_ids:
+            chunk, list_ids = list_ids[:100], list_ids[100:]
 
-                yield list_docs, list_debug
+            list_docs, list_debug = self.solr_result_output(q_string=q_string, fl=fl, operator=operator, filter_dict={"id": chunk},
+                q_filter=q_filter
+            )
+            logger.info(f"One batch of results {len(chunk)}")
+
+            yield list_docs, list_debug
 
         # TODO implement the of AB test and interleave, Check the logic in the LS::Operation::Search.
         #  In previous versions of this repository you will find the logic to implement this feature (perl code

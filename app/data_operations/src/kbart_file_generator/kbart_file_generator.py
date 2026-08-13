@@ -207,7 +207,7 @@ def fetch_title_dates_from_mysql_batch(
     for row in db_conn.query_mysql(query, params=params):
         bib_num = first_value(row.get("bib_num"))
         if bib_num:
-            results_by_id[bib_num] = row
+            results_by_id[normalize_catalog_id_stripped_zeros(bib_num)] = row
 
     return results_by_id
 
@@ -336,12 +336,13 @@ def generate_kbart_rows(
     errors: list[dict[str, str]] = []
 
     for catalog_id in catalog_ids:
-        metadata = metadata_by_id.get(catalog_id)
+        normalized_id = normalize_catalog_id_stripped_zeros(catalog_id)
+        metadata = metadata_by_id.get(normalized_id)
         if metadata is None:
             errors.append({"catalog_id": catalog_id, "reason": "metadata not found"})
             continue
 
-        row = build_kbart_row(metadata, date_by_id.get(catalog_id))
+        row = build_kbart_row(metadata, date_by_id.get(normalized_id))
         if not row["publication_title"] or not row["title_id"]:
             errors.append({"catalog_id": catalog_id, "reason": "required source fields missing"})
             continue

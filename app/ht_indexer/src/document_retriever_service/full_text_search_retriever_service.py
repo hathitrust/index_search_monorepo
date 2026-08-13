@@ -348,8 +348,6 @@ def main():
         # The process will run every 5 minutes to check if there are documents to process (retriever_status = pending)
         while True:
             total_time_waiting = 0
-            if total_time_waiting > 0:
-                logger.info(f"Process=retrieving: Waiting {total_time_waiting} until reduce the number of messages in the queue")
             list_documents = init_args_obj.db_conn.query_mysql(init_args_obj.retriever_query, params={"status": "pending"})
             if len(list_documents) == 0:
                 logger.info("No documents to process")
@@ -378,7 +376,7 @@ def main():
 
                 document_retriever_service.full_text_search_retriever_service(
                     init_args_obj.db_conn,
-                    list_documents,
+                    list_ids,
                     by_field
                 )
 
