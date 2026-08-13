@@ -8,18 +8,22 @@ from ht_utils.ht_logger import get_ht_logger
 
 logger = get_ht_logger(name=__name__)
 
+
 class TestChannelCreator:
-    """ Test the QueueConnection class """
+    """Test the QueueConnection class"""
 
-    def test_create_channel_close(self, get_global_queue_config: dict[str, Any], get_rabbit_mq_host_name) -> None:
-
-        """ Test the creation and closing of a channel using ChannelCreator
+    def test_create_channel_close(
+        self, get_global_queue_config: dict[str, Any], get_rabbit_mq_host_name
+    ) -> None:
+        """Test the creation and closing of a channel using ChannelCreator
         :param get_global_queue_config: Fixture to get the global queue configuration
         :return: None
         """
-        channel_creator = ChannelCreator(user=get_global_queue_config.get("user", "guest"),
-                                         password=get_global_queue_config.get("password", "guest"),
-                                         host=get_rabbit_mq_host_name)
+        channel_creator = ChannelCreator(
+            user=get_global_queue_config.get("user", "guest"),
+            password=get_global_queue_config.get("password", "guest"),
+            host=get_rabbit_mq_host_name,
+        )
 
         # Creating a channel
         channel = channel_creator.get_channel()
@@ -31,9 +35,10 @@ class TestChannelCreator:
         channel.close()
         assert channel.is_closed
 
-    def test_purge_queue(self, get_global_queue_config: dict[str, Any], get_app_queue_config: dict[str, Any]):
-
-        """ Test the purge queue functionality of the QueueProducer class
+    def test_purge_queue(
+        self, get_global_queue_config: dict[str, Any], get_app_queue_config: dict[str, Any]
+    ):
+        """Test the purge queue functionality of the QueueProducer class
         :param get_global_queue_config: Fixture to get the global queue configuration
         :param get_app_queue_config: Fixture to get the application-specific queue configuration
         :return: None
@@ -41,10 +46,13 @@ class TestChannelCreator:
 
         queue_name = "test_purge_queue"
 
-        queue_config, global_path, app_path = create_test_queue_config(get_global_queue_config, get_app_queue_config,
-                                                                       queue_name,
-                                                                       batch_size=1,
-                                                                       requeue_message=False)
+        queue_config, global_path, app_path = create_test_queue_config(
+            get_global_queue_config,
+            get_app_queue_config,
+            queue_name,
+            batch_size=1,
+            requeue_message=False,
+        )
 
         # Create producer instance
         queue_producer = QueueProducer(queue_config.queue_params)
@@ -59,7 +67,7 @@ class TestChannelCreator:
 
         # Purge the queue before the test
         queue_producer.channel.queue_purge(queue_name)
-        logger.info(f'Queue purged before publishing messages in the queue {queue_name}.')
+        logger.info(f"Queue purged before publishing messages in the queue {queue_name}.")
 
         # Test logic here
         queue_producer.publish_messages({"ht_id": 3, "content": "Content of the message"})

@@ -18,9 +18,7 @@ sys.path.insert(0, parent)
 
 @pytest.fixture()
 def get_fullrecord_xml():
-    with open(
-            f"{Path(__file__).parents[1]}/document_generator_tests/data/fullrecord.xml"
-    ) as f:
+    with open(f"{Path(__file__).parents[1]}/document_generator_tests/data/fullrecord.xml") as f:
         full_record_data = f.read()
     return full_record_data
 
@@ -33,30 +31,31 @@ def get_allfield_string():
 
 
 class TestDocumentGenerator:
-
     def test_not_exist_zip_file_full_text_field(self):
-        """ Test the function when the zip file does not exist """
+        """Test the function when the zip file does not exist"""
         try:
             with pytest.raises(FileNotFoundError):
-                FullTextDocumentGenerator.get_full_text_field("../catalog_metadata_tests/data/test.zip")
+                FullTextDocumentGenerator.get_full_text_field(
+                    "../catalog_metadata_tests/data/test.zip"
+                )
         except Failed:
             pass
 
     def test_full_text_field_well_generated(self):
-
         """
         Test the function when the zip file exists, the zip file can contain a __MACOSX directory inside, but
         the function will ignore this directory and the full text is well generated
         """
 
-        zip_doc_path = f"{Path(__file__).parents[1]}/document_generator_tests/data/mb.39015078560292_test.zip"
+        zip_doc_path = (
+            f"{Path(__file__).parents[1]}/document_generator_tests/data/mb.39015078560292_test.zip"
+        )
 
         zip_doc = zipfile.ZipFile(zip_doc_path, mode="r")
         full_test = FullTextDocumentGenerator.txt_files_2_full_text(zip_doc)
         assert len(full_test) > 0
 
     def test_string_preparation_raise_unicodedecodeerror_macosx_directory(self):
-
         """
         A UnicodeDecodeError is find when the zip file contains pesky __MACOSX directory inside,
         so the function should raise an exception if __MACOSX directory is not ignored
@@ -64,20 +63,24 @@ class TestDocumentGenerator:
         This use case forces the UnicodeDecodeError exception processing files inside __MACOSX folder.
         """
 
-        zip_doc_path = f"{Path(__file__).parents[1]}/document_generator_tests/data/mb.39015078560292_test.zip"
+        zip_doc_path = (
+            f"{Path(__file__).parents[1]}/document_generator_tests/data/mb.39015078560292_test.zip"
+        )
 
         zip_doc = zipfile.ZipFile(zip_doc_path, mode="r")
         with pytest.raises(UnicodeDecodeError):
             full_text = FullTextDocumentGenerator.txt_files_2_full_text(zip_doc)
 
             for i_file in zip_doc.namelist():
-                if i_file.startswith('__MACOSX/'):
+                if i_file.startswith("__MACOSX/"):
                     if zip_doc.getinfo(i_file).filename.endswith(".txt"):
                         doc_str = string_preparation(zip_doc.read(i_file))
                         full_text = full_text + " " + doc_str
 
     def test_full_text_field(self):
-        zip_path = f"{Path(__file__).parents[1]}/document_generator_tests/data/mb.39015078560292_test.zip"
+        zip_path = (
+            f"{Path(__file__).parents[1]}/document_generator_tests/data/mb.39015078560292_test.zip"
+        )
 
         try:
             with pytest.raises(FileNotFoundError):

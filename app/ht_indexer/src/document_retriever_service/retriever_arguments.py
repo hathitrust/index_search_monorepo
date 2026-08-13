@@ -23,28 +23,34 @@ SOLR_TOTAL_ROWS = 200
 TOTAL_MYSQL_ROWS = 24000
 MAX_WORKERS = 20
 
+
 class RetrieverServiceArguments:
     def __init__(self, parser):
-        parser.add_argument("--list_documents", help="List of items to process",
-                            default=[],
-                            type=comma_separated_list)
+        parser.add_argument(
+            "--list_documents",
+            help="List of items to process",
+            default=[],
+            type=comma_separated_list,
+        )
 
-        parser.add_argument("--query_field",
-                            help="Could be item or record. If item, the query contains the ht_id of the item",
-                            default="ht_id"
-                            )
-        parser.add_argument("--parallelize",
-                            help="Retrieve documents in parallel using multiple threads",
-                            action='store_true',
-                            default=False)
-
+        parser.add_argument(
+            "--query_field",
+            help="Could be item or record. If item, the query contains the ht_id of the item",
+            default="ht_id",
+        )
+        parser.add_argument(
+            "--parallelize",
+            help="Retrieve documents in parallel using multiple threads",
+            action="store_true",
+            default=False,
+        )
 
         try:
             # Using queue or local machine
             ############### QUEUE CONFIGURATION ####################
             # Build resource file paths using Traversable's '/' operator
-            global_config = config_queue_file_path / 'global_config.yml'
-            app_config = retriever_config_file_path / 'retriever_config.yml'
+            global_config = config_queue_file_path / "global_config.yml"
+            app_config = retriever_config_file_path / "retriever_config.yml"
             # Validate that the files actually exist
             if not global_config.is_file():
                 logger.error(f"Queue config file {global_config} does not exist")
@@ -56,8 +62,10 @@ class RetrieverServiceArguments:
             ########################################################
 
         except KeyError as e:
-            logger.error(f"Environment variables required: "
-                         f"{get_general_error_message('DocumentIndexerService', e)}")
+            logger.error(
+                f"Environment variables required: "
+                f"{get_general_error_message('DocumentIndexerService', e)}"
+            )
 
             sys.exit(1)
         self.args = parser.parse_args()
@@ -81,21 +89,19 @@ class RetrieverServiceArguments:
         # TODO Remove the line below once SolrExporter been updated self.solr_url = f"{solr_url}/query"
 
         self.solr_host = get_solr_url()
-        self.solr_user=os.getenv("SOLR_USER")
-        self.solr_password=os.getenv("SOLR_PASSWORD")
+        self.solr_user = os.getenv("SOLR_USER")
+        self.solr_password = os.getenv("SOLR_PASSWORD")
 
-        self.solr_retriever_query_params = {
-        'q': '*:*',
-        'rows': SOLR_TOTAL_ROWS,
-        'wt': 'json'
-    }
+        self.solr_retriever_query_params = {"q": "*:*", "rows": SOLR_TOTAL_ROWS, "wt": "json"}
 
 
 class RetrieverServiceByFileArguments(RetrieverServiceArguments):
-
     def __init__(self, parser):
-        parser.add_argument("--input_document_file", help="TXT file containing the list of items to process",
-                            default='')
+        parser.add_argument(
+            "--input_document_file",
+            help="TXT file containing the list of items to process",
+            default="",
+        )
 
         super().__init__(parser)
 

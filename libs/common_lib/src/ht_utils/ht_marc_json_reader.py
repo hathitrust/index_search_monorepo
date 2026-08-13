@@ -10,16 +10,18 @@ from ht_utils.ht_logger import get_ht_logger
 
 logger = get_ht_logger(name=__name__)
 
+
 class MarcJsonReader:
-    '''Class to read multiple newline delimited JSON files
+    """Class to read multiple newline delimited JSON files
     Combine this class with pymarc's Record class to parse each JSON object into a MARC record.
 
-    '''
+    """
+
     def __init__(self, fh: IO[str]):
         self.fh = fh
 
     def __iter__(self) -> Iterator[dict[str, Any]]:
-        '''Yields Record objects parsed from the MARC JSON input.'''
+        """Yields Record objects parsed from the MARC JSON input."""
         for line in self.fh:
             if not (line := line.strip()):
                 continue
@@ -30,6 +32,7 @@ class MarcJsonReader:
                 continue
             yield data
 
+
 def dict_to_pymarc_record(data: dict) -> Record:
     """
     Convert a dictionary representation of a MARC record
@@ -39,10 +42,10 @@ def dict_to_pymarc_record(data: dict) -> Record:
     record = Record()
 
     # Set leader
-    if 'leader' in data:
-        record.leader = data['leader']
+    if "leader" in data:
+        record.leader = data["leader"]
 
-    for field_dict in data.get('fields', []):
+    for field_dict in data.get("fields", []):
         # Each field_dict has a single key (tag)
         tag, value = next(iter(field_dict.items()))
 
@@ -52,10 +55,7 @@ def dict_to_pymarc_record(data: dict) -> Record:
             continue
 
         # Data fields
-        indicators = [
-            value.get('ind1', ' '),
-            value.get('ind2', ' ')
-        ]
+        indicators = [value.get("ind1", " "), value.get("ind2", " ")]
 
         # Flatten subfields: [{'a': 'x'}, {'b': 'y'}] → ['a', 'x', 'b', 'y']
         subfields = []
@@ -75,15 +75,12 @@ def dict_to_pymarc_record(data: dict) -> Record:
                 else:
                     continue
 
-        field = Field(
-            tag,
-            indicators=indicators,
-            subfields=subfields
-        )
+        field = Field(tag, indicators=indicators, subfields=subfields)
 
         record.add_field(field)
 
     return record
+
 
 def iter_marc_records(path: Path) -> Iterator[Record]:
     """
@@ -96,12 +93,12 @@ def iter_marc_records(path: Path) -> Iterator[Record]:
         raise FileNotFoundError(f"Cannot find Zephir export at {path}")
     # MarcJsonReader expects a text file-like object, so we open the gzipped file in text mode (rt) with UTF-8 encoding.
     with gzip.open(path, "rt", encoding="utf-8", errors="ignore") as fh:
-
         for record in MarcJsonReader(fh):
             if record is None:
                 logger.warning("Skipped malformed MARC JSON record while iterating %s", path)
                 continue
             yield dict_to_pymarc_record(record)
+
 
 def extract_control_number(record: Record) -> str:
     """

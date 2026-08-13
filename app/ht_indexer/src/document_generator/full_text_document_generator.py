@@ -44,7 +44,6 @@ def extract_fields_from_mets_file(doc_source_path) -> dict:
 
 
 class FullTextDocumentGenerator:
-
     def __init__(self, db_conn: HtMysql):
         self.mysql_data_extractor = MysqlMetadataExtractor(db_conn)
 
@@ -79,8 +78,13 @@ class FullTextDocumentGenerator:
         """
 
         # Get only .txt files and sort them by name
-        txt_files = sorted([i_file for i_file in zip_doc.namelist() if
-                     i_file.endswith('.txt') and not i_file.startswith('__MACOSX/')])
+        txt_files = sorted(
+            [
+                i_file
+                for i_file in zip_doc.namelist()
+                if i_file.endswith(".txt") and not i_file.startswith("__MACOSX/")
+            ]
+        )
 
         full_text_parts = [string_preparation(zip_doc.read(f)) for f in txt_files]
 
@@ -102,8 +106,11 @@ class FullTextDocumentGenerator:
             raise FileNotFoundError(f"File {zip_doc_path} not found")
 
         with zipfile.ZipFile(zip_doc_path, mode="r") as zip_doc:
-            file_contents = {name: string_preparation(zip_doc.read(name)) for name in zip_doc.namelist() if
-                             name.endswith('.txt') and not name.startswith('__MACOSX/')}
+            file_contents = {
+                name: string_preparation(zip_doc.read(name))
+                for name in zip_doc.namelist()
+                if name.endswith(".txt") and not name.startswith("__MACOSX/")
+            }
             full_text = " ".join([file_contents[key] for key in sorted(file_contents)])
 
         return full_text
@@ -121,8 +128,8 @@ class FullTextDocumentGenerator:
         xml_string_like_file = io.BytesIO(catalog_xml.encode(encoding="utf-8"))
 
         for event, element in lxml.etree.iterparse(
-                xml_string_like_file,
-                events=("start", "end"),
+            xml_string_like_file,
+            events=("start", "end"),
         ):
             if element.tag.find("datafield") > -1:
                 tag_att = element.attrib.get("tag")
@@ -141,8 +148,7 @@ class FullTextDocumentGenerator:
                     pass
         return xml.sax.saxutils.quoteattr(all_fields)
 
-    def make_full_text_search_document(self, doc: HtDocument,
-                                       doc_metadata: dict) -> dict:
+    def make_full_text_search_document(self, doc: HtDocument, doc_metadata: dict) -> dict:
         # TODO Check exception if doc_id is None
         """
         Receive the HtDocument object and the metadata from the Catalog API and generate the full text search entry
@@ -164,7 +170,9 @@ class FullTextDocumentGenerator:
             FullTextDocumentGenerator.create_allfields_field(doc_metadata.get("fullrecord"))
         )
         doc_metadata.pop("fullrecord")
-        logger.info(f"Time to generate process=OCR_field ht_id={doc.document_id} Time={time.time() - start}")
+        logger.info(
+            f"Time to generate process=OCR_field ht_id={doc.document_id} Time={time.time() - start}"
+        )
 
         # Add Catalog fields to the full-text document
         entry.update(doc_metadata)
@@ -172,11 +180,15 @@ class FullTextDocumentGenerator:
         start = time.time()
         # Retrieve data from MariaDB
         entry.update(self.mysql_data_extractor.retrieve_mysql_data(doc.document_id))
-        logger.info(f"Time to generate process=MySQL_fields ht_id={doc.document_id} Time={time.time() - start}")
+        logger.info(
+            f"Time to generate process=MySQL_fields ht_id={doc.document_id} Time={time.time() - start}"
+        )
 
         start = time.time()
         # Extract fields from METS file
         entry.update(extract_fields_from_mets_file(doc.source_path))
-        logger.info(f"Time to generate process=METS_fields ht_id={doc.document_id} Time={time.time() - start}")
+        logger.info(
+            f"Time to generate process=METS_fields ht_id={doc.document_id} Time={time.time() - start}"
+        )
         entry.pop("ht_id")
         return entry

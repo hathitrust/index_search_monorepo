@@ -11,6 +11,7 @@ from ht_utils.ht_logger import get_ht_logger
 
 logger = get_ht_logger(name=__name__)
 
+
 def comma_separated_list(arg):
     return arg.split(",")
 
@@ -23,14 +24,16 @@ def create_doc_score_dataframe(solr_output_explanation):
     doc_score_dict = {}
     for doc in solr_output_explanation:
         for key, value in doc.items():
-            doc_score_dict.update({'id': doc[key],
-                                   'score': clean_up_score_string(value.split("=")[0].strip())})
+            doc_score_dict.update(
+                {"id": doc[key], "score": clean_up_score_string(value.split("=")[0].strip())}
+            )
 
     return doc_score_dict
 
 
-def get_solr_results_without_filter_by_id(ht_full_search_obj: HTFullTextSearcher,
-                                          query: dict, fl: list):
+def get_solr_results_without_filter_by_id(
+    ht_full_search_obj: HTFullTextSearcher, query: dict, fl: list
+):
     """
     Get the results from Sol without filter it by id
     :param ht_full_search_obj: Search object
@@ -43,9 +46,7 @@ def get_solr_results_without_filter_by_id(ht_full_search_obj: HTFullTextSearcher
     total_found = 0
 
     for response in ht_full_search_obj.solr_result_query_dict(
-            query_string=query["query_string"],
-            fl=fl,
-            operator=query["operator"]
+        query_string=query["query_string"], fl=fl, operator=query["operator"]
     ):
         total_found += response.get("response").get("numFound")
         for record in response.get("response").get("docs"):
@@ -65,21 +66,22 @@ def get_list_phrases(file_path: str) -> list:
 
 
 if __name__ == "__main__":
-
     parser = ArgumentParser()
     parser.add_argument("--env", default=os.environ.get("HT_ENVIRONMENT", "dev"))
     parser.add_argument("--solr_url", help="Solr url", default=None)
-    parser.add_argument(
-        "--fl", help="Fields to return", default=["author", "id", "title", "score"]
-    )
+    parser.add_argument("--fl", help="Fields to return", default=["author", "id", "title", "score"])
     parser.add_argument(
         "--filter_path", help="Path of a JSON file used to filter Solr results", default=None
     )
     parser.add_argument(
-        "--query_config", help="Type of query ocronly or/and all", default=["ocronly"],
-        type=comma_separated_list)
-    parser.add_argument("--list_phrase_file", help="TXT file containing the list of phrase to search",
-                        default='')
+        "--query_config",
+        help="Type of query ocronly or/and all",
+        default=["ocronly"],
+        type=comma_separated_list,
+    )
+    parser.add_argument(
+        "--list_phrase_file", help="TXT file containing the list of phrase to search", default=""
+    )
 
     args = parser.parse_args()
 
@@ -104,15 +106,10 @@ if __name__ == "__main__":
         for type_query in args.query_config:  # "ocronly", "all"
             for op_type in ["AND", "OR", None]:
                 list_queries.append(
-                    {
-                        "query_fields": type_query,
-                        "query_string": input_query,
-                        "operator": op_type
-                    }
+                    {"query_fields": type_query, "query_string": input_query, "operator": op_type}
                 )
 
     for query in list_queries:
-
         fl = args.fl  # ["author", "id", "title"]
 
         # Create empty dataframe with the columns to be returned
@@ -121,27 +118,30 @@ if __name__ == "__main__":
         logger.info(f"Solr query {query['query_string']} with operator {query['operator']}")
 
         # Create query object
-        Q = HTFullTextQuery(config_query=query['query_fields'])
+        Q = HTFullTextQuery(config_query=query["query_fields"])
 
         # Create the search object
-        ht_full_search = HTFullTextSearcher(solr_url=solr_url, ht_search_query=Q, environment=args.env,
-                                            user=solr_user, password=solr_password)
+        ht_full_search = HTFullTextSearcher(
+            solr_url=solr_url,
+            ht_search_query=Q,
+            environment=args.env,
+            user=solr_user,
+            password=solr_password,
+        )
 
         total_found = 0
 
         if args.filter_path is None:
             # Get the results from Sol without filter it by id
             docs_found, list_docs = get_solr_results_without_filter_by_id(
-                ht_full_search_obj=ht_full_search,
-                query=query,
-                fl=args.fl
+                ht_full_search_obj=ht_full_search, query=query, fl=args.fl
             )
 
             total_found += docs_found
 
             # Empty results
             if docs_found == 0:
-                logger.info(f'No results found for query {query["query_string"]}')
+                logger.info(f"No results found for query {query['query_string']}")
                 continue
 
             df = pd.DataFrame(list_docs)
@@ -156,21 +156,26 @@ if __name__ == "__main__":
             filter_dict = json.loads(filter_json_file.read())
             query_filter = True
 
-            list_ids = [doc_id['id'] for doc_id in filter_dict.get('response', {}).get('docs', []) if doc_id.get('id')]
+            list_ids = [
+                doc_id["id"]
+                for doc_id in filter_dict.get("response", {}).get("docs", [])
+                if doc_id.get("id")
+            ]
 
             logger.info(f"Total of ids to process {len(list_ids)}")
 
             list_df_results = []
             # Processing long queries
-            for doc, _debug_info in ht_full_search.retrieve_documents_from_file(q_string=query["query_string"],
-                                                                               fl=fl,
-                                                                               operator=query["operator"],
-                                                                               q_filter=query_filter,
-                                                                               list_ids=list_ids):
-
+            for doc, _debug_info in ht_full_search.retrieve_documents_from_file(
+                q_string=query["query_string"],
+                fl=fl,
+                operator=query["operator"],
+                q_filter=query_filter,
+                list_ids=list_ids,
+            ):
                 # Empty results
                 if len(doc) == 0:
-                    logger.info(f'No results found for query {query["query_string"]}')
+                    logger.info(f"No results found for query {query['query_string']}")
                     continue
 
                 df_tmp = pd.DataFrame(doc)
@@ -182,13 +187,13 @@ if __name__ == "__main__":
         logger.info(f"Total found {total_found}")
 
         # Save the results in a CSV files
-        main_path = f'{os.getcwd()}/scripts/query_results'
+        main_path = f"{os.getcwd()}/scripts/query_results"
 
         if not os.path.exists(main_path):
             os.makedirs(main_path)
 
         df.to_csv(
-            path_or_buf=f'{main_path}/{query["query_fields"]}_{query["query_string"]}_{query["operator"]}_{args.env}.csv',
+            path_or_buf=f"{main_path}/{query['query_fields']}_{query['query_string']}_{query['operator']}_{args.env}.csv",
             index=False,
-            sep="\t"
+            sep="\t",
         )

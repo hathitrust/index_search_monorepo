@@ -14,9 +14,11 @@ from ht_indexer_monitoring.ht_indexer_tracktable import (
 def mock_db_conn():
     return Mock()
 
+
 @pytest.fixture
 def ht_indexer_tracktable_instance(mock_db_conn):
     return HTIndexerTracktable(db_conn=mock_db_conn)
+
 
 @pytest.fixture
 def create_ht_indexer_track_data():
@@ -24,9 +26,7 @@ def create_ht_indexer_track_data():
     # Read the list of IDs from the file
 
     current_dir = Path(__file__).parent
-    file_path = (
-        current_dir.parent / "list_htids_indexer_test.txt"
-    )
+    file_path = current_dir.parent / "list_htids_indexer_test.txt"
 
     with open(file_path) as file:
         ids = file.read().splitlines()
@@ -44,20 +44,24 @@ def create_ht_indexer_track_data():
             "retriever_error": None,
             "generator_error": None,
             "indexer_error": None,
-            "created_at": time.strftime('%Y-%m-%d %H:%M:%S'),
+            "created_at": time.strftime("%Y-%m-%d %H:%M:%S"),
             "updated_at": None,
-            "processed_at": None
+            "processed_at": None,
         }
-        data.append(HTIndexerTrackData(ht_id=record['ht_id'], record_id=record['record_id'], status=record['status']))
+        data.append(
+            HTIndexerTrackData(
+                ht_id=record["ht_id"], record_id=record["record_id"], status=record["status"]
+            )
+        )
 
     return data
 
-class TestHTIndexerTracktable:
 
+class TestHTIndexerTracktable:
     def test_create_ht_indexer_track_data_object(self, create_ht_indexer_track_data):
         assert create_ht_indexer_track_data[0].ht_id == "nyp.33433082002258"
-        assert create_ht_indexer_track_data[0].record_id == 'record_nyp.33433082002258'
-        assert create_ht_indexer_track_data[0].status == 'pending'
+        assert create_ht_indexer_track_data[0].record_id == "record_nyp.33433082002258"
+        assert create_ht_indexer_track_data[0].status == "pending"
 
     def test_create_table(self, ht_indexer_tracktable_instance, mock_db_conn):
         ht_indexer_tracktable_instance.create_table()
@@ -71,7 +75,7 @@ class TestHTIndexerTracktable:
                 status="pending",
                 retriever_status="pending",
                 generator_status="pending",
-                indexer_status="pending"
+                indexer_status="pending",
             ),
             HTIndexerTrackData(
                 ht_id="test_ht_id_2",
@@ -79,12 +83,14 @@ class TestHTIndexerTracktable:
                 status="pending",
                 retriever_status="pending",
                 generator_status="pending",
-                indexer_status="pending"
-            )
+                indexer_status="pending",
+            ),
         ]
         ht_indexer_tracktable_instance.insert_batch(data)
         mock_db_conn.insert_batch.assert_called_once()
         # Check the arguments passed to the insert_batch method, position 0 is the query, position 1 is the data
-        assert mock_db_conn.insert_batch.call_args[0][0].startswith(f"INSERT IGNORE INTO {PROCESSING_STATUS_TABLE_NAME}")
+        assert mock_db_conn.insert_batch.call_args[0][0].startswith(
+            f"INSERT IGNORE INTO {PROCESSING_STATUS_TABLE_NAME}"
+        )
         # Check the number of items to be inserted (position 1)
         assert len(mock_db_conn.insert_batch.call_args[0][1]) == 2

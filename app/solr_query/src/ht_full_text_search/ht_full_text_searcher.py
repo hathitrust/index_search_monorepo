@@ -22,30 +22,34 @@ LS::Operation::Search ==> it contains all the logic about interleaved adn A/B te
 
 class HTFullTextSearcher(HTSearcher):
     def __init__(
-            self,
-            solr_url: str = None,
-            ht_search_query: HTFullTextQuery = None,
-            environment: str = "dev",
-            user=None, password=None
+        self,
+        solr_url: str = None,
+        ht_search_query: HTFullTextQuery = None,
+        environment: str = "dev",
+        user=None,
+        password=None,
     ):
         super().__init__(
             solr_url=solr_url,
             ht_search_query=ht_search_query,
             environment=environment,
             user=user,
-            password=password
+            password=password,
         )
 
     def solr_result_output(
-            self, q_string: str = None, fl: list = None, operator: str = None, q_filter: bool = False,
-            filter_dict: dict = None):
-
+        self,
+        q_string: str = None,
+        fl: list = None,
+        operator: str = None,
+        q_filter: bool = False,
+        filter_dict: dict = None,
+    ):
         """With one query accumulate all the results"""
 
         list_docs = []
         result_explanation = []
         for response in self.solr_result_query_dict(q_string, fl, operator, q_filter, filter_dict):
-
             for record in response.get("response").get("docs"):
                 list_docs.append(record)
             for key, value in response.get("debug").get("explain").items():
@@ -53,11 +57,14 @@ class HTFullTextSearcher(HTSearcher):
 
         return list_docs, result_explanation
 
-    def retrieve_documents_from_file(self, q_string: str = None, fl: list = None,
-                                     operator: str = None,
-                                     q_filter: bool = False,
-                                     list_ids: list = None, ):
-
+    def retrieve_documents_from_file(
+        self,
+        q_string: str = None,
+        fl: list = None,
+        operator: str = None,
+        q_filter: bool = False,
+        list_ids: list = None,
+    ):
         """
         This function create the Solr query using the ht_id from a list of ids
         :param list_ids: List of ids
@@ -75,8 +82,12 @@ class HTFullTextSearcher(HTSearcher):
         while list_ids:
             chunk, list_ids = list_ids[:100], list_ids[100:]
 
-            list_docs, list_debug = self.solr_result_output(q_string=q_string, fl=fl, operator=operator, filter_dict={"id": chunk},
-                q_filter=q_filter
+            list_docs, list_debug = self.solr_result_output(
+                q_string=q_string,
+                fl=fl,
+                operator=operator,
+                filter_dict={"id": chunk},
+                q_filter=q_filter,
             )
             logger.info(f"One batch of results {len(chunk)}")
 
@@ -91,16 +102,15 @@ if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("--env", default=os.environ.get("HT_ENVIRONMENT", "dev"))
     parser.add_argument("--query_string", help="Query string", default="*:*")
-    parser.add_argument(
-        "--fl", help="Fields to return", default=["author", "id", "title", "score"]
-    )
+    parser.add_argument("--fl", help="Fields to return", default=["author", "id", "title", "score"])
     parser.add_argument("--solr_url", help="Solr url", default=None)
-    parser.add_argument("--operator", help="Operator", type=str) # Default value is None
+    parser.add_argument("--operator", help="Operator", type=str)  # Default value is None
+    parser.add_argument("--query_config", help="Type of query ocronly or all", default="all")
     parser.add_argument(
-        "--query_config", help="Type of query ocronly or all", default="all"
-    )
-    parser.add_argument(
-        "--use_shards", help="If the query should include shards", default=False, action="store_true"
+        "--use_shards",
+        help="If the query should include shards",
+        default=False,
+        action="store_true",
     )
     parser.add_argument(
         "--filter_path", help="Path of a JSON file used to filter Solr results", default=None
@@ -126,14 +136,17 @@ if __name__ == "__main__":
 
     # Create a full text searcher object
     ht_full_search = HTFullTextSearcher(
-        solr_url=solr_url, ht_search_query=Q, environment=args.env, user=solr_user, password=solr_password
+        solr_url=solr_url,
+        ht_search_query=Q,
+        environment=args.env,
+        user=solr_user,
+        password=solr_password,
     )
 
     filter_dict = {}
     q_filter = False
 
     if args.filter_path:
-
         # Generate filter dictionary from JSON file
         filter_json_file = open(args.filter_path)
         filter_dict = json.loads(filter_json_file.read())
@@ -141,19 +154,26 @@ if __name__ == "__main__":
 
         total_found = 0
 
-        list_ids = [doc_id['id'] for doc_id in filter_dict.get('response', {}).get('docs', []) if doc_id.get('id')]
+        list_ids = [
+            doc_id["id"]
+            for doc_id in filter_dict.get("response", {}).get("docs", [])
+            if doc_id.get("id")
+        ]
 
         # Processing long queries
-        for doc, debug_info in ht_full_search.retrieve_documents_from_file(q_string=query_string, fl=fl,
-                                                                           operator=args.operator,
-                                                                           q_filter=q_filter,
-                                                                           list_ids=list_ids,
-                                                                           ):
-            logger.info('**********************************')
+        for doc, debug_info in ht_full_search.retrieve_documents_from_file(
+            q_string=query_string,
+            fl=fl,
+            operator=args.operator,
+            q_filter=q_filter,
+            list_ids=list_ids,
+        ):
+            logger.info("**********************************")
             logger.info(doc)
             logger.info(debug_info)
     else:
-        solr_output = ht_full_search.solr_result_output(q_string=query_string, fl=fl, operator=args.operator
+        solr_output = ht_full_search.solr_result_output(
+            q_string=query_string, fl=fl, operator=args.operator
         )
         logger.info(f"Total found {len(solr_output)}")
         logger.info(solr_output)

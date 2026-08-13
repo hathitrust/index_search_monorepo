@@ -18,12 +18,12 @@ class HTFullTextQuery(HTSearchQuery):
     # TODO: We will need it, in case you will implement a new search engine in addition to the full text search engine
 
     def __init__(
-            self,
-            config_query: str = "all",
-            config_query_path: str = QUERY_PARAMETER_CONFIG_FILE,
-            user_id: str = None,
-            config_facet_field: str = None,
-            config_facet_field_path: str = FACET_FILTERS_CONFIG_FILE
+        self,
+        config_query: str = "all",
+        config_query_path: str = QUERY_PARAMETER_CONFIG_FILE,
+        user_id: str = None,
+        config_facet_field: str = None,
+        config_facet_field_path: str = FACET_FILTERS_CONFIG_FILE,
     ):
         """
         Constructor to create the Solr query

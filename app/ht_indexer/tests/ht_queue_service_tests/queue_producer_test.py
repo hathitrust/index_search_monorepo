@@ -12,11 +12,13 @@ logger = get_ht_logger(name=__name__)
 
 message = {"ht_id": "12345678", "ht_title": "Hello World", "ht_author": "John Doe"}
 
+
 class TestQueueProducer:
     """Test the QueueProducer class"""
 
-    def test_queue_produce_one_message(self, get_global_queue_config: dict[str, Any],
-                                       get_app_queue_config: dict[str, Any]) -> None:
+    def test_queue_produce_one_message(
+        self, get_global_queue_config: dict[str, Any], get_app_queue_config: dict[str, Any]
+    ) -> None:
         """Test publishing a single message to the queue and consuming it to verify.
         :param get_global_queue_config: fixture to get the global queue configuration
         :param get_app_queue_config: fixture to get the application queue configuration
@@ -27,13 +29,13 @@ class TestQueueProducer:
         batch_size = 1
         requeue_message = False
 
-        producer_queue_config, global_path, app_path = create_test_queue_config(get_global_queue_config,
-                                                                                get_app_queue_config,
-                                                                                queue_name,
-                                                                                batch_size=batch_size,
-                                                                                requeue_message=requeue_message)
-
-
+        producer_queue_config, global_path, app_path = create_test_queue_config(
+            get_global_queue_config,
+            get_app_queue_config,
+            queue_name,
+            batch_size=batch_size,
+            requeue_message=requeue_message,
+        )
 
         producer_instance = QueueProducer(producer_queue_config.queue_params)
 
@@ -44,25 +46,28 @@ class TestQueueProducer:
         consumer_instance = QueueConsumer(producer_queue_config.queue_params)
 
         list_message = []
-        for method_frame, _ , body in consumer_instance.consume_message(inactivity_timeout=5):
-
+        for method_frame, _, body in consumer_instance.consume_message(inactivity_timeout=5):
             if method_frame:
-                output_message = json.loads(body.decode('utf-8'))
+                output_message = json.loads(body.decode("utf-8"))
                 list_message.append(output_message)
-                consumer_instance.positive_acknowledge(consumer_instance.channel, method_frame.delivery_tag)
+                consumer_instance.positive_acknowledge(
+                    consumer_instance.channel, method_frame.delivery_tag
+                )
                 assert len(list_message) == 1
                 break
             else:
-                logger.warning(f"None method_frame in {consumer_instance.queue_manager.queue_name}... Stopping batch consumption.")
+                logger.warning(
+                    f"None method_frame in {consumer_instance.queue_manager.queue_name}... Stopping batch consumption."
+                )
                 break
 
         # Delete the temporary files
         os.remove(global_path)
         os.remove(app_path)
 
-    def test_publish_invalid_message_raises_type_error(self, get_global_queue_config: dict[str, Any],
-                                                       get_app_queue_config: dict[str, Any]) -> None:
-
+    def test_publish_invalid_message_raises_type_error(
+        self, get_global_queue_config: dict[str, Any], get_app_queue_config: dict[str, Any]
+    ) -> None:
         """Test non-serializable data - Invalid message format
         :param get_global_queue_config: fixture to get the global queue configuration
         :param get_app_queue_config: fixture to get the application queue configuration
@@ -73,13 +78,13 @@ class TestQueueProducer:
         batch_size = 1
         requeue_message = False
 
-        producer_queue_config, global_path, app_path = create_test_queue_config(get_global_queue_config,
-                                                                                get_app_queue_config,
-                                                                                queue_name,
-                                                                                batch_size=batch_size,
-                                                                                requeue_message=requeue_message)
-
-
+        producer_queue_config, global_path, app_path = create_test_queue_config(
+            get_global_queue_config,
+            get_app_queue_config,
+            queue_name,
+            batch_size=batch_size,
+            requeue_message=requeue_message,
+        )
 
         producer_instance = QueueProducer(producer_queue_config.queue_params)
 
@@ -97,9 +102,10 @@ class TestQueueProducer:
         os.remove(global_path)
         os.remove(app_path)
 
-    def test_queue_reconnect(self, get_global_queue_config: dict[str, Any], get_app_queue_config: dict[str, Any]) -> None:
-
-        """ Test the queue reconnect functionality of the QueueProducer class
+    def test_queue_reconnect(
+        self, get_global_queue_config: dict[str, Any], get_app_queue_config: dict[str, Any]
+    ) -> None:
+        """Test the queue reconnect functionality of the QueueProducer class
         :param get_global_queue_config: Fixture to get the global queue configuration
         :param get_app_queue_config: Fixture to get the application-specific queue configuration
         :return: None
@@ -109,20 +115,19 @@ class TestQueueProducer:
         batch_size = 1
         requeue_message = False
 
-        producer_queue_config, global_path, app_path = create_test_queue_config(get_global_queue_config,
-                                                                                get_app_queue_config,
-                                                                                queue_name,
-                                                                                batch_size=batch_size,
-                                                                                requeue_message=requeue_message)
-
-
+        producer_queue_config, global_path, app_path = create_test_queue_config(
+            get_global_queue_config,
+            get_app_queue_config,
+            queue_name,
+            batch_size=batch_size,
+            requeue_message=requeue_message,
+        )
 
         producer_instance = QueueProducer(producer_queue_config.queue_params)
 
         # Check if the connection is open
         assert producer_instance.channel_creator.connection.queue_connection.is_open
         assert producer_instance.channel.is_open
-
 
         # Close the channel
         producer_instance.channel.close()

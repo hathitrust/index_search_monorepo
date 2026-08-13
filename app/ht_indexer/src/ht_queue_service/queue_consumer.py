@@ -9,6 +9,7 @@ from ht_utils.ht_logger import get_ht_logger
 
 logger = get_ht_logger(name=__name__)
 
+
 class QueueConsumer:
     def __init__(self, queue_params: QueueParams) -> None:
         """
@@ -17,10 +18,9 @@ class QueueConsumer:
         exchange_type, durable, routing_key, and queue_arguments.
         """
 
-
-        self.channel_creator = ChannelCreator(queue_params.user,
-                                              queue_params.password,
-                                              queue_params.host)  # Factory to create channels
+        self.channel_creator = ChannelCreator(
+            queue_params.user, queue_params.password, queue_params.host
+        )  # Factory to create channels
         self.channel = self.channel_creator.get_channel()
 
         self.queue_manager = QueueManager(queue_params)
@@ -35,7 +35,6 @@ class QueueConsumer:
             # The channel will be closed if the queue doesn't exist or is declared with different options.
             # We need to set up the queue again.
             self.queue_reconnect()
-
 
     def queue_reconnect(self) -> None:
         """
@@ -77,9 +76,9 @@ class QueueConsumer:
                 self.channel = self.channel_creator.get_channel()
                 self.queue_reconnect()
 
-            for method_frame, properties, body in self.channel.consume(self.queue_manager.queue_name,
-                                                                 auto_ack=False,
-                                                                 inactivity_timeout=inactivity_timeout):
+            for method_frame, properties, body in self.channel.consume(
+                self.queue_manager.queue_name, auto_ack=False, inactivity_timeout=inactivity_timeout
+            ):
                 if method_frame:
                     yield method_frame, properties, body
                 else:
@@ -89,8 +88,12 @@ class QueueConsumer:
             logger.error(f"Connection Interrupted: {e}")
             raise e
 
-    def consume_dead_letter_messages(self, channel: pika.adapters.blocking_connection.BlockingChannel,
-                                     inactivity_timeout: int = 5, queue_name: str = '') -> Generator[tuple[Any, Any, None]]:
+    def consume_dead_letter_messages(
+        self,
+        channel: pika.adapters.blocking_connection.BlockingChannel,
+        inactivity_timeout: int = 5,
+        queue_name: str = "",
+    ) -> Generator[tuple[Any, Any, None]]:
         """
         This method consumes messages from the queue.
         :param channel: The RabbitMQ channel to consume messages from.
@@ -106,15 +109,14 @@ class QueueConsumer:
         """
 
         try:
-
             if not self.channel or self.channel.is_closed:
                 logger.warning("Queue setup not ready. Reinitializing channel and setup.")
                 self.channel = self.channel_creator.get_channel()
                 self.queue_reconnect()
 
-            for method_frame, properties, body in channel.consume(queue_name,
-                                                                  auto_ack=False,
-                                                                  inactivity_timeout=inactivity_timeout):
+            for method_frame, properties, body in channel.consume(
+                queue_name, auto_ack=False, inactivity_timeout=inactivity_timeout
+            ):
                 if method_frame:
                     yield method_frame, properties, body
                 else:
@@ -124,7 +126,9 @@ class QueueConsumer:
             logger.error(f"Connection Interrupted: {e}")
             raise e
 
-    def reject_message(self, used_channel: pika.adapters.blocking_connection.BlockingChannel, basic_deliver: int) -> None:
+    def reject_message(
+        self, used_channel: pika.adapters.blocking_connection.BlockingChannel, basic_deliver: int
+    ) -> None:
         """
         Rejects a message and either requeues it or sends it to the Dead Letter Queue based on requeue_message flag.
         :param used_channel: The RabbitMQ channel to reject the message from
@@ -133,8 +137,9 @@ class QueueConsumer:
         """
         used_channel.basic_reject(delivery_tag=basic_deliver, requeue=self.requeue_message)
 
-    def positive_acknowledge(self, used_channel: pika.adapters.blocking_connection.BlockingChannel,
-                             basic_deliver: int) -> None:
+    def positive_acknowledge(
+        self, used_channel: pika.adapters.blocking_connection.BlockingChannel, basic_deliver: int
+    ) -> None:
         """
         Acknowledges a message as successfully processed.
         :param used_channel: The RabbitMQ channel to acknowledge the message on
@@ -142,4 +147,3 @@ class QueueConsumer:
         :return: None
         """
         used_channel.basic_ack(delivery_tag=basic_deliver)
-

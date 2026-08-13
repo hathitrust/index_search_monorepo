@@ -1,4 +1,3 @@
-
 import os
 import pathlib
 from argparse import ArgumentParser
@@ -69,11 +68,11 @@ def percentage(part, whole):
 
 
 if __name__ == "__main__":
-
     parser = ArgumentParser()
 
-    parser.add_argument("--list_phrase_file", help="TXT file containing the list of phrase to search",
-                        default='')
+    parser.add_argument(
+        "--list_phrase_file", help="TXT file containing the list of phrase to search", default=""
+    )
 
     args = parser.parse_args()
 
@@ -119,14 +118,14 @@ if __name__ == "__main__":
         logger.info("***************")
         logger.info(query)
 
-        a_path = f'scripts/query_results/{query["query_fields"]}_{query["query_string"]}_{query["operator"]}_prod.csv'
+        a_path = f"scripts/query_results/{query['query_fields']}_{query['query_string']}_{query['operator']}_prod.csv"
         logger.info("/".join([os.getcwd(), a_path]))
         if pathlib.Path("/".join([os.getcwd(), a_path])).is_file():
             df_a = pd.read_csv("/".join([os.getcwd(), a_path]), sep="\t")
         else:
             logger.info(f"File {a_path} does not exist")
             continue
-        b_path = f'scripts/query_results/{query["query_fields"]}_{query["query_string"]}_{query["operator"]}_dev.csv'
+        b_path = f"scripts/query_results/{query['query_fields']}_{query['query_string']}_{query['operator']}_dev.csv"
         logger.info("/".join([os.getcwd(), b_path]))
         if pathlib.Path("/".join([os.getcwd(), b_path])).is_file():
             df_b = pd.read_csv("/".join([os.getcwd(), b_path]), sep="\t")
@@ -142,7 +141,8 @@ if __name__ == "__main__":
         try:
             if df_a[["id", "author", "title"]].equals(df_b[["id", "author", "title"]]):
                 logger.info(
-                    "Identical results")  # I did not expect this case, because at least the scores should be different
+                    "Identical results"
+                )  # I did not expect this case, because at least the scores should be different
                 query_stats["ident_results"] += 1
 
             if list(df_a["id"][0:5]) == list(df_b["id"][0:5]):
@@ -163,7 +163,6 @@ if __name__ == "__main__":
                 query_stats["diff_id_top_20_to_end"] += 1
 
             if len(get_different_ids(df_a["id"].to_list(), df_b["id"].to_list())) == 0:
-
                 logger.info("The same ids in both engines")
                 query_stats["same_ids_both_engines"] += 1
             else:
@@ -181,7 +180,9 @@ if __name__ == "__main__":
 
     logger.info(f"Total comparison {total_comparison}")
     logger.info(query_stats)
-    query_stats_percentage = {key: percentage(value, total_comparison) for key, value in query_stats.items()}
+    query_stats_percentage = {
+        key: percentage(value, total_comparison) for key, value in query_stats.items()
+    }
     logger.info(query_stats_percentage)
 
     plt.figure(figsize=(10, 7))

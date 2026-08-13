@@ -16,6 +16,7 @@ from ht_utils.ht_logger import get_ht_logger
 exporter_api = {}
 logger = get_ht_logger(name=__name__)
 
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--env", default=os.environ.get("HT_ENVIRONMENT", "dev"))
@@ -33,24 +34,31 @@ def main():
         solr_url = FULL_TEXT_SOLR_URL[args.env]
         if args.solr_url:
             solr_url = args.solr_url
-        exporter_api['obj'] = SolrExporter(solr_url, args.env, user=os.getenv("SOLR_USER"),
-                                               password=os.getenv("SOLR_PASSWORD"))
+        exporter_api["obj"] = SolrExporter(
+            solr_url, args.env, user=os.getenv("SOLR_USER"), password=os.getenv("SOLR_PASSWORD")
+        )
         yield
 
         # Add some logic here to close the connection
-    app = FastAPI(title="HT_FullTextSearchAPI", description="Search phrases in Solr full text index", lifespan=lifespan)
+
+    app = FastAPI(
+        title="HT_FullTextSearchAPI",
+        description="Search phrases in Solr full text index",
+        lifespan=lifespan,
+    )
 
     app.add_middleware(
-        CORSMiddleware, # type: ignore
+        CORSMiddleware,  # type: ignore
         allow_origins=["http://localhost"],
         allow_credentials=True,
         allow_methods=["*"],
-        allow_headers=["*"],)
+        allow_headers=["*"],
+    )
 
     @app.get("/ping")
     def check_solr():
         """Check if the API is up"""
-        response = exporter_api['obj'].get_solr_status()
+        response = exporter_api["obj"].get_solr_status()
         return {"status": response.status_code, "description": response.headers}
 
     @app.post("/query/")
@@ -66,13 +74,17 @@ def main():
         # so the query type can be used to select the kind of query to run and the params dict is updated with the query
         # string.
 
-        query_config_file_path = Path(config_files_path, 'full_text_search/config_query.yaml')
+        query_config_file_path = Path(config_files_path, "full_text_search/config_query.yaml")
 
         # Use StreamingResponse to stream the results because run_cursor output is a generator, so data
         # is not loaded into memory and is sent in chunks.
         # return StreamingResponse(result, media_type="application/json")
-        return StreamingResponse(exporter_api['obj'].run_cursor(query, query_config_path=query_config_file_path,
-                                                                conf_query="ocr"), media_type="application/json")
+        return StreamingResponse(
+            exporter_api["obj"].run_cursor(
+                query, query_config_path=query_config_file_path, conf_query="ocr"
+            ),
+            media_type="application/json",
+        )
 
     @app.post("/search_results/")
     def solr_search_results():

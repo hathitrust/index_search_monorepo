@@ -29,24 +29,27 @@ class HTSolrAPI:
                 auth=self.auth,
                 params={
                     "commit": "true",
-                }, )
+                },
+            )
             response.raise_for_status()
         except requests.exceptions.RequestException as e:
             logger.error(f"Error in indexing document: {e}")
             raise e
         return response
 
-    def index_documents(self, list_documents: list = None, solr_url_json: str = 'update/json/docs'):
+    def index_documents(self, list_documents: list = None, solr_url_json: str = "update/json/docs"):
         """Read an XML and feed into SOLR for indexing"""
         response = requests.post(
             f"{self.url.replace('#/', '')}{solr_url_json}",
             headers={"Content-Type": "application/json"},
             auth=self.auth,
-            data=orjson.dumps(list_documents)
+            data=orjson.dumps(list_documents),
         )
         return response
 
-    def index_documents_by_file(self, path: Path, list_documents: list = None, solr_url_json: str = 'update/json/docs'):
+    def index_documents_by_file(
+        self, path: Path, list_documents: list = None, solr_url_json: str = "update/json/docs"
+    ):
         """Read an XML and feed into SOLR for indexing"""
         data_path = Path(path)
         for doc in list_documents:
@@ -77,7 +80,7 @@ class HTSolrAPI:
                 f"{solr_host}",
                 params=solr_params,
                 auth=self.auth,
-                headers={"Content-type": "application/json"}
+                headers={"Content-type": "application/json"},
             )
             response.raise_for_status()
             return response

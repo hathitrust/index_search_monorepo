@@ -72,14 +72,13 @@ def ht_searcher_fixture():
     return HTSearcher(
         solr_url=config_search.FULL_TEXT_SOLR_URL["dev"],
         environment="dev",
-        user = os.getenv("SOLR_USER"),
-        password = os.getenv("SOLR_PASSWORD")
+        user=os.getenv("SOLR_USER"),
+        password=os.getenv("SOLR_PASSWORD"),
     )
 
 
 @pytest.mark.integration
 class TestHTSearcher:
-
     def test_get_query_response(self, ht_searcher_fixture):
         # query_string = "?q=*:*&q.op=OR&indent=true"  # "indent=on&q=date:1874&wt=json"
         # query_dict = {"indent": "on", "q": {"date":"1874"}, "wt": "json"}

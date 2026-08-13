@@ -51,7 +51,10 @@ def test_colon_name_pattern():
 
     # source_path includes the name of the file
     # assert r"/sdr1/obj/coo1/pairtree_root/ar/k+/\=1/39/60/\=t/57/d3/f7/80/ark+\=13960\=t57d3f780/ark+\=13960\=t57d3f780" == ht_doc.source_path
-    assert r"/sdr1/obj/coo1/pairtree_root/ar/k+/=1/39/60/=t/57/d3/f7/80/ark+=13960=t57d3f780/ark+=13960=t57d3f780" == ht_doc.source_path
+    assert (
+        r"/sdr1/obj/coo1/pairtree_root/ar/k+/=1/39/60/=t/57/d3/f7/80/ark+=13960=t57d3f780/ark+=13960=t57d3f780"
+        == ht_doc.source_path
+    )
 
 
 def test_document_several_points():
@@ -68,7 +71,10 @@ def test_raise_document_id_exception():
     try:
         HtDocument.get_object_id("miun")
     except ValueError as e:
-        assert str(e) == "Review the document id miun not enough values to unpack (expected at least 2, got 1)"
+        assert (
+            str(e)
+            == "Review the document id miun not enough values to unpack (expected at least 2, got 1)"
+        )
 
 
 def test_pairpath_document_several_points():

@@ -16,8 +16,8 @@ from .ht_mysql import get_mysql_conn
 
 logger = get_ht_logger(name=__name__)
 
-class GeneratorServiceArguments:
 
+class GeneratorServiceArguments:
     def __init__(self, parser):
         parser.add_argument(
             "--document_repository",
@@ -27,18 +27,20 @@ class GeneratorServiceArguments:
         )
 
         # Path to the folder where the documents are stored. This parameter is useful for running the script locally
-        parser.add_argument("--document_local_path",
-                            help="Path of the folder where the documents (.xml file to index) are stored.",
-                            required=False,
-                            default=None
-                            )
+        parser.add_argument(
+            "--document_local_path",
+            help="Path of the folder where the documents (.xml file to index) are stored.",
+            required=False,
+            default=None,
+        )
 
-        parser.add_argument("--tgt_local",
-                            action='store_true',
-                            help="Parameter to define the generated documents will be published in a queue."
-                                 "By default is False, if the parameter is store, then is True and "
-                                 "the documents will be stored in a local folder."
-                            )
+        parser.add_argument(
+            "--tgt_local",
+            action="store_true",
+            help="Parameter to define the generated documents will be published in a queue."
+            "By default is False, if the parameter is store, then is True and "
+            "the documents will be stored in a local folder.",
+        )
 
         self.args = parser.parse_args()
 
@@ -48,16 +50,22 @@ class GeneratorServiceArguments:
         self.db_conn = self.get_db_conn()
 
         # Queue configuration
-        self.src_queue_config, self.tgt_queue_config = GeneratorServiceArguments._build_queue_configs()
+        self.src_queue_config, self.tgt_queue_config = (
+            GeneratorServiceArguments._build_queue_configs()
+        )
 
         # Queue clients
-        self.src_queue_consumer = GeneratorServiceArguments._make_consumer(self.src_queue_config.queue_params)
+        self.src_queue_consumer = GeneratorServiceArguments._make_consumer(
+            self.src_queue_config.queue_params
+        )
 
         self.tgt_local: bool = self.args.tgt_local
         self.tgt_queue_producer: QueueProducer | None = None
 
         if not self.tgt_local:
-            self.tgt_queue_producer = GeneratorServiceArguments._make_producer(self.tgt_queue_config.queue_params)
+            self.tgt_queue_producer = GeneratorServiceArguments._make_producer(
+                self.tgt_queue_config.queue_params
+            )
 
         # Local output options
         self.document_repository: str = self.args.document_repository
@@ -92,8 +100,12 @@ class GeneratorServiceArguments:
             sys.exit(1)
 
         try:
-            src_queue_config = QueueConfig(global_config, app_config, config_key="src_queue", prefix="SRC_")
-            tgt_queue_config = QueueConfig(global_config, app_config, config_key="tgt_queue", prefix="TGT_")
+            src_queue_config = QueueConfig(
+                global_config, app_config, config_key="src_queue", prefix="SRC_"
+            )
+            tgt_queue_config = QueueConfig(
+                global_config, app_config, config_key="tgt_queue", prefix="TGT_"
+            )
             return src_queue_config, tgt_queue_config
         except KeyError as e:
             logger.error(

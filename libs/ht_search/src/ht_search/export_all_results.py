@@ -36,13 +36,13 @@ from ht_search.config_search import FULL_TEXT_SOLR_URL, default_solr_params
 # We should create specific classes/endpoints (catalog => catalog-api, catalog-monitoring, fulltext => fulltext-api,
 # fulltext-monitoring) children of the generic ones that have their own ways to make queries
 
+
 # TODO: Implement the class to manage Solr query results.
 # Specify the fields to show in the query result
 # Specify if the Solr debug output will be show.Create our onw debug dictionary with fields we decide,
 # e.g. QTime, status, shards, etc.
 def process_results(item: dict, list_output_fields: list) -> str:
-
-    """ Prepare the dictionary with Solr results to be exported as JSON
+    """Prepare the dictionary with Solr results to be exported as JSON
     Args:
         item (dict): The Solr result item.
         list_output_fields (list): List of fields to include in the output.
@@ -55,8 +55,7 @@ def process_results(item: dict, list_output_fields: list) -> str:
 
 
 def solr_query_params(query_config_file=None, conf_query="ocr"):
-
-    """ Prepare the Solr query parameters
+    """Prepare the Solr query parameters
     :param query_config_file: str, path to the config file with the queries
     :param conf_query: str, query configuration name. Each query has a name to identify it.
     :return: str, formatted Solr query parameters
@@ -65,10 +64,7 @@ def solr_query_params(query_config_file=None, conf_query="ocr"):
     with open(query_config_file) as file:
         data = yaml.safe_load(file)[conf_query]
 
-        params = {
-            "mm": data["mm"],
-            "tie": data["tie"]
-        }
+        params = {"mm": data["mm"], "tie": data["tie"]}
 
         if "pf" in data:
             params.update({"pf": SolrExporter.create_boost_phrase_fields(data["pf"])})
@@ -79,21 +75,18 @@ def solr_query_params(query_config_file=None, conf_query="ocr"):
 
 
 def make_query(query, query_config_file=None, conf_query="ocr"):
-
-    """ Prepare the Solr query string
-        :param conf_query:
-        :param query_config_file:
-        :param query: str, query string
-        :return: str, formatted Solr query string
+    """Prepare the Solr query string
+    :param conf_query:
+    :param query_config_file:
+    :param query: str, query string
+    :return: str, formatted Solr query string
     """
     return f"{{!edismax {solr_query_params(query_config_file=query_config_file, conf_query=conf_query)}}} {query}"
 
 
 class SolrExporter:
-
     def __init__(self, solr_url: str, env: str, user=None, password=None):
-
-        """ Initialize the SolrExporter class
+        """Initialize the SolrExporter class
         :param solr_url: str, Solr URL
         :param env: str, environment. It could be dev or prod
         """
@@ -108,8 +101,7 @@ class SolrExporter:
         self.auth = HTTPBasicAuth(user, password) if user and password else None
 
     def send_query(self, params):
-
-        """ Send the query to Solr
+        """Send the query to Solr
         :param params: dict, query parameters
         :return: response
         """
@@ -118,20 +110,24 @@ class SolrExporter:
         # In chunked transfer, the data stream is divided into a series of non-overlapping "chunks".
 
         response = requests.post(
-            url=self.solr_url, params=params, headers=self.headers, stream=True,
-            auth=self.auth
+            url=self.solr_url, params=params, headers=self.headers, stream=True, auth=self.auth
         )
 
         return response
 
-    def run_cursor(self, query_string, query_config_path=None, conf_query="ocr", list_output_fields: list = None):
-
+    def run_cursor(
+        self,
+        query_string,
+        query_config_path=None,
+        conf_query="ocr",
+        list_output_fields: list = None,
+    ):
         # TODO: This function will receive the query string and the query type (ocr or all). From memory, it will
         # instantiate the query parameters (params["q"]) and run the query.
         # See below how the params dictionary is created. As the fields about the query are already in memory, we should
         # update the field q in the params dictionary with the query string and run the query.
 
-        """ Run the cursor to export all results
+        """Run the cursor to export all results
 
         params = {'cursorMark': '*',
         'debugQuery': 'true',
@@ -166,7 +162,7 @@ class SolrExporter:
 
             output = json.loads(results.content)
 
-            for result in output['response']['docs']:
+            for result in output["response"]["docs"]:
                 yield process_results(result, list_output_fields)
             if params["cursorMark"] != output["nextCursorMark"]:
                 params["cursorMark"] = output["nextCursorMark"]
@@ -175,8 +171,7 @@ class SolrExporter:
 
     @staticmethod
     def create_boost_phrase_fields(query_fields):
-
-        """ Create the boost phrase fields
+        """Create the boost phrase fields
         :param query_fields: list, list of field
         :return: str, formatted boost phrase fields
         """
@@ -188,8 +183,7 @@ class SolrExporter:
         return " ".join(formatted_boosts)
 
     def get_solr_status(self):
-
-        """ Get the Solr status
+        """Get the Solr status
         :return: response
         """
         response = requests.get(self.solr_url, auth=self.auth)
@@ -197,12 +191,11 @@ class SolrExporter:
 
 
 if __name__ == "__main__":
-
     parser = ArgumentParser()
     parser.add_argument("--env", default=os.environ.get("HT_ENVIRONMENT", "dev"))
     parser.add_argument("--solr_host", help="Solr host", default=None)
     parser.add_argument("--collection_name", help="Name of the collection", default=None)
-    parser.add_argument('--query', help='Query string', required=True)
+    parser.add_argument("--query", help="Query string", required=True)
 
     args = parser.parse_args()
 
@@ -211,13 +204,14 @@ if __name__ == "__main__":
         solr_url = f"{args.solr_host}/solr/{args.collection_name}"
     else:  # Use the default solr url, depending on the environment. If prod environment, use shards
         solr_url = FULL_TEXT_SOLR_URL[args.env]
-    solr_exporter = SolrExporter(solr_url, args.env,
-                                 user=os.getenv("SOLR_USER"), password=os.getenv("SOLR_PASSWORD"))
-
-    query_config_file_path = Path(
-        config_files_path, "full_text_search/config_query.yaml"
+    solr_exporter = SolrExporter(
+        solr_url, args.env, user=os.getenv("SOLR_USER"), password=os.getenv("SOLR_PASSWORD")
     )
 
+    query_config_file_path = Path(config_files_path, "full_text_search/config_query.yaml")
+
     # '"good"'
-    for x in solr_exporter.run_cursor(args.query, query_config_path=query_config_file_path, conf_query="ocr"):
+    for x in solr_exporter.run_cursor(
+        args.query, query_config_path=query_config_file_path, conf_query="ocr"
+    ):
         print(x)

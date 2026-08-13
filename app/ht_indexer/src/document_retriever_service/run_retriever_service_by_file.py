@@ -1,4 +1,5 @@
 """This use case is for testing and processing a huge list of documents extracted from the production environment."""
+
 import argparse
 import inspect
 import os
@@ -17,12 +18,21 @@ current = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()
 parent = os.path.dirname(current)
 sys.path.insert(0, parent)
 
-def retrieve_documents_by_file(queue_params,
-                               query_field, solr_host, solr_user, solr_password, solr_retriever_query_params,
-                               input_documents_file, status_file, parallelize,
-                               db_conn,
-                               max_workers) -> None:
-    """ This method is used to retrieve the documents from the Catalog and generate the full-text search entry.
+
+def retrieve_documents_by_file(
+    queue_params,
+    query_field,
+    solr_host,
+    solr_user,
+    solr_password,
+    solr_retriever_query_params,
+    input_documents_file,
+    status_file,
+    parallelize,
+    db_conn,
+    max_workers,
+) -> None:
+    """This method is used to retrieve the documents from the Catalog and generate the full-text search entry.
     The list of documents to index is extracted from a file.
 
     :param queue_params: The object with the queue parameters
@@ -38,8 +48,9 @@ def retrieve_documents_by_file(queue_params,
     :param max_workers: The maximum number of workers to use in parallel processing
     """
 
-    document_retriever_service = FullTextSearchRetrieverQueueService(queue_params,
-                        solr_host, solr_user, solr_password, solr_retriever_query_params)
+    document_retriever_service = FullTextSearchRetrieverQueueService(
+        queue_params, solr_host, solr_user, solr_password, solr_retriever_query_params
+    )
 
     if os.path.isfile(input_documents_file):
         with open(input_documents_file) as f:
@@ -68,7 +79,7 @@ def retrieve_documents_by_file(queue_params,
                         list_documents,
                         query_field,
                         document_retriever_service,
-                        max_workers
+                        max_workers,
                     )
 
                 else:
@@ -77,7 +88,9 @@ def retrieve_documents_by_file(queue_params,
                         db_conn, list_documents, query_field
                     )
 
-                logger.info(f"Total time to retrieve and generate documents {time.time() - start_time:.10f}")
+                logger.info(
+                    f"Total time to retrieve and generate documents {time.time() - start_time:.10f}"
+                )
 
     else:
         logger.info("Provide the file with the list of ids to process is a required parameter")
@@ -92,17 +105,20 @@ def main():
     # TODO: Review the logic of the status file
     status_file = os.path.join(current, "document_retriever_status.txt")
 
-    retrieve_documents_by_file(init_args_obj.queue_config.queue_params,
-                               init_args_obj.query_field,
-                               init_args_obj.solr_host,
-                               init_args_obj.solr_user,
-                               init_args_obj.solr_password,
-                               init_args_obj.solr_retriever_query_params,
-                               init_args_obj.input_documents_file,
-                               status_file,
-                               init_args_obj.parallelize,
-                               init_args_obj.db_conn,
-                               init_args_obj.max_workers)
+    retrieve_documents_by_file(
+        init_args_obj.queue_config.queue_params,
+        init_args_obj.query_field,
+        init_args_obj.solr_host,
+        init_args_obj.solr_user,
+        init_args_obj.solr_password,
+        init_args_obj.solr_retriever_query_params,
+        init_args_obj.input_documents_file,
+        status_file,
+        init_args_obj.parallelize,
+        init_args_obj.db_conn,
+        init_args_obj.max_workers,
+    )
+
 
 if __name__ == "__main__":
     main()

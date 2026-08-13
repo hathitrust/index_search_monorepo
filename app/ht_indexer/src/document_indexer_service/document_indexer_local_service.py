@@ -26,7 +26,9 @@ class DocumentIndexerLocalService:
 
     def indexing_documents(self, path, list_documents=None):
         # Call API
-        response = self.solr_api_full_text.index_documents_by_file(path, list_documents=list_documents)
+        response = self.solr_api_full_text.index_documents_by_file(
+            path, list_documents=list_documents
+        )
         return response
 
     @staticmethod
@@ -68,9 +70,7 @@ class DocumentIndexerLocalService:
                         )
                         logger.info(f"Index operation status: {response.status_code}")
                         if response.status_code == 200:
-                            self.clean_up_folder(
-                                document_local_path, chunk
-                            )
+                            self.clean_up_folder(document_local_path, chunk)
 
             except Exception as e:
                 logger.info(f"{document_local_path} does not exit {e}")
@@ -95,7 +95,7 @@ def main():
         "--document_local_path",
         help="Path of the folder where the documents are stored.",
         required=False,
-        default=None
+        default=None,
     )
 
     args = parser.parse_args()

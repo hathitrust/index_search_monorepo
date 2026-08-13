@@ -3,7 +3,7 @@ from ht_utils.ht_logger import get_ht_logger
 logger = get_ht_logger(name=__name__)
 
 
-def make_query(list_documents: list[str], by_field: str = 'item') -> str:
+def make_query(list_documents: list[str], by_field: str = "item") -> str:
     """
     Receives a list of ht_id and returns a query to retrieve the documents from the Catalog
     Parameters
@@ -19,20 +19,21 @@ def make_query(list_documents: list[str], by_field: str = 'item') -> str:
     str
         Query to retrieve the documents from the Catalog
     """
-    query_field = 'ht_id'
-    if by_field == 'item':
-        query_field = 'ht_id'
-    if by_field == 'record':
-        query_field = 'id'
+    query_field = "ht_id"
+    if by_field == "item":
+        query_field = "ht_id"
+    if by_field == "record":
+        query_field = "id"
     if len(list_documents) == 1:
         query = f"{query_field}:{list_documents[0]}"
     else:
-        values = "\" OR \"".join(list_documents)
+        values = '" OR "'.join(list_documents)
         values = '"'.join(("", values, ""))
         query = f"{query_field}:({values})"
     return query
 
-def make_solr_term_query(list_documents: list[str], by_field: str = 'item') -> str:
+
+def make_solr_term_query(list_documents: list[str], by_field: str = "item") -> str:
     """
     Receives a list of ht_id or id and returns a query to retrieve the documents from the Catalog
     Parameters
@@ -53,8 +54,8 @@ def make_solr_term_query(list_documents: list[str], by_field: str = 'item') -> s
     # The terms query parser in Solr is a highly efficient way to search for multiple exact values
     # in a specific field — great for querying by id or any other exact-match field,
     # especially when you're dealing with large lists.
-    query = '{!terms f=ht_id}' + ','.join(list_documents)
+    query = "{!terms f=ht_id}" + ",".join(list_documents)
 
-    if by_field == 'record':
-        query = '{!terms f=id}' + ','.join(list_documents)
+    if by_field == "record":
+        query = "{!terms f=id}" + ",".join(list_documents)
     return query
