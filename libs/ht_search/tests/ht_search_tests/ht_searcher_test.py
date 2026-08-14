@@ -63,7 +63,7 @@ url=http://solr-lss-dev:8983/solr/core-x?q=+_query_:"{!edismax+qf='ocr^50000+all
 
 
 @pytest.fixture(scope="module", autouse=True)
-def ht_searcher_fixture():
+def ht_searcher_fixture() -> HTSearcher:
     """
     Fixture that instantiates the HTSearcher class
     :return:
@@ -79,7 +79,7 @@ def ht_searcher_fixture():
 
 @pytest.mark.integration
 class TestHTSearcher:
-    def test_get_query_response(self, ht_searcher_fixture):
+    def test_get_query_response(self, ht_searcher_fixture: HTSearcher) -> None:
         # query_string = "?q=*:*&q.op=OR&indent=true"  # "indent=on&q=date:1874&wt=json"
         # query_dict = {"indent": "on", "q": {"date":"1874"}, "wt": "json"}
 

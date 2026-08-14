@@ -38,18 +38,19 @@ def update_dict_fields(
     return target
 
 
-def get_solr_url():
+def get_solr_url() -> str:
     # Get Solr URL
-    try:
-        solr_url = os.getenv("SOLR_URL")
-        # TODO Remove the line below once SolrExporter been updated self.solr_url = f"{solr_url}/query"
-        return solr_url.strip("/")
-    except AttributeError:
+    solr_url = os.getenv("SOLR_URL")
+    if solr_url is None:
         logger.error("Error: `SOLR_URL` environment variable required")
         sys.exit(1)
+    # TODO Remove the line below once SolrExporter been updated self.solr_url = f"{solr_url}/query"
+    return solr_url.strip("/")
 
 
-def get_current_time(current=None, str_format: str = "YYYY-MM-DD HH:mm:ss"):
+def get_current_time(
+    current: arrow.Arrow | None = None, str_format: str = "YYYY-MM-DD HH:mm:ss"
+) -> str:
     """
     Returns the current time in the format HH:MM:SS.
     :param current: The current time
@@ -61,7 +62,7 @@ def get_current_time(current=None, str_format: str = "YYYY-MM-DD HH:mm:ss"):
     return str(current.format(str_format))
 
 
-def get_general_error_message(service_name: str, e: Exception) -> dict:
+def get_general_error_message(service_name: str, e: Exception) -> dict[str, Any]:
     """
     Returns an error dictionary with information about the cause of the error
     :param service_name: The name of the service that raised the error
@@ -71,7 +72,9 @@ def get_general_error_message(service_name: str, e: Exception) -> dict:
     return {"service_name": service_name, "error_message": e, "timestamp": get_current_time()}
 
 
-def get_error_message_by_document(service_name: str, e: Exception, doc: dict) -> dict:
+def get_error_message_by_document(
+    service_name: str, e: Exception, doc: dict[str, Any]
+) -> dict[str, Any]:
     """
     Returns an error dictionary with information about
     a specific document and the cause of the error
@@ -98,11 +101,11 @@ def split_into_batches(values: Sequence[str], chunk_size: int) -> Iterable[list[
         yield list(values[index : index + chunk_size])
 
 
-def comma_separated_list(arg):
+def comma_separated_list(arg: str) -> list[str]:
     return arg.split(",")
 
 
-def find_sdr1_obj():
+def find_sdr1_obj() -> Path:
     root = Path("/")  # root of the container
     candidate = root / "sdr1" / "obj"
     if candidate.exists():
@@ -111,16 +114,16 @@ def find_sdr1_obj():
         raise FileNotFoundError("Folder '/sdr1/obj' not found in the container root")
 
 
-def get_queue_message_id(message: dict) -> str:
+def get_queue_message_id(message: dict[str, Any]) -> str:
     """
     Extracts the message ID from a queue message.
     :param message: The message dictionary
     :return: The message ID
     """
     if "ht_id" in message:
-        return message["ht_id"]
+        return str(message["ht_id"])
     elif "id" in message:
-        return message["id"]
+        return str(message["id"])
     else:
         return "unknown_id"
 

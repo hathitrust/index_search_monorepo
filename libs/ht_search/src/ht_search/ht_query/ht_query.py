@@ -1,4 +1,5 @@
 from functools import reduce
+from typing import Any
 
 import yaml
 from ht_utils.ht_logger import get_ht_logger
@@ -10,10 +11,10 @@ class HTSearchQuery:
     def __init__(
         self,
         config_query: str = "all",
-        config_query_path: str = None,
-        user_id: str = None,
-        config_facet_field: str = None,
-        config_facet_field_path: str = None,
+        config_query_path: str | None = None,
+        user_id: str | None = None,
+        config_facet_field: str | None = None,
+        config_facet_field_path: str | None = None,
     ):
         """
         Constructor to create the Solr query
@@ -53,22 +54,24 @@ class HTSearchQuery:
 
     # TODO: perl method that probably we will remove
     @staticmethod
-    def initialize_solr_query(config_file, conf_query: str = "all"):
-        with open(config_file) as file:
+    def initialize_solr_query(config_file: str | None, conf_query: str | None = "all") -> dict[str, Any]:
+        # config_file/conf_query may be None here -- the constructor relies on the resulting
+        # TypeError/KeyError being caught by its surrounding try/except.
+        with open(config_file) as file:  # type: ignore[arg-type]
             data = yaml.safe_load(file)
 
-        return data[conf_query]
+        return data[conf_query]  # type: ignore[no-any-return]
 
     # Function to convert a string in a dictionary
     @staticmethod
-    def query_string_to_dict(string_query):
+    def query_string_to_dict(string_query: str) -> dict[str, str]:
         return dict(
             qc.split("=") if qc[0] != "q" else [qc[0], "=".join(qc.split("=")[1:])]
             for qc in string_query.split("&")
         )
 
     @staticmethod
-    def create_boost_query_fields(query_fields: list[list]) -> list:
+    def create_boost_query_fields(query_fields: list[list[Any]]) -> list[str]:
         """
         This function create the solr qf (query fields).
         Each field is assigned a boost factor to increase or decrease their importance in the query
@@ -77,7 +80,7 @@ class HTSearchQuery:
         return ["^".join(map(str, field)) for field in query_fields]
 
     @staticmethod
-    def create_boost_phrase_fields(query_fields):
+    def create_boost_phrase_fields(query_fields: list[list[Any]]) -> str:
         # phrase fields ==> Once the list of matching documents has been identified using the fq and qf parameters,
         # the pf parameter can be used to "boost" the score of documents in cases where all the terms
         # in the q parameter appear in close proximity.
@@ -85,11 +88,11 @@ class HTSearchQuery:
         return " ".join(formatted_boosts)
 
     @staticmethod
-    def facet_creator(facet_dictionary: dict = None) -> dict:
-        return reduce(lambda key, value: {**key, **value}, facet_dictionary)
+    def facet_creator(facet_dictionary: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+        return reduce(lambda key, value: {**key, **value}, facet_dictionary or [])
 
     @staticmethod
-    def query_filter_creator_string(filter_name, filter_value):
+    def query_filter_creator_string(filter_name: str, filter_value: str | list[Any]) -> str:
 
         # '\\"dog food\\" OR prices OR \\"good eats\\"'
         # This is the way of creating a list of string query filters
@@ -103,7 +106,7 @@ class HTSearchQuery:
         return query_filters
 
     @staticmethod
-    def query_filter_creator_rights(filter_name, filter_value):
+    def query_filter_creator_rights(filter_name: str, filter_value: str | list[Any]) -> str:
 
         # This is the way of creating a list of integer query filters
         filter_string = (
@@ -117,7 +120,7 @@ class HTSearchQuery:
         return '"'.join(("", q_string, ""))
 
     @staticmethod
-    def manage_string_query(input_phrase: str, operator: str = None) -> dict:
+    def manage_string_query(input_phrase: str, operator: str | None = None) -> dict[str, str]:
         """
         This function transform a query_string in Solr string format
 
@@ -137,7 +140,7 @@ class HTSearchQuery:
             return query_string_dict
 
     @staticmethod
-    def manage_string_query_solr6(input_phrase: str, operator: str = None) -> str | None:
+    def manage_string_query_solr6(input_phrase: str, operator: str | None = None) -> str | None:
         """
         This function transform a query_string in Solr string format
 
@@ -154,10 +157,16 @@ class HTSearchQuery:
             return f" {operator} ".join(input_phrase.split())  # input_phrase
         elif operator is None:
             return '"' + input_phrase + '"'
+        # Any other operator falls through here -- this was already the pre-existing behavior
+        # (implicit None), now explicit so mypy's warn_no_return is satisfied.
+        return None
 
-    def create_params_dict(self, start: int = 0, rows: int = 100) -> dict:
+    def create_params_dict(self, start: int = 0, rows: int = 100) -> dict[str, Any]:
 
-        params = {
+        qf = self.solr_parameters.get("qf")
+        pf = self.solr_parameters.get("pf")
+
+        params: dict[str, Any] = {
             "defType": self.solr_parameters.get("parser")
             if self.solr_parameters.get("parser")
             else "edismax",
@@ -171,23 +180,21 @@ class HTSearchQuery:
                 "tie"
             ),  # "0.9", # tie = tie breaker qf = query fields. Each field is
             # assigned a boost factor to increase or decrease their importance in the query
-            "qf": HTSearchQuery.create_boost_phrase_fields(self.solr_parameters.get("qf")),
-            "pf": HTSearchQuery.create_boost_phrase_fields(self.solr_parameters.get("pf"))
-            if self.solr_parameters.get("pf")
-            else [],
+            "qf": HTSearchQuery.create_boost_phrase_fields(qf) if qf else [],
+            "pf": HTSearchQuery.create_boost_phrase_fields(pf) if pf else [],
         }
         return params
 
     def make_solr_query(
         self,
-        q_string: str = None,
-        operator: str = None,
+        q_string: str | None = None,
+        operator: str | None = None,
         start: int = 0,
         rows: int = 100,
-        fl: list = None,
+        fl: list[str] | None = None,
         query_filter: bool = False,
-        filter_dict: dict = None,
-    ):
+        filter_dict: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """
         This function create the Solr query
         :param q_string: Query string
@@ -219,7 +226,11 @@ class HTSearchQuery:
         if query_filter:
             if filter_dict:
                 params.update(
-                    {"fq": HTSearchQuery.query_filter_creator_string("id", filter_dict.get("id"))}
+                    {
+                        "fq": HTSearchQuery.query_filter_creator_string(
+                            "id", filter_dict.get("id") or []
+                        )
+                    }
                 )
             else:  # Will retrieve the default filters defined in config_facet_filters.yaml
                 params.update(
