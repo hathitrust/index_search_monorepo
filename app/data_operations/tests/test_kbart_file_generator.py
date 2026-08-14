@@ -1,4 +1,5 @@
 import csv
+from collections.abc import Sequence
 from pathlib import Path
 
 import kbart_file_generator.kbart_file_generator as kbart_module
@@ -124,7 +125,9 @@ def test_generate_kbart_rows_matches_zero_padded_ids_to_stripped_lookup_keys(
     """Lookup results are keyed by catalog id with leading zeros stripped; catalog_ids from
     the input file are zero-padded."""
 
-    def fake_fetch_lookup_results_in_parallel(catalog_ids, batch_size=None):
+    def fake_fetch_lookup_results_in_parallel(
+        catalog_ids: Sequence[str], batch_size: int = 100
+    ) -> tuple[dict[str, dict[str, object]], dict[str, dict[str, object]]]:
         return (
             {
                 "9040": {
