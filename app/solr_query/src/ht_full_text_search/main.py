@@ -1,7 +1,9 @@
 import argparse
 import os
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Any
 
 import uvicorn
 from fastapi import FastAPI
@@ -17,7 +19,7 @@ exporter_api = {}
 logger = get_ht_logger(name=__name__)
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--env", default=os.environ.get("HT_ENVIRONMENT", "dev"))
     parser.add_argument("--solr_url", help="Solr url", default=None)
@@ -25,7 +27,7 @@ def main():
     args = parser.parse_args()
 
     @asynccontextmanager
-    async def lifespan(app: FastAPI):
+    async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         """
         Startup the API to index documents in Solr
         """
@@ -48,7 +50,7 @@ def main():
     )
 
     app.add_middleware(
-        CORSMiddleware,  # type: ignore
+        CORSMiddleware,
         allow_origins=["http://localhost"],
         allow_credentials=True,
         allow_methods=["*"],
@@ -56,13 +58,13 @@ def main():
     )
 
     @app.get("/ping")
-    def check_solr():
+    def check_solr() -> dict[str, Any]:
         """Check if the API is up"""
         response = exporter_api["obj"].get_solr_status()
         return {"status": response.status_code, "description": response.headers}
 
     @app.post("/query/")
-    def solr_query_phrases(query):
+    def solr_query_phrases(query: str) -> StreamingResponse:
         """
         Look for exact matches in the OCR text.
         :param query: Phrase to search
@@ -74,7 +76,9 @@ def main():
         # so the query type can be used to select the kind of query to run and the params dict is updated with the query
         # string.
 
-        query_config_file_path = Path(config_files_path, "full_text_search/config_query.yaml")
+        # importlib.resources.files() is typed as Traversable, which typeshed doesn't declare as
+        # PathLike -- but for this package (a regular installed directory, not a zip) it is one.
+        query_config_file_path = Path(config_files_path, "full_text_search/config_query.yaml")  # type: ignore[arg-type]
 
         # Use StreamingResponse to stream the results because run_cursor output is a generator, so data
         # is not loaded into memory and is sent in chunks.
@@ -87,7 +91,7 @@ def main():
         )
 
     @app.post("/search_results/")
-    def solr_search_results():
+    def solr_search_results() -> dict[str, Any]:
         """
         Look for exact matches in the OCR text.
         :return: JSON with the results

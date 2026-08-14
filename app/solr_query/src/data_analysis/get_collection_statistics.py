@@ -1,5 +1,6 @@
 import os
 from argparse import ArgumentParser
+from typing import Any
 
 import pandas as pd
 from ht_full_text_search.ht_full_text_searcher import HTFullTextSearcher
@@ -30,7 +31,7 @@ def get_category_name(category: str) -> str:
     return category
 
 
-def map_callnoletters(df, map_file_path):
+def map_callnoletters(df: pd.DataFrame, map_file_path: str) -> tuple[pd.DataFrame, pd.DataFrame]:
     """
     Map the two-letter callnoletters fields with the descriptions in the map_call_number.properties file.
     :param df: DataFrame containing the callnoletters field.
@@ -78,7 +79,7 @@ def map_callnoletters(df, map_file_path):
     return df, grouped_df
 
 
-def create_dataframe_from_facets(facet_fields):
+def create_dataframe_from_facets(facet_fields: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
     """
     Create a DataFrame from Solr facet fields output.
     :param facet_fields: Dictionary containing facet fields and their counts.
@@ -86,7 +87,7 @@ def create_dataframe_from_facets(facet_fields):
     """
     facet_data = {}
 
-    for field, values in facet_fields.get("facet_fields").items():
+    for field, values in facet_fields.get("facet_fields", {}).items():
         data = []
         for i in range(0, len(values), 2):
             data.append({"value": values[i], "Count": values[i + 1]})
@@ -106,7 +107,7 @@ def add_percentage_column(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def sort_dataframe_by_percentage(df):
+def sort_dataframe_by_percentage(df: pd.DataFrame) -> pd.DataFrame:
     """
     Sort the DataFrame by the percentage column in descending order.
     :param df: DataFrame containing facet fields, counts, and percentages.
@@ -156,7 +157,9 @@ def create_copyrights_status(df: pd.DataFrame) -> pd.DataFrame:
     return df_new
 
 
-def create_excel_file(solr_facets_output: dict, file_name: str, map_file_path: str = None):
+def create_excel_file(
+    solr_facets_output: dict[str, Any], file_name: str, map_file_path: str | None = None
+) -> None:
     """
     Generate the output for each Solr facet field and create an Excel file with different sheets from the data
     :param solr_facets_output: Dictionary containing facet fields and their counts.
@@ -183,6 +186,8 @@ def create_excel_file(solr_facets_output: dict, file_name: str, map_file_path: s
             elif key == "callnoletters":
                 # TODO Create a function to download the map_call_number.properties file from the repository
                 # url = "https://github.com/projectblacklight/blacklight-marc/blob/main/lib/generators/blacklight/marc/templates/config/translation_maps/callnumber_map.properties"
+                if map_file_path is None:
+                    raise ValueError("map_file_path is required to map callnoletters")
 
                 df_callnoletters, df_general = map_callnoletters(df, map_file_path)
                 df_callnoletters.to_excel(

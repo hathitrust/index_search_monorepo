@@ -1,15 +1,16 @@
-import inspect
 import json
 import os
 import sys
 from argparse import ArgumentParser
+from collections.abc import Generator
+from typing import Any
 
 from ht_search.config_search import FULL_TEXT_SOLR_URL
 from ht_search.ht_query.ht_full_text_query import HTFullTextQuery
 from ht_search.ht_searcher.ht_searcher import HTSearcher
 from ht_utils.ht_logger import get_ht_logger
 
-current = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+current = os.path.dirname(os.path.abspath(__file__))
 parent = os.path.dirname(current)
 sys.path.insert(0, parent)
 
@@ -23,11 +24,11 @@ LS::Operation::Search ==> it contains all the logic about interleaved adn A/B te
 class HTFullTextSearcher(HTSearcher):
     def __init__(
         self,
-        solr_url: str = None,
-        ht_search_query: HTFullTextQuery = None,
+        solr_url: str | None = None,
+        ht_search_query: HTFullTextQuery | None = None,
         environment: str = "dev",
-        user=None,
-        password=None,
+        user: str | None = None,
+        password: str | None = None,
     ):
         super().__init__(
             solr_url=solr_url,
@@ -39,32 +40,32 @@ class HTFullTextSearcher(HTSearcher):
 
     def solr_result_output(
         self,
-        q_string: str = None,
-        fl: list = None,
-        operator: str = None,
+        q_string: str | None = None,
+        fl: list[str] | None = None,
+        operator: str | None = None,
         q_filter: bool = False,
-        filter_dict: dict = None,
-    ):
+        filter_dict: dict[str, Any] | None = None,
+    ) -> tuple[list[Any], list[dict[str, Any]]]:
         """With one query accumulate all the results"""
 
         list_docs = []
         result_explanation = []
         for response in self.solr_result_query_dict(q_string, fl, operator, q_filter, filter_dict):
-            for record in response.get("response").get("docs"):
+            for record in response.get("response", {}).get("docs", []):
                 list_docs.append(record)
-            for key, value in response.get("debug").get("explain").items():
+            for key, value in response.get("debug", {}).get("explain", {}).items():
                 result_explanation.append({key: value})
 
         return list_docs, result_explanation
 
     def retrieve_documents_from_file(
         self,
-        q_string: str = None,
-        fl: list = None,
-        operator: str = None,
+        q_string: str | None = None,
+        fl: list[str] | None = None,
+        operator: str | None = None,
         q_filter: bool = False,
-        list_ids: list = None,
-    ):
+        list_ids: list[str] | None = None,
+    ) -> Generator[tuple[list[Any], list[dict[str, Any]]]]:
         """
         This function create the Solr query using the ht_id from a list of ids
         :param list_ids: List of ids

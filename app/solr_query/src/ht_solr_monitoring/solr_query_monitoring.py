@@ -1,10 +1,10 @@
-import inspect
 import json
 import os
 import sys
 import time
 from argparse import ArgumentParser
 from statistics import mean, median
+from typing import Any
 
 import requests
 from ht_search.config_search import CATALOG_SOLR_URL, FULL_TEXT_SOLR_URL
@@ -12,7 +12,7 @@ from ht_search.export_all_results import SolrExporter
 from ht_utils.ht_logger import get_ht_logger
 from requests.auth import HTTPBasicAuth
 
-current = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+current = os.path.dirname(os.path.abspath(__file__))
 parent = os.path.dirname(current)
 sys.path.insert(0, parent)
 
@@ -21,10 +21,10 @@ logger = get_ht_logger(name=__name__)
 
 def send_solr_query(
     solr_base_url: str,
-    query: dict = None,
-    user: str = None,
-    password: str = None,
-    response_times: list = None,
+    query: dict[str, Any] | None = None,
+    user: str | None = None,
+    password: str | None = None,
+    response_times: list[float] | None = None,
     error_count: int = 0,
     total_queries: int = 0,
 ) -> None:
@@ -39,6 +39,8 @@ def send_solr_query(
     :param solr_base_url:
     :return:
     """
+    if response_times is None:
+        response_times = []
 
     try:
         # Construct Solr query URL
@@ -76,7 +78,7 @@ def send_solr_query(
         total_queries += 1
 
 
-def print_metrics(response_times: list, error_count: int, total_queries: int) -> None:
+def print_metrics(response_times: list[float], error_count: int, total_queries: int) -> None:
     logger.info("\n=== Solr Query Performance Metrics ===")
     logger.info(f"Total Queries: {total_queries}")
     logger.info(f"Errors: {error_count}")
@@ -90,7 +92,7 @@ def print_metrics(response_times: list, error_count: int, total_queries: int) ->
     logger.info("======================================\n")
 
 
-def main():
+def main() -> None:
 
     parser = ArgumentParser()
     parser.add_argument("--env", default=os.environ.get("HT_ENVIRONMENT", "dev"))
@@ -103,7 +105,7 @@ def main():
     # Set the experiment parameters
     interval = 1  # seconds
     test_duration = 60  # seconds
-    response_times = []
+    response_times: list[float] = []
     error_count = 0
     total_queries = 0
 

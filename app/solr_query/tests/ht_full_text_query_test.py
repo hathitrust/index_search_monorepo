@@ -1,14 +1,21 @@
+from ht_search.ht_query.ht_query import HTSearchQuery
+
+
 class TestHTFullTextQuery:
-    def test_full_text_search_default_values(self, ht_full_text_query_default_values):
+    def test_full_text_search_default_values(
+        self, ht_full_text_query_default_values: HTSearchQuery
+    ) -> None:
         assert ht_full_text_query_default_values.config_query == "all"
         assert ht_full_text_query_default_values.solr_facet_filters == {}
 
-    def test_full_text_search_query_parameters(self, ht_full_text_query):
+    def test_full_text_search_query_parameters(self, ht_full_text_query: HTSearchQuery) -> None:
         query_dict = ht_full_text_query.make_solr_query(q_string="query_example", operator="AND")
         assert query_dict.get("defType") == "edismax"
         assert query_dict.get("tie") == 0.5
 
-    def test_full_text_search_query_parameters_with_filters(self, ht_full_text_query):
+    def test_full_text_search_query_parameters_with_filters(
+        self, ht_full_text_query: HTSearchQuery
+    ) -> None:
         query_dict = ht_full_text_query.make_solr_query(
             q_string="query_example",
             operator="AND",
@@ -19,7 +26,7 @@ class TestHTFullTextQuery:
         assert query_dict.get("tie") == 0.5
         assert query_dict.get("fq") == 'id:("umn.31951002065930r" OR "umn.31951d031321278")'
 
-    def test_full_text_search_query_string_solr6(self, ht_full_text_query):
+    def test_full_text_search_query_string_solr6(self, ht_full_text_query: HTSearchQuery) -> None:
         query_string = ht_full_text_query.manage_string_query_solr6(
             input_phrase="query example", operator="AND"
         )

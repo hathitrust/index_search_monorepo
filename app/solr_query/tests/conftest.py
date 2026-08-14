@@ -5,16 +5,16 @@ from ht_full_text_search.ht_full_text_searcher import HTFullTextSearcher
 from ht_search import config_files
 from ht_search.ht_query.ht_query import HTSearchQuery
 
-QUERY_PARAMETER_CONFIG_FILE = Path(
-    config_files.config_files_path, "full_text_search/config_query.yaml"
-)
-FACET_FILTERS_CONFIG_FILE = Path(
-    config_files.config_files_path, "full_text_search/config_facet_filters.yaml"
-)
+# importlib.resources.files() is typed as Traversable, which typeshed doesn't declare as
+# PathLike -- but for this package (a regular installed directory, not a zip) it is one.
+QUERY_PARAMETER_CONFIG_FILE = Path(config_files.config_files_path, "full_text_search/config_query.yaml")  # type: ignore[arg-type]
+FACET_FILTERS_CONFIG_FILE = Path(config_files.config_files_path, "full_text_search/config_facet_filters.yaml")  # type: ignore[arg-type]
 
 
 @pytest.fixture
-def ht_full_text_search_fixture(ht_full_text_search_query_fixture):
+def ht_full_text_search_fixture(
+    ht_full_text_search_query_fixture: HTSearchQuery,
+) -> HTFullTextSearcher:
     """
     Fixture that instantiates the HTFullTextQuery class
     :return:
@@ -28,7 +28,7 @@ def ht_full_text_search_fixture(ht_full_text_search_query_fixture):
 
 # Specific objects (Full-text search)
 @pytest.fixture
-def ht_full_text_search_query_fixture():
+def ht_full_text_search_query_fixture() -> HTSearchQuery:
     """
     Fixture that instantiates the HTFullTextQuery class
     :return:
@@ -45,7 +45,7 @@ def ht_full_text_search_query_fixture():
 
 # General objects
 @pytest.fixture
-def ht_full_text_query():
+def ht_full_text_query() -> HTSearchQuery:
     """
     Fixture that instantiates the HT Full Text Query class
     :return:
@@ -61,7 +61,7 @@ def ht_full_text_query():
 
 
 @pytest.fixture
-def ht_full_text_query_default_values():
+def ht_full_text_query_default_values() -> HTSearchQuery:
     """
     Fixture that instantiates the HT Full Text Query class
     :return:

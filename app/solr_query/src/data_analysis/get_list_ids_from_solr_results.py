@@ -11,7 +11,7 @@ from ht_utils.ht_logger import get_ht_logger
 logger = get_ht_logger(name=__name__)
 
 
-def get_first_item(document_path: str) -> list:
+def get_first_item(document_path: str) -> list[str]:
     """
     Function that reads a JSON file to create a list with documents ids.
     Args:
@@ -29,7 +29,7 @@ def get_first_item(document_path: str) -> list:
     return list_ids
 
 
-def main():
+def main() -> None:
 
     parser = ArgumentParser()
     parser.add_argument("--env", default=os.environ.get("HT_ENVIRONMENT", "dev"))
@@ -58,7 +58,9 @@ def main():
     else:
         solr_base_url = f"{solr_host}/solr/{args.collection_name}"
 
-    query_config_file_path = Path(config_files_path, f"{config_files}/config_query.yaml")
+    # importlib.resources.files() is typed as Traversable, which typeshed doesn't declare as
+    # PathLike -- but for this package (a regular installed directory, not a zip) it is one.
+    query_config_file_path = Path(config_files_path, f"{config_files}/config_query.yaml")  # type: ignore[arg-type]
 
     query = "*:*"
     solr_exporter = SolrExporter(

@@ -2,6 +2,7 @@ import json
 import os
 import sys
 from argparse import ArgumentParser
+from typing import Any
 
 import pandas as pd
 from ht_full_text_search.ht_full_text_searcher import HTFullTextSearcher
@@ -12,15 +13,15 @@ from ht_utils.ht_logger import get_ht_logger
 logger = get_ht_logger(name=__name__)
 
 
-def comma_separated_list(arg):
+def comma_separated_list(arg: str) -> list[str]:
     return arg.split(",")
 
 
-def clean_up_score_string(score_string):
+def clean_up_score_string(score_string: str) -> str:
     return score_string.strip("\n").strip("")
 
 
-def create_doc_score_dataframe(solr_output_explanation):
+def create_doc_score_dataframe(solr_output_explanation: list[dict[str, str]]) -> dict[str, str]:
     doc_score_dict = {}
     for doc in solr_output_explanation:
         for key, value in doc.items():
@@ -32,8 +33,8 @@ def create_doc_score_dataframe(solr_output_explanation):
 
 
 def get_solr_results_without_filter_by_id(
-    ht_full_search_obj: HTFullTextSearcher, query: dict, fl: list
-):
+    ht_full_search_obj: HTFullTextSearcher, query: dict[str, Any], fl: list[str]
+) -> tuple[int, list[Any]]:
     """
     Get the results from Sol without filter it by id
     :param ht_full_search_obj: Search object
@@ -55,7 +56,7 @@ def get_solr_results_without_filter_by_id(
     return total_found, list_docs
 
 
-def get_list_phrases(file_path: str) -> list:
+def get_list_phrases(file_path: str) -> list[str]:
     if not os.path.isfile(file_path):
         logger.error(f"File {file_path} not found")
         sys.exit(1)

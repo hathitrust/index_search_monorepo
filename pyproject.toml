@@ -69,5 +69,11 @@ fix = true
 # module = "pika"
 strict = true
 ignore_missing_imports = true
+# Dead/unimportable code slated for deletion.
+# Not worth annotating code that's about to be removed.
+exclude = [
+    "^app/solr_query/src/data_analysis/extracting_diference_solr_results\\.py$",
+    "^app/solr_query/src/data_analysis/solr_engines_total_hits\\.py$",
+]
 
 
