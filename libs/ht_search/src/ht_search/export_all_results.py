@@ -78,7 +78,9 @@ def solr_query_params(query_config_file: str | Path | None = None, conf_query: s
         return " ".join([f"{k}='{v}'" for k, v in params.items()])
 
 
-def make_query(query: str, query_config_file: str | Path | None = None, conf_query: str = "ocr") -> str:
+def make_query(
+    query: str, query_config_file: str | Path | None = None, conf_query: str = "ocr"
+) -> str:
     """Prepare the Solr query string
     :param conf_query:
     :param query_config_file:

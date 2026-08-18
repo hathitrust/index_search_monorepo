@@ -51,7 +51,7 @@ def dict_to_pymarc_record(data: dict[str, Any]) -> Record:
 
         # Control fields (no indicators or subfields)
         if isinstance(value, str):
-            record.add_field(Field(tag=tag, data=value))  # type: ignore[no-untyped-call]
+            record.add_field(Field(tag=tag, data=value))
             continue
 
         # Data fields
@@ -77,7 +77,7 @@ def dict_to_pymarc_record(data: dict[str, Any]) -> Record:
 
         field = Field(tag, indicators=indicators, subfields=subfields)
 
-        record.add_field(field)  # type: ignore[no-untyped-call]  # pymarc.Record.add_field has no annotations
+        record.add_field(field)
 
     return record
 
@@ -113,5 +113,5 @@ def extract_control_number(record: Record) -> str:
     """
     field = record.get_fields("001")
     if field:
-        return field[0].value()
+        return str(field[0].value())
     return ""

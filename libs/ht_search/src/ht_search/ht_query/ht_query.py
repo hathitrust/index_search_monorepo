@@ -54,7 +54,9 @@ class HTSearchQuery:
 
     # TODO: perl method that probably we will remove
     @staticmethod
-    def initialize_solr_query(config_file: str | None, conf_query: str | None = "all") -> dict[str, Any]:
+    def initialize_solr_query(
+        config_file: str | None, conf_query: str | None = "all"
+    ) -> dict[str, Any]:
         # config_file/conf_query may be None here -- the constructor relies on the resulting
         # TypeError/KeyError being caught by its surrounding try/except.
         with open(config_file) as file:  # type: ignore[arg-type]
