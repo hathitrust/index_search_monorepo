@@ -11,10 +11,11 @@ from ht_utils.ht_utils import get_general_error_message
 
 logger = get_ht_logger(name=__name__)
 
+
 class HtMysql:
-    _engine: Engine | None = None # Class variable to store the SQLAlchemy engine
-    _lock = threading.Lock() # Lock for thread-safe engine creation
-    _engine_config = None # To store the configuration of the engine
+    _engine: Engine | None = None  # Class variable to store the SQLAlchemy engine
+    _lock = threading.Lock()  # Lock for thread-safe engine creation
+    _engine_config = None  # To store the configuration of the engine
 
     def __init__(self, host: str, user: str, password: str, database: str, pool_size: int = 5):
         """Initialize MySQL connection using SQLAlchemy engine with connection pooling"""
@@ -29,9 +30,9 @@ class HtMysql:
                 HtMysql._engine = create_engine(
                     url,
                     pool_size=pool_size,
-                    pool_pre_ping=True, # Check if connections are alive - test connection before using
-                    pool_recycle=1800, # Recycle connections after 30 minutes - Avoid timeout
-                    max_overflow=10, # Allow some extra connections
+                    pool_pre_ping=True,  # Check if connections are alive - test connection before using
+                    pool_recycle=1800,  # Recycle connections after 30 minutes - Avoid timeout
+                    max_overflow=10,  # Allow some extra connections
                 )
                 HtMysql._engine_config = config
                 logger.info(f"SQLAlchemy engine created with pool size {pool_size}")
@@ -39,7 +40,6 @@ class HtMysql:
                 raise RuntimeError("Engine already created with different configuration.")
 
     def query_mysql(self, query: str, params: dict | None = None) -> list[dict[str, Any]]:
-
         """Execute a query in MySQL and return the results as a list of dictionaries
         :param query: The SQL query to execute
         :param params: Optional dictionary of parameters to bind to the query
@@ -93,6 +93,7 @@ class HtMysql:
         except exc.SQLAlchemyError as e:
             logger.error(f"Error updating status: {e}")
 
+
 def get_mysql_conn(pool_size: int = 1) -> HtMysql:
     # MySql connection
     try:
@@ -116,11 +117,7 @@ def get_mysql_conn(pool_size: int = 1) -> HtMysql:
         sys.exit(1)
 
     ht_mysql = HtMysql(
-        mysql_host,
-        mysql_user,
-        mysql_pass,
-        os.getenv("MYSQL_DATABASE", "ht"),
-        pool_size=pool_size
+        mysql_host, mysql_user, mysql_pass, os.getenv("MYSQL_DATABASE", "ht"), pool_size=pool_size
     )
 
     logger.info("Access by default to `ht` Mysql database")

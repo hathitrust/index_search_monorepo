@@ -34,13 +34,13 @@ current = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()
 parent = os.path.dirname(current)
 sys.path.insert(0, parent)
 
-WAITING_TIME_QUEUE_PRODUCER = 180 # Wait 3 minutes to send documents in the queue
-WAITING_TIME_MYSQL = 60 # Wait 1 minute to query MySQL checking if there are documents to process (retriever_status = pending)
-MYSQL_COLUMN_UPDATE = 'retriever_status'
+WAITING_TIME_QUEUE_PRODUCER = 180  # Wait 3 minutes to send documents in the queue
+WAITING_TIME_MYSQL = 60  # Wait 1 minute to query MySQL checking if there are documents to process (retriever_status = pending)
+MYSQL_COLUMN_UPDATE = "retriever_status"
 SUCCESS_UPDATE_STATUS = f"UPDATE {PROCESSING_STATUS_TABLE_NAME} SET status = :status, {MYSQL_COLUMN_UPDATE} = :retriever_status, processed_at = :processed_at WHERE ht_id = :ht_id"
 FAILURE_UPDATE_STATUS = f"UPDATE {PROCESSING_STATUS_TABLE_NAME} SET status = :status, {MYSQL_COLUMN_UPDATE} = :retriever_status, processed_at = :processed_at, error = :error WHERE ht_id = :ht_id"
 
-SOLR_BATCH_SIZE = 200 # The chunk size is 200, because Solr will fail with the status code 414. The chunk size was determined
+SOLR_BATCH_SIZE = 200  # The chunk size is 200, because Solr will fail with the status code 414. The chunk size was determined
 # by testing the Solr query with different values (e.g., 100-500 and with 200 ht_ids it worked.
 
 # TODO: Apply the Strategy Pattern on this module to encapsulate the logic of extracting the documents by ht_id or
@@ -49,6 +49,7 @@ SOLR_ID_EXTRACTION_STRATEGIES = {
     "item": RetrieverServicesUtils.extract_hathitrust_ids,
     "record": RetrieverServicesUtils.extract_catalog_record_id,
 }
+
 
 class FullTextSearchRetrieverQueueService:
     """
@@ -61,13 +62,14 @@ class FullTextSearchRetrieverQueueService:
     All the entries are published in a queue
     """
 
-    def __init__(self, queue_params: QueueParams = None,
-                 solr_host: str = None,
-                 solr_user: str = None,
-                 solr_password: str = None,
-                 solr_retriever_query_params: dict = None
-                 ):
-
+    def __init__(
+        self,
+        queue_params: QueueParams = None,
+        solr_host: str = None,
+        solr_user: str = None,
+        solr_password: str = None,
+        solr_retriever_query_params: dict = None,
+    ):
 
         self.solr_host = solr_host
         self.solr_user = solr_user
@@ -79,7 +81,6 @@ class FullTextSearchRetrieverQueueService:
 
     @staticmethod
     def get_queue_producer(queue_params) -> QueueProducer | None:
-
         """Establish a connection to the queue to publish the documents"""
 
         try:
@@ -87,21 +88,20 @@ class FullTextSearchRetrieverQueueService:
             return queue_producer
 
         except Exception as e:
-            logger.error(f"Environment variables required: "
-                         f"{get_general_error_message('DocumentGeneratorService', e)}")
-
-
+            logger.error(
+                f"Environment variables required: "
+                f"{get_general_error_message('DocumentGeneratorService', e)}"
+            )
 
     @staticmethod
     def generate_metadata(record: CatalogItemMetadata) -> tuple[dict, str]:
-
-        """ Generate the metadata and the ht_id of the document to be published in the queue"""
+        """Generate the metadata and the ht_id of the document to be published in the queue"""
 
         item_id = record.ht_id
         logger.info(f"Processing document {item_id}")
 
         item_metadata = record.metadata
-        item_metadata['ht_id'] = item_id
+        item_metadata["ht_id"] = item_id
 
         return item_metadata, item_id
 
@@ -112,7 +112,6 @@ class FullTextSearchRetrieverQueueService:
         failed_items = []
 
         for record in result:
-
             item_metadata, item_id = FullTextSearchRetrieverQueueService.generate_metadata(record)
             logger.info(f"Publishing document {item_id}")
 
@@ -125,7 +124,7 @@ class FullTextSearchRetrieverQueueService:
                         "status": "processing",
                         "retriever_status": "completed",
                         "processed_at": get_current_time(),
-                        "ht_id": item_id
+                        "ht_id": item_id,
                     }
                 )
 
@@ -140,7 +139,7 @@ class FullTextSearchRetrieverQueueService:
                         "retriever_status": "failed",
                         "processed_at": get_current_time(),
                         "error": f"{error_info.get('service_name')}_{error_info.get('error_message')}",
-                        "ht_id": error_info.get("ht_id")
+                        "ht_id": error_info.get("ht_id"),
                     }
                 )
 
@@ -148,15 +147,14 @@ class FullTextSearchRetrieverQueueService:
                 continue
 
         # Update the status of the items in MySQL table
-        if len(failed_items)>0:
+        if len(failed_items) > 0:
             mysql_db.update_status(FAILURE_UPDATE_STATUS, failed_items)
 
-        if len(processed_items)>0:
+        if len(processed_items) > 0:
             logger.info(f"Total of processed documents: {len(processed_items)}")
             mysql_db.update_status(SUCCESS_UPDATE_STATUS, processed_items)
 
     def retrieve_documents_from_solr(self, solr_query: str, solr_retriever) -> requests.Response:
-
         """Function to retrieve documents from Solr
         :param solr_query:
         :param solr_retriever: HTSolrAPI object
@@ -165,20 +163,22 @@ class FullTextSearchRetrieverQueueService:
 
         chunk_solr_params = copy.deepcopy(self.solr_retriever_query_params)
 
-        chunk_solr_params['fq'] = solr_query
+        chunk_solr_params["fq"] = solr_query
 
         response = solr_retriever.send_solr_request(
-            solr_host=f"{self.solr_host}/query",
-            solr_params=chunk_solr_params
+            solr_host=f"{self.solr_host}/query", solr_params=chunk_solr_params
         )
         if response.status_code != 200:
             logger.error(f"Error {response.status_code} in query: {solr_query}")
-            raise requests.exceptions.RequestException(f"Error {response.status_code} in query: {solr_query}")
+            raise requests.exceptions.RequestException(
+                f"Error {response.status_code} in query: {solr_query}"
+            )
         return response
 
     @staticmethod
-    def generate_chunk_metadata(chunk: list, solr_output: dict, by_field: str = 'item') -> list[
-                                                                                               CatalogItemMetadata] | None:
+    def generate_chunk_metadata(
+        chunk: list, solr_output: dict, by_field: str = "item"
+    ) -> list[CatalogItemMetadata] | None:
         """Generate the metadata for the documents
 
         :param chunk: list of documents to process
@@ -189,30 +189,34 @@ class FullTextSearchRetrieverQueueService:
 
         record_metadata_list = []
         for record in solr_output.get("response").get("docs"):
-
             # Create the object to create items and metadata.
             catalog_record_metadata = CatalogRecordMetadata(record)
 
             # If there is something with Solr retrieving a chunk of documents will try to retrieve the next chunk
             try:
-                if by_field == 'item':
+                if by_field == "item":
                     # Validate query field = ht_id, list_documents could contain 1 or more items, but they probably are from
                     # different records
                     # Process a specific item of a record
-                    results = RetrieverServicesUtils.create_catalog_object_by_item_id(chunk, record, catalog_record_metadata)
+                    results = RetrieverServicesUtils.create_catalog_object_by_item_id(
+                        chunk, record, catalog_record_metadata
+                    )
                     # This is the most efficient way to retrieve the items from Catalog
                 else:
                     # Process all the items of a record
-                    results = RetrieverServicesUtils.create_catalog_object_by_record_id(record, catalog_record_metadata)
+                    results = RetrieverServicesUtils.create_catalog_object_by_record_id(
+                        record, catalog_record_metadata
+                    )
 
                 record_metadata_list.extend(results)
             except Exception as e:
-                error_info = get_general_error_message("FullTextSearchRetrieverQueueService",
-                                                                         e)
+                error_info = get_general_error_message("FullTextSearchRetrieverQueueService", e)
                 logger.error(f"Error in getting documents from Solr {error_info}")
         return record_metadata_list
 
-    def full_text_search_retriever_service(self, mysql_db, initial_documents, by_field: str = 'item') -> None:
+    def full_text_search_retriever_service(
+        self, mysql_db, initial_documents, by_field: str = "item"
+    ) -> None:
         """
         This method is used to retrieve the documents from the Catalog and generate the full text search entry
         If the Solr is not available, an error will be raised, and the process will be stopped
@@ -234,7 +238,6 @@ class FullTextSearchRetrieverQueueService:
 
         # Create chunk of documents to process according to the Solr query batch size
         for chunk in split_into_batches(initial_documents, SOLR_BATCH_SIZE):
-
             # Build the query to retrieve the total of documents to process
             query = make_solr_term_query(chunk, by_field)
 
@@ -244,15 +247,22 @@ class FullTextSearchRetrieverQueueService:
 
             # Generate the metadata for the documents
             start_time = time.time()
-            record_metadata_list = FullTextSearchRetrieverQueueService.generate_chunk_metadata(chunk, output, by_field)
+            record_metadata_list = FullTextSearchRetrieverQueueService.generate_chunk_metadata(
+                chunk, output, by_field
+            )
 
             logger.info(f"Metadata generator: Total items = {len(record_metadata_list)}.")
             logger.info(f"Metadata generator: Total time = {time.time() - start_time}")
 
             # Publish the documents in the queue
-            FullTextSearchRetrieverQueueService.publishing_documents(queue_producer, record_metadata_list, mysql_db)
+            FullTextSearchRetrieverQueueService.publishing_documents(
+                queue_producer, record_metadata_list, mysql_db
+            )
 
-def run_retriever_service_threads(mysql_db, list_documents, by_field, document_retriever_service, max_workers):
+
+def run_retriever_service_threads(
+    mysql_db, list_documents, by_field, document_retriever_service, max_workers
+):
     """
     Run the retriever service
 
@@ -276,20 +286,22 @@ def run_retriever_service_threads(mysql_db, list_documents, by_field, document_r
     # The number of MySQL connections is equal to batch_size
     batch_size = round(total_documents / max_workers + 0.5)
     # Create batches for thread processing
-    document_batches = [list_documents[i:i + batch_size] for i in range(0, total_documents, batch_size)]
+    document_batches = [
+        list_documents[i : i + batch_size] for i in range(0, total_documents, batch_size)
+    ]
 
     start_time = time.time()
 
     # Use ThreadPoolExecutor instead of multiprocessing.Process
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            # Submit all tasks to the thread pool
+        # Submit all tasks to the thread pool
         future_to_batch = {
             executor.submit(
                 document_retriever_service.full_text_search_retriever_service,
                 mysql_db,
                 batch,
-                by_field
-                ): batch
+                by_field,
+            ): batch
             for batch in document_batches
         }
 
@@ -302,7 +314,9 @@ def run_retriever_service_threads(mysql_db, list_documents, by_field, document_r
             except Exception as e:
                 logger.error(f"Thread failed processing batch of {len(batch)} documents: {e}")
 
-    logger.info(f"Threading=retrieving: Total time to retrieve documents {time.time() - start_time:.10f}")
+    logger.info(
+        f"Threading=retrieving: Total time to retrieve documents {time.time() - start_time:.10f}"
+    )
 
 
 def main():
@@ -317,10 +331,10 @@ def main():
 
     document_retriever_service = FullTextSearchRetrieverQueueService(
         init_args_obj.queue_config.queue_params,
-    init_args_obj.solr_host,
-    init_args_obj.solr_user,
-    init_args_obj.solr_password,
-    init_args_obj.solr_retriever_query_params
+        init_args_obj.solr_host,
+        init_args_obj.solr_user,
+        init_args_obj.solr_password,
+        init_args_obj.solr_retriever_query_params,
     )
 
     # by_field is use to define the type of query to retrieve the documents (by item or by record).
@@ -330,16 +344,16 @@ def main():
     by_field = init_args_obj.query_field
 
     if len(init_args_obj.list_documents) > 0:
-
         # If the list of documents is provided, the process will run only for the documents in the list
-        #list_ids = RetrieverServicesUtils.extract_ids_from_documents(init_args_obj.list_documents, by_field)
-        logger.info(f"Process=retrieving: Total of documents to process {len(init_args_obj.list_documents)}")
+        # list_ids = RetrieverServicesUtils.extract_ids_from_documents(init_args_obj.list_documents, by_field)
+        logger.info(
+            f"Process=retrieving: Total of documents to process {len(init_args_obj.list_documents)}"
+        )
 
-        document_retriever_service.full_text_search_retriever_service(init_args_obj.db_conn,
-                                                                      init_args_obj.list_documents,
-                                                                      by_field)
+        document_retriever_service.full_text_search_retriever_service(
+            init_args_obj.db_conn, init_args_obj.list_documents, by_field
+        )
     else:
-
         # If the table does not exist, stop the process
         if not init_args_obj.db_conn.table_exists(PROCESSING_STATUS_TABLE_NAME):
             logger.error(f"{PROCESSING_STATUS_TABLE_NAME} does not exist")
@@ -348,13 +362,14 @@ def main():
         # The process will run every 5 minutes to check if there are documents to process (retriever_status = pending)
         while True:
             total_time_waiting = 0
-            list_documents = init_args_obj.db_conn.query_mysql(init_args_obj.retriever_query, params={"status": "pending"})
+            list_documents = init_args_obj.db_conn.query_mysql(
+                init_args_obj.retriever_query, params={"status": "pending"}
+            )
             if len(list_documents) == 0:
                 logger.info("No documents to process")
                 time.sleep(WAITING_TIME_MYSQL)
                 continue
             else:
-
                 extract_ids = SOLR_ID_EXTRACTION_STRATEGIES.get(by_field)
                 if extract_ids is None:
                     logger.error(f"Error: by_field {by_field} not supported")
@@ -369,28 +384,35 @@ def main():
                     list_ids,
                     by_field,
                     document_retriever_service,
-                    init_args_obj.max_workers
+                    init_args_obj.max_workers,
                 )
             else:
                 # Run retriever service in single thread
 
                 document_retriever_service.full_text_search_retriever_service(
-                    init_args_obj.db_conn,
-                    list_ids,
-                    by_field
+                    init_args_obj.db_conn, list_ids, by_field
                 )
-
 
             # Checking the number of messages in the queue
             # Create a connection to the queue to produce messages
-            queue_producer = document_retriever_service.get_queue_producer(init_args_obj.queue_config.queue_params)
+            queue_producer = document_retriever_service.get_queue_producer(
+                init_args_obj.queue_config.queue_params
+            )
 
-            total_messages_in_queue = queue_producer.queue_manager.get_total_messages(queue_producer.channel)
+            total_messages_in_queue = queue_producer.queue_manager.get_total_messages(
+                queue_producer.channel
+            )
 
             while total_messages_in_queue > MAX_DOCUMENT_IN_QUEUE:
-                logger.info (f"Waiting: There are {total_messages_in_queue} or more documents in the {queue_producer.queue_manager.queue_name}")
-                time.sleep(WAITING_TIME_QUEUE_PRODUCER) # Wait 5 minutes to send documents in the queue
-                total_messages_in_queue = queue_producer.queue_manager.get_total_messages(queue_producer.channel)
+                logger.info(
+                    f"Waiting: There are {total_messages_in_queue} or more documents in the {queue_producer.queue_manager.queue_name}"
+                )
+                time.sleep(
+                    WAITING_TIME_QUEUE_PRODUCER
+                )  # Wait 5 minutes to send documents in the queue
+                total_messages_in_queue = queue_producer.queue_manager.get_total_messages(
+                    queue_producer.channel
+                )
                 total_time_waiting += WAITING_TIME_QUEUE_PRODUCER
             queue_producer.channel.close()
 

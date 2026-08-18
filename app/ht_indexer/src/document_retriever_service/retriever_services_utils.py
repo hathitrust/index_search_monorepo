@@ -5,6 +5,8 @@ from ht_queue_service.queue_producer import QueueProducer
 from ht_utils.ht_logger import get_ht_logger
 
 logger = get_ht_logger(name=__name__)
+
+
 class RetrieverServicesUtils:
     """
     A utility class for the Document Retriever Service.
@@ -19,14 +21,17 @@ class RetrieverServicesUtils:
         """
         message = content
         entry_data = json.dumps(message)
-        entry_size = len(entry_data.encode('utf-8'))  # Convert to bytes and get length
-        logger.info(f"Sending message with id {content.get('ht_id')} and Size={entry_size} "
-                    f"bytes to queue {queue_producer_conn.queue_manager.queue_name}")
+        entry_size = len(entry_data.encode("utf-8"))  # Convert to bytes and get length
+        logger.info(
+            f"Sending message with id {content.get('ht_id')} and Size={entry_size} "
+            f"bytes to queue {queue_producer_conn.queue_manager.queue_name}"
+        )
         queue_producer_conn.publish_messages(message)
 
     @staticmethod
-    def get_catalog_object(item_id: str,
-                           record_metadata: CatalogRecordMetadata) -> CatalogItemMetadata:
+    def get_catalog_object(
+        item_id: str, record_metadata: CatalogRecordMetadata
+    ) -> CatalogItemMetadata:
 
         catalog_item_metadata = CatalogItemMetadata(item_id, record_metadata)
         return catalog_item_metadata
@@ -56,23 +61,26 @@ class RetrieverServicesUtils:
         return list_documents
 
     @staticmethod
-    def create_catalog_object_by_record_id(record: dict, catalog_record_metadata: CatalogRecordMetadata) -> list[
-        CatalogItemMetadata]:
+    def create_catalog_object_by_record_id(
+        record: dict, catalog_record_metadata: CatalogRecordMetadata
+    ) -> list[CatalogItemMetadata]:
         """Receive a record and return a list of item, and their metadata
         :param record: dict with catalog record (retrieve from Solr)
         :param catalog_record_metadata: CatalogRecordMetadata object
         """
 
         results = []
-        for item_id in record.get('ht_id'):
-            results.append(RetrieverServicesUtils.get_catalog_object(item_id, catalog_record_metadata))
+        for item_id in record.get("ht_id"):
+            results.append(
+                RetrieverServicesUtils.get_catalog_object(item_id, catalog_record_metadata)
+            )
 
         return results
 
     @staticmethod
-    def create_catalog_object_by_item_id(list_documents: list, record: dict,
-                                         catalog_record_metadata: CatalogRecordMetadata) \
-            -> list[CatalogItemMetadata]:
+    def create_catalog_object_by_item_id(
+        list_documents: list, record: dict, catalog_record_metadata: CatalogRecordMetadata
+    ) -> list[CatalogItemMetadata]:
         """Receive a list of documents and a catalog record;
         Search for the item (ht_id) in the list and then;
         Create the CatalogMetadata object for each document in the list
@@ -81,8 +89,9 @@ class RetrieverServicesUtils:
         :param catalog_record_metadata: CatalogRecordMetadata object
         """
         results = []
-        for item_id in record.get('ht_id'):
+        for item_id in record.get("ht_id"):
             if item_id in list_documents:
-                results.append(RetrieverServicesUtils.get_catalog_object(item_id, catalog_record_metadata))
+                results.append(
+                    RetrieverServicesUtils.get_catalog_object(item_id, catalog_record_metadata)
+                )
         return results
-

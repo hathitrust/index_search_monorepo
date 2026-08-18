@@ -8,12 +8,12 @@ logger = get_ht_logger(name=__name__)
 
 class HTSearchQuery:
     def __init__(
-            self,
-            config_query: str = "all",
-            config_query_path: str = None,
-            user_id: str = None,
-            config_facet_field: str = None,
-            config_facet_field_path: str = None,
+        self,
+        config_query: str = "all",
+        config_query_path: str = None,
+        user_id: str = None,
+        config_facet_field: str = None,
+        config_facet_field_path: str = None,
     ):
         """
         Constructor to create the Solr query
@@ -34,14 +34,18 @@ class HTSearchQuery:
                 config_query_path, self.config_query
             )
         except Exception as e:
-            logger.error(f"File {config_query_path} to create Solr query does not exist. Exception: {e}")
+            logger.error(
+                f"File {config_query_path} to create Solr query does not exist. Exception: {e}"
+            )
             self.solr_parameters = {}  # Empty dictionary
         try:
             self.solr_facet_filters = HTSearchQuery.initialize_solr_query(
                 config_facet_field_path, config_facet_field
             )
         except Exception as e:
-            logger.error(f"File {config_facet_field} to get the filters does not exist. Exception: {e}")
+            logger.error(
+                f"File {config_facet_field} to get the filters does not exist. Exception: {e}"
+            )
             self.solr_facet_filters = {}  # Empty dictionary
             pass
 
@@ -90,7 +94,7 @@ class HTSearchQuery:
         # '\\"dog food\\" OR prices OR \\"good eats\\"'
         # This is the way of creating a list of string query filters
         filter_string = (
-            "\" OR \"".join(map(str, filter_value))
+            '" OR "'.join(map(str, filter_value))
             if isinstance(filter_value, list)
             else filter_value
         )
@@ -103,9 +107,7 @@ class HTSearchQuery:
 
         # This is the way of creating a list of integer query filters
         filter_string = (
-            " OR ".join(map(str, filter_value))
-            if isinstance(filter_value, list)
-            else filter_value
+            " OR ".join(map(str, filter_value)) if isinstance(filter_value, list) else filter_value
         )
         query_filters = f"{filter_name}:({filter_string})"
         return query_filters
@@ -116,7 +118,6 @@ class HTSearchQuery:
 
     @staticmethod
     def manage_string_query(input_phrase: str, operator: str = None) -> dict:
-
         """
         This function transform a query_string in Solr string format
 
@@ -136,7 +137,7 @@ class HTSearchQuery:
             return query_string_dict
 
     @staticmethod
-    def manage_string_query_solr6(input_phrase: str, operator: str = None) -> str| None:
+    def manage_string_query_solr6(input_phrase: str, operator: str = None) -> str | None:
         """
         This function transform a query_string in Solr string format
 
@@ -152,35 +153,40 @@ class HTSearchQuery:
         if operator == "OR" or operator == "AND":
             return f" {operator} ".join(input_phrase.split())  # input_phrase
         elif operator is None:
-            return "\"" + input_phrase + "\""
+            return '"' + input_phrase + '"'
 
     def create_params_dict(self, start: int = 0, rows: int = 100) -> dict:
 
         params = {
-            "defType": self.solr_parameters.get("parser") if self.solr_parameters.get("parser") else "edismax",
+            "defType": self.solr_parameters.get("parser")
+            if self.solr_parameters.get("parser")
+            else "edismax",
             "start": start,
             "rows": rows,
             "fl": self.solr_parameters.get("fl") if self.solr_parameters.get("fl") else [],
             "indent": "on",
             "debug": self.solr_parameters.get("debug"),
             "mm": self.solr_parameters.get("mm"),  # 100 % 25, # mm = minimum match
-            "tie": self.solr_parameters.get("tie"),  # "0.9", # tie = tie breaker qf = query fields. Each field is
+            "tie": self.solr_parameters.get(
+                "tie"
+            ),  # "0.9", # tie = tie breaker qf = query fields. Each field is
             # assigned a boost factor to increase or decrease their importance in the query
             "qf": HTSearchQuery.create_boost_phrase_fields(self.solr_parameters.get("qf")),
             "pf": HTSearchQuery.create_boost_phrase_fields(self.solr_parameters.get("pf"))
-            if self.solr_parameters.get("pf") else []
+            if self.solr_parameters.get("pf")
+            else [],
         }
         return params
 
     def make_solr_query(
-            self,
-            q_string: str = None,
-            operator: str = None,
-            start: int = 0,
-            rows: int = 100,
-            fl: list = None,
-            query_filter: bool = False,
-            filter_dict: dict = None
+        self,
+        q_string: str = None,
+        operator: str = None,
+        start: int = 0,
+        rows: int = 100,
+        fl: list = None,
+        query_filter: bool = False,
+        filter_dict: dict = None,
     ):
         """
         This function create the Solr query
@@ -212,13 +218,18 @@ class HTSearchQuery:
         # The HT rights should be automatically retrieved on this function (Check the code the perl code)
         if query_filter:
             if filter_dict:
-                params.update({"fq": HTSearchQuery.query_filter_creator_string("id",
-                                                                                   filter_dict.get("id"))})
+                params.update(
+                    {"fq": HTSearchQuery.query_filter_creator_string("id", filter_dict.get("id"))}
+                )
             else:  # Will retrieve the default filters defined in config_facet_filters.yaml
                 params.update(
-                    {"fq": HTSearchQuery.query_filter_creator_rights("rights",
-                                                                     [25, 15, 18, 1, 21, 23, 19, 13, 11, 20, 7, 10, 24,
-                                                                      14, 17, 22, 12])})
+                    {
+                        "fq": HTSearchQuery.query_filter_creator_rights(
+                            "rights",
+                            [25, 15, 18, 1, 21, 23, 19, 13, 11, 20, 7, 10, 24, 14, 17, 22, 12],
+                        )
+                    }
+                )
         return params
 
 

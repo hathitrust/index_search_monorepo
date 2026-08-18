@@ -19,9 +19,7 @@ for field in root.findall("field"):
 for field in root.findall("copyField"):
     name = field.attrib["dest"]
     if name in schema_fields_dic:
-        schema_fields_dic[name].update(
-            {"origen": f"copyField by {field.attrib['source']}"}
-        )
+        schema_fields_dic[name].update({"origen": f"copyField by {field.attrib['source']}"})
 
 schema_fields_list = dict(schema_fields_dic.values())
 df = pd.DataFrame.from_dict(schema_fields_list, orient="columns")

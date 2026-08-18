@@ -24,20 +24,21 @@ def get_update_catalog_record_metadata(update_catalog_record_metadata):
 
 # Create a CatalogItemMetadata object with the updated catalog record and the ht_id of the item
 @pytest.fixture()
-def get_item_metadata_second_position(update_catalog_record_metadata: dict,
-                                      get_update_catalog_record_metadata: CatalogRecordMetadata):
+def get_item_metadata_second_position(
+    update_catalog_record_metadata: dict, get_update_catalog_record_metadata: CatalogRecordMetadata
+):
     """Fake data updating the input document to test the second position of the htsource field"""
 
-    return CatalogItemMetadata("inu.30000108625017",
-                               get_update_catalog_record_metadata)
+    return CatalogItemMetadata("inu.30000108625017", get_update_catalog_record_metadata)
 
 
 @pytest.fixture()
 def get_catalog_record_without_enum_pubdate(get_record_data):
     updating_record = deepcopy(get_record_data)
-    updating_record[
-        "ht_json"] = ('[{"htid":"nyp.33433069877805","newly_open":null,"ingest":"20220501","rights":["pdus",null],'
-                      '"heldby":["nypl"],"collection_code":"nyp","enumcron":"v. 1","dig_source":"google"}]')
+    updating_record["ht_json"] = (
+        '[{"htid":"nyp.33433069877805","newly_open":null,"ingest":"20220501","rights":["pdus",null],'
+        '"heldby":["nypl"],"collection_code":"nyp","enumcron":"v. 1","dig_source":"google"}]'
+    )
     updating_record["ht_id"] = ["nyp.33433069877805"]
     return updating_record
 
@@ -48,24 +49,26 @@ def get_catalog_record_metadata_without_enum_pubdate(get_catalog_record_without_
 
 
 @pytest.fixture()
-def get_item_metadata_without_enum_pubdate(get_catalog_record_without_enum_pubdate: dict,
-                                           get_catalog_record_metadata_without_enum_pubdate: CatalogRecordMetadata):
+def get_item_metadata_without_enum_pubdate(
+    get_catalog_record_without_enum_pubdate: dict,
+    get_catalog_record_metadata_without_enum_pubdate: CatalogRecordMetadata,
+):
     """Fake data updating the input document to test the second position of the htsource field"""
 
-    return CatalogItemMetadata("nyp.33433069877805",
-                               get_catalog_record_metadata_without_enum_pubdate)
+    return CatalogItemMetadata(
+        "nyp.33433069877805", get_catalog_record_metadata_without_enum_pubdate
+    )
 
 
 class TestCatalogMetadata:
-
     def test_catalog_record_metadata_class(self, get_catalog_record_metadata):
-        assert 'ht_id' not in get_catalog_record_metadata.metadata.keys()
-        assert 'htsource' in get_catalog_record_metadata.metadata.keys()
-        assert 'vol_id' not in get_catalog_record_metadata.metadata.keys()
+        assert "ht_id" not in get_catalog_record_metadata.metadata.keys()
+        assert "htsource" in get_catalog_record_metadata.metadata.keys()
+        assert "vol_id" not in get_catalog_record_metadata.metadata.keys()
 
     def test_catalog_item_metadata_class(self, get_item_metadata):
         assert get_item_metadata.ht_id == "mdp.39015078560292"
-        assert "mdp.39015078560292" == get_item_metadata.metadata.get('vol_id')
+        assert "mdp.39015078560292" == get_item_metadata.metadata.get("vol_id")
         assert "title" in get_item_metadata.metadata.keys()
 
     def test_get_item_htsource(self, get_item_metadata):
@@ -92,7 +95,8 @@ class TestCatalogMetadata:
         volume_enumcrom = ""
         ht_id_display = [
             "mdp.39015078560292|20220910||1860|1860-1869|||Rābinsan Krūso kā itihāsa. The adventures of Robinson "
-            "Crusoe, translated [into Hindi] by Badrī Lāla, from a Bengali version ..."]
+            "Crusoe, translated [into Hindi] by Badrī Lāla, from a Bengali version ..."
+        ]
         assert volume_enumcrom == ht_id_display[0].split("|")[2]
 
     def test_missed_enum_publish_date(self, get_item_metadata_without_enum_pubdate):

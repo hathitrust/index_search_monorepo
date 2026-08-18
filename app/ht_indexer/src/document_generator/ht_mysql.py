@@ -10,25 +10,35 @@ from mysql import connector
 
 logger = get_ht_logger(name=__name__)
 
-class HtMysql:
 
+class HtMysql:
     # TODO: This class should be implemented on common utils package to be reused by other services
 
-    _pool = None # Class variable to store the connection pool
-    _lock = threading.Lock() # Lock for thread-safe pool creation
+    _pool = None  # Class variable to store the connection pool
+    _lock = threading.Lock()  # Lock for thread-safe pool creation
 
-    def __init__(self, host: str = None, user: str = None, password: str = None, database: str = None,
-                 pool_size: int = 5):
+    def __init__(
+        self,
+        host: str = None,
+        user: str = None,
+        password: str = None,
+        database: str = None,
+        pool_size: int = 5,
+    ):
         """Initialize MySQL connection using the connection pooling"""
         if not HtMysql._pool:
             # Use the lock to ensure only one thread can execute the pool creation code at a time (double-checked locking pattern).
             with HtMysql._lock:
                 if not HtMysql._pool:
-                    HtMysql.create_connection_pool(host=host, user=user, password=password, database=database,
-                                                   pool_size=pool_size)
+                    HtMysql.create_connection_pool(
+                        host=host,
+                        user=user,
+                        password=password,
+                        database=database,
+                        pool_size=pool_size,
+                    )
 
     def query_mysql(self, query: str = None) -> list[Any] | None | list[dict[Any, Any]]:
-
         """Execute a query in MySQL and return the results as a list of dictionaries"""
 
         if not query:
@@ -51,36 +61,43 @@ class HtMysql:
                     doc.update({name[0]: value})
                 list_docs.append(doc)
         except connector.Error as e:
-            logger.error(f"MySQL Query Error: "
-                         f"{get_general_error_message('DatabaseQuery', e)}")
+            logger.error(f"MySQL Query Error: {get_general_error_message('DatabaseQuery', e)}")
             return []
         finally:
             if cursor:
-                cursor.close() # Close the cursor
+                cursor.close()  # Close the cursor
             if conn:
-                conn.close() # Return the connection to the pool
+                conn.close()  # Return the connection to the pool
 
         return list_docs
 
     @staticmethod
-    def create_connection_pool(host: str = None, user: str = None, password: str = None, database: str = None,
-                               pool_size: int = 5):
+    def create_connection_pool(
+        host: str = None,
+        user: str = None,
+        password: str = None,
+        database: str = None,
+        pool_size: int = 5,
+    ):
         """Create a connection pool for MySQL if doesn't exist"""
 
         if not all([host, user, password, database]):
             logger.error("Please pass the valid host, user, password and database")
             sys.exit(1)
         try:
-            HtMysql._pool = connector.pooling.MySQLConnectionPool(pool_name="ht_mysql_pool",
-                                                                        pool_size=pool_size,
-                                                                        host=host,
-                                                                        user=user,
-                                                                        password=password,
-                                                                        database=database)
+            HtMysql._pool = connector.pooling.MySQLConnectionPool(
+                pool_name="ht_mysql_pool",
+                pool_size=pool_size,
+                host=host,
+                user=user,
+                password=password,
+                database=database,
+            )
             logger.info(f"MySQL connection pool created with size {pool_size}")
         except connector.Error as e:
-            logger.error(f"MySQL Connection Pool Error: "
-                         f"{get_general_error_message('DatabaseConnection', e)}")
+            logger.error(
+                f"MySQL Connection Pool Error: {get_general_error_message('DatabaseConnection', e)}"
+            )
             sys.exit(1)
 
     @staticmethod
@@ -100,17 +117,21 @@ class HtMysql:
                 except connector.PoolError as e:
                     # Logs warning when pool is temporarily exhausted and retries
                     if time.time() - start_time > timeout:
-                        logger.error(f"Timeout getting connection from pool after {timeout}s: "
-                                     f"{get_general_error_message('DatabaseConnection', e)}")
+                        logger.error(
+                            f"Timeout getting connection from pool after {timeout}s: "
+                            f"{get_general_error_message('DatabaseConnection', e)}"
+                        )
                         raise
                     logger.warning(f"Pool temporarily exhausted, retrying... ({e})")
                     time.sleep(0.5)  # Wait 500ms before retry
         except connector.Error as e:
-            logger.error(f"Error getting connection from pool: "
-                         f"{get_general_error_message('DatabaseConnection', e)}")
+            logger.error(
+                f"Error getting connection from pool: "
+                f"{get_general_error_message('DatabaseConnection', e)}"
+            )
             sys.exit(1)
 
-    def table_exists(self, table_name: str) -> bool|None:
+    def table_exists(self, table_name: str) -> bool | None:
         cursor = None
         conn = None
         try:
@@ -199,6 +220,7 @@ class HtMysql:
                 except Exception as conn_error:
                     logger.error(f"Error closing connection: {conn_error}")
 
+
 def get_mysql_conn(pool_size: int = 1) -> HtMysql:
     # MySql connection
     try:
@@ -226,7 +248,7 @@ def get_mysql_conn(pool_size: int = 1) -> HtMysql:
         user=mysql_user,
         password=mysql_pass,
         database=os.getenv("MYSQL_DATABASE", "ht"),
-        pool_size=pool_size
+        pool_size=pool_size,
     )
 
     logger.info("Access by default to `ht` Mysql database")

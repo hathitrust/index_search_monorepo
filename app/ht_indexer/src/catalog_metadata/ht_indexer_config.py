@@ -9,6 +9,7 @@ MYQLS_METADATA = ["coll_id", "ht_heldby", "ht_heldby_brlm", "rights"]
 
 DOCUMENT_LOCAL_PATH = "/tmp/"
 
+
 # Look for the sdr1 obj folder in the root of the container
 # and if it is not found, use the default path
 def get_local_document_folder():
@@ -86,7 +87,7 @@ IDENTICAL_CATALOG_METADATA = [
     "countryOfPubStr",
     "genre",
     "era",
-    "fullrecord"
+    "fullrecord",
 ]
 
 # indexer queue
@@ -100,4 +101,3 @@ indexer_requeue_message = False
 # Default batch size for the indexer service determined running experiments on the indexer
 # service in the docker container
 indexer_batch_size = 100
-

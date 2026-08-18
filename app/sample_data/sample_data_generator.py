@@ -64,15 +64,15 @@ def generate_sample_data(percentage=0.010, all_items: bool = False):
                 break
 
     with open(
-            f"{currentdir}/sample_data_path.txt",
-            "w",
+        f"{currentdir}/sample_data_path.txt",
+        "w",
     ) as newfile:
         data2write = "\n".join(sample_data_path)
         newfile.write(data2write)
 
     with open(
-            f"{currentdir}/sample_data_ht_ids.txt",
-            "w",
+        f"{currentdir}/sample_data_ht_ids.txt",
+        "w",
     ) as newfile:
         data2write = "\n".join(sample_data_ht_id)
         newfile.write(data2write)
@@ -85,5 +85,5 @@ if __name__ == "__main__":
 
     generate_sample_data(
         percentage=os.environ.get("SAMPLE_PERCENTAGE", 0.01),
-        all_items=os.environ.get("ALL_ITEMS", False)
+        all_items=os.environ.get("ALL_ITEMS", False),
     )

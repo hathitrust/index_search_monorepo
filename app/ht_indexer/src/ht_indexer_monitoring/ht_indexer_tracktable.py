@@ -39,19 +39,22 @@ HT_INDEXER_TRACKTABLE = f"""
         );
         """
 
+
 @dataclass
 class HTIndexerTrackData:
     """Data class to represent a row of the fulltext_item_processing_status table"""
+
     record_id: str
     ht_id: str
-    status: str = 'pending'
-    retriever_status: str = 'pending'
-    generator_status: str = 'pending'
-    indexer_status: str = 'pending'
+    status: str = "pending"
+    retriever_status: str = "pending"
+    generator_status: str = "pending"
+    indexer_status: str = "pending"
     error: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
     processed_at: datetime | None = None
+
 
 class HTIndexerTracktable:
     """Class to interact with MySQL table fulltext_item_processing_status"""
@@ -60,10 +63,13 @@ class HTIndexerTracktable:
         self.mysql_obj = db_conn
         self.solr_exporter = solr_exporter
 
-    def get_catalog_data(self, query: str,
-                         query_config_file_path: Path,
-                         conf_query: str,
-                         list_output_fields: list[str]) -> Generator[list[HTIndexerTrackData], Any]:
+    def get_catalog_data(
+        self,
+        query: str,
+        query_config_file_path: Path,
+        conf_query: str,
+        list_output_fields: list[str],
+    ) -> Generator[list[HTIndexerTrackData], Any]:
         """
         Get the data from the catalog.
         :return: List of data
@@ -71,19 +77,24 @@ class HTIndexerTracktable:
 
         # '"good"'
         data = []
-        for x in self.solr_exporter.run_cursor(query, query_config_file_path, conf_query=conf_query,
-                                          list_output_fields=list_output_fields):
+        for x in self.solr_exporter.run_cursor(
+            query,
+            query_config_file_path,
+            conf_query=conf_query,
+            list_output_fields=list_output_fields,
+        ):
             dict_x = json.loads(x)
             if "ht_id" in dict_x:
                 if dict_x["ht_id"] is not None:
                     for ht_id in dict_x["ht_id"]:
-                        record = {
-                            "ht_id": ht_id,
-                            "record_id": dict_x["id"],
-                            "status": "pending"
-                        }
-                        data.append(HTIndexerTrackData(ht_id=record['ht_id'], record_id=record['record_id'],
-                                                       status=record['status']))
+                        record = {"ht_id": ht_id, "record_id": dict_x["id"], "status": "pending"}
+                        data.append(
+                            HTIndexerTrackData(
+                                ht_id=record["ht_id"],
+                                record_id=record["record_id"],
+                                status=record["status"],
+                            )
+                        )
 
             # Insert in MySQL a batch size of 500 records
             if len(data) >= MYSQL_INSERT_BATCH_SIZE:
@@ -91,6 +102,7 @@ class HTIndexerTracktable:
                 data = []
         if len(data) > 0:
             yield data
+
     def create_table(self):
         """
         Create the table fulltext_item_processing_status if it does not exist.
@@ -116,11 +128,12 @@ class HTIndexerTracktable:
                 "retriever_status": item.retriever_status,
                 "generator_status": item.generator_status,
                 "indexer_status": item.indexer_status,
-                "error": item.error
-             }
+                "error": item.error,
+            }
             for item in list_items
-    ]
+        ]
         self.mysql_obj.insert_batch(insert_query, batch_values)
+
 
 def main():
 
@@ -138,11 +151,12 @@ def main():
         ht_indexer_tracktable.create_table()
 
     total_documents = 0
-    for item in ht_indexer_tracktable.get_catalog_data(init_args_obj.query,
-                                                    init_args_obj.query_config_file_path,
-                                                       init_args_obj.conf_query,
-                                                       init_args_obj.output_fields):
-
+    for item in ht_indexer_tracktable.get_catalog_data(
+        init_args_obj.query,
+        init_args_obj.query_config_file_path,
+        init_args_obj.conf_query,
+        init_args_obj.output_fields,
+    ):
         total_documents += len(item)
 
         # Add data to the table
@@ -150,6 +164,7 @@ def main():
 
         if total_documents >= int(init_args_obj.args.num_found):
             break
+
 
 if __name__ == "__main__":
     main()

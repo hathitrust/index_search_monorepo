@@ -32,13 +32,14 @@ def string_preparation(doc_content: bytes) -> str:
     """
 
     try:
-        str_content = doc_content.decode('utf-8')
+        str_content = doc_content.decode("utf-8")
         # Remove line breaks and extra spaces
-        str_content = str_content.replace('\r', ' ').replace('\n', ' ')
+        str_content = str_content.replace("\r", " ").replace("\n", " ")
         return quoteattr(str_content.strip())
     except UnicodeDecodeError as e:
         logger.error(f"File encoding incompatible with UTF-8: {e}")
         raise e
+
 
 def escape_values(value) -> str:
     if isinstance(value, str):
@@ -68,6 +69,7 @@ def create_solr_string(data_dic: dict) -> str:
             solr_doc.append(field_tag(key, value))
 
     return f"<add><doc>{nl.join(solr_doc)}</doc></add>"
+
 
 def ensure_text(value: object) -> str:
     if value is None:

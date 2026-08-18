@@ -13,9 +13,9 @@ from ht_utils.ht_logger import get_ht_logger
 
 logger = get_ht_logger(name=__name__)
 
+
 class QueueMultipleConsumer(ABC):
     def __init__(self, queue_params: QueueParams) -> None:
-
         """
         This class is used to consume a batch of messages from the queue
         :param queue_config: queue configuration object containing queue_name, exchange_name,
@@ -26,9 +26,9 @@ class QueueMultipleConsumer(ABC):
         - shutdown_on_empty_queue: If True, the consumer will stop consuming messages when the queue
         """
 
-        self.channel_creator = ChannelCreator(queue_params.user,
-                                              queue_params.password,
-                                              queue_params.host)  # Factory to create channels
+        self.channel_creator = ChannelCreator(
+            queue_params.user, queue_params.password, queue_params.host
+        )  # Factory to create channels
         self.channel = self.channel_creator.get_channel()
 
         self.queue_manager = QueueManager(queue_params)
@@ -49,7 +49,7 @@ class QueueMultipleConsumer(ABC):
 
     @abstractmethod
     def process_batch(self, batch: list[Any], delivery_tag: list[int]) -> None | Any:
-        """ Abstract method for processing a batch of messages. Must be implemented by subclasses.
+        """Abstract method for processing a batch of messages. Must be implemented by subclasses.
 
         Steps to implement on the subclass:
         Method to process the batch of messages.
@@ -77,7 +77,6 @@ class QueueMultipleConsumer(ABC):
         # Replace the old channel with the new one
         self.channel = new_channel
         try:
-
             # Set up the queue again if needed
             self.queue_manager.set_up_queue(self.channel)
         except Exception as err:
@@ -85,9 +84,7 @@ class QueueMultipleConsumer(ABC):
             raise
 
     def consume_batch(self) -> None:
-
-        """Consume a batch of messages from the queue and process them.
-        """
+        """Consume a batch of messages from the queue and process them."""
 
         if not self.channel or self.channel.is_closed:
             logger.warning("Queue setup not ready. Reinitializing channel and setup.")
@@ -96,13 +93,14 @@ class QueueMultipleConsumer(ABC):
 
         """ Retrieves a full batch of messages before processing """
         while True:
-            batch = [] # It stores messages for batch processing
-            delivery_tag = [] # It stores delivery tags for acknowledging messages
+            batch = []  # It stores messages for batch processing
+            delivery_tag = []  # It stores delivery tags for acknowledging messages
             for _ in range(self.queue_manager.batch_size):
                 # Use basic_get to retrieve a batch of messages and auto_ack=False to tell RabbitMQ to not wait for
                 # an acknowledgment of the message. We will manually acknowledge them
-                method_frame, properties, body = self.channel.basic_get(queue=self.queue_manager.queue_name,
-                                                                        auto_ack=False)
+                method_frame, properties, body = self.channel.basic_get(
+                    queue=self.queue_manager.queue_name, auto_ack=False
+                )
                 if method_frame:
                     batch.append(body)
                     delivery_tag.append(method_frame.delivery_tag)
@@ -130,8 +128,12 @@ class QueueMultipleConsumer(ABC):
                 logger.error(f"[!] Error processing batch: {e}")
                 raise e
 
-    def consume_dead_letter_messages(self, channel: pika.adapters.blocking_connection.BlockingChannel,
-                                     inactivity_timeout: int = 3, queue_name: str = '') -> Generator[tuple[Any, Any, None]]:
+    def consume_dead_letter_messages(
+        self,
+        channel: pika.adapters.blocking_connection.BlockingChannel,
+        inactivity_timeout: int = 3,
+        queue_name: str = "",
+    ) -> Generator[tuple[Any, Any, None]]:
         """
          This method consumes messages from the queue.
         :param channel: The RabbitMQ channel to consume messages from.
@@ -146,15 +148,14 @@ class QueueMultipleConsumer(ABC):
         Inactivity timeout is the time in seconds to wait for a message before returning None, the consumer will
         """
         try:
-
             if not self.channel or self.channel.is_closed:
                 logger.warning("Queue setup not ready. Reinitializing channel and setup.")
                 self.channel = self.channel_creator.get_channel()
                 self.queue_reconnect()
 
-            for method_frame, properties, body in channel.consume(queue_name,
-                                                                 auto_ack=False,
-                                                                 inactivity_timeout=inactivity_timeout):
+            for method_frame, properties, body in channel.consume(
+                queue_name, auto_ack=False, inactivity_timeout=inactivity_timeout
+            ):
                 if method_frame:
                     yield method_frame, properties, body
                 else:
@@ -171,7 +172,9 @@ class QueueMultipleConsumer(ABC):
         except Exception as e:
             logger.error(f"Something went wrong while consuming messages. {e}")
 
-    def reject_message(self, used_channel: pika.adapters.blocking_connection.BlockingChannel, basic_deliver: int) -> None:
+    def reject_message(
+        self, used_channel: pika.adapters.blocking_connection.BlockingChannel, basic_deliver: int
+    ) -> None:
         """Rejects a message and either requeues it or sends it to the Dead Letter Queue based on requeue_message flag.
 
         :param used_channel: The RabbitMQ channel to reject the message from
@@ -180,7 +183,9 @@ class QueueMultipleConsumer(ABC):
         """
         used_channel.basic_reject(delivery_tag=basic_deliver, requeue=self.requeue_message)
 
-    def positive_acknowledge(self, used_channel: pika.adapters.blocking_connection.BlockingChannel, delivery_tag: int) -> None:
+    def positive_acknowledge(
+        self, used_channel: pika.adapters.blocking_connection.BlockingChannel, delivery_tag: int
+    ) -> None:
         """Acknowledges a message as successfully processed.
 
         :param used_channel: The RabbitMQ channel to acknowledge the message on
@@ -198,7 +203,3 @@ class QueueMultipleConsumer(ABC):
         logger.info("Time's up! Stopping consumer...")
         self.channel.close()
         self.channel_creator.connection.queue_connection.close()
-
-
-
-

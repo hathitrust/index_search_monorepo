@@ -5,6 +5,7 @@ from .ht_mysql import HtMysql
 
 logger = get_ht_logger(name=__name__)
 
+
 def create_coll_id_field(large_coll_id_result: dict) -> dict:
     if len(large_coll_id_result) > 0:
         # Obtain the list with the unique coll_id from the result
@@ -53,10 +54,12 @@ class MysqlMetadataExtractor:
         <coll_id> fields.
         """
 
-        query_item_in_large_coll = (f'SELECT mb_item.MColl_ID '
-                                    f'FROM mb_coll_item mb_item, mb_collection mb_coll '
-                                    f'WHERE mb_item.extern_item_id="{doc_id}" '
-                                    f'AND mb_coll.num_items > {MAX_ITEM_IDS} ')
+        query_item_in_large_coll = (
+            f"SELECT mb_item.MColl_ID "
+            f"FROM mb_coll_item mb_item, mb_collection mb_coll "
+            f'WHERE mb_item.extern_item_id="{doc_id}" '
+            f"AND mb_coll.num_items > {MAX_ITEM_IDS} "
+        )
 
         logger.info(f"MySQL query: {query_item_in_large_coll}")
         large_collection_id = self.mysql_obj.query_mysql(query_item_in_large_coll)
@@ -67,16 +70,12 @@ class MysqlMetadataExtractor:
 
         namespace, _id = extract_namespace_and_id(doc_id)
 
-        query = (
-            f'SELECT * FROM rights_current WHERE namespace="{namespace}" AND id="{_id}"'
-        )
+        query = f'SELECT * FROM rights_current WHERE namespace="{namespace}" AND id="{_id}"'
         logger.info(f"MySQL query: {query}")
         return self.mysql_obj.query_mysql(query)
 
     def add_ht_heldby_field(self, doc_id) -> list[tuple]:
-        query = (
-            f'SELECT member_id FROM holdings_htitem_htmember WHERE volume_id="{doc_id}"'
-        )
+        query = f'SELECT member_id FROM holdings_htitem_htmember WHERE volume_id="{doc_id}"'
 
         logger.info(f"MySQL query: {query}")
         # ht_heldby is a list of institutions

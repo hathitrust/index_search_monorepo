@@ -13,8 +13,8 @@ from pika.exceptions import (
 
 logger = get_ht_logger(name=__name__)
 
-class ChannelCreator:
 
+class ChannelCreator:
     """
     Class for creating RabbitMQ channels from a shared connection (pika.BlockingConnection) in a thread-safe manner.
 
@@ -25,7 +25,7 @@ class ChannelCreator:
 
     def __init__(self, user: str, password: str, host: str):
         # TODO: Implement retry logic with exponential backoff for establishing the connection
-        self.connection = QueueConnection(user, password, host) # The connection to RabbitMQ
+        self.connection = QueueConnection(user, password, host)  # The connection to RabbitMQ
 
         # Thread-safe channel creation for multi-threaded environments
         self._channel_lock = threading.Lock()
@@ -43,7 +43,11 @@ class ChannelCreator:
         with self._channel_lock:
             try:
                 # Checking connection status before creating a channel (thread-safe)
-                if not self.connection or not self.connection.queue_connection or self.connection.queue_connection.is_closed:
+                if (
+                    not self.connection
+                    or not self.connection.queue_connection
+                    or self.connection.queue_connection.is_closed
+                ):
                     logger.error("RabbitMQ connection is not established or is closed.")
                     return None
                 else:
@@ -51,7 +55,13 @@ class ChannelCreator:
                     channel = self.connection.queue_connection.channel()
                     logger.info("Channel created successfully.")
                     return channel
-            except (ChannelClosed, ChannelClosedByBroker, ChannelWrongStateError, NoFreeChannels,
-                    AMQPError, Exception) as err:
-                    logger.error(f"Failed to create channel: {err}", exc_info=True)
-                    raise RuntimeError(f"Failed to create channel: {err}") from err
+            except (
+                ChannelClosed,
+                ChannelClosedByBroker,
+                ChannelWrongStateError,
+                NoFreeChannels,
+                AMQPError,
+                Exception,
+            ) as err:
+                logger.error(f"Failed to create channel: {err}", exc_info=True)
+                raise RuntimeError(f"Failed to create channel: {err}") from err

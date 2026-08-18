@@ -14,6 +14,7 @@ logger = get_ht_logger(name=__name__)
 
 DELIVERY_MODE_PERSISTENT = 2  # Make message persistent
 
+
 class QueueProducer:
     """
     Publish messages to a RabbitMQ queue with automatic queue setup and per-thread channels.
@@ -56,9 +57,9 @@ class QueueProducer:
         # declaring the credentials needed for connection like host, port, username, password, exchange etc
 
         # Object to create channels
-        self.channel_creator = ChannelCreator(queue_params.user,
-                                              queue_params.password,
-                                              queue_params.host)  # Factory to create channels
+        self.channel_creator = ChannelCreator(
+            queue_params.user, queue_params.password, queue_params.host
+        )  # Factory to create channels
         self.channel = self.channel_creator.get_channel()
 
         # Thread-local storage for channels (for multi-threading support)
@@ -85,7 +86,11 @@ class QueueProducer:
             return self.channel
 
         # For other threads, use thread-local channels
-        if not hasattr(self._thread_local, 'channel') or not self._thread_local.channel or self._thread_local.channel.is_closed:
+        if (
+            not hasattr(self._thread_local, "channel")
+            or not self._thread_local.channel
+            or self._thread_local.channel.is_closed
+        ):
             self._thread_local.channel = self.channel_creator.get_channel()
             # Set up queue for this thread's channel
             self.queue_manager.set_up_queue(self._thread_local.channel)
@@ -133,7 +138,6 @@ class QueueProducer:
             raise
 
     def publish_messages(self, queue_message: dict[str, Any]) -> None:
-
         # TODO: Define a dataclass for the queue message to ensure type safety and validation
         # TODO: Define a retry mechanism with exponential backoff for publishing messages
 
@@ -165,7 +169,9 @@ class QueueProducer:
 
         try:
             if not channel or channel.is_closed:
-                logger.warning(f"Channel closed before publish (queue: {self.queue_manager.queue_name}). Reconnecting.")
+                logger.warning(
+                    f"Channel closed before publish (queue: {self.queue_manager.queue_name}). Reconnecting."
+                )
                 self._thread_reconnect()
                 channel = self._get_thread_channel()
 
@@ -173,28 +179,39 @@ class QueueProducer:
                 body = json.dumps(queue_message)
             except (TypeError, ValueError) as json_err:
                 logger.error(
-                    f"Failed to serialize message {queue_message.get('ht_id')}: {json_err}", exc_info=True
+                    f"Failed to serialize message {queue_message.get('ht_id')}: {json_err}",
+                    exc_info=True,
                 )
                 raise
 
             channel.basic_publish(
-                                exchange=self.queue_manager.main_exchange_name,
-                                routing_key=self.queue_manager.queue_name,
-                                body=body,
-                                properties=pika.BasicProperties(delivery_mode=DELIVERY_MODE_PERSISTENT,
-                                                                content_type="application/json")  # make a message persistent
-                                )
+                exchange=self.queue_manager.main_exchange_name,
+                routing_key=self.queue_manager.queue_name,
+                body=body,
+                properties=pika.BasicProperties(
+                    delivery_mode=DELIVERY_MODE_PERSISTENT, content_type="application/json"
+                ),  # make a message persistent
+            )
 
-            logger.info(f"Published message to {self.queue_manager.queue_name}. Message ID: {message_id}")
+            logger.info(
+                f"Published message to {self.queue_manager.queue_name}. Message ID: {message_id}"
+            )
 
-        except (pika.exceptions.ChannelClosed, pika.exceptions.ConnectionClosed,
-                pika.exceptions.ChannelWrongStateError, pika.exceptions.StreamLostError) as err:
-            logger.warning(f"RabbitMQ connection/channel closed while publishing: {err}. Reconnecting and retrying...")
+        except (
+            pika.exceptions.ChannelClosed,
+            pika.exceptions.ConnectionClosed,
+            pika.exceptions.ChannelWrongStateError,
+            pika.exceptions.StreamLostError,
+        ) as err:
+            logger.warning(
+                f"RabbitMQ connection/channel closed while publishing: {err}. Reconnecting and retrying..."
+            )
             self._thread_reconnect()
             self.publish_messages(queue_message)  # Retry
 
         except Exception as err:
             logger.error(
-                f"Unexpected error publishing message {queue_message.get('ht_id')}: {err}", exc_info=True
+                f"Unexpected error publishing message {queue_message.get('ht_id')}: {err}",
+                exc_info=True,
             )
             raise

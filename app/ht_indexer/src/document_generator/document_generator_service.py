@@ -14,13 +14,16 @@ from .generator_arguments import GeneratorServiceArguments
 
 logger = get_ht_logger(name=__name__)
 
-class DocumentGeneratorService:
-    def __init__(self, db_conn, src_queue_consumer: QueueConsumer,
-                 tgt_queue_producer: QueueProducer | None,
-                 document_repository: str = None,
-                 tgt_local: bool = False
-                 ):
 
+class DocumentGeneratorService:
+    def __init__(
+        self,
+        db_conn,
+        src_queue_consumer: QueueConsumer,
+        tgt_queue_producer: QueueProducer | None,
+        document_repository: str = None,
+        tgt_local: bool = False,
+    ):
         """
         This class is responsible to retrieve from the queue a message with metadata at item level and generate
         the full text search entry and publish the document in a queue
@@ -54,18 +57,26 @@ class DocumentGeneratorService:
         if not Path(f"{ht_document.source_path}.zip").is_file():
             # The message is rejected because the file with the text of the document does not exist
             # then, entry dictionary could not be generated
-            raise FileNotFoundError(f"The file of the ht_id={ht_document.document_id} on the path={ht_document.source_path}.zip not found")
-        logger.info(f"Processing item {ht_document.document_id} using {ht_document.source_path}.zip")
+            raise FileNotFoundError(
+                f"The file of the ht_id={ht_document.document_id} on the path={ht_document.source_path}.zip not found"
+            )
+        logger.info(
+            f"Processing item {ht_document.document_id} using {ht_document.source_path}.zip"
+        )
         try:
             entry = self.document_generator.make_full_text_search_document(ht_document, record)
         except Exception as e:
-            raise Exception(f"Document {ht_document.document_id} could not be generated: Error - {e}") from e
+            raise Exception(
+                f"Document {ht_document.document_id} could not be generated: Error - {e}"
+            ) from e
 
         # Use to get the size of the entry dictionary
         entry_data = json.dumps(entry)
-        entry_size = len(entry_data.encode('utf-8'))  # Convert to bytes and get length
-        logger.info(f"Time to generate process=full-text_document ht_id={ht_document.document_id} "
-                    f"Time={time.time() - start_time:.10f} Size={entry_size} bytes")
+        entry_size = len(entry_data.encode("utf-8"))  # Convert to bytes and get length
+        logger.info(
+            f"Time to generate process=full-text_document ht_id={ht_document.document_id} "
+            f"Time={time.time() - start_time:.10f} Size={entry_size} bytes"
+        )
 
         return entry
 
@@ -82,22 +93,22 @@ class DocumentGeneratorService:
         Log the error message when the document could not be generated and reject the message requeeing the message
         to the dead letter queue
         """
-        error_info = get_error_message_by_document("DocumentGeneratorService",
-                                                                     e, document)
+        error_info = get_error_message_by_document("DocumentGeneratorService", e, document)
 
         logger.error(f"Document {document.get('ht_id')} failed {error_info}")
-        self.src_queue_consumer.reject_message(self.src_queue_consumer.channel,
-                                               delivery_tag)
+        self.src_queue_consumer.reject_message(self.src_queue_consumer.channel, delivery_tag)
 
     def consume_messages(self):
         try:
             for method_frame, _properties, body in self.src_queue_consumer.consume_message():
                 if method_frame:
-                    message = json.loads(body.decode('utf-8'))
+                    message = json.loads(body.decode("utf-8"))
                     self.generate_document(message, method_frame.delivery_tag)
         except Exception as e:
-            logger.error(f"There is something wrong with the queue connection: "
-                         f"{get_general_error_message('DocumentGeneratorService', e)}")
+            logger.error(
+                f"There is something wrong with the queue connection: "
+                f"{get_general_error_message('DocumentGeneratorService', e)}"
+            )
 
     def generate_document(self, message: dict, delivery_tag: int):
 
@@ -105,15 +116,18 @@ class DocumentGeneratorService:
 
         # try to generate the full text entry dictionary, if it fails, the message is rejected
         try:
-            full_text_document = self.generate_full_text_entry(item_id, message, self.document_repository)
+            full_text_document = self.generate_full_text_entry(
+                item_id, message, self.document_repository
+            )
 
             # try to publish the full text entry dictionary in the queue, if it fails, the message is
             # rejected
             self.publish_document(full_text_document)
             # Acknowledge the message to src_queue if the message is processed successfully and published in
             # the other queue
-            self.src_queue_consumer.positive_acknowledge(self.src_queue_consumer.channel,
-                                 delivery_tag)
+            self.src_queue_consumer.positive_acknowledge(
+                self.src_queue_consumer.channel, delivery_tag
+            )
         except Exception as e:
             self.log_error_document_generator_service(e, message, delivery_tag)
 
@@ -122,12 +136,13 @@ def main():
     parser = argparse.ArgumentParser()
     init_args_obj = GeneratorServiceArguments(parser)
 
-    document_generator_service = DocumentGeneratorService(init_args_obj.db_conn,
-                                                          init_args_obj.src_queue_consumer,
-                                                          init_args_obj.tgt_queue_producer,
-                                                          init_args_obj.document_repository,
-                                                          tgt_local=init_args_obj.tgt_local
-                                                          )
+    document_generator_service = DocumentGeneratorService(
+        init_args_obj.db_conn,
+        init_args_obj.src_queue_consumer,
+        init_args_obj.tgt_queue_producer,
+        init_args_obj.document_repository,
+        tgt_local=init_args_obj.tgt_local,
+    )
     document_generator_service.consume_messages()
 
 

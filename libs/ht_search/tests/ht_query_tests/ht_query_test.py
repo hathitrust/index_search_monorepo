@@ -1,4 +1,3 @@
-
 from ht_search.config_search import FACET_FILTERS_CONFIG_FILE, QUERY_PARAMETER_CONFIG_FILE
 from ht_search.ht_query.ht_query import HTSearchQuery
 
@@ -20,9 +19,13 @@ def ht_search_query_object():
 
 class TestHTSearchQuery:
     def test_query_string_to_dict(self):
-        assert HTSearchQuery.query_string_to_dict(
-            "q=*:*&start=0&rows=10&fl=id&indent=on"
-        ) == {"q": "*:*", "start": "0", "rows": "10", "fl": "id", "indent": "on"}
+        assert HTSearchQuery.query_string_to_dict("q=*:*&start=0&rows=10&fl=id&indent=on") == {
+            "q": "*:*",
+            "start": "0",
+            "rows": "10",
+            "fl": "id",
+            "indent": "on",
+        }
 
     def test_query_key_keep_string(self):
         assert HTSearchQuery().query_string_to_dict(
@@ -36,9 +39,7 @@ class TestHTSearchQuery:
         }
 
     def test_create_boost_query_fields(self):
-        data = HTSearchQuery.initialize_solr_query(
-            QUERY_PARAMETER_CONFIG_FILE, conf_query="all"
-        )
+        data = HTSearchQuery.initialize_solr_query(QUERY_PARAMETER_CONFIG_FILE, conf_query="all")
 
         assert HTSearchQuery().create_boost_query_fields(data["qf"])[0:3] == [
             "allfieldsProper^2",
@@ -46,11 +47,8 @@ class TestHTSearchQuery:
             "titleProper^50",
         ]
 
-
     def test_facet_creator(self):
-        data = HTSearchQuery.initialize_solr_query(
-            FACET_FILTERS_CONFIG_FILE, conf_query="all"
-        )
+        data = HTSearchQuery.initialize_solr_query(FACET_FILTERS_CONFIG_FILE, conf_query="all")
         assert HTSearchQuery().facet_creator(data["facet"]) == {
             "facet.mincount": 1,
             "facet": "on",
@@ -63,15 +61,13 @@ class TestHTSearchQuery:
                 "bothPublishDateRange",
                 "format",
                 "htsource",
-                "callnoletters"
+                "callnoletters",
             ],
         }
 
     def test_make_exact_phrase_query_string(self):
         query_string = "information retrieval"
-        assert '"information retrieval"' == HTSearchQuery.get_exact_phrase_query(
-            query_string
-        )
+        assert '"information retrieval"' == HTSearchQuery.get_exact_phrase_query(query_string)
 
     def test_makey_any_work_query_string(self):
         query_string = "information retrieval"

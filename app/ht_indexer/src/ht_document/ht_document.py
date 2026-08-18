@@ -19,7 +19,9 @@ class HtDocument:
     * Rename the files of the document if the id has the following pattern: uc2.ark:/13960/t4mk66f1d
     """
 
-    def __init__(self, document_id: str = None, document_repository: str = 'local'):  # pairtree or local
+    def __init__(
+        self, document_id: str = None, document_repository: str = "local"
+    ):  # pairtree or local
         # TODO: I should create two classes one a document retrieved from pairtree-based repo
         #  and other one a document retrieve for any folder, so pass the attribute , source_file: Text = None
         # Right now this class only retrieve documents from a pairtree-based repo
@@ -34,7 +36,7 @@ class HtDocument:
         self.file_name = pairtree.sanitizeString(self.obj_id)
 
         # By default path files are in /sdr1/obj
-        if document_repository == 'pairtree':
+        if document_repository == "pairtree":
             self.source_path = f"{os.environ.get('SDR_DIR')}/{self.namespace}/pairtree_root{self.get_document_pairtree_path()}"  # /sdr1/obj/
         else:
             # A sample_data will be in the same folder of the repository

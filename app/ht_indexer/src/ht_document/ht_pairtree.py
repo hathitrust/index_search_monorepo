@@ -57,5 +57,8 @@ def download_document_file(ht_id: str, target_path: str, extension: str = "zip")
 
 
 if __name__ == "__main__":
-    download_document_file(ht_id="coo1.ark:/13960/t57d3f780", target_path=str(Path(__file__).parents[1]),
-                           extension="zip")
+    download_document_file(
+        ht_id="coo1.ark:/13960/t57d3f780",
+        target_path=str(Path(__file__).parents[1]),
+        extension="zip",
+    )

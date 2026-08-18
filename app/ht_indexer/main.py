@@ -12,12 +12,8 @@ logger = get_ht_logger(name=__name__)
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--host", help="HT indexer API host", required=True, default="0.0.0.0"
-    )
-    parser.add_argument(
-        "--port", help="HT indexer API port", required=True, default=8081
-    )
+    parser.add_argument("--host", help="HT indexer API host", required=True, default="0.0.0.0")
+    parser.add_argument("--port", help="HT indexer API port", required=True, default=8081)
     # If you run main script from poetry/python solr_host = localhost
     # If you run main script from docker solr_host = host.docker.internal
 

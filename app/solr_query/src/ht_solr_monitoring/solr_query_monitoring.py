@@ -18,9 +18,16 @@ sys.path.insert(0, parent)
 
 logger = get_ht_logger(name=__name__)
 
-def send_solr_query(solr_base_url: str, query: dict = None,
-                    user: str = None, password: str = None, response_times: list = None,
-                    error_count: int = 0, total_queries: int = 0) -> None:
+
+def send_solr_query(
+    solr_base_url: str,
+    query: dict = None,
+    user: str = None,
+    password: str = None,
+    response_times: list = None,
+    error_count: int = 0,
+    total_queries: int = 0,
+) -> None:
     """
     Send a query to Solr and measure the response time.
     :param total_queries:
@@ -46,7 +53,7 @@ def send_solr_query(solr_base_url: str, query: dict = None,
         response = requests.get(url, params=query, timeout=10, auth=auth)
         output = json.loads(response.content)
 
-        for result in output['response']['docs']:
+        for result in output["response"]["docs"]:
             logger.info(result)
 
         # Record end time
@@ -68,6 +75,7 @@ def send_solr_query(solr_base_url: str, query: dict = None,
     finally:
         total_queries += 1
 
+
 def print_metrics(response_times: list, error_count: int, total_queries: int) -> None:
     logger.info("\n=== Solr Query Performance Metrics ===")
     logger.info(f"Total Queries: {total_queries}")
@@ -80,6 +88,7 @@ def print_metrics(response_times: list, error_count: int, total_queries: int) ->
     else:
         logger.info("No successful queries recorded.")
     logger.info("======================================\n")
+
 
 def main():
 
@@ -103,13 +112,13 @@ def main():
 
     # Default parameters are for full-text search
     solr_host = FULL_TEXT_SOLR_URL[args.env]
-    config_files = 'full_text_search'
+    config_files = "full_text_search"
     conf_query = "ocr"
 
     # Overwrite default parameter for Catalog search
     if args.cluster_name == "catalog":
         solr_host = CATALOG_SOLR_URL[args.env]
-        config_files = 'catalog_search'
+        config_files = "catalog_search"
         conf_query = "titleonly"
 
     if args.solr_host:
@@ -117,19 +126,23 @@ def main():
     else:
         solr_base_url = f"{solr_host}/solr/{args.collection_name}"
 
-
     while time.time() - start_time < test_duration:
         # TODO: Generate a random Solr query using different kind of queries and parameters
         # Query by id,
         # Query that involves different shards by title, query by author, query by date, query by source
         # Faceted search
 
-        query_config_file_path = os.path.join(os.path.abspath(os.path.join(parent)),
-                                              'config_files', config_files, 'config_query.yaml')
+        query_config_file_path = os.path.join(
+            os.path.abspath(os.path.join(parent)), "config_files", config_files, "config_query.yaml"
+        )
 
         query = "health"
-        solr_exporter = SolrExporter(solr_base_url, args.env,
-                                     user=os.getenv("SOLR_USER"), password=os.getenv("SOLR_PASSWORD"))
+        solr_exporter = SolrExporter(
+            solr_base_url,
+            args.env,
+            user=os.getenv("SOLR_USER"),
+            password=os.getenv("SOLR_PASSWORD"),
+        )
         # '"good"'
         for x in solr_exporter.run_cursor(query, query_config_file_path, conf_query=conf_query):
             logger.info(x)
@@ -138,7 +151,6 @@ def main():
 
     # Only for Catalog queries
     print_metrics(response_times, error_count, total_queries)
-
 
 
 if __name__ == "__main__":

@@ -13,9 +13,7 @@ logger = get_ht_logger(name=__name__)
 
 
 class DocumentIndexerQueueService(QueueMultipleConsumer):
-
     def __init__(self, solr_api_full_text: HTSolrAPI, queue_params: QueueParams):
-
         """Initialize the Document Indexer Queue Service.
         :param solr_api_full_text: The Solr API client for full-text indexing
         :param queue_params: The object with the queue parameters
@@ -24,10 +22,13 @@ class DocumentIndexerQueueService(QueueMultipleConsumer):
         super().__init__(queue_params)
         self.solr_api_full_text = solr_api_full_text
 
-
-    def requeue_failed_messages(self, messages: list[dict]=None, delivery_tags: list[int]=None, error: Exception = None,
-                                channel=None) -> None:
-
+    def requeue_failed_messages(
+        self,
+        messages: list[dict] = None,
+        delivery_tags: list[int] = None,
+        error: Exception = None,
+        channel=None,
+    ) -> None:
         """Requeue failed messages into the Dead Letter Queue.
         :param messages: List of messages that failed to process
         :param delivery_tags: List of delivery tags corresponding to the messages
@@ -35,7 +36,9 @@ class DocumentIndexerQueueService(QueueMultipleConsumer):
         :param channel: The channel to use for rejecting messages
         """
 
-        logger.info(f"Send total_messages={len(delivery_tags)} to the {self.queue_manager.dead_letter_queue_name}.")
+        logger.info(
+            f"Send total_messages={len(delivery_tags)} to the {self.queue_manager.dead_letter_queue_name}."
+        )
 
         for message, delivery_tag in zip(messages, delivery_tags, strict=False):
             error_info = get_error_message_by_document("DocumentIndexerService", error, message)
@@ -60,7 +63,8 @@ class DocumentIndexerQueueService(QueueMultipleConsumer):
             response = self.solr_api_full_text.index_documents(batch)
             logger.info(
                 f"Success process=indexing {len(batch)} items."
-                f"Operation status: {response.status_code} Time={time.time() - start_time:.10f} ")
+                f"Operation status: {response.status_code} Time={time.time() - start_time:.10f} "
+            )
 
             response.raise_for_status()
 
@@ -70,7 +74,7 @@ class DocumentIndexerQueueService(QueueMultipleConsumer):
 
         except Exception as e:
             logger.info(f"Failed process=indexing with error={e}")
-            failed_messages = batch #self.batch
+            failed_messages = batch  # self.batch
             failed_messages_tags = delivery_tags.copy()
             # Requeue the full list of failed messages to the Dead Letter Queue
             self.requeue_failed_messages(failed_messages, failed_messages_tags, e, self.channel)
@@ -79,11 +83,13 @@ class DocumentIndexerQueueService(QueueMultipleConsumer):
         delivery_tags.clear()
         return True
 
+
 def start_service(solr_api_full_text: HTSolrAPI, queue_params: QueueParams) -> None:
     document_indexer_queue_service = DocumentIndexerQueueService(solr_api_full_text, queue_params)
     logger.info(f"Starting Document Indexer Service with queue: {queue_params.queue_name}")
     # Start consuming messages from the queue
     document_indexer_queue_service.start_consuming()
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -91,6 +97,7 @@ def main():
     init_args_obj = IndexerServiceArguments(parser)
 
     start_service(init_args_obj.solr_api_full_text, init_args_obj.queue_config.queue_params)
+
 
 if __name__ == "__main__":
     main()

@@ -9,28 +9,31 @@ sys.path.insert(0, current_dir)
 # Full-text search config parameters
 FULL_TEXT_SOLR_URL = {
     "prod": "http://macc-ht-solr-lss-1.umdl.umich.edu:8081/solr/core-1x",
-    "dev": "http://solr-lss-dev:8983/solr/core-x"
+    "dev": "http://solr-lss-dev:8983/solr/core-x",
 }
 
-CATALOG_SOLR_URL = {
-    "dev": "http://localhost:9033",
-    "prod": "http://localhost:9033"
-}
+CATALOG_SOLR_URL = {"dev": "http://localhost:9033", "prod": "http://localhost:9033"}
 
-FULL_TEXT_SEARCH_SHARDS_X = ','.join([f"http://solr-sdr-search-{i}:8081/solr/core-{i}x" for i in range(1, 12)])
-FULL_TEXT_SEARCH_SHARDS_Y = ','.join([f"http://solr-sdr-search-{i}:8081/solr/core-{i}y" for i in range(1, 12)])
+FULL_TEXT_SEARCH_SHARDS_X = ",".join(
+    [f"http://solr-sdr-search-{i}:8081/solr/core-{i}x" for i in range(1, 12)]
+)
+FULL_TEXT_SEARCH_SHARDS_Y = ",".join(
+    [f"http://solr-sdr-search-{i}:8081/solr/core-{i}y" for i in range(1, 12)]
+)
 
-QUERY_PARAMETER_CONFIG_FILE = os.path.join(current_dir, "config_files", "full_text_search", "config_query.yaml")
-FACET_FILTERS_CONFIG_FILE = os.path.join(current_dir, "config_files", "full_text_search", "config_facet_filters.yaml")
+QUERY_PARAMETER_CONFIG_FILE = os.path.join(
+    current_dir, "config_files", "full_text_search", "config_query.yaml"
+)
+FACET_FILTERS_CONFIG_FILE = os.path.join(
+    current_dir, "config_files", "full_text_search", "config_facet_filters.yaml"
+)
 
 DEFAULT_SOLR_PARAMS = {
     "rows": 500,
     "sort": "id asc",
     "fl": ",".join(["title", "author", "id", "shard", "score"]),
-    "wt": "json"
+    "wt": "json",
 }
-
-
 
 
 def default_solr_params(env: str = "prod"):

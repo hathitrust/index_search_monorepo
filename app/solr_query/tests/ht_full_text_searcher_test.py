@@ -12,13 +12,17 @@ class TestRetrieveDocumentsFromFile:
 
     @staticmethod
     def _searcher():
-        return HTFullTextSearcher(solr_url="http://fake-solr", ht_search_query=None, environment="dev")
+        return HTFullTextSearcher(
+            solr_url="http://fake-solr", ht_search_query=None, environment="dev"
+        )
 
     def test_yields_a_batch_for_100_or_fewer_ids(self):
         searcher = self._searcher()
         list_ids = [f"id_{i}" for i in range(50)]
 
-        with patch.object(searcher, "solr_result_output", return_value=(["doc"], ["debug"])) as mock_output:
+        with patch.object(
+            searcher, "solr_result_output", return_value=(["doc"], ["debug"])
+        ) as mock_output:
             batches = list(searcher.retrieve_documents_from_file(list_ids=list_ids))
 
         assert batches == [(["doc"], ["debug"])]
@@ -29,7 +33,9 @@ class TestRetrieveDocumentsFromFile:
         searcher = self._searcher()
         list_ids = [f"id_{i}" for i in range(150)]
 
-        with patch.object(searcher, "solr_result_output", return_value=(["doc"], ["debug"])) as mock_output:
+        with patch.object(
+            searcher, "solr_result_output", return_value=(["doc"], ["debug"])
+        ) as mock_output:
             batches = list(searcher.retrieve_documents_from_file(list_ids=list_ids))
 
         assert len(batches) == 2
@@ -51,7 +57,7 @@ class TestHTFullTextSearcher:
             solr_url=config_search.FULL_TEXT_SOLR_URL["dev"],
             ht_search_query=ht_full_text_query,
             user=os.getenv("SOLR_USER"),
-            password=os.getenv("SOLR_PASSWORD")
+            password=os.getenv("SOLR_PASSWORD"),
         )
         solr_results = searcher.solr_result_query_dict(
             query_string="majority of the votes",
@@ -64,4 +70,3 @@ class TestHTFullTextSearcher:
             assert "id" in result["response"]["docs"]
             assert "title" in result["response"]["docs"]
             assert result["response"]["numFound"] > 1
-

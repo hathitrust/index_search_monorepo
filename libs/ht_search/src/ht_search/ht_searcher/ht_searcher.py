@@ -39,11 +39,12 @@ class HTSearcher:
     """
 
     def __init__(
-            self,
-            solr_url: str = None,
-            ht_search_query: HTSearchQuery = None,
-            environment: str = "dev",
-            user=None, password=None
+        self,
+        solr_url: str = None,
+        ht_search_query: HTSearchQuery = None,
+        environment: str = "dev",
+        user=None,
+        password=None,
     ):
         self.solr_url = solr_url
         self.environment = environment  # Not sure if we need it right now
@@ -51,9 +52,7 @@ class HTSearcher:
         self.auth = HTTPBasicAuth(user, password) if user and password else None
 
         # TODO HTTP request string and JSON object. We should transform the query string into a JSON object
-        self.headers = {
-            "Content-type": "application/json"
-        }
+        self.headers = {"Content-type": "application/json"}
 
     def send_query(self, params):
 
@@ -61,20 +60,23 @@ class HTSearcher:
         # In chunked transfer, the data stream is divided into a series of non-overlapping "chunks".
 
         response = requests.post(
-            url=f"{self.solr_url}/query", params=params, headers=self.headers, stream=True, auth=self.auth
+            url=f"{self.solr_url}/query",
+            params=params,
+            headers=self.headers,
+            stream=True,
+            auth=self.auth,
         )
-
 
         return response
 
-    def solr_facets_output(self,
-            query_string: str = None,
-            fl: list = None,
-            operator: str = None,
-            query_filter: bool = False,
-            filter_dict: dict = None,
-            ) -> dict:
-
+    def solr_facets_output(
+        self,
+        query_string: str = None,
+        fl: list = None,
+        operator: str = None,
+        query_filter: bool = False,
+        filter_dict: dict = None,
+    ) -> dict:
         """
         Query Solr and return the results
 
@@ -88,8 +90,11 @@ class HTSearcher:
         """
         # query_string += "&wt=json&indent=off" if "wt=" not in query_string else ""
         query_dict = self.query_maker.make_solr_query(
-            q_string=query_string, operator=operator,
-            fl=fl, query_filter=query_filter, filter_dict=filter_dict
+            q_string=query_string,
+            operator=operator,
+            fl=fl,
+            query_filter=query_filter,
+            filter_dict=filter_dict,
         )
 
         if self.environment == "prod":
@@ -104,15 +109,15 @@ class HTSearcher:
         return output.get("facet_counts")
 
     def solr_result_query_dict(
-            self,
-            query_string: str = None,
-            fl: list = None,
-            operator: str = None,
-            query_filter: bool = False,
-            filter_dict: dict = None,
-            rows: int = 100,
-            start: int = 0) -> Generator[Any, Any]:
-
+        self,
+        query_string: str = None,
+        fl: list = None,
+        operator: str = None,
+        query_filter: bool = False,
+        filter_dict: dict = None,
+        rows: int = 100,
+        start: int = 0,
+    ) -> Generator[Any, Any]:
         """
         Query Solr and return the results
 
@@ -127,8 +132,11 @@ class HTSearcher:
         """
         # query_string += "&wt=json&indent=off" if "wt=" not in query_string else ""
         query_dict = self.query_maker.make_solr_query(
-            q_string=query_string, operator=operator,
-            fl=fl, query_filter=query_filter, filter_dict=filter_dict
+            q_string=query_string,
+            operator=operator,
+            fl=fl,
+            query_filter=query_filter,
+            filter_dict=filter_dict,
         )
 
         if self.environment == "prod":

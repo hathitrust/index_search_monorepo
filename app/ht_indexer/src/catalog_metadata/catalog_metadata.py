@@ -11,7 +11,6 @@ class CatalogRecordMetadata:
         self.metadata = self.get_metadata()
 
     def get_metadata(self) -> dict:
-
         """Create a dictionary with the fulltext fields extracted from catalog metadata"""
         metadata = {}
 
@@ -25,7 +24,6 @@ class CatalogRecordMetadata:
         return metadata
 
     def get_catalog_identical_fields(self) -> dict:
-
         """Retrieve the fields that have identical names in the catalog and fulltext documents."""
         entry = {}
         for field in IDENTICAL_CATALOG_METADATA:

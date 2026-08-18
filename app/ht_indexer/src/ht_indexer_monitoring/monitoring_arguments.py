@@ -14,11 +14,11 @@ current = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()
 parent = os.path.dirname(current)
 sys.path.insert(0, parent)
 
+
 class MonitoringServiceArguments:
     def __init__(self, parser):
         parser.add_argument("--env", default=os.environ.get("HT_ENVIRONMENT", "dev"))
-        parser.add_argument("--query", help="Solr query",
-                            default="*:*")
+        parser.add_argument("--query", help="Solr query", default="*:*")
 
         parser.add_argument("--fl", help="Fields to return", default=["ht_id", "id"])
         parser.add_argument("--num_found", help="Total number of documents found", default=1000000)
@@ -31,8 +31,11 @@ class MonitoringServiceArguments:
         self.solr_host = get_solr_url()
 
         self.conf_query = "all"
-        self.query_config_file_path = Path(config_files_path, 'catalog_search/config_query.yaml')
+        self.query_config_file_path = Path(config_files_path, "catalog_search/config_query.yaml")
 
-        self.solr_exporter = SolrExporter(self.solr_host, self.args.env,
-                                     user=os.getenv("SOLR_USER"), password=os.getenv("SOLR_PASSWORD"))
-
+        self.solr_exporter = SolrExporter(
+            self.solr_host,
+            self.args.env,
+            user=os.getenv("SOLR_USER"),
+            password=os.getenv("SOLR_PASSWORD"),
+        )
