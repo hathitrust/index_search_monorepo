@@ -106,12 +106,13 @@ class MysqlMetadataExtractor:
 
         # It is a list of members, if the query result is empty, the field does not appear in Solr index
         heldby_brlm = self.add_heldby_brlm_field(doc_id)
-
+        
         if len(heldby_brlm) > 0:
             entry.update(create_ht_heldby_brlm_field(heldby_brlm))
-
+        
+        '''
         # It is a list of coll_id, if the query result is empty, the value of this field in Solr index will be [0]
         large_coll_id_result = self.add_large_coll_id_field(doc_id)
         entry.update(create_coll_id_field(large_coll_id_result))
-        '''
+
         return entry
