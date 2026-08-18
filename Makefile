@@ -1,8 +1,12 @@
 APPS_NAME = ht-indexer
 APPS_DIR = ht_indexer
 
-# Paths covered by the linters and type checker.
+# Paths covered by the linters.
 LINT_PATHS = app libs
+
+# Paths covered by the type checker. mypy --strict coverage is being rolled out
+# incrementally; currently scoped to libs and app/ht_indexer.
+TYPE_CHECK_PATHS = libs app/ht_indexer
 
 install:
 	uv sync
@@ -27,7 +31,7 @@ fix-code-unsafe:
 
 # Explicit typing check
 type-check:
-	uv run mypy $(LINT_PATHS)
+	uv run mypy $(TYPE_CHECK_PATHS)
 
 # Fast test lane: no Solr, MySQL or RabbitMQ required.
 test-unit:

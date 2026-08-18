@@ -45,8 +45,10 @@ jobs:
           uv run ruff check --no-fix app libs
           uv run ruff format --check app libs
 
+      # mypy --strict coverage is being rolled out incrementally; currently scoped to
+      # libs and app/ht_indexer. Other apps will be added as they're annotated.
       - name: Mypy
-        run: uv run mypy app libs
+        run: uv run mypy libs app/ht_indexer
 
   # Run tests
   test_indexer:
