@@ -97,6 +97,8 @@ class MysqlMetadataExtractor:
         if len(doc_rights) == 1:
             entry.update({"rights": doc_rights[0].get("attr")})
 
+        # TODO: Avoid indexing holdings data in full-text search right now -> We'll revision this decision as a different epic
+        '''
         # It is a list of members, if the query result is empty, the field does not appear in Solr index
         ht_heldby = self.add_ht_heldby_field(doc_id)
         if len(ht_heldby) > 0:
@@ -111,5 +113,5 @@ class MysqlMetadataExtractor:
         # It is a list of coll_id, if the query result is empty, the value of this field in Solr index will be [0]
         large_coll_id_result = self.add_large_coll_id_field(doc_id)
         entry.update(create_coll_id_field(large_coll_id_result))
-
+        '''
         return entry

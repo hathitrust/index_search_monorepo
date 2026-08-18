@@ -343,7 +343,7 @@ be one of the following: pending, processing, failed, completed.
 * **Run retriever service**
 
 ``` 
-cd app/ht_indexer
+cd app/ht_indexer/src
 docker compose exec ht_indexer_tracker uv run python -m ht_indexer_monitoring.ht_indexer_tracktable --env dev --query "*:*" --num_found 100
 ```
 
@@ -492,23 +492,24 @@ In the image below, you can see the main kubernetes parts running in this workfl
       ```
     * Run the python script to retrieve documents from Catalog given a list of ht_ids
          ```
-          python document_retriever_service/full_text_search_retriever_service.py --list_documents
+          python src/document_retriever_service/full_text_search_retriever_service.py --list_documents
               chi.096189208,iau.31858049957305,hvd.32044106262314,chi.096415811,hvd.32044020307005,hvd.32044092647320,iau.31858042938971
               --query_field item
         ```
     * Run the python script to retrieve documents from Catalog given a list of ht_ids stored in a file
       ```
-      python document_retriever_service/run_retriever_service_by_file.py --query_field item
+      python src/document_retriever_service/run_retriever_service_by_file.py --query_field item
             --input_document_file filter_ids.txt
       ```
     * Run the command below to get a shell on the document_generator service
         ``` 
           kubectl -n fulltext-workshop exec deployment/document-generator -ti /bin/bash
         ```
+    Note: document_generator and document_indexer are up and running waiting for documents into the queue.
     * Document generator
 
          ```
-           python document_generator/document_generator_service.py --document_repository pairtree
+           python src/document_generator/document_generator_service.py --document_repository pairtree
         ```
     * Run the command below to get a shell on the document_indexer service
 
@@ -517,7 +518,7 @@ In the image below, you can see the main kubernetes parts running in this workfl
         ```
     * Document indexer
       ```
-      python document_indexer_service/document_indexer_service.py
+      python src/document_indexer_service/document_indexer_service.py
               --solr_indexing_api http://fulltext-workshop-solrcloud-headless:8983/solr/core-x/
       ```
 
@@ -530,7 +531,7 @@ In the image below, you can see the main kubernetes parts running in this workfl
     * Example of how to retrieve only 1 document from Catalog index
 
       ```
-      python document_retriever_service/full_text_search_retriever_service.py --query ht_id:"pur1.32754063106516"
+      python src/document_retriever_service/full_text_search_retriever_service.py --query ht_id:"pur1.32754063106516"
       --document_repository pairtree
       ```
 
@@ -546,8 +547,8 @@ In the image below, you can see the main kubernetes parts running in this workfl
    `kubectl -n fulltext-workshop port-forward pod/rabbitmq-0 15672`
 
 4. Get user/pass of Rabbitmq
-   `kubectl -n fulltext-workshop get secret rabbitmq-secret -o jsonpath="{.data.rabbitmq-password}" | base64 --decode`
-   `kubectl -n fulltext-workshop get secret rabbitmq-secret -o jsonpath="{.data.rabbitmq-username}" | base64 --decode`
+   `kubectl -n fulltext-workshop get secret rabbitmq-credentials -o jsonpath="{.data.default-password}" | base64 --decode`
+   `kubectl -n fulltext-workshop get secret rabbitmq-credentials -o jsonpath="{.data.default-user}" | base64 --decode`
 
 ## Experiments
 
