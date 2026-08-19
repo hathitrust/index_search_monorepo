@@ -1,7 +1,9 @@
 import json
 import os
 from argparse import ArgumentParser
+from collections.abc import Generator
 from pathlib import Path
+from typing import Any
 
 import requests
 import yaml
@@ -41,7 +43,7 @@ from ht_search.config_search import FULL_TEXT_SOLR_URL, default_solr_params
 # Specify the fields to show in the query result
 # Specify if the Solr debug output will be show.Create our onw debug dictionary with fields we decide,
 # e.g. QTime, status, shards, etc.
-def process_results(item: dict, list_output_fields: list) -> str:
+def process_results(item: dict[str, Any], list_output_fields: list[str]) -> str:
     """Prepare the dictionary with Solr results to be exported as JSON
     Args:
         item (dict): The Solr result item.
@@ -54,12 +56,14 @@ def process_results(item: dict, list_output_fields: list) -> str:
     return json.dumps(result)
 
 
-def solr_query_params(query_config_file=None, conf_query="ocr"):
+def solr_query_params(query_config_file: str | Path | None = None, conf_query: str = "ocr") -> str:
     """Prepare the Solr query parameters
     :param query_config_file: str, path to the config file with the queries
     :param conf_query: str, query configuration name. Each query has a name to identify it.
     :return: str, formatted Solr query parameters
     """
+    if query_config_file is None:
+        raise ValueError("query_config_file is required")
 
     with open(query_config_file) as file:
         data = yaml.safe_load(file)[conf_query]
@@ -74,7 +78,9 @@ def solr_query_params(query_config_file=None, conf_query="ocr"):
         return " ".join([f"{k}='{v}'" for k, v in params.items()])
 
 
-def make_query(query, query_config_file=None, conf_query="ocr"):
+def make_query(
+    query: str, query_config_file: str | Path | None = None, conf_query: str = "ocr"
+) -> str:
     """Prepare the Solr query string
     :param conf_query:
     :param query_config_file:
@@ -85,7 +91,9 @@ def make_query(query, query_config_file=None, conf_query="ocr"):
 
 
 class SolrExporter:
-    def __init__(self, solr_url: str, env: str, user=None, password=None):
+    def __init__(
+        self, solr_url: str, env: str, user: str | None = None, password: str | None = None
+    ):
         """Initialize the SolrExporter class
         :param solr_url: str, Solr URL
         :param env: str, environment. It could be dev or prod
@@ -100,7 +108,7 @@ class SolrExporter:
         self.headers = {"Content-Type": "application/json"}
         self.auth = HTTPBasicAuth(user, password) if user and password else None
 
-    def send_query(self, params):
+    def send_query(self, params: dict[str, Any]) -> requests.Response:
         """Send the query to Solr
         :param params: dict, query parameters
         :return: response
@@ -117,11 +125,11 @@ class SolrExporter:
 
     def run_cursor(
         self,
-        query_string,
-        query_config_path=None,
-        conf_query="ocr",
-        list_output_fields: list = None,
-    ):
+        query_string: str,
+        query_config_path: str | Path | None = None,
+        conf_query: str = "ocr",
+        list_output_fields: list[str] | None = None,
+    ) -> Generator[str]:
         # TODO: This function will receive the query string and the query type (ocr or all). From memory, it will
         # instantiate the query parameters (params["q"]) and run the query.
         # See below how the params dictionary is created. As the fields about the query are already in memory, we should
@@ -170,7 +178,7 @@ class SolrExporter:
                 break
 
     @staticmethod
-    def create_boost_phrase_fields(query_fields):
+    def create_boost_phrase_fields(query_fields: list[list[Any]]) -> str:
         """Create the boost phrase fields
         :param query_fields: list, list of field
         :return: str, formatted boost phrase fields
@@ -182,7 +190,7 @@ class SolrExporter:
         formatted_boosts = ["^".join(map(str, field)) for field in query_fields]
         return " ".join(formatted_boosts)
 
-    def get_solr_status(self):
+    def get_solr_status(self) -> requests.Response:
         """Get the Solr status
         :return: response
         """
@@ -208,7 +216,9 @@ if __name__ == "__main__":
         solr_url, args.env, user=os.getenv("SOLR_USER"), password=os.getenv("SOLR_PASSWORD")
     )
 
-    query_config_file_path = Path(config_files_path, "full_text_search/config_query.yaml")
+    # importlib.resources.files() is typed as Traversable, which typeshed doesn't declare as
+    # PathLike -- but for this package (a regular installed directory, not a zip) it is one.
+    query_config_file_path = Path(config_files_path, "full_text_search/config_query.yaml")  # type: ignore[arg-type]
 
     # '"good"'
     for x in solr_exporter.run_cursor(

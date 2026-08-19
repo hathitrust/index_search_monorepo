@@ -17,18 +17,20 @@ class HTMultipleConsumerServiceConcrete(QueueMultipleConsumer):
     def __init__(self, queue_params: QueueParams, max_redelivery: int = 3):
         super().__init__(queue_params)
 
-        self.consume_one_message = []
+        self.consume_one_message: list[dict[str, Any]] = []
         # These two variables are used to track the redelivery count and seen messages
         self.redelivery_count = 0  # Count how many times the message with ht_id=5 was redelivered
-        self.seen_messages = defaultdict(
+        self.seen_messages: defaultdict[str, int] = defaultdict(
             int
         )  # Dictionary to track how many times each message_id has been seen
         self.max_redelivery = max_redelivery  # maximum allowed redeliveries
 
     def process_batch(self, batch: list[dict[str, Any]], delivery_tags: list[int]) -> bool:
+        if self.channel is None:
+            raise RuntimeError("Unable to establish a RabbitMQ channel")
 
         try:
-            list_id = [doc.get("ht_id") for doc in batch]
+            list_id = [str(doc.get("ht_id")) for doc in batch]
 
             # Increment count for each message_id
             for message_id in list_id:
@@ -71,7 +73,7 @@ class HTMultipleConsumerServiceConcrete(QueueMultipleConsumer):
 
 
 @pytest.fixture
-def one_message():
+def one_message() -> dict[str, Any]:
     """
     This function is used to create a message
     """
@@ -80,12 +82,12 @@ def one_message():
 
 
 @pytest.fixture
-def list_messages():
+def list_messages() -> list[dict[str, Any]]:
     """
     This function is used to create a list of messages
     """
 
-    messages = []
+    messages: list[dict[str, Any]] = []
     for i in range(10):
         messages.append(
             {"ht_id": f"{i}", "ht_title": f"Hello World {i}", "ht_author": f"John Doe {i}"}
@@ -99,7 +101,7 @@ class TestHTMultipleQueueConsumer:
         one_message: dict[str, Any],
         get_global_queue_config: dict[str, Any],
         get_app_queue_config: dict[str, Any],
-    ):
+    ) -> None:
         """Test for consuming a message from the queue
         One message is published and consumed, then at the end of the test the queue is empty
 
@@ -133,6 +135,7 @@ class TestHTMultipleQueueConsumer:
         if not producer_instance.queue_manager.is_ready(producer_instance.channel):
             producer_instance.queue_reconnect()
 
+        assert producer_instance.channel is not None
         # Clean up the queue
         producer_instance.channel.queue_purge(producer_instance.queue_manager.queue_name)
 
@@ -142,6 +145,7 @@ class TestHTMultipleQueueConsumer:
         logger.info("Closing the producer channel after publishing the message")
         producer_instance.channel.close()
         logger.info("Closing the producer connection")
+        assert producer_instance.channel_creator.connection.queue_connection is not None
         producer_instance.channel_creator.connection.queue_connection.close()
 
         consumer_queue_config, consumer_global_path, consumer_app_path = create_test_queue_config(
@@ -168,10 +172,12 @@ class TestHTMultipleQueueConsumer:
         assert output_message[0] == one_message
         assert 1 == len(output_message)
 
+        assert multiple_consumer_instance.channel is not None
         multiple_consumer_instance.channel.queue_purge(queue_name)
         logger.info(f"Closing the channel for the consumer instance: {queue_name}")
         multiple_consumer_instance.channel.close()
         logger.info("Closing the queue connection")
+        assert multiple_consumer_instance.channel_creator.connection.queue_connection is not None
         multiple_consumer_instance.channel_creator.connection.queue_connection.close()
 
         # Cleanup
@@ -220,8 +226,10 @@ class TestHTMultipleQueueConsumer:
         assert 0 == count_messages
 
         logger.info(f"Closing the channel for the consumer instance: {queue_name}")
+        assert multiple_consumer_instance.channel is not None
         multiple_consumer_instance.channel.close()
         logger.info("Closing the queue connection")
+        assert multiple_consumer_instance.channel_creator.connection.queue_connection is not None
         multiple_consumer_instance.channel_creator.connection.queue_connection.close()
 
         # Cleanup
@@ -281,6 +289,7 @@ class TestHTMultipleQueueConsumer:
         ):
             multiple_consumer_instance.queue_reconnect()
 
+        assert multiple_consumer_instance.channel is not None
         # Clean up the queue
         multiple_consumer_instance.channel.queue_purge(
             multiple_consumer_instance.queue_manager.queue_name
@@ -288,6 +297,7 @@ class TestHTMultipleQueueConsumer:
 
         # Create a new channel for the dead letter queue
         dlx_channel = multiple_consumer_instance.channel_creator.get_channel()
+        assert dlx_channel is not None
         # Clean up the dead letter queue
         dlx_channel.queue_purge(f"{multiple_consumer_instance.queue_manager.queue_name}_dlq")
 
@@ -298,9 +308,11 @@ class TestHTMultipleQueueConsumer:
 
         # Close the producer channel after publishing all messages
         logger.info("Closing the producer channel after publishing all messages")
+        assert producer_instance.channel is not None
         producer_instance.channel.close()
 
         logger.info("Closing the producer connection")
+        assert producer_instance.channel_creator.connection.queue_connection is not None
         producer_instance.channel_creator.connection.queue_connection.close()
 
         # Start consuming messages from the main queue
@@ -312,7 +324,7 @@ class TestHTMultipleQueueConsumer:
         logger.info(f"DLQ NAME: {queue_name}_dlq")
 
         # Running the test to consume messages from the dead letter queue
-        list_ids = []
+        list_ids: list[Any] = []
         # Consume messages from the dead letter queue
         for method_frame, _, body in multiple_consumer_instance.consume_dead_letter_messages(
             dlx_channel,
@@ -340,6 +352,7 @@ class TestHTMultipleQueueConsumer:
             f"Deleting all messages in the dead letter queue:"
             f" {multiple_consumer_instance.queue_manager.queue_name}_dlq"
         )
+        assert multiple_consumer_instance.channel is not None
         multiple_consumer_instance.channel.queue_purge(
             f"{multiple_consumer_instance.queue_manager.queue_name}_dlq"
         )
@@ -364,6 +377,7 @@ class TestHTMultipleQueueConsumer:
         multiple_consumer_instance.channel.close()
 
         logger.info("Closing the queue connection")
+        assert multiple_consumer_instance.channel_creator.connection.queue_connection is not None
         multiple_consumer_instance.channel_creator.connection.queue_connection.close()
 
         # Cleanup
@@ -377,7 +391,7 @@ class TestHTMultipleQueueConsumer:
         list_messages: list[dict[str, Any]],
         get_global_queue_config: dict[str, Any],
         get_app_queue_config: dict[str, Any],
-    ):
+    ) -> None:
         """Test for re-queueing a message from the queue, an error is raised, and instead of routing the message
         to the dead letter queue, it is requeue to the main queue
         :param list_messages: Fixture to create a list of messages
@@ -410,6 +424,7 @@ class TestHTMultipleQueueConsumer:
         if not producer_instance.queue_manager.is_ready(producer_instance.channel):
             producer_instance.queue_reconnect()
 
+        assert producer_instance.channel is not None
         # Clean up the queue
         producer_instance.channel.queue_purge(producer_instance.queue_manager.queue_name)
 
@@ -426,6 +441,7 @@ class TestHTMultipleQueueConsumer:
         multiple_consumer_instance = HTMultipleConsumerServiceConcrete(
             consumer_queue_config.queue_params, max_redelivery=max_redelivery
         )
+        assert multiple_consumer_instance.channel is not None
 
         # Clean up the queue
         multiple_consumer_instance.channel.queue_purge(
@@ -441,6 +457,7 @@ class TestHTMultipleQueueConsumer:
         logger.info("Closing the producer channel after publishing all messages")
         producer_instance.channel.close()
         logger.info("Closing the producer connection")
+        assert producer_instance.channel_creator.connection.queue_connection is not None
         producer_instance.channel_creator.connection.queue_connection.close()
 
         logger.info(
@@ -455,6 +472,7 @@ class TestHTMultipleQueueConsumer:
         logger.info(
             f"Queue cleanup: Deleting all messages in the queue: {multiple_consumer_instance.queue_manager.queue_name}"
         )
+        assert multiple_consumer_instance.channel is not None
         multiple_consumer_instance.channel.queue_purge(
             multiple_consumer_instance.queue_manager.queue_name
         )
@@ -464,6 +482,7 @@ class TestHTMultipleQueueConsumer:
         multiple_consumer_instance.channel.close()
 
         logger.info("Closing the queue connection")
+        assert multiple_consumer_instance.channel_creator.connection.queue_connection is not None
         multiple_consumer_instance.channel_creator.connection.queue_connection.close()
 
         # Cleanup

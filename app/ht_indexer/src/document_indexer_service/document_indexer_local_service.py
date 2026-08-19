@@ -2,17 +2,17 @@
 
 import argparse
 import glob
-import inspect
 import os
 import sys
 from time import sleep
 
+import requests
 from ht_indexer_api.ht_indexer_api import HTSolrAPI
 from ht_utils.ht_logger import get_ht_logger
 
 logger = get_ht_logger(name=__name__)
 
-current = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+current = os.path.dirname(os.path.abspath(__file__))
 parent = os.path.dirname(current)
 sys.path.insert(0, parent)
 
@@ -21,10 +21,10 @@ DOCUMENT_LOCAL_PATH = "/tmp/indexing_data/"
 
 
 class DocumentIndexerLocalService:
-    def __init__(self, solr_api_full_text: HTSolrAPI = None):
+    def __init__(self, solr_api_full_text: HTSolrAPI):
         self.solr_api_full_text = solr_api_full_text
 
-    def indexing_documents(self, path, list_documents=None):
+    def indexing_documents(self, path: str, list_documents: list[str]) -> requests.Response:
         # Call API
         response = self.solr_api_full_text.index_documents_by_file(
             path, list_documents=list_documents
@@ -32,7 +32,7 @@ class DocumentIndexerLocalService:
         return response
 
     @staticmethod
-    def clean_up_folder(document_path, list_ids):
+    def clean_up_folder(document_path: str, list_ids: list[str]) -> None:
         logger.info("Cleaning up .xml and .zip files")
 
         for id_name in list_ids:
@@ -42,7 +42,7 @@ class DocumentIndexerLocalService:
                 logger.info(f"Deleting file {file}")
                 os.remove(file)
 
-    def indexer_service(self, document_local_path: str = None):
+    def indexer_service(self, document_local_path: str | None = None) -> None:
 
         while True:
             try:
@@ -80,7 +80,7 @@ class DocumentIndexerLocalService:
             sleep(3)
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser()
 
     parser.add_argument(

@@ -2,7 +2,7 @@ import logging
 import sys
 
 
-def get_ht_logger(name=__name__, log_level=logging.INFO):
+def get_ht_logger(name: str = __name__, log_level: int | str = logging.INFO) -> logging.Logger:
     # set the logging format
     log_format = "%(asctime)s  :: %(name)s :: %(levelname)s :: %(message)s"
 

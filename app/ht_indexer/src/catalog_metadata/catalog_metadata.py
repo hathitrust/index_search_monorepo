@@ -1,4 +1,5 @@
 import json
+from typing import Any
 
 from catalog_metadata.ht_indexer_config import IDENTICAL_CATALOG_METADATA, RENAMED_CATALOG_METADATA
 
@@ -6,13 +7,13 @@ from catalog_metadata.ht_indexer_config import IDENTICAL_CATALOG_METADATA, RENAM
 class CatalogRecordMetadata:
     """This class is used to retrieve the metadata of a specific item in the Catalog"""
 
-    def __init__(self, record: dict):
+    def __init__(self, record: dict[str, Any]):
         self.record = record
         self.metadata = self.get_metadata()
 
-    def get_metadata(self) -> dict:
+    def get_metadata(self) -> dict[str, Any]:
         """Create a dictionary with the fulltext fields extracted from catalog metadata"""
-        metadata = {}
+        metadata: dict[str, Any] = {}
 
         metadata.update(self.get_catalog_identical_fields())
         metadata.update(self.rename_catalog_fields())
@@ -23,7 +24,7 @@ class CatalogRecordMetadata:
 
         return metadata
 
-    def get_catalog_identical_fields(self) -> dict:
+    def get_catalog_identical_fields(self) -> dict[str, Any]:
         """Retrieve the fields that have identical names in the catalog and fulltext documents."""
         entry = {}
         for field in IDENTICAL_CATALOG_METADATA:
@@ -32,7 +33,7 @@ class CatalogRecordMetadata:
                 entry[field] = value
         return entry
 
-    def rename_catalog_fields(self) -> dict:
+    def rename_catalog_fields(self) -> dict[str, Any]:
         """Rename the fields from the catalog to the ones used in the fulltext documents."""
         entry = {}
         for new_field in RENAMED_CATALOG_METADATA.keys():
@@ -44,7 +45,7 @@ class CatalogRecordMetadata:
 class CatalogItemMetadata:
     """This class is used to retrieve the metadata of a specific item in the Catalog"""
 
-    def __init__(self, ht_id: str, record_metadata: CatalogRecordMetadata = None):
+    def __init__(self, ht_id: str, record_metadata: CatalogRecordMetadata):
 
         self.record_metadata = record_metadata
         self.ht_id = ht_id
@@ -53,18 +54,25 @@ class CatalogItemMetadata:
         # Merge both dictionaries
         self.metadata = {**self.record_metadata.metadata, **metadata}
 
-    def get_volume_enumcron(self) -> list:
+    def get_volume_enumcron(self) -> Any:
         """Obtain the volume and enumcron of a specific item in the catalog.
         If the field is not present, return an empty list.
+
+        Note: on success this returns a single str (not a list), despite the name/docstring --
+        pre-existing behavior, left as-is here since fixing it changes what
+        get_metadata() below populates for the common single-value case.
         """
+        ht_id_display = self.record_metadata.record.get("ht_id_display")
+        if not ht_id_display:
+            return []
         try:
-            return self.record_metadata.record.get("ht_id_display")[0].split("|")[2]
+            return ht_id_display[0].split("|")[2]
         except IndexError:
             return []
 
-    def get_metadata(self) -> dict:
+    def get_metadata(self) -> dict[str, Any]:
 
-        metadata = {}
+        metadata: dict[str, Any] = {}
 
         volume_enumcron = self.get_volume_enumcron()
 
@@ -80,12 +88,16 @@ class CatalogItemMetadata:
         metadata["vol_id"] = self.ht_id
         return metadata
 
-    def get_data_ht_json_obj(self) -> list:
+    def get_data_ht_json_obj(self) -> list[Any]:
         """Obtain the publication data of a specific item in the catalog."""
+        ht_json_raw = self.record_metadata.record.get("ht_json")
+        if not ht_json_raw:
+            return []
+
         doc_json = [
             item
-            for item in json.loads(self.record_metadata.record.get("ht_json"))
-            if (_v := item.get("enum_pubdate") and self.ht_id == item.get("htid"))
+            for item in json.loads(ht_json_raw)
+            if item.get("enum_pubdate") and self.ht_id == item.get("htid")
         ]
 
         return doc_json
@@ -96,9 +108,16 @@ class CatalogItemMetadata:
         If there are no sources, return the first source in the list
         :return:
         """
-        item_position = self.record_metadata.record.get("ht_id").index(self.ht_id)
+        ht_ids = self.record_metadata.record.get("ht_id")
+        if ht_ids is None:
+            raise ValueError("Catalog record is missing 'ht_id'")
+        item_position = ht_ids.index(self.ht_id)
+
+        htsource = self.record_metadata.record.get("htsource")
+        if htsource is None:
+            raise ValueError("Catalog record is missing 'htsource'")
         try:
-            ht_source = self.record_metadata.record.get("htsource")[item_position]
+            ht_source = htsource[item_position]
         except IndexError:
-            ht_source = self.record_metadata.record.get("htsource")[0]
-        return ht_source
+            ht_source = htsource[0]
+        return str(ht_source)

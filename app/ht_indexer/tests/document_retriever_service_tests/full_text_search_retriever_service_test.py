@@ -4,6 +4,8 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
+import requests
+from catalog_metadata.catalog_metadata import CatalogItemMetadata
 from conftest import create_test_queue_config
 from document_retriever_service import (
     full_text_search_retriever_service as retriever_service_module,
@@ -20,7 +22,9 @@ logger = get_ht_logger(name=__name__)
 
 
 @pytest.fixture
-def get_queue_config(get_global_queue_config, get_app_queue_config) -> tuple[Any, Any, Any]:
+def get_queue_config(
+    get_global_queue_config: dict[str, Any], get_app_queue_config: dict[str, Any]
+) -> tuple[Any, Any, Any]:
     """This function is used to create the queue configuration
 
     :param get_global_queue_config: fixture to get the global queue configuration
@@ -44,19 +48,21 @@ def get_queue_config(get_global_queue_config, get_app_queue_config) -> tuple[Any
 
 
 @pytest.fixture
-def get_catalog_retriever_service_solr_fake_solr_url():
+def get_catalog_retriever_service_solr_fake_solr_url() -> HTSolrAPI:
     return HTSolrAPI("http://solr-sdr-catalog:9033/solr/catalogFake/", "solr_user", "solr_password")
 
 
 @pytest.fixture
-def get_solr_request(solr_catalog_url):
+def get_solr_request(solr_catalog_url: str) -> HTSolrAPI:
     return HTSolrAPI(solr_catalog_url, "solr_user", "solr_password")
 
 
 @pytest.fixture
 def get_document_retriever_service(
-    solr_catalog_url, get_retriever_service_solr_parameters, get_queue_config
-):
+    solr_catalog_url: str,
+    get_retriever_service_solr_parameters: dict[str, Any],
+    get_queue_config: tuple[Any, Any, Any],
+) -> FullTextSearchRetrieverQueueService:
     """Fixture to create the document retriever service object
     :param solr_catalog_url: fixture to get the Solr URL
     :param get_retriever_service_solr_parameters: fixture to get the Solr parameters
@@ -73,15 +79,17 @@ def get_document_retriever_service(
 
 
 class TestFullTextRetrieverService:
-    def test_full_text_retriever_service_query(self):
+    def test_full_text_retriever_service_query(self) -> None:
         """Use case: Check if the Solr query is created correctly"""
         list_documents = ["nyp.33433082002258", "not_exist_document"]
         query = make_solr_term_query(list_documents, by_field="item")
         assert query == """{!terms f=ht_id}nyp.33433082002258,not_exist_document"""
 
     def test_full_text_service_retrieve_documents_from_solr(
-        self, get_document_retriever_service, get_solr_request
-    ):
+        self,
+        get_document_retriever_service: FullTextSearchRetrieverQueueService,
+        get_solr_request: HTSolrAPI,
+    ) -> None:
         """Use case: Check if the documents are retrieved from Solr"""
         list_documents = ["nyp.33433082002258", "not_exist_document"]
 
@@ -94,7 +102,7 @@ class TestFullTextRetrieverService:
         output = json.loads(response.content.decode("utf-8"))
         assert output.get("response").get("numFound") == 1
 
-    def test_generate_metadata(self, get_item_metadata):
+    def test_generate_metadata(self, get_item_metadata: CatalogItemMetadata) -> None:
         """Use case: Generate the metadata of the item to be indexed"""
         list_documents = ["mdp.39015078560292"]
 
@@ -108,7 +116,7 @@ class TestFullTextRetrieverService:
         self,
         get_retriever_service_solr_parameters: dict[str, Any],
         solr_catalog_url: str,
-        get_queue_config,
+        get_queue_config: tuple[Any, Any, Any],
     ) -> None:
         """Use case: Check if the message is sent to the queue"""
 
@@ -120,6 +128,7 @@ class TestFullTextRetrieverService:
         if not consumer_instance.queue_manager.is_ready(consumer_instance.channel):
             # If the queue is already set up, purge it to remove any existing messages
             consumer_instance.queue_reconnect()
+        assert consumer_instance.channel is not None
         logger.info(f"Purging the queue {queue_params.queue_name} before the test")
         consumer_instance.channel.queue_purge(consumer_instance.queue_manager.queue_name)
 
@@ -161,18 +170,24 @@ class TestFullTextRetrieverService:
             # Clean up the queue - To make sure the purge is done all the messages must be acknowledged
             consumer_instance.queue_reconnect()
 
+        assert consumer_instance.channel is not None
         consumer_instance.channel.queue_purge(consumer_instance.queue_manager.queue_name)
 
         # Close the channel
         consumer_instance.channel.close()
         # Close the consumer instance - TCP connection
+        assert consumer_instance.channel_creator.connection.queue_connection is not None
         consumer_instance.channel_creator.connection.queue_connection.close()
 
         # Delete the temporary files
         os.remove(get_queue_config[1])
         os.remove(get_queue_config[2])
 
-    def test_retrieve_documents_by_item(self, get_solr_request, get_document_retriever_service):
+    def test_retrieve_documents_by_item(
+        self,
+        get_solr_request: HTSolrAPI,
+        get_document_retriever_service: FullTextSearchRetrieverQueueService,
+    ) -> None:
         """Use case: Receive a list of items (ht_id) to index and retrieve the metadata from Catalog
         We want to index only the item that appear in the list and not all the items of each record.
         """
@@ -207,11 +222,11 @@ class TestFullTextRetrieverService:
 
     def test_retrieve_documents_by_record(
         self,
-        get_solr_request,
-        get_retriever_service_solr_parameters,
-        solr_catalog_url,
-        get_document_retriever_service,
-    ):
+        get_solr_request: HTSolrAPI,
+        get_retriever_service_solr_parameters: dict[str, Any],
+        solr_catalog_url: str,
+        get_document_retriever_service: FullTextSearchRetrieverQueueService,
+    ) -> None:
         """Use case: Receive one record to process all their items"""
 
         list_documents = ["008394936"]
@@ -234,8 +249,10 @@ class TestFullTextRetrieverService:
         assert len(record_metadata_list) == 4
 
     def test_retrieve_documents_by_item_only_one(
-        self, get_document_retriever_service, get_solr_request
-    ):
+        self,
+        get_document_retriever_service: FullTextSearchRetrieverQueueService,
+        get_solr_request: HTSolrAPI,
+    ) -> None:
         """Use case: Retrieve only the metadata of the item given by parameter"""
         list_documents = ["nyp.33433082002258"]
         by_field = "item"
@@ -257,8 +274,10 @@ class TestFullTextRetrieverService:
         assert len(record_metadata_list) == 1
 
     def test_retrieve_documents_by_record_list_records(
-        self, get_document_retriever_service, get_solr_request
-    ):
+        self,
+        get_document_retriever_service: FullTextSearchRetrieverQueueService,
+        get_solr_request: HTSolrAPI,
+    ) -> None:
         """Use case: Receive one record to process all their items"""
 
         list_documents = ["008394936", "100393743"]
@@ -281,8 +300,10 @@ class TestFullTextRetrieverService:
         assert len(record_metadata_list) == 5
 
     def test_retrieve_documents_empty_result(
-        self, get_document_retriever_service, get_solr_request
-    ):
+        self,
+        get_document_retriever_service: FullTextSearchRetrieverQueueService,
+        get_solr_request: HTSolrAPI,
+    ) -> None:
         """Use case: Check of the results list is empty because the input item is not in Solr"""
         list_documents = ["this_id_does_not_exist_in_solr"]
 
@@ -296,18 +317,32 @@ class TestFullTextRetrieverService:
 
         assert output.get("response").get("numFound") == 0
 
-    def test_solr_is_not_working(self, get_catalog_retriever_service_solr_fake_solr_url):
-        """Use case: Count the number of documents in Catalog"""
+    def test_solr_is_not_working(
+        self,
+        get_retriever_service_solr_parameters: dict[str, Any],
+        get_catalog_retriever_service_solr_fake_solr_url: HTSolrAPI,
+    ) -> None:
+        """Use case: retrieve_documents_from_solr raises when Solr is unreachable
+
+        retrieve_documents_from_solr builds its request URL from self.solr_host, not from
+        the solr_retriever argument's own URL (that's only used for its .send_solr_request()
+        method and .auth), so the service under test needs to be the one pointed at the fake
+        core, not just the HTSolrAPI client passed to it.
+        """
 
         list_documents = ["nyp.33433082002258"]
 
         query = make_solr_term_query(list_documents, by_field="item")
 
-        with pytest.raises(TypeError):
-            response = FullTextSearchRetrieverQueueService.retrieve_documents_from_solr(
+        broken_solr_service = FullTextSearchRetrieverQueueService(
+            solr_host="http://solr-sdr-catalog:9033/solr/catalogFake",
+            solr_retriever_query_params=get_retriever_service_solr_parameters,
+        )
+
+        with pytest.raises(requests.exceptions.RequestException):
+            broken_solr_service.retrieve_documents_from_solr(
                 query, get_catalog_retriever_service_solr_fake_solr_url
             )
-            assert response is None
 
 
 class _StopPollLoopError(Exception):
@@ -319,7 +354,7 @@ class TestMainSerialBranch:
     the extracted id strings the parallel branch uses. make_solr_term_query() joins its input
     with a comma, so a list of dicts blows up with a TypeError."""
 
-    def test_serial_branch_passes_extracted_ids_not_raw_mysql_rows(self):
+    def test_serial_branch_passes_extracted_ids_not_raw_mysql_rows(self) -> None:
         mock_args = MagicMock()
         mock_args.list_documents = []
         mock_args.query_field = "item"

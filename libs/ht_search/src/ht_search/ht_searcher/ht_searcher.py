@@ -1,6 +1,6 @@
 import json
 from collections.abc import Generator
-from typing import Any
+from typing import Any, cast
 
 import requests
 from ht_utils.ht_logger import get_ht_logger
@@ -40,11 +40,11 @@ class HTSearcher:
 
     def __init__(
         self,
-        solr_url: str = None,
-        ht_search_query: HTSearchQuery = None,
+        solr_url: str | None = None,
+        ht_search_query: HTSearchQuery | None = None,
         environment: str = "dev",
-        user=None,
-        password=None,
+        user: str | None = None,
+        password: str | None = None,
     ):
         self.solr_url = solr_url
         self.environment = environment  # Not sure if we need it right now
@@ -54,7 +54,7 @@ class HTSearcher:
         # TODO HTTP request string and JSON object. We should transform the query string into a JSON object
         self.headers = {"Content-type": "application/json"}
 
-    def send_query(self, params):
+    def send_query(self, params: dict[str, Any]) -> requests.Response:
 
         # Use stream=True to avoid loading all the data in memory at once (useful for large responses)
         # In chunked transfer, the data stream is divided into a series of non-overlapping "chunks".
@@ -71,12 +71,12 @@ class HTSearcher:
 
     def solr_facets_output(
         self,
-        query_string: str = None,
-        fl: list = None,
-        operator: str = None,
+        query_string: str | None = None,
+        fl: list[str] | None = None,
+        operator: str | None = None,
         query_filter: bool = False,
-        filter_dict: dict = None,
-    ) -> dict:
+        filter_dict: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """
         Query Solr and return the results
 
@@ -89,6 +89,8 @@ class HTSearcher:
         :return:
         """
         # query_string += "&wt=json&indent=off" if "wt=" not in query_string else ""
+        if self.query_maker is None:
+            raise ValueError("HTSearcher requires ht_search_query to be set")
         query_dict = self.query_maker.make_solr_query(
             q_string=query_string,
             operator=operator,
@@ -106,18 +108,18 @@ class HTSearcher:
         response = self.send_query(query_dict)
         output = response.json()
 
-        return output.get("facet_counts")
+        return cast(dict[str, Any], output.get("facet_counts"))
 
     def solr_result_query_dict(
         self,
-        query_string: str = None,
-        fl: list = None,
-        operator: str = None,
+        query_string: str | None = None,
+        fl: list[str] | None = None,
+        operator: str | None = None,
         query_filter: bool = False,
-        filter_dict: dict = None,
+        filter_dict: dict[str, Any] | None = None,
         rows: int = 100,
         start: int = 0,
-    ) -> Generator[Any, Any]:
+    ) -> Generator[dict[str, Any]]:
         """
         Query Solr and return the results
 
@@ -131,6 +133,8 @@ class HTSearcher:
         :return:
         """
         # query_string += "&wt=json&indent=off" if "wt=" not in query_string else ""
+        if self.query_maker is None:
+            raise ValueError("HTSearcher requires ht_search_query to be set")
         query_dict = self.query_maker.make_solr_query(
             q_string=query_string,
             operator=operator,
@@ -156,7 +160,7 @@ class HTSearcher:
             exit()
         count_records = 0
         while count_records < total_records:
-            results = []
+            results: list[Any] = []
 
             query_dict.update({"start": start, "rows": rows})
 

@@ -1,3 +1,4 @@
+from typing import Any
 from xml.sax.saxutils import quoteattr
 
 from ht_utils.ht_logger import get_ht_logger
@@ -20,7 +21,7 @@ table = str.maketrans(
 logger = get_ht_logger(name=__name__)
 
 
-def xmlesc(txt):
+def xmlesc(txt: str) -> str:
     return txt.translate(table)
 
 
@@ -41,18 +42,18 @@ def string_preparation(doc_content: bytes) -> str:
         raise e
 
 
-def escape_values(value) -> str:
+def escape_values(value: object) -> object:
     if isinstance(value, str):
         return xmlesc(value)
     else:
         return value
 
 
-def field_tag(key, value) -> str:
+def field_tag(key: str, value: object) -> str:
     return f'<field name="{key}">{escape_values(value)}</field>'
 
 
-def create_solr_string(data_dic: dict) -> str:
+def create_solr_string(data_dic: dict[str, Any]) -> str:
     """
     Function to convert a dictionary into a xml string uses for indexing a document in Solr index
 

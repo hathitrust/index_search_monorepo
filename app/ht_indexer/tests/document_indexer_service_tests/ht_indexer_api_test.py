@@ -7,18 +7,18 @@ from ht_indexer_api.ht_indexer_api import HTSolrAPI
 
 
 @pytest.fixture
-def get_solr_api():
+def get_solr_api() -> HTSolrAPI:
     return HTSolrAPI("http://solr-lss-dev:8983/solr/core-x/")
 
 
 @pytest.fixture
-def get_fake_solr_api():
+def get_fake_solr_api() -> HTSolrAPI:
     return HTSolrAPI("http://solr-lss-dev:8983/solr/core-not_exist/")
 
 
 class TestHTSolrAPI:
     @patch("ht_indexer_api.ht_indexer_api.HTSolrAPI.get_solr_status")
-    def test_connection(self, mock_solr_status, get_solr_api):
+    def test_connection(self, mock_solr_status: MagicMock, get_solr_api: HTSolrAPI) -> None:
         """
         Check if solr server is running
         :param get_solrAPI:
@@ -33,7 +33,9 @@ class TestHTSolrAPI:
         assert solr_api_status.status_code == 200
 
     @patch("ht_indexer_api.ht_indexer_api.HTSolrAPI.index_documents_by_file")
-    def test_index_document_add(self, mock_index_documents, get_solr_api):
+    def test_index_document_add(
+        self, mock_index_documents: MagicMock, get_solr_api: HTSolrAPI
+    ) -> None:
         # Arrange
         mock_response = MagicMock()
         mock_response.status_code = 200

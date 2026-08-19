@@ -3,6 +3,7 @@ import json
 import os
 import uuid
 from pathlib import Path
+from typing import Any
 
 import pytest
 from catalog_metadata.catalog_metadata import CatalogItemMetadata, CatalogRecordMetadata
@@ -13,7 +14,7 @@ current = os.path.dirname(__file__)
 
 
 @pytest.fixture
-def get_global_queue_config():
+def get_global_queue_config() -> dict[str, Any]:
     """
     Creates an in-memory YAML file from a base dictionary,
     applies updates, and returns a file-like object or path.
@@ -30,7 +31,7 @@ def get_global_queue_config():
 
 
 @pytest.fixture
-def get_app_queue_config():
+def get_app_queue_config() -> dict[str, Any]:
     """
     This function is used to create the application configuration
     """
@@ -52,13 +53,13 @@ def get_app_queue_config():
 
 
 def create_test_queue_config(
-    global_config,
-    app_config,
-    queue_name,
-    batch_size=1,
-    requeue_message=False,
-    shutdown_on_empty_queue=False,
-) -> (QueueConfig, str, str):
+    global_config: dict[str, Any],
+    app_config: dict[str, Any],
+    queue_name: str,
+    batch_size: int = 1,
+    requeue_message: bool = False,
+    shutdown_on_empty_queue: bool = False,
+) -> tuple[QueueConfig, str, str]:
 
     global_config_file_path = create_temporary_yaml_file(global_config)
     config = copy.deepcopy(app_config)
@@ -76,7 +77,7 @@ def create_test_queue_config(
 
 
 @pytest.fixture
-def get_rabbit_mq_host_name():
+def get_rabbit_mq_host_name() -> str:
     """
     This function is used to create the host name for the RabbitMQ
     """
@@ -84,39 +85,41 @@ def get_rabbit_mq_host_name():
 
 
 @pytest.fixture
-def get_retriever_service_solr_parameters():
+def get_retriever_service_solr_parameters() -> dict[str, Any]:
     return {"q": "*:*", "rows": 10, "wt": "json"}
 
 
 # Fixtures to retrieve the catalog record
 # Retrieve JSON file to create a dictionary with a catalog record
 @pytest.fixture()
-def get_record_data():
+def get_record_data() -> dict[str, Any]:
     """JSON file containing the catalog record"""
     with open(
         os.path.join(current, "catalog_metadata_tests/data/catalog.json"),
     ) as file:
-        data = json.load(file)
+        data: dict[str, Any] = json.load(file)
     return data
 
 
 # Use the catalog record to create a CatalogRecordMetadata object
 @pytest.fixture()
-def get_catalog_record_metadata(get_record_data):
+def get_catalog_record_metadata(get_record_data: dict[str, Any]) -> CatalogRecordMetadata:
     return CatalogRecordMetadata(get_record_data)
 
 
 # Create a CatalogItemMetadata object with the catalog record and the ht_id of the item
 @pytest.fixture()
-def get_item_metadata(get_record_data: dict, get_catalog_record_metadata: CatalogRecordMetadata):
+def get_item_metadata(
+    get_record_data: dict[str, Any], get_catalog_record_metadata: CatalogRecordMetadata
+) -> CatalogItemMetadata:
     return CatalogItemMetadata("mdp.39015078560292", get_catalog_record_metadata)
 
 
 @pytest.fixture
-def solr_catalog_url():
+def solr_catalog_url() -> str:
     return get_solr_url()
 
 
 @pytest.fixture
-def random_queue_name():
+def random_queue_name() -> str:
     return f"test_queue_{uuid.uuid4().hex[:8]}"

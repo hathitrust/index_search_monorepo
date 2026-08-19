@@ -13,7 +13,7 @@ logger = get_ht_logger(name=__name__)
 
 
 @pytest.fixture
-def one_message():
+def one_message() -> dict[str, Any]:
     """
     This function is used to create a message
     """
@@ -22,12 +22,12 @@ def one_message():
 
 
 @pytest.fixture
-def list_messages():
+def list_messages() -> list[dict[str, Any]]:
     """
     This function is used to create a list of messages
     """
 
-    messages = []
+    messages: list[dict[str, Any]] = []
     for i in range(10):
         messages.append(
             {"ht_id": f"{i}", "ht_title": f"Hello World {i}", "ht_author": f"John Doe {i}"}
@@ -69,6 +69,7 @@ class TestQueueConsumer:
         if not producer_instance.queue_manager.is_ready(producer_instance.channel):
             producer_instance.queue_reconnect()
 
+        assert producer_instance.channel is not None
         # Clean up the queue
         producer_instance.channel.queue_purge(producer_instance.queue_manager.queue_name)
 
@@ -78,9 +79,11 @@ class TestQueueConsumer:
         logger.info("Closing the producer channel after publishing the message")
         producer_instance.channel.close()
         logger.info("Closing the producer connection")
+        assert producer_instance.channel_creator.connection.queue_connection is not None
         producer_instance.channel_creator.connection.queue_connection.close()
 
         consumer_instance = QueueConsumer(queue_config.queue_params)
+        assert consumer_instance.channel is not None
 
         logger.info(
             f"Starting to consume messages from the queue: "
@@ -105,6 +108,7 @@ class TestQueueConsumer:
         logger.info(f"Closing the channel for the consumer instance: {queue_name}")
         consumer_instance.channel.close()
         logger.info("Closing the queue connection")
+        assert consumer_instance.channel_creator.connection.queue_connection is not None
         consumer_instance.channel_creator.connection.queue_connection.close()
 
         # Cleanup
@@ -133,8 +137,9 @@ class TestQueueConsumer:
         )
 
         consumer_instance = QueueConsumer(queue_config.queue_params)
+        assert consumer_instance.channel is not None
 
-        list_docs = []
+        list_docs: list[dict[str, Any]] = []
         for method_frame, _, body in consumer_instance.consume_message(inactivity_timeout=5):
             assert method_frame is None
             if method_frame:
@@ -153,6 +158,7 @@ class TestQueueConsumer:
         logger.info(f"Closing the channel for the consumer instance: {queue_name}")
         consumer_instance.channel.close()
         logger.info("Closing the queue connection")
+        assert consumer_instance.channel_creator.connection.queue_connection is not None
         consumer_instance.channel_creator.connection.queue_connection.close()
 
         # Cleanup
@@ -204,11 +210,13 @@ class TestQueueConsumer:
         if not consumer_instance.queue_manager.is_ready(consumer_instance.channel):
             consumer_instance.queue_reconnect()
 
+        assert consumer_instance.channel is not None
         # Clean up the queue
         consumer_instance.channel.queue_purge(consumer_instance.queue_manager.queue_name)
 
         # Create a new channel for the dead letter queue
         dlx_channel = consumer_instance.channel_creator.get_channel()
+        assert dlx_channel is not None
         # Clean up the dead letter queue
         dlx_channel.queue_purge(f"{consumer_instance.queue_manager.queue_name}_dlq")
 
@@ -218,9 +226,11 @@ class TestQueueConsumer:
 
         # Close the producer channel after publishing all messages
         logger.info("Closing the producer channel after publishing all messages")
+        assert producer_instance.channel is not None
         producer_instance.channel.close()
 
         logger.info("Closing the producer connection")
+        assert producer_instance.channel_creator.connection.queue_connection is not None
         producer_instance.channel_creator.connection.queue_connection.close()
 
         # Consume messages from the main queue to reject the message with ht_id=5
@@ -293,6 +303,7 @@ class TestQueueConsumer:
         consumer_instance.channel.close()
 
         logger.info("Closing the queue connection")
+        assert consumer_instance.channel_creator.connection.queue_connection is not None
         consumer_instance.channel_creator.connection.queue_connection.close()
 
         # Cleanup
@@ -335,6 +346,7 @@ class TestQueueConsumer:
         if not producer_instance.queue_manager.is_ready(producer_instance.channel):
             producer_instance.queue_reconnect()
 
+        assert producer_instance.channel is not None
         # Clean up the queue
         producer_instance.channel.queue_purge(producer_instance.queue_manager.queue_name)
 
@@ -348,6 +360,7 @@ class TestQueueConsumer:
 
         # Define the consumer instance
         consumer_instance = QueueConsumer(consumer_queue_config.queue_params)
+        assert consumer_instance.channel is not None
 
         consumer_instance.channel.queue_purge(consumer_instance.queue_manager.queue_name)
 
@@ -359,12 +372,13 @@ class TestQueueConsumer:
         logger.info("Closing the producer channel after publishing all messages")
         producer_instance.channel.close()
         logger.info("Closing the producer connection")
+        assert producer_instance.channel_creator.connection.queue_connection is not None
         producer_instance.channel_creator.connection.queue_connection.close()
 
         # Tracks how many times each ht_id is seen
         # Once the message is rejected, it will be requeued to the main queue and RabbitMQ will try to deliver it again,
         # So we will see the message with ht_id=5 multiple times. After 3 redeliveries, the test will stop
-        seen_messages = defaultdict(int)
+        seen_messages: defaultdict[str, int] = defaultdict(int)
         max_redelivery = 3  # maximum allowed redeliveries
         redelivery_count = 0
         for method_frame, _, body in consumer_instance.consume_message(inactivity_timeout=5):
@@ -416,6 +430,7 @@ class TestQueueConsumer:
         consumer_instance.channel.close()
 
         logger.info("Closing the queue connection")
+        assert consumer_instance.channel_creator.connection.queue_connection is not None
         consumer_instance.channel_creator.connection.queue_connection.close()
 
         # Cleanup

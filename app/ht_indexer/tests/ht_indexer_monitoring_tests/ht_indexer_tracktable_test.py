@@ -1,5 +1,6 @@
 import time
 from pathlib import Path
+from typing import Any
 from unittest.mock import Mock
 
 import pytest
@@ -11,17 +12,17 @@ from ht_indexer_monitoring.ht_indexer_tracktable import (
 
 
 @pytest.fixture
-def mock_db_conn():
+def mock_db_conn() -> Mock:
     return Mock()
 
 
 @pytest.fixture
-def ht_indexer_tracktable_instance(mock_db_conn):
+def ht_indexer_tracktable_instance(mock_db_conn: Mock) -> HTIndexerTracktable:
     return HTIndexerTracktable(db_conn=mock_db_conn)
 
 
 @pytest.fixture
-def create_ht_indexer_track_data():
+def create_ht_indexer_track_data() -> list[HTIndexerTrackData]:
 
     # Read the list of IDs from the file
 
@@ -34,7 +35,7 @@ def create_ht_indexer_track_data():
     # Create a JSON structure
     data = []
     for _idx, ht_id in enumerate(ids, start=1):
-        record = {
+        record: dict[str, Any] = {
             "ht_id": ht_id,
             "record_id": f"record_{ht_id}",
             "status": "pending",
@@ -58,16 +59,22 @@ def create_ht_indexer_track_data():
 
 
 class TestHTIndexerTracktable:
-    def test_create_ht_indexer_track_data_object(self, create_ht_indexer_track_data):
+    def test_create_ht_indexer_track_data_object(
+        self, create_ht_indexer_track_data: list[HTIndexerTrackData]
+    ) -> None:
         assert create_ht_indexer_track_data[0].ht_id == "nyp.33433082002258"
         assert create_ht_indexer_track_data[0].record_id == "record_nyp.33433082002258"
         assert create_ht_indexer_track_data[0].status == "pending"
 
-    def test_create_table(self, ht_indexer_tracktable_instance, mock_db_conn):
+    def test_create_table(
+        self, ht_indexer_tracktable_instance: HTIndexerTracktable, mock_db_conn: Mock
+    ) -> None:
         ht_indexer_tracktable_instance.create_table()
         mock_db_conn.create_table.assert_called_once()
 
-    def test_insert_batch(self, ht_indexer_tracktable_instance, mock_db_conn):
+    def test_insert_batch(
+        self, ht_indexer_tracktable_instance: HTIndexerTracktable, mock_db_conn: Mock
+    ) -> None:
         data = [
             HTIndexerTrackData(
                 ht_id="test_ht_id_1",

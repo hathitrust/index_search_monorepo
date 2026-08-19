@@ -6,10 +6,11 @@ from typing import Any
 
 import orjson
 import pika
+from ht_utils.ht_logger import get_ht_logger
+
 from ht_queue_service.channel_creator import ChannelCreator
 from ht_queue_service.queue_config import QueueParams
 from ht_queue_service.queue_manager import QueueManager
-from ht_utils.ht_logger import get_ht_logger
 
 logger = get_ht_logger(name=__name__)
 
@@ -90,18 +91,21 @@ class QueueMultipleConsumer(ABC):
             logger.warning("Queue setup not ready. Reinitializing channel and setup.")
             self.channel = self.channel_creator.get_channel()
             self.queue_reconnect()
+        if self.channel is None:
+            raise RuntimeError("Unable to establish a RabbitMQ channel")
 
         """ Retrieves a full batch of messages before processing """
         while True:
-            batch = []  # It stores messages for batch processing
-            delivery_tag = []  # It stores delivery tags for acknowledging messages
+            batch: list[Any] = []  # It stores messages for batch processing
+            delivery_tag: list[int] = []  # It stores delivery tags for acknowledging messages
             for _ in range(self.queue_manager.batch_size):
                 # Use basic_get to retrieve a batch of messages and auto_ack=False to tell RabbitMQ to not wait for
                 # an acknowledgment of the message. We will manually acknowledge them
                 method_frame, properties, body = self.channel.basic_get(
                     queue=self.queue_manager.queue_name, auto_ack=False
                 )
-                if method_frame:
+                # GetOk always carries a delivery_tag and body; pika-stubs types both Optional.
+                if method_frame and method_frame.delivery_tag is not None and body is not None:
                     batch.append(body)
                     delivery_tag.append(method_frame.delivery_tag)
                 else:
@@ -133,7 +137,7 @@ class QueueMultipleConsumer(ABC):
         channel: pika.adapters.blocking_connection.BlockingChannel,
         inactivity_timeout: int = 3,
         queue_name: str = "",
-    ) -> Generator[tuple[Any, Any, None]]:
+    ) -> Generator[tuple[Any, Any, Any]]:
         """
          This method consumes messages from the queue.
         :param channel: The RabbitMQ channel to consume messages from.
@@ -201,5 +205,7 @@ class QueueMultipleConsumer(ABC):
         # TODO: To stop the services we should add shutdown_on_empty_queue flag as a class attribute and we should return False
         #         when the queue is empty on the method process_batch.
         logger.info("Time's up! Stopping consumer...")
-        self.channel.close()
-        self.channel_creator.connection.queue_connection.close()
+        if self.channel is not None:
+            self.channel.close()
+        if self.channel_creator.connection.queue_connection is not None:
+            self.channel_creator.connection.queue_connection.close()

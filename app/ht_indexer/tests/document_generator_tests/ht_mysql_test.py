@@ -6,7 +6,7 @@ from document_generator.ht_mysql import get_mysql_conn
 
 class TestHtMysql:
     @patch("document_generator.ht_mysql.HtMysql.get_connection_from_pool")
-    def test_create_table(self, mock_connect):
+    def test_create_table(self, mock_connect: Mock) -> None:
 
         # Create an instance of HtMysql and call the create_table method
         ht_mysql = get_mysql_conn()
@@ -17,7 +17,8 @@ class TestHtMysql:
         mock_connect.return_value = mock_conn
         mock_conn.cursor.return_value = mock_cursor
 
-        ht_mysql.get_connection_from_pool = Mock(return_value=mock_conn)
+        # Monkey-patching the bound method for this test; mypy disallows it by default.
+        ht_mysql.get_connection_from_pool = Mock(return_value=mock_conn)  # type: ignore[method-assign]
 
         # SQL statement to create a table
         create_table_sql = """
@@ -37,7 +38,7 @@ class TestHtMysql:
         mock_conn.commit.assert_called_once()
 
     @patch("document_generator.ht_mysql.HtMysql.get_connection_from_pool")
-    def test_table_exits(self, mock_connect):
+    def test_table_exits(self, mock_connect: Mock) -> None:
 
         ht_mysql = get_mysql_conn()
 
@@ -47,7 +48,8 @@ class TestHtMysql:
         mock_connect.return_value = mock_conn
         mock_conn.cursor.return_value = mock_cursor
 
-        ht_mysql.get_connection_from_pool = Mock(return_value=mock_conn)
+        # Monkey-patching the bound method for this test; mypy disallows it by default.
+        ht_mysql.get_connection_from_pool = Mock(return_value=mock_conn)  # type: ignore[method-assign]
 
         # Mock the result of the SHOW TABLES query
         mock_cursor.fetchone.return_value = ("test_table",)

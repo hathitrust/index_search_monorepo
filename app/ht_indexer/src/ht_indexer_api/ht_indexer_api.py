@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Any
 
 import orjson
 import requests
@@ -9,15 +10,17 @@ logger = get_ht_logger(name=__name__)
 
 
 class HTSolrAPI:
-    def __init__(self, url, user=None, password=None):
+    def __init__(self, url: str, user: str | None = None, password: str | None = None):
         self.url = url
         self.auth = HTTPBasicAuth(user, password) if user and password else None
 
-    def get_solr_status(self):
+    def get_solr_status(self) -> requests.Response:
         response = requests.get(self.url)
         return response
 
-    def index_document(self, xml_data: dict, content_type: str = "application/json"):
+    def index_document(
+        self, xml_data: dict[str, Any], content_type: str = "application/json"
+    ) -> requests.Response:
         """Feed a JSON object, create an XML string to index the document into SOLR
         "Content-Type": "application/json"
         """
@@ -37,7 +40,9 @@ class HTSolrAPI:
             raise e
         return response
 
-    def index_documents(self, list_documents: list = None, solr_url_json: str = "update/json/docs"):
+    def index_documents(
+        self, list_documents: list[dict[str, Any]], solr_url_json: str = "update/json/docs"
+    ) -> requests.Response:
         """Read an XML and feed into SOLR for indexing"""
         response = requests.post(
             f"{self.url.replace('#/', '')}{solr_url_json}",
@@ -48,8 +53,8 @@ class HTSolrAPI:
         return response
 
     def index_documents_by_file(
-        self, path: Path, list_documents: list = None, solr_url_json: str = "update/json/docs"
-    ):
+        self, path: str | Path, list_documents: list[str], solr_url_json: str = "update/json/docs"
+    ) -> requests.Response:
         """Read an XML and feed into SOLR for indexing"""
         data_path = Path(path)
         for doc in list_documents:
@@ -70,7 +75,7 @@ class HTSolrAPI:
 
         return response
 
-    def send_solr_request(self, solr_host: str, solr_params: dict):
+    def send_solr_request(self, solr_host: str, solr_params: dict[str, Any]) -> requests.Response:
         """
         Send a request to Solr and return the response.
         """

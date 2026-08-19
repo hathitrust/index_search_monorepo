@@ -1,9 +1,9 @@
 import copy
-import inspect
 import os
 import sys
+from typing import Any
 
-current_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, current_dir)
 
 # Full-text search config parameters
@@ -36,7 +36,7 @@ DEFAULT_SOLR_PARAMS = {
 }
 
 
-def default_solr_params(env: str = "prod"):
+def default_solr_params(env: str = "prod") -> dict[str, Any]:
     # TODO: Add shards is only for prod environment and full-text search, then I have to change this function to
     # ensure we have access to Catalog in prod environment.
     """
@@ -50,7 +50,7 @@ def default_solr_params(env: str = "prod"):
     return params
 
 
-def add_shards(params: dict):
+def add_shards(params: dict[str, Any]) -> dict[str, Any]:
     """
     Add shards to the params
     :param params:

@@ -12,18 +12,16 @@ DOCUMENT_LOCAL_PATH = "/tmp/"
 
 # Look for the sdr1 obj folder in the root of the container
 # and if it is not found, use the default path
-def get_local_document_folder():
+def get_local_document_folder() -> Path | str:
     """
     Returns the local document folder
     :return: str
     """
 
     try:
-        local_document_folder = find_sdr1_obj()
-        return local_document_folder
+        return find_sdr1_obj()
     except FileNotFoundError:
-        local_document_folder = f"{Path(__file__).parents[1]}/sdr1/obj"
-        return local_document_folder
+        return f"{Path(__file__).parents[1]}/sdr1/obj"
 
 
 # field_full_text : field catalog

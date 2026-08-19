@@ -40,16 +40,18 @@ class TestQueueProducer:
         producer_instance = QueueProducer(producer_queue_config.queue_params)
 
         producer_instance.publish_messages(message)
+        assert producer_instance.channel is not None
         producer_instance.channel.close()
 
         # Consume the message to ensure it was published correctly
         consumer_instance = QueueConsumer(producer_queue_config.queue_params)
 
-        list_message = []
+        list_message: list[dict[str, Any]] = []
         for method_frame, _, body in consumer_instance.consume_message(inactivity_timeout=5):
             if method_frame:
                 output_message = json.loads(body.decode("utf-8"))
                 list_message.append(output_message)
+                assert consumer_instance.channel is not None
                 consumer_instance.positive_acknowledge(
                     consumer_instance.channel, method_frame.delivery_tag
                 )
@@ -95,7 +97,9 @@ class TestQueueProducer:
             producer_instance.publish_messages({"ht_id": "123", "payload": NonSerializable()})
 
         # Add close method to ensure the connection is closed after the test
+        assert producer_instance.channel is not None
         producer_instance.channel.close()
+        assert producer_instance.channel_creator.connection.queue_connection is not None
         producer_instance.channel_creator.connection.queue_connection.close()
 
         # Delete the temporary files
@@ -126,7 +130,9 @@ class TestQueueProducer:
         producer_instance = QueueProducer(producer_queue_config.queue_params)
 
         # Check if the connection is open
+        assert producer_instance.channel_creator.connection.queue_connection is not None
         assert producer_instance.channel_creator.connection.queue_connection.is_open
+        assert producer_instance.channel is not None
         assert producer_instance.channel.is_open
 
         # Close the channel
@@ -136,10 +142,12 @@ class TestQueueProducer:
 
         producer_instance.queue_reconnect()
 
+        assert producer_instance.channel is not None
         assert producer_instance.channel.is_open
 
         # Close channel and connection after the test
         producer_instance.channel.close()
+        assert producer_instance.channel_creator.connection.queue_connection is not None
         producer_instance.channel_creator.connection.queue_connection.close()
 
         # Delete the temporary files
