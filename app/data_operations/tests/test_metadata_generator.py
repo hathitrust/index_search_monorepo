@@ -11,7 +11,7 @@ from metadata_extractor.metadata_generator import (
     generate_dissertation_rows,
     record_matches,
 )
-from pymarc import Field, Record, Subfield
+from pymarc import Field, Indicators, Record, Subfield
 
 SAMPLE_RECORD = {
     "leader": "00000nam a2200000 a 4500",
@@ -59,23 +59,25 @@ def test_record_matches_detects_dissertation_keywords() -> None:
 def test_extract_identifiers() -> None:
 
     record = Record()
-    record.add_field(
+    record.add_field(  # type: ignore[no-untyped-call]
         Field(
             tag="035",
-            indicators=[" ", " "],
+            indicators=Indicators(" ", " "),
             subfields=[Subfield(code="a", value="(ProQuest)disstheses AAI999")],
         )
-    )  # type: ignore[no-untyped-call,arg-type]
-    record.add_field(
-        Field(tag="502", indicators=[" ", " "], subfields=[Subfield(code="o", value="AAI8999")])
-    )  # type: ignore[no-untyped-call,arg-type]
-    record.add_field(
+    )
+    record.add_field(  # type: ignore[no-untyped-call]
+        Field(
+            tag="502", indicators=Indicators(" ", " "), subfields=[Subfield(code="o", value="AAI8999")]
+        )
+    )
+    record.add_field(  # type: ignore[no-untyped-call]
         Field(
             tag="035",
-            indicators=[" ", " "],
+            indicators=Indicators(" ", " "),
             subfields=[Subfield(code="a", value="(MiU)990027275210106381")],
         )
-    )  # type: ignore[no-untyped-call,arg-type]
+    )
 
     identifiers = extract_identifiers(record)
     assert "(ProQuest)disstheses AAI999" in identifiers
