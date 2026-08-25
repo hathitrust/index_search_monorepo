@@ -138,7 +138,7 @@ def filter_out_dates(value: str) -> str:
         return value
 
 
-def check_bib_fmt_field(title_dates: Mapping[str, object]) -> str:
+def check_bib_fmt_field(title_dates: Mapping[str, object] | None) -> str:
 
     if first_value((title_dates or {}).get("bib_fmt")) != "SE":
         return ""
