@@ -1,6 +1,7 @@
 import argparse
 import json
 import os
+from typing import Any
 
 from catalog_metadata.ht_indexer_config import DOCUMENT_LOCAL_PATH
 from ht_queue_service.queue_consumer import QueueConsumer
@@ -8,6 +9,7 @@ from ht_utils.ht_logger import get_ht_logger
 
 from .document_generator_service import DocumentGeneratorService
 from .generator_arguments import GeneratorServiceArguments
+from .ht_mysql import HtMysql
 
 logger = get_ht_logger(name=__name__)
 
@@ -15,10 +17,10 @@ logger = get_ht_logger(name=__name__)
 class DocumentGeneratorServiceLocal(DocumentGeneratorService):
     def __init__(
         self,
-        db_conn,
+        db_conn: HtMysql,
         src_queue_consumer: QueueConsumer,
-        document_local_path: str = DOCUMENT_LOCAL_PATH,
-        document_repository: str = None,
+        document_local_path: str | None = DOCUMENT_LOCAL_PATH,
+        document_repository: str = "local",
         document_local_folder: str = "indexing_data",
         tgt_local: bool = True,
     ):
@@ -43,20 +45,24 @@ class DocumentGeneratorServiceLocal(DocumentGeneratorService):
         )
 
         self.document_local_folder = document_local_folder
-        self.document_local_path = document_local_path
+        # A caller explicitly passing document_local_path=None (e.g. an unset CLI arg) would
+        # otherwise override this parameter's own default.
+        self.document_local_path = document_local_path or DOCUMENT_LOCAL_PATH
 
         # Create the directory to load the JSON files if it does not exit
         try:
-            if self.document_local_path:
-                document_local_path = os.path.abspath(self.document_local_path)
-            os.makedirs(os.path.join(document_local_path, document_local_folder))
+            os.makedirs(
+                os.path.join(os.path.abspath(self.document_local_path), document_local_folder)
+            )
         except FileExistsError:
             pass
 
-    def publish_document(self, content: dict = None):
+    def publish_document(self, content: dict[str, Any] | None = None) -> None:
         """
         Right now, the entry is saved in a file and, but it could be published in a queue
         """
+        if content is None:
+            raise ValueError("content is required")
         file_name = content.get("id")
 
         file_path = (
@@ -67,7 +73,7 @@ class DocumentGeneratorServiceLocal(DocumentGeneratorService):
         logger.info(f"File {file_name} created in {file_path}")
 
 
-def main():
+def main() -> None:
     """This script will process the remaining documents in the queue and generate the full-text search documents in
     a local computer. Each stage is process in sequence."""
 

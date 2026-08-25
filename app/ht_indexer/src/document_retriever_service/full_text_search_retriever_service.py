@@ -1,16 +1,14 @@
 import argparse
 import copy
-import inspect
 import json
 import os
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Any
 
 import requests
 from catalog_metadata.catalog_metadata import CatalogItemMetadata, CatalogRecordMetadata
-from document_retriever_service.retriever_arguments import RetrieverServiceArguments
-from document_retriever_service.retriever_services_utils import RetrieverServicesUtils
 from ht_indexer_api.ht_indexer_api import HTSolrAPI
 from ht_indexer_monitoring.ht_indexer_tracktable import (
     HT_INDEXER_TRACKTABLE,
@@ -20,6 +18,7 @@ from ht_queue_service.queue_config import QueueParams
 from ht_queue_service.queue_connection import MAX_DOCUMENT_IN_QUEUE
 from ht_queue_service.queue_producer import QueueProducer
 from ht_utils.ht_logger import get_ht_logger
+from ht_utils.ht_mysql import HtMysql
 from ht_utils.ht_utils import (
     get_current_time,
     get_error_message_by_document,
@@ -28,9 +27,12 @@ from ht_utils.ht_utils import (
 )
 from ht_utils.query_maker import make_solr_term_query
 
+from document_retriever_service.retriever_arguments import RetrieverServiceArguments
+from document_retriever_service.retriever_services_utils import RetrieverServicesUtils
+
 logger = get_ht_logger(name=__name__)
 
-current = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+current = os.path.dirname(os.path.abspath(__file__))
 parent = os.path.dirname(current)
 sys.path.insert(0, parent)
 
@@ -64,11 +66,11 @@ class FullTextSearchRetrieverQueueService:
 
     def __init__(
         self,
-        queue_params: QueueParams = None,
-        solr_host: str = None,
-        solr_user: str = None,
-        solr_password: str = None,
-        solr_retriever_query_params: dict = None,
+        queue_params: QueueParams | None = None,
+        solr_host: str | None = None,
+        solr_user: str | None = None,
+        solr_password: str | None = None,
+        solr_retriever_query_params: dict[str, Any] | None = None,
     ):
 
         self.solr_host = solr_host
@@ -80,7 +82,7 @@ class FullTextSearchRetrieverQueueService:
         self.queue_params = queue_params
 
     @staticmethod
-    def get_queue_producer(queue_params) -> QueueProducer | None:
+    def get_queue_producer(queue_params: QueueParams) -> QueueProducer | None:
         """Establish a connection to the queue to publish the documents"""
 
         try:
@@ -92,9 +94,10 @@ class FullTextSearchRetrieverQueueService:
                 f"Environment variables required: "
                 f"{get_general_error_message('DocumentGeneratorService', e)}"
             )
+            return None
 
     @staticmethod
-    def generate_metadata(record: CatalogItemMetadata) -> tuple[dict, str]:
+    def generate_metadata(record: CatalogItemMetadata) -> tuple[dict[str, Any], str]:
         """Generate the metadata and the ht_id of the document to be published in the queue"""
 
         item_id = record.ht_id
@@ -106,10 +109,13 @@ class FullTextSearchRetrieverQueueService:
         return item_metadata, item_id
 
     @staticmethod
-    def publishing_documents(queue_producer_conn, result, mysql_db) -> None:
-
-        processed_items = []
-        failed_items = []
+    def publishing_documents(
+        queue_producer_conn: QueueProducer | None,
+        result: list[CatalogItemMetadata],
+        mysql_db: HtMysql,
+    ) -> None:
+        processed_items: list[dict[str, Any]] = []
+        failed_items: list[dict[str, Any]] = []
 
         for record in result:
             item_metadata, item_id = FullTextSearchRetrieverQueueService.generate_metadata(record)
@@ -117,6 +123,8 @@ class FullTextSearchRetrieverQueueService:
 
             # Try to publish the document in the queue, if an error occurs, log the error and continue to the next
             try:
+                if queue_producer_conn is None:
+                    raise RuntimeError("Unable to establish a queue connection")
                 RetrieverServicesUtils.publish_document(queue_producer_conn, item_metadata)
 
                 processed_items.append(
@@ -154,13 +162,17 @@ class FullTextSearchRetrieverQueueService:
             logger.info(f"Total of processed documents: {len(processed_items)}")
             mysql_db.update_status(SUCCESS_UPDATE_STATUS, processed_items)
 
-    def retrieve_documents_from_solr(self, solr_query: str, solr_retriever) -> requests.Response:
+    def retrieve_documents_from_solr(
+        self, solr_query: str, solr_retriever: HTSolrAPI
+    ) -> requests.Response:
         """Function to retrieve documents from Solr
         :param solr_query:
         :param solr_retriever: HTSolrAPI object
         :return: response from Solr
         """
 
+        if self.solr_retriever_query_params is None:
+            raise RuntimeError("solr_retriever_query_params is required")
         chunk_solr_params = copy.deepcopy(self.solr_retriever_query_params)
 
         chunk_solr_params["fq"] = solr_query
@@ -177,8 +189,8 @@ class FullTextSearchRetrieverQueueService:
 
     @staticmethod
     def generate_chunk_metadata(
-        chunk: list, solr_output: dict, by_field: str = "item"
-    ) -> list[CatalogItemMetadata] | None:
+        chunk: list[str], solr_output: dict[str, Any], by_field: str = "item"
+    ) -> list[CatalogItemMetadata]:
         """Generate the metadata for the documents
 
         :param chunk: list of documents to process
@@ -187,8 +199,8 @@ class FullTextSearchRetrieverQueueService:
         :return: list of metadata for the documents
         """
 
-        record_metadata_list = []
-        for record in solr_output.get("response").get("docs"):
+        record_metadata_list: list[CatalogItemMetadata] = []
+        for record in (solr_output.get("response") or {}).get("docs", []):
             # Create the object to create items and metadata.
             catalog_record_metadata = CatalogRecordMetadata(record)
 
@@ -215,7 +227,7 @@ class FullTextSearchRetrieverQueueService:
         return record_metadata_list
 
     def full_text_search_retriever_service(
-        self, mysql_db, initial_documents, by_field: str = "item"
+        self, mysql_db: HtMysql, initial_documents: list[str], by_field: str = "item"
     ) -> None:
         """
         This method is used to retrieve the documents from the Catalog and generate the full text search entry
@@ -225,6 +237,11 @@ class FullTextSearchRetrieverQueueService:
         Each batch will retrieve 200 documents because Solr will fail with the status code 414
         if the URI is too Long.
         """
+
+        if self.queue_params is None:
+            raise RuntimeError("queue_params is required")
+        if self.solr_host is None:
+            raise RuntimeError("solr_host is required")
 
         # Create a connection to the queue to produce messages
         queue_producer = FullTextSearchRetrieverQueueService.get_queue_producer(self.queue_params)
@@ -261,8 +278,12 @@ class FullTextSearchRetrieverQueueService:
 
 
 def run_retriever_service_threads(
-    mysql_db, list_documents, by_field, document_retriever_service, max_workers
-):
+    mysql_db: HtMysql,
+    list_documents: list[str],
+    by_field: str,
+    document_retriever_service: FullTextSearchRetrieverQueueService,
+    max_workers: int,
+) -> None:
     """
     Run the retriever service
 
@@ -319,7 +340,7 @@ def run_retriever_service_threads(
     )
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser()
 
     init_args_obj = RetrieverServiceArguments(parser)
@@ -398,6 +419,10 @@ def main():
             queue_producer = document_retriever_service.get_queue_producer(
                 init_args_obj.queue_config.queue_params
             )
+            if queue_producer is None:
+                raise RuntimeError("Unable to establish a queue connection")
+            if queue_producer.channel is None:
+                raise RuntimeError("Unable to establish a RabbitMQ channel")
 
             total_messages_in_queue = queue_producer.queue_manager.get_total_messages(
                 queue_producer.channel

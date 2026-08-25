@@ -7,7 +7,7 @@ class TestQueueConnection:
     """Test the QueueConnection class"""
 
     def test_real_connect_and_close(
-        self, get_global_queue_config: dict[str, Any], get_rabbit_mq_host_name
+        self, get_global_queue_config: dict[str, Any], get_rabbit_mq_host_name: str
     ) -> None:
         """Test the connection to RabbitMQ and closing it
         :param get_global_queue_config: Fixture to get the global queue configuration
@@ -20,6 +20,7 @@ class TestQueueConnection:
             host=get_rabbit_mq_host_name,
         )
 
+        assert rabbit_mq_connection.queue_connection is not None
         assert rabbit_mq_connection.queue_connection.is_open
         rabbit_mq_connection.close()
         assert rabbit_mq_connection.queue_connection is None

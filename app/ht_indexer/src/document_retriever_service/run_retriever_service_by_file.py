@@ -1,10 +1,15 @@
 """This use case is for testing and processing a huge list of documents extracted from the production environment."""
 
 import argparse
-import inspect
 import os
 import sys
 import time
+from pathlib import Path
+from typing import Any
+
+from ht_document.ht_document import logger
+from ht_queue_service.queue_config import QueueParams
+from ht_utils.ht_mysql import HtMysql
 
 from document_retriever_service.full_text_search_retriever_service import (
     FullTextSearchRetrieverQueueService,
@@ -12,25 +17,24 @@ from document_retriever_service.full_text_search_retriever_service import (
 )
 from document_retriever_service.ht_status_retriever_service import get_non_processed_ids
 from document_retriever_service.retriever_arguments import RetrieverServiceByFileArguments
-from ht_document.ht_document import logger
 
-current = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+current = os.path.dirname(os.path.abspath(__file__))
 parent = os.path.dirname(current)
 sys.path.insert(0, parent)
 
 
 def retrieve_documents_by_file(
-    queue_params,
-    query_field,
-    solr_host,
-    solr_user,
-    solr_password,
-    solr_retriever_query_params,
-    input_documents_file,
-    status_file,
-    parallelize,
-    db_conn,
-    max_workers,
+    queue_params: QueueParams,
+    query_field: str,
+    solr_host: str | None,
+    solr_user: str | None,
+    solr_password: str | None,
+    solr_retriever_query_params: dict[str, Any],
+    input_documents_file: str | Path,
+    status_file: str | Path,
+    parallelize: bool,
+    db_conn: HtMysql,
+    max_workers: int,
 ) -> None:
     """This method is used to retrieve the documents from the Catalog and generate the full-text search entry.
     The list of documents to index is extracted from a file.
@@ -97,7 +101,7 @@ def retrieve_documents_by_file(
         exit()
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser()
 
     init_args_obj = RetrieverServiceByFileArguments(parser)

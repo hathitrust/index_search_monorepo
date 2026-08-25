@@ -4,7 +4,7 @@ from ht_utils.ht_marc_json_reader import dict_to_pymarc_record
 logger = get_ht_logger(name=__name__)
 
 
-def test_dict_to_pymarc_record():
+def test_dict_to_pymarc_record() -> None:
 
     data = {
         "leader": "00739nam a22002771  4500",

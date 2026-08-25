@@ -69,5 +69,20 @@ fix = true
 # module = "pika"
 strict = true
 ignore_missing_imports = true
+# Dead/unimportable code slated for deletion.
+# Not worth annotating code that's about to be removed.
+exclude = [
+    "^app/ht_indexer/main\\.py$",
+    "^app/ht_indexer/src/document_generator/ht_mysql\\.py$",
+    "^app/ht_indexer/src/ht_document/ht_pairtree\\.py$",
+    "^app/sample_data/",
+]
+
+# document_generator/ht_mysql.py is a duplicate of ht_utils.ht_mysql, slated for deletion,
+# but it's still imported by its sibling modules, so the `exclude` above doesn't stop mypy
+# from following the import and checking it anyway.
+[[tool.mypy.overrides]]
+module = "document_generator.ht_mysql"
+ignore_errors = true
 
 

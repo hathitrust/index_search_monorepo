@@ -1,5 +1,4 @@
 import argparse
-import inspect
 import json
 import os
 import sys
@@ -7,14 +6,14 @@ from collections.abc import Generator
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any
 
-from ht_indexer_monitoring.monitoring_arguments import MonitoringServiceArguments
 from ht_search.export_all_results import SolrExporter
 from ht_utils.ht_logger import get_ht_logger
 from ht_utils.ht_mysql import HtMysql, get_mysql_conn
 
-current = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+from ht_indexer_monitoring.monitoring_arguments import MonitoringServiceArguments
+
+current = os.path.dirname(os.path.abspath(__file__))
 parent = os.path.dirname(current)
 sys.path.insert(0, parent)
 
@@ -59,7 +58,7 @@ class HTIndexerTrackData:
 class HTIndexerTracktable:
     """Class to interact with MySQL table fulltext_item_processing_status"""
 
-    def __init__(self, db_conn: HtMysql, solr_exporter: SolrExporter = None):
+    def __init__(self, db_conn: HtMysql, solr_exporter: SolrExporter | None = None) -> None:
         self.mysql_obj = db_conn
         self.solr_exporter = solr_exporter
 
@@ -69,14 +68,16 @@ class HTIndexerTracktable:
         query_config_file_path: Path,
         conf_query: str,
         list_output_fields: list[str],
-    ) -> Generator[list[HTIndexerTrackData], Any]:
+    ) -> Generator[list[HTIndexerTrackData]]:
         """
         Get the data from the catalog.
         :return: List of data
         """
+        if self.solr_exporter is None:
+            raise RuntimeError("solr_exporter is required")
 
         # '"good"'
-        data = []
+        data: list[HTIndexerTrackData] = []
         for x in self.solr_exporter.run_cursor(
             query,
             query_config_file_path,
@@ -103,7 +104,7 @@ class HTIndexerTracktable:
         if len(data) > 0:
             yield data
 
-    def create_table(self):
+    def create_table(self) -> None:
         """
         Create the table fulltext_item_processing_status if it does not exist.
         :return: None
@@ -111,7 +112,7 @@ class HTIndexerTracktable:
 
         self.mysql_obj.create_table(HT_INDEXER_TRACKTABLE)
 
-    def insert_batch(self, list_items: list[HTIndexerTrackData]):
+    def insert_batch(self, list_items: list[HTIndexerTrackData]) -> None:
         """Inserts a batch of HTIndexerTrackData objects into the database."""
         if not list_items:
             logger.info("No data to insert.")
@@ -135,7 +136,7 @@ class HTIndexerTracktable:
         self.mysql_obj.insert_batch(insert_query, batch_values)
 
 
-def main():
+def main() -> None:
 
     # Get parameters
     parser = argparse.ArgumentParser()

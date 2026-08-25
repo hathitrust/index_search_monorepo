@@ -1,11 +1,13 @@
 import argparse
 import time
+from typing import Any
 
 from ht_indexer_api.ht_indexer_api import HTSolrAPI
 from ht_queue_service.queue_config import QueueParams
 from ht_queue_service.queue_multiple_consumer import QueueMultipleConsumer
 from ht_utils.ht_logger import get_ht_logger
 from ht_utils.ht_utils import get_error_message_by_document
+from pika.adapters.blocking_connection import BlockingChannel
 
 from .indexer_arguments import IndexerServiceArguments
 
@@ -24,10 +26,10 @@ class DocumentIndexerQueueService(QueueMultipleConsumer):
 
     def requeue_failed_messages(
         self,
-        messages: list[dict] = None,
-        delivery_tags: list[int] = None,
-        error: Exception = None,
-        channel=None,
+        messages: list[dict[str, Any]],
+        delivery_tags: list[int],
+        error: Exception,
+        channel: BlockingChannel | None,
     ) -> None:
         """Requeue failed messages into the Dead Letter Queue.
         :param messages: List of messages that failed to process
@@ -35,6 +37,8 @@ class DocumentIndexerQueueService(QueueMultipleConsumer):
         :param error: The exception that caused the failure
         :param channel: The channel to use for rejecting messages
         """
+        if channel is None:
+            raise RuntimeError("Unable to establish a RabbitMQ channel")
 
         logger.info(
             f"Send total_messages={len(delivery_tags)} to the {self.queue_manager.dead_letter_queue_name}."
@@ -45,7 +49,7 @@ class DocumentIndexerQueueService(QueueMultipleConsumer):
             logger.error(f"Failed process=indexing error_detail={error_info}")
             self.reject_message(channel, delivery_tag)
 
-    def process_batch(self, batch: list, delivery_tags: list) -> bool:
+    def process_batch(self, batch: list[dict[str, Any]], delivery_tags: list[int]) -> bool:
         """Process a batch of messages from the queue.
         If the indexing process is successful, acknowledge all the messages in the batch.
         If the indexing process fails, requeue all the failed messages to the Dead Letter Queue.
@@ -57,6 +61,8 @@ class DocumentIndexerQueueService(QueueMultipleConsumer):
         # TODO - Implement the process to validate if the message is well formatted to index in Solr.
         # When the validation is in place, instead of sending all the messages to the dead letter queue,
         # we should add the logic to just sent the message that are not well formatted to the dead letter queue.
+        if self.channel is None:
+            raise RuntimeError("Unable to establish a RabbitMQ channel")
         start_time = time.time()
 
         try:
@@ -91,7 +97,7 @@ def start_service(solr_api_full_text: HTSolrAPI, queue_params: QueueParams) -> N
     document_indexer_queue_service.start_consuming()
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser()
 
     init_args_obj = IndexerServiceArguments(parser)

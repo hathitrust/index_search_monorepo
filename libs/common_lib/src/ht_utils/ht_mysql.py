@@ -15,7 +15,7 @@ logger = get_ht_logger(name=__name__)
 class HtMysql:
     _engine: Engine | None = None  # Class variable to store the SQLAlchemy engine
     _lock = threading.Lock()  # Lock for thread-safe engine creation
-    _engine_config = None  # To store the configuration of the engine
+    _engine_config: tuple[str, str, str, str, int] | None = None  # Configuration of the engine
 
     def __init__(self, host: str, user: str, password: str, database: str, pool_size: int = 5):
         """Initialize MySQL connection using SQLAlchemy engine with connection pooling"""
@@ -39,7 +39,13 @@ class HtMysql:
             elif HtMysql._engine_config != config:
                 raise RuntimeError("Engine already created with different configuration.")
 
-    def query_mysql(self, query: str, params: dict | None = None) -> list[dict[str, Any]]:
+    @classmethod
+    def _get_engine(cls) -> Engine:
+        if cls._engine is None:
+            raise RuntimeError("HtMysql engine not initialized")
+        return cls._engine
+
+    def query_mysql(self, query: str, params: dict[str, Any] | None = None) -> list[dict[str, Any]]:
         """Execute a query in MySQL and return the results as a list of dictionaries
         :param query: The SQL query to execute
         :param params: Optional dictionary of parameters to bind to the query
@@ -50,7 +56,7 @@ class HtMysql:
             logger.error("Please pass the valid query")
             return []
         try:
-            with HtMysql._engine.connect() as conn:
+            with self._get_engine().connect() as conn:
                 result = conn.execute(text(query), params or {})
                 # Use row._mapping to retorn a RowMapping object that behaves like a dictionary
                 rows = [dict(row._mapping) for row in result]
@@ -62,32 +68,32 @@ class HtMysql:
     def table_exists(self, table_name: str) -> bool | None:
         query = "SHOW TABLES LIKE :table"
         try:
-            with HtMysql._engine.connect() as conn:
+            with self._get_engine().connect() as conn:
                 result = conn.execute(text(query), {"table": table_name})
                 return result.fetchone() is not None
         except exc.SQLAlchemyError as e:
             logger.error(f"Error checking if table exists: {e}")
             return None
 
-    def insert_batch(self, insert_query: str, batch_values: list[dict]):
+    def insert_batch(self, insert_query: str, batch_values: list[dict[str, Any]]) -> None:
         try:
-            with HtMysql._engine.begin() as conn:
+            with self._get_engine().begin() as conn:
                 conn.execute(text(insert_query), batch_values)
                 logger.info(f"Inserted {len(batch_values)} records successfully.")
         except exc.SQLAlchemyError as e:
             logger.error(f"Error inserting batch of records: {e}")
 
-    def create_table(self, create_table_sql: str):
+    def create_table(self, create_table_sql: str) -> None:
         try:
-            with HtMysql._engine.begin() as conn:
+            with self._get_engine().begin() as conn:
                 conn.execute(text(create_table_sql))
                 logger.info("Table created successfully")
         except exc.SQLAlchemyError as e:
             logger.error(f"Failed to create table: {e}")
 
-    def update_status(self, update_query: str, update_values: list[dict]):
+    def update_status(self, update_query: str, update_values: list[dict[str, Any]]) -> None:
         try:
-            with HtMysql._engine.begin() as conn:
+            with self._get_engine().begin() as conn:
                 conn.execute(text(update_query), update_values)
                 logger.info(f"Updated {len(update_values)} records successfully.")
         except exc.SQLAlchemyError as e:

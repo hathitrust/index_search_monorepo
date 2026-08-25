@@ -1,3 +1,4 @@
+import argparse
 import sys
 
 from config import config_queue_file_path
@@ -12,13 +13,13 @@ from ht_utils.ht_logger import get_ht_logger
 from ht_utils.ht_utils import get_general_error_message
 
 from . import generator_config_file_path
-from .ht_mysql import get_mysql_conn
+from .ht_mysql import HtMysql, get_mysql_conn
 
 logger = get_ht_logger(name=__name__)
 
 
 class GeneratorServiceArguments:
-    def __init__(self, parser):
+    def __init__(self, parser: argparse.ArgumentParser) -> None:
         parser.add_argument(
             "--document_repository",
             help="Document source: 'pairtree' or 'local'.",
@@ -71,7 +72,7 @@ class GeneratorServiceArguments:
         self.document_repository: str = self.args.document_repository
         self.document_local_path: str | None = self.args.document_local_path
 
-    def get_db_conn(self, pool_size: int = 1):
+    def get_db_conn(self, pool_size: int = 1) -> HtMysql:
         """Create (once) and return a MySQL connection."""
         try:
             self.db_conn = get_mysql_conn(pool_size=pool_size)
@@ -100,11 +101,20 @@ class GeneratorServiceArguments:
             sys.exit(1)
 
         try:
+            # importlib.resources.files() is typed as Traversable, which typeshed doesn't
+            # declare as PathLike -- but for these packages (regular installed directories,
+            # not zips) they are.
             src_queue_config = QueueConfig(
-                global_config, app_config, config_key="src_queue", prefix="SRC_"
+                global_config,  # type: ignore[arg-type]
+                app_config,  # type: ignore[arg-type]
+                config_key="src_queue",
+                prefix="SRC_",
             )
             tgt_queue_config = QueueConfig(
-                global_config, app_config, config_key="tgt_queue", prefix="TGT_"
+                global_config,  # type: ignore[arg-type]
+                app_config,  # type: ignore[arg-type]
+                config_key="tgt_queue",
+                prefix="TGT_",
             )
             return src_queue_config, tgt_queue_config
         except KeyError as e:

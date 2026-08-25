@@ -20,8 +20,8 @@ class HtDocument:
     """
 
     def __init__(
-        self, document_id: str = None, document_repository: str = "local"
-    ):  # pairtree or local
+        self, document_id: str, document_repository: str = "pairtree"
+    ) -> None:  # pairtree or local
         # TODO: I should create two classes one a document retrieved from pairtree-based repo
         #  and other one a document retrieve for any folder, so pass the attribute , source_file: Text = None
         # Right now this class only retrieve documents from a pairtree-based repo
@@ -45,7 +45,7 @@ class HtDocument:
         self.target_path = f"{DOCUMENT_LOCAL_PATH}{self.file_name}"
 
     @staticmethod
-    def get_namespace(document_id):
+    def get_namespace(document_id: str) -> str:
         try:
             namespace = document_id.split(".")[0]
             return namespace
@@ -53,7 +53,7 @@ class HtDocument:
             raise ValueError(f"Review the document id {document_id} {e}") from e
 
     @staticmethod
-    def get_object_id(document_id):
+    def get_object_id(document_id: str) -> str:
         try:
             obj_id = document_id.split(".")[1:]
             if len(obj_id) > 1:  # It means the document_id contains more than one point
@@ -62,7 +62,7 @@ class HtDocument:
         except ValueError as e:
             raise ValueError(f"Review the document id {document_id} {e}") from e
 
-    def get_document_pairtree_path(self):
+    def get_document_pairtree_path(self) -> str:
         """
         If the ht_id contains special characters e.g. uc2.ark:/13960/t4mk66f1d, python can not use this
         name to read and write the zip file, then this method uses pairtree python package to replace

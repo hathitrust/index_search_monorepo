@@ -68,7 +68,9 @@ def test_extract_identifiers() -> None:
     )
     record.add_field(  # type: ignore[no-untyped-call]
         Field(
-            tag="502", indicators=Indicators(" ", " "), subfields=[Subfield(code="o", value="AAI8999")]
+            tag="502",
+            indicators=Indicators(" ", " "),
+            subfields=[Subfield(code="o", value="AAI8999")],
         )
     )
     record.add_field(  # type: ignore[no-untyped-call]

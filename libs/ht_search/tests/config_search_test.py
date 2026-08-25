@@ -7,7 +7,7 @@ class TestDefaultSolrParams:
     back with per-query values like 'q' and 'cursorMark', so a second call in the same process
     inherited the first call's query and a stale cursor."""
 
-    def test_returns_a_fresh_dict_each_call(self):
+    def test_returns_a_fresh_dict_each_call(self) -> None:
         first = default_solr_params(env="dev")
         first["q"] = "title:first query"
         first["cursorMark"] = "some-cursor-value"
@@ -18,20 +18,20 @@ class TestDefaultSolrParams:
         assert "q" not in second
         assert "cursorMark" not in second
 
-    def test_does_not_mutate_the_module_level_default(self):
+    def test_does_not_mutate_the_module_level_default(self) -> None:
         params = default_solr_params(env="prod")
         params["q"] = "title:another query"
 
         assert "q" not in DEFAULT_SOLR_PARAMS
         assert "shards" not in DEFAULT_SOLR_PARAMS
 
-    def test_prod_env_adds_shards_to_the_returned_copy_only(self):
+    def test_prod_env_adds_shards_to_the_returned_copy_only(self) -> None:
         params = default_solr_params(env="prod")
 
         assert "shards" in params
         assert "shards" not in DEFAULT_SOLR_PARAMS
 
-    def test_dev_env_does_not_add_shards(self):
+    def test_dev_env_does_not_add_shards(self) -> None:
         params = default_solr_params(env="dev")
 
         assert "shards" not in params

@@ -1,4 +1,3 @@
-import inspect
 import os
 import sys
 import zipfile
@@ -11,27 +10,31 @@ from document_generator.full_text_document_generator import FullTextDocumentGene
 from document_generator.mysql_data_extractor import extract_namespace_and_id
 from ht_utils.text_processor import string_preparation
 
-current = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+current = os.path.dirname(os.path.abspath(__file__))
 parent = os.path.dirname(current)
 sys.path.insert(0, parent)
 
 
 @pytest.fixture()
-def get_fullrecord_xml():
+def get_fullrecord_xml() -> str:
     with open(f"{Path(__file__).parents[1]}/document_generator_tests/data/fullrecord.xml") as f:
         full_record_data = f.read()
     return full_record_data
 
 
 @pytest.fixture()
-def get_allfield_string():
+def get_allfield_string() -> str:
     return quoteattr(
-        """Defoe, Daniel, 1661?-1731. Rābinsan Krūso kā itihāsa. The adventures of Robinson Crusoe, translated [into Hindi] by Badrī Lāla, from a Bengali version ... Benares, 1860 455 p. incl. front., illus. plates. 20 cm. Title from Catalogue of Hindi books in the British museum. Badarīnātha, pandit, tr. Robinson Crusoe. UTL 9662 SPEC HUB PR 3403 .H5 39015078560292"""
+        "Defoe, Daniel, 1661?-1731. Rābinsan Krūso kā itihāsa. The adventures of Robinson "
+        "Crusoe, translated [into Hindi] by Badrī Lāla, from a Bengali version ... Benares, "
+        "1860 455 p. incl. front., illus. plates. 20 cm. Title from Catalogue of Hindi "
+        "books in the British museum. Badarīnātha, pandit, tr. Robinson Crusoe. "
+        "UTL 9662 SPEC HUB PR 3403 .H5 39015078560292"
     )
 
 
 class TestDocumentGenerator:
-    def test_not_exist_zip_file_full_text_field(self):
+    def test_not_exist_zip_file_full_text_field(self) -> None:
         """Test the function when the zip file does not exist"""
         try:
             with pytest.raises(FileNotFoundError):
@@ -41,7 +44,7 @@ class TestDocumentGenerator:
         except Failed:
             pass
 
-    def test_full_text_field_well_generated(self):
+    def test_full_text_field_well_generated(self) -> None:
         """
         Test the function when the zip file exists, the zip file can contain a __MACOSX directory inside, but
         the function will ignore this directory and the full text is well generated
@@ -55,7 +58,7 @@ class TestDocumentGenerator:
         full_test = FullTextDocumentGenerator.txt_files_2_full_text(zip_doc)
         assert len(full_test) > 0
 
-    def test_string_preparation_raise_unicodedecodeerror_macosx_directory(self):
+    def test_string_preparation_raise_unicodedecodeerror_macosx_directory(self) -> None:
         """
         A UnicodeDecodeError is find when the zip file contains pesky __MACOSX directory inside,
         so the function should raise an exception if __MACOSX directory is not ignored
@@ -77,7 +80,7 @@ class TestDocumentGenerator:
                         doc_str = string_preparation(zip_doc.read(i_file))
                         full_text = full_text + " " + doc_str
 
-    def test_full_text_field(self):
+    def test_full_text_field(self) -> None:
         zip_path = (
             f"{Path(__file__).parents[1]}/document_generator_tests/data/mb.39015078560292_test.zip"
         )
@@ -88,13 +91,15 @@ class TestDocumentGenerator:
         except Failed:
             assert 0 == 0
 
-    def test_create_allfields_field(self, get_fullrecord_xml, get_allfield_string):
+    def test_create_allfields_field(
+        self, get_fullrecord_xml: str, get_allfield_string: str
+    ) -> None:
         all_field = FullTextDocumentGenerator.get_all_fields_field(get_fullrecord_xml)
 
         assert len(all_field.strip()) == len(get_allfield_string.strip())
         assert all_field.strip() == get_allfield_string.strip()
 
-    def test_extract_namespace_and_id(self):
+    def test_extract_namespace_and_id(self) -> None:
         """
         Extracts the namespace and the id from a given document id string.
         The namespace is defined as the characters before the first period.

@@ -2,10 +2,11 @@ from collections.abc import Generator
 from typing import Any
 
 import pika
+from ht_utils.ht_logger import get_ht_logger
+
 from ht_queue_service.channel_creator import ChannelCreator
 from ht_queue_service.queue_config import QueueParams
 from ht_queue_service.queue_manager import QueueManager
-from ht_utils.ht_logger import get_ht_logger
 
 logger = get_ht_logger(name=__name__)
 
@@ -57,7 +58,7 @@ class QueueConsumer:
             logger.error(f"Failed to reinitialize to queue set up: {err}.", exc_info=True)
             raise
 
-    def consume_message(self, inactivity_timeout: int = 5) -> Generator[tuple[Any, Any, None]]:
+    def consume_message(self, inactivity_timeout: int = 5) -> Generator[tuple[Any, Any, Any]]:
         """
         This method consumes messages from the queue.
         : param inactivity_timeout: time in seconds to wait for a message before returning None
@@ -75,6 +76,8 @@ class QueueConsumer:
                 logger.warning("Queue setup not ready. Reinitializing channel and setup.")
                 self.channel = self.channel_creator.get_channel()
                 self.queue_reconnect()
+            if self.channel is None:
+                raise RuntimeError("Unable to establish a RabbitMQ channel")
 
             for method_frame, properties, body in self.channel.consume(
                 self.queue_manager.queue_name, auto_ack=False, inactivity_timeout=inactivity_timeout
@@ -93,7 +96,7 @@ class QueueConsumer:
         channel: pika.adapters.blocking_connection.BlockingChannel,
         inactivity_timeout: int = 5,
         queue_name: str = "",
-    ) -> Generator[tuple[Any, Any, None]]:
+    ) -> Generator[tuple[Any, Any, Any]]:
         """
         This method consumes messages from the queue.
         :param channel: The RabbitMQ channel to consume messages from.

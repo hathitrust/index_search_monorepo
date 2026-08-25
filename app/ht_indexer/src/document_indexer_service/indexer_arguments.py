@@ -1,3 +1,4 @@
+import argparse
 import os
 import sys
 
@@ -13,7 +14,7 @@ logger = get_ht_logger(name=__name__)
 
 
 class IndexerServiceArguments:
-    def __init__(self, parser):
+    def __init__(self, parser: argparse.ArgumentParser) -> None:
         parser.add_argument(
             "--solr_indexing_api",
             help="",
@@ -58,7 +59,14 @@ class IndexerServiceArguments:
             if not app_config.is_file():
                 logger.error(f"Queue config file {app_config} does not exist")
                 sys.exit(1)
-            self.queue_config = QueueConfig(global_config, app_config, config_key="queue")
+            # importlib.resources.files() is typed as Traversable, which typeshed doesn't
+            # declare as PathLike -- but for these packages (regular installed directories,
+            # not zips) they are.
+            self.queue_config = QueueConfig(
+                global_config,  # type: ignore[arg-type]
+                app_config,  # type: ignore[arg-type]
+                config_key="queue",
+            )
 
         except KeyError as e:
             logger.error(

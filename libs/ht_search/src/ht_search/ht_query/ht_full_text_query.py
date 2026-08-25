@@ -21,8 +21,8 @@ class HTFullTextQuery(HTSearchQuery):
         self,
         config_query: str = "all",
         config_query_path: str = QUERY_PARAMETER_CONFIG_FILE,
-        user_id: str = None,
-        config_facet_field: str = None,
+        user_id: str | None = None,
+        config_facet_field: str | None = None,
         config_facet_field_path: str = FACET_FILTERS_CONFIG_FILE,
     ):
         """
