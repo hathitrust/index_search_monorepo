@@ -14,29 +14,6 @@ from ht_utils.ht_logger import get_ht_logger
 
 logger = get_ht_logger(name=__name__)
 
-# Data definitions
-FlexibleDict = dict[str, int | str | dict[str, Any]]
-
-
-def update_dict_fields(
-    target: dict[str, Any], keys: list[str], values: list[Any]
-) -> dict[str, Any]:
-    """
-    Updates multiple fields in a dictionary given lists of keys and values.
-
-    :param target: The dictionary to update.
-    :param keys: A list of keys to update.
-    :param values: A list of values corresponding to the keys.
-    :return: The updated dictionary.
-    """
-    if len(keys) != len(values):
-        raise ValueError("Length of keys and values must match.")
-
-    for key, value in zip(keys, values, strict=True):
-        target[key] = value
-
-    return target
-
 
 def get_solr_url() -> str:
     # Get Solr URL
