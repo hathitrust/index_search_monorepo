@@ -1,4 +1,4 @@
-import inspect
+import argparse
 import os
 import sys
 from pathlib import Path
@@ -10,13 +10,13 @@ from ht_utils.ht_utils import get_solr_url
 
 logger = get_ht_logger(name=__name__)
 
-current = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+current = os.path.dirname(os.path.abspath(__file__))
 parent = os.path.dirname(current)
 sys.path.insert(0, parent)
 
 
 class MonitoringServiceArguments:
-    def __init__(self, parser):
+    def __init__(self, parser: argparse.ArgumentParser) -> None:
         parser.add_argument("--env", default=os.environ.get("HT_ENVIRONMENT", "dev"))
         parser.add_argument("--query", help="Solr query", default="*:*")
 
@@ -31,7 +31,12 @@ class MonitoringServiceArguments:
         self.solr_host = get_solr_url()
 
         self.conf_query = "all"
-        self.query_config_file_path = Path(config_files_path, "catalog_search/config_query.yaml")
+        # importlib.resources.files() is typed as Traversable, which typeshed doesn't declare
+        # as PathLike -- but for this package (a regular installed directory, not a zip) it is.
+        self.query_config_file_path = Path(
+            config_files_path,  # type: ignore[arg-type]
+            "catalog_search/config_query.yaml",
+        )
 
         self.solr_exporter = SolrExporter(
             self.solr_host,

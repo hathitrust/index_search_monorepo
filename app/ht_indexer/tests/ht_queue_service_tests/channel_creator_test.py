@@ -13,7 +13,7 @@ class TestChannelCreator:
     """Test the QueueConnection class"""
 
     def test_create_channel_close(
-        self, get_global_queue_config: dict[str, Any], get_rabbit_mq_host_name
+        self, get_global_queue_config: dict[str, Any], get_rabbit_mq_host_name: str
     ) -> None:
         """Test the creation and closing of a channel using ChannelCreator
         :param get_global_queue_config: Fixture to get the global queue configuration
@@ -37,7 +37,7 @@ class TestChannelCreator:
 
     def test_purge_queue(
         self, get_global_queue_config: dict[str, Any], get_app_queue_config: dict[str, Any]
-    ):
+    ) -> None:
         """Test the purge queue functionality of the QueueProducer class
         :param get_global_queue_config: Fixture to get the global queue configuration
         :param get_app_queue_config: Fixture to get the application-specific queue configuration
@@ -63,6 +63,7 @@ class TestChannelCreator:
             queue_producer.queue_reconnect()
             # queue_producer.queue_setup.set_up_queue()
 
+        assert queue_producer.channel is not None
         assert queue_producer.channel.is_open
 
         # Purge the queue before the test
@@ -79,6 +80,7 @@ class TestChannelCreator:
         assert status.method.message_count == 0
 
         queue_producer.channel.close()
+        assert queue_producer.channel_creator.connection.queue_connection is not None
         queue_producer.channel_creator.connection.queue_connection.close()
 
         # Cleanup

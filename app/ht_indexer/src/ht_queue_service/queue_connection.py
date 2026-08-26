@@ -31,7 +31,7 @@ class QueueConnection:
         self.user = user
         self.password = password
         self.host = host
-        self.queue_connection = self._connect()
+        self.queue_connection: pika.BlockingConnection | None = self._connect()
 
     def _connect(self) -> pika.BlockingConnection:
         """Establish a connection to the RabbitMQ server"""

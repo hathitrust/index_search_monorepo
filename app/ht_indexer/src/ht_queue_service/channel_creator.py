@@ -1,6 +1,5 @@
 import threading
 
-from ht_queue_service.queue_connection import QueueConnection
 from ht_utils.ht_logger import get_ht_logger
 from pika.adapters.blocking_connection import BlockingChannel
 from pika.exceptions import (
@@ -10,6 +9,8 @@ from pika.exceptions import (
     ChannelWrongStateError,
     NoFreeChannels,
 )
+
+from ht_queue_service.queue_connection import QueueConnection
 
 logger = get_ht_logger(name=__name__)
 

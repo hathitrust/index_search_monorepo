@@ -35,7 +35,7 @@ class QueueParams:
 
 def _load_config(config_path: Path) -> dict[str, Any]:
     with open(config_path) as file:
-        return yaml.safe_load(file)
+        return yaml.safe_load(file) or {}
 
 
 class QueueConfig:
@@ -97,9 +97,7 @@ class QueueConfig:
         for key, env_var in self.env_mapping.items():
             env_value = os.getenv(env_var)
             if env_value is not None:
-                if key == "port":  # cast port to int if overridden
-                    env_value = int(env_value)
-                queue_cfg[key] = env_value
+                queue_cfg[key] = int(env_value) if key == "port" else env_value
 
         return queue_cfg
 

@@ -3,6 +3,7 @@ import time
 import xml.sax.saxutils
 import zipfile
 from pathlib import Path
+from typing import Any
 
 import lxml.etree
 
@@ -22,20 +23,21 @@ from .mysql_data_extractor import MysqlMetadataExtractor
 logger = get_ht_logger(name=__name__)
 
 
-def extract_fields_from_mets_file(doc_source_path) -> dict:
+def extract_fields_from_mets_file(doc_source_path: str) -> dict[str, Any]:
     """Read the METS file and extract the fields to be used in the full-text search entry
     :param doc_source_path: Path to the document source
     :return: a dictionary with the METS fields
     """
-    mets_fields = {}
+    mets_fields: dict[str, Any] = {}
     try:
         if not Path(f"{doc_source_path}.mets.xml").is_file():
             raise FileNotFoundError(f"File {doc_source_path}.mets.xml not found")
         mets_obj = MetsAttributeExtractor(f"{doc_source_path}.mets.xml")
         mets_entry = mets_obj.create_mets_entry()
 
-        mets_fields["ht_page_feature"] = mets_entry.get("METS_maps").get("features")
-        mets_fields.update(mets_entry.get("METS_maps").get("reading_orders"))
+        mets_maps = mets_entry.get("METS_maps", {})
+        mets_fields["ht_page_feature"] = mets_maps.get("features")
+        mets_fields.update(mets_maps.get("reading_orders", {}))
 
         return mets_fields
     except Exception as e:
@@ -48,7 +50,7 @@ class FullTextDocumentGenerator:
         self.mysql_data_extractor = MysqlMetadataExtractor(db_conn)
 
     @staticmethod
-    def create_ocr_field(document_zip_path: str) -> dict:
+    def create_ocr_field(document_zip_path: str) -> dict[str, Any]:
         # TODO: As part of this function we could extract the following attributes
         #  numPages, numChars, charsPerPage. In the future, these attributes could be use to measure query performance
         logger.info(f"Reading {document_zip_path}.zip file")
@@ -61,7 +63,7 @@ class FullTextDocumentGenerator:
             raise e
 
     @staticmethod
-    def create_allfields_field(fullrecord_field: str) -> dict:
+    def create_allfields_field(fullrecord_field: str) -> dict[str, Any]:
         # TODO Create a different class to manage the XML files
         try:
             all_fields = FullTextDocumentGenerator.get_all_fields_field(fullrecord_field)
@@ -71,7 +73,7 @@ class FullTextDocumentGenerator:
             raise e
 
     @staticmethod
-    def txt_files_2_full_text(zip_doc: zipfile.ZipFile):
+    def txt_files_2_full_text(zip_doc: zipfile.ZipFile) -> str:
         """
         Read all .TXT files in a zip and concatenate their contents.
         :return: Single string with all text files concatenated.
@@ -91,7 +93,7 @@ class FullTextDocumentGenerator:
         return " ".join(full_text_parts)
 
     @staticmethod
-    def get_full_text_field(zip_doc_path: str):
+    def get_full_text_field(zip_doc_path: str) -> str:
         """
         Concatenate the content of all the .TXT files inside the input folder and return the plain string
 
@@ -116,7 +118,7 @@ class FullTextDocumentGenerator:
         return full_text
 
     @staticmethod
-    def get_all_fields_field(catalog_xml: str = None) -> str:
+    def get_all_fields_field(catalog_xml: str) -> str:
         """
         Create a string using some of the values of the MARC XML file
         :param catalog_xml: Path to the MARC XML file
@@ -148,7 +150,9 @@ class FullTextDocumentGenerator:
                     pass
         return xml.sax.saxutils.quoteattr(all_fields)
 
-    def make_full_text_search_document(self, doc: HtDocument, doc_metadata: dict) -> dict:
+    def make_full_text_search_document(
+        self, doc: HtDocument, doc_metadata: dict[str, Any]
+    ) -> dict[str, Any]:
         # TODO Check exception if doc_id is None
         """
         Receive the HtDocument object and the metadata from the Catalog API and generate the full text search entry
@@ -156,7 +160,7 @@ class FullTextDocumentGenerator:
         :param doc_metadata:
         :return: a dictionary with the full text search entry
         """
-        entry = {"id": doc.document_id}
+        entry: dict[str, Any] = {"id": doc.document_id}
 
         start = time.time()
 
@@ -166,9 +170,10 @@ class FullTextDocumentGenerator:
         # Generate allfields field from fullrecord field
         # This field is in a Catalog object, we process it here, and after that we delete because it is not
         # necessary to be in Solr index
-        entry.update(
-            FullTextDocumentGenerator.create_allfields_field(doc_metadata.get("fullrecord"))
-        )
+        fullrecord_field = doc_metadata.get("fullrecord")
+        if fullrecord_field is None:
+            raise ValueError("doc_metadata is missing 'fullrecord'")
+        entry.update(FullTextDocumentGenerator.create_allfields_field(fullrecord_field))
         doc_metadata.pop("fullrecord")
         logger.info(
             f"Time to generate process=OCR_field ht_id={doc.document_id} Time={time.time() - start}"

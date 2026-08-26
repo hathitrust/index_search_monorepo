@@ -1,4 +1,4 @@
-import inspect
+import argparse
 import multiprocessing
 import os
 import sys
@@ -14,7 +14,7 @@ from . import retriever_config_file_path
 
 logger = get_ht_logger(name=__name__)
 
-current = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+current = os.path.dirname(os.path.abspath(__file__))
 parent = os.path.dirname(current)
 sys.path.insert(0, parent)
 
@@ -25,7 +25,7 @@ MAX_WORKERS = 20
 
 
 class RetrieverServiceArguments:
-    def __init__(self, parser):
+    def __init__(self, parser: argparse.ArgumentParser) -> None:
         parser.add_argument(
             "--list_documents",
             help="List of items to process",
@@ -58,7 +58,14 @@ class RetrieverServiceArguments:
             if not app_config.is_file():
                 logger.error(f"Queue config file {app_config} does not exist")
                 sys.exit(1)
-            self.queue_config = QueueConfig(global_config, app_config, config_key="queue")
+            # importlib.resources.files() is typed as Traversable, which typeshed doesn't
+            # declare as PathLike -- but for these packages (regular installed directories,
+            # not zips) they are.
+            self.queue_config = QueueConfig(
+                global_config,  # type: ignore[arg-type]
+                app_config,  # type: ignore[arg-type]
+                config_key="queue",
+            )
             ########################################################
 
         except KeyError as e:
@@ -96,7 +103,7 @@ class RetrieverServiceArguments:
 
 
 class RetrieverServiceByFileArguments(RetrieverServiceArguments):
-    def __init__(self, parser):
+    def __init__(self, parser: argparse.ArgumentParser) -> None:
         parser.add_argument(
             "--input_document_file",
             help="TXT file containing the list of items to process",

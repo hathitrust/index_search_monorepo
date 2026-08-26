@@ -1,3 +1,5 @@
+from typing import Any
+
 from catalog_metadata.ht_indexer_config import MAX_ITEM_IDS
 from ht_utils.ht_logger import get_ht_logger
 
@@ -6,7 +8,7 @@ from .ht_mysql import HtMysql
 logger = get_ht_logger(name=__name__)
 
 
-def create_coll_id_field(large_coll_id_result: dict) -> dict:
+def create_coll_id_field(large_coll_id_result: list[dict[str, Any]]) -> dict[str, Any]:
     if len(large_coll_id_result) > 0:
         # Obtain the list with the unique coll_id from the result
         return {"coll_id": list(set([item.get("MColl_ID") for item in large_coll_id_result]))}
@@ -14,17 +16,17 @@ def create_coll_id_field(large_coll_id_result: dict) -> dict:
         return {"coll_id": [0]}
 
 
-def create_ht_heldby_brlm_field(heldby_brlm: list[tuple]) -> dict:
+def create_ht_heldby_brlm_field(heldby_brlm: list[dict[str, Any]]) -> dict[str, Any]:
     list_brl_members = [member_id.get("member_id") for member_id in heldby_brlm]
     return {"ht_heldby_brlm": list_brl_members}
 
 
-def create_ht_heldby_field(heldby_brlm: list[tuple]) -> dict:
+def create_ht_heldby_field(heldby_brlm: list[dict[str, Any]]) -> dict[str, Any]:
     list_brl_members = [member_id.get("member_id") for member_id in heldby_brlm]
     return {"ht_heldby": list_brl_members}
 
 
-def extract_namespace_and_id(document_id: str):
+def extract_namespace_and_id(document_id: str) -> tuple[str | None, str | None]:
     """
     Extracts the namespace and the id from a given document id string.
     The namespace is defined as the characters before the first period.
@@ -43,7 +45,7 @@ class MysqlMetadataExtractor:
     def __init__(self, db_conn: HtMysql):
         self.mysql_obj = db_conn
 
-    def add_large_coll_id_field(self, doc_id: str) -> [dict]:
+    def add_large_coll_id_field(self, doc_id: str) -> list[dict[str, Any]]:
         """
         Get the list of coll_ids for the given id that are large so those
         coll_ids can be added as <coll_id> fields of the Solr doc.
@@ -64,31 +66,31 @@ class MysqlMetadataExtractor:
         logger.info(f"MySQL query: {query_item_in_large_coll}")
         large_collection_id = self.mysql_obj.query_mysql(query_item_in_large_coll)
 
-        return large_collection_id
+        return large_collection_id or []
 
-    def add_rights_field(self, doc_id) -> list[tuple]:
+    def add_rights_field(self, doc_id: str) -> list[dict[str, Any]]:
 
         namespace, _id = extract_namespace_and_id(doc_id)
 
         query = f'SELECT * FROM rights_current WHERE namespace="{namespace}" AND id="{_id}"'
         logger.info(f"MySQL query: {query}")
-        return self.mysql_obj.query_mysql(query)
+        return self.mysql_obj.query_mysql(query) or []
 
-    def add_ht_heldby_field(self, doc_id) -> list[tuple]:
+    def add_ht_heldby_field(self, doc_id: str) -> list[dict[str, Any]]:
         query = f'SELECT member_id FROM holdings_htitem_htmember WHERE volume_id="{doc_id}"'
 
         logger.info(f"MySQL query: {query}")
         # ht_heldby is a list of institutions
-        return self.mysql_obj.query_mysql(query)
+        return self.mysql_obj.query_mysql(query) or []
 
-    def add_heldby_brlm_field(self, doc_id) -> list[tuple]:
+    def add_heldby_brlm_field(self, doc_id: str) -> list[dict[str, Any]]:
         query = f'SELECT member_id FROM holdings_htitem_htmember WHERE volume_id="{doc_id}" AND access_count > 0'
 
         logger.info(f"MySQL query: {query}")
-        return self.mysql_obj.query_mysql(query)
+        return self.mysql_obj.query_mysql(query) or []
 
-    def retrieve_mysql_data(self, doc_id):
-        entry = {}
+    def retrieve_mysql_data(self, doc_id: str) -> dict[str, Any]:
+        entry: dict[str, Any] = {}
         logger.info(f"Retrieving data from MySql {doc_id}")
 
         doc_rights = self.add_rights_field(doc_id)
@@ -98,7 +100,7 @@ class MysqlMetadataExtractor:
             entry.update({"rights": doc_rights[0].get("attr")})
 
         # TODO: Avoid indexing holdings data in full-text search right now -> We'll revision this decision as a different epic
-        '''
+        """
         # It is a list of members, if the query result is empty, the field does not appear in Solr index
         ht_heldby = self.add_ht_heldby_field(doc_id)
         if len(ht_heldby) > 0:
@@ -110,7 +112,7 @@ class MysqlMetadataExtractor:
         if len(heldby_brlm) > 0:
             entry.update(create_ht_heldby_brlm_field(heldby_brlm))
         
-        '''
+        """
         # It is a list of coll_id, if the query result is empty, the value of this field in Solr index will be [0]
         large_coll_id_result = self.add_large_coll_id_field(doc_id)
         entry.update(create_coll_id_field(large_coll_id_result))

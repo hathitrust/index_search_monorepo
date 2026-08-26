@@ -4,7 +4,7 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import IO, Any
 
-from pymarc import Field, Record, Subfield
+from pymarc import Field, Indicators, Record, Subfield
 
 from ht_utils.ht_logger import get_ht_logger
 
@@ -33,7 +33,7 @@ class MarcJsonReader:
             yield data
 
 
-def dict_to_pymarc_record(data: dict) -> Record:
+def dict_to_pymarc_record(data: dict[str, Any]) -> Record:
     """
     Convert a dictionary representation of a MARC record
     into a pymarc Record object.
@@ -55,7 +55,7 @@ def dict_to_pymarc_record(data: dict) -> Record:
             continue
 
         # Data fields
-        indicators = [value.get("ind1", " "), value.get("ind2", " ")]
+        indicators = Indicators(value.get("ind1", " "), value.get("ind2", " "))
 
         # Flatten subfields: [{'a': 'x'}, {'b': 'y'}] → ['a', 'x', 'b', 'y']
         subfields = []
@@ -113,5 +113,5 @@ def extract_control_number(record: Record) -> str:
     """
     field = record.get_fields("001")
     if field:
-        return field[0].value()
+        return str(field[0].value())
     return ""

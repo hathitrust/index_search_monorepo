@@ -16,7 +16,7 @@ class TestQueueManager:
         self,
         get_global_queue_config: dict[str, Any],
         get_app_queue_config: dict[str, Any],
-        get_rabbit_mq_host_name,
+        get_rabbit_mq_host_name: str,
     ) -> None:
         """Test that the queue does not exist before publishing messages.
         :param get_global_queue_config: fixture to get the global queue configuration
@@ -51,7 +51,9 @@ class TestQueueManager:
         result = queue_manager.is_ready(channel)
         assert result is False
 
+        assert channel is not None
         assert channel.is_closed
+        assert channel_creator.connection.queue_connection is not None
         channel_creator.connection.queue_connection.close()
 
         # Cleanup

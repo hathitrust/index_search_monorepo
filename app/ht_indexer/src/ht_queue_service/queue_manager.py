@@ -1,8 +1,9 @@
 import pika
-from ht_queue_service.queue_config import QueueParams
 from ht_utils.ht_logger import get_ht_logger
-from pika.channel import Channel
+from pika.adapters.blocking_connection import BlockingChannel
 from pika.exceptions import ChannelClosedByBroker
+
+from ht_queue_service.queue_config import QueueParams
 
 logger = get_ht_logger(name=__name__)
 
@@ -43,13 +44,15 @@ class QueueManager:
         self.batch_size = queue_params.batch_size
         self.dead_letter_queue_name = queue_params.dlx_queue_name
 
-    def is_ready(self, channel: Channel = None) -> bool:
+    def is_ready(self, channel: BlockingChannel | None = None) -> bool:
         """
         Check if a queue exists in RabbitMQ.
         :return: True if the queue exists, False otherwise.
         IMPORTANT: The channel will be closed if the queue doesn't exist or is declared with different options.
         — I must open a new one.
         """
+        if channel is None:
+            return False
         ch = channel
         try:
             ch.queue_declare(queue=self.queue_name, durable=self.durable, passive=True)
@@ -61,7 +64,7 @@ class QueueManager:
             logger.warning(f"Queue {self.queue_name} not ready or misconfigured: {e}")
             return False
 
-    def set_up_queue(self, channel: Channel = None) -> None:
+    def set_up_queue(self, channel: BlockingChannel | None = None) -> None:
         """
         Create the exchange, dead-letter exchange, and queue in RabbitMQ if they do not exist.
 
@@ -76,6 +79,8 @@ class QueueManager:
         :return: None.
         :raises ChannelClosedByBroker: If the queue does not exist or is declared with different options.
         """
+        if channel is None:
+            raise RuntimeError("Cannot set up queue: no RabbitMQ channel is available")
 
         ch = channel
 
@@ -142,7 +147,7 @@ class QueueManager:
         try:
             # Use passive=True to avoid creating a queue if it doesn't exist
             status = channel.queue_declare(queue=self.queue_name, durable=True, passive=True)
-            return status.method.message_count
+            return status.method.message_count or 0
         # This exception will catch the issue when the queue does not exist or the queue
         # is declared with different arguments or some permission issue.
         except pika.exceptions.ChannelClosedByBroker as e:

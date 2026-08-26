@@ -2,6 +2,7 @@ import argparse
 import json
 import time
 from pathlib import Path
+from typing import Any
 
 from ht_document.ht_document import HtDocument
 from ht_queue_service.queue_consumer import QueueConsumer
@@ -11,6 +12,7 @@ from ht_utils.ht_utils import get_error_message_by_document, get_general_error_m
 
 from .full_text_document_generator import FullTextDocumentGenerator
 from .generator_arguments import GeneratorServiceArguments
+from .ht_mysql import HtMysql
 
 logger = get_ht_logger(name=__name__)
 
@@ -18,10 +20,10 @@ logger = get_ht_logger(name=__name__)
 class DocumentGeneratorService:
     def __init__(
         self,
-        db_conn,
+        db_conn: HtMysql,
         src_queue_consumer: QueueConsumer,
         tgt_queue_producer: QueueProducer | None,
-        document_repository: str = None,
+        document_repository: str = "pairtree",
         tgt_local: bool = False,
     ):
         """
@@ -41,10 +43,14 @@ class DocumentGeneratorService:
 
         self.src_queue_consumer = src_queue_consumer
         self.document_repository = document_repository
-        if not tgt_local:
-            self.tgt_queue_producer = tgt_queue_producer
+        # Always set, even when tgt_local -- previously this attribute was only assigned in
+        # the `not tgt_local` branch, so a tgt_local instance would raise AttributeError the
+        # first time publish_document() ran instead of failing predictably.
+        self.tgt_queue_producer = tgt_queue_producer if not tgt_local else None
 
-    def generate_full_text_entry(self, item_id: str, record: dict, document_repository: str):
+    def generate_full_text_entry(
+        self, item_id: str, record: dict[str, Any], document_repository: str
+    ) -> dict[str, Any]:
 
         start_time = time.time()
         logger.info(f"Generating document {item_id}")
@@ -80,15 +86,21 @@ class DocumentGeneratorService:
 
         return entry
 
-    def publish_document(self, content: dict = None):
+    def publish_document(self, content: dict[str, Any] | None = None) -> None:
         """
         Publish the document in a queue
         """
+        if content is None:
+            raise ValueError("content is required")
+        if self.tgt_queue_producer is None:
+            raise RuntimeError("publish_document called on a tgt_local instance")
         message = content
         logger.info(f"Sending message to queue {content.get('id')}")
         self.tgt_queue_producer.publish_messages(message)
 
-    def log_error_document_generator_service(self, e, document, delivery_tag):
+    def log_error_document_generator_service(
+        self, e: Exception, document: dict[str, Any], delivery_tag: int
+    ) -> None:
         """
         Log the error message when the document could not be generated and reject the message requeeing the message
         to the dead letter queue
@@ -96,9 +108,11 @@ class DocumentGeneratorService:
         error_info = get_error_message_by_document("DocumentGeneratorService", e, document)
 
         logger.error(f"Document {document.get('ht_id')} failed {error_info}")
+        if self.src_queue_consumer.channel is None:
+            raise RuntimeError("Unable to establish a RabbitMQ channel")
         self.src_queue_consumer.reject_message(self.src_queue_consumer.channel, delivery_tag)
 
-    def consume_messages(self):
+    def consume_messages(self) -> None:
         try:
             for method_frame, _properties, body in self.src_queue_consumer.consume_message():
                 if method_frame:
@@ -110,12 +124,14 @@ class DocumentGeneratorService:
                 f"{get_general_error_message('DocumentGeneratorService', e)}"
             )
 
-    def generate_document(self, message: dict, delivery_tag: int):
-
-        item_id = message.get("ht_id")
+    def generate_document(self, message: dict[str, Any], delivery_tag: int) -> None:
 
         # try to generate the full text entry dictionary, if it fails, the message is rejected
         try:
+            item_id = message.get("ht_id")
+            if item_id is None:
+                raise ValueError("message is missing 'ht_id'")
+
             full_text_document = self.generate_full_text_entry(
                 item_id, message, self.document_repository
             )
@@ -125,6 +141,8 @@ class DocumentGeneratorService:
             self.publish_document(full_text_document)
             # Acknowledge the message to src_queue if the message is processed successfully and published in
             # the other queue
+            if self.src_queue_consumer.channel is None:
+                raise RuntimeError("Unable to establish a RabbitMQ channel")
             self.src_queue_consumer.positive_acknowledge(
                 self.src_queue_consumer.channel, delivery_tag
             )
@@ -132,7 +150,7 @@ class DocumentGeneratorService:
             self.log_error_document_generator_service(e, message, delivery_tag)
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser()
     init_args_obj = GeneratorServiceArguments(parser)
 

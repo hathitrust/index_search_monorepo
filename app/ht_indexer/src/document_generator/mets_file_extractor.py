@@ -1,5 +1,6 @@
 import argparse
 from pathlib import Path
+from typing import Any
 
 from ht_utils.ht_logger import get_ht_logger
 from lxml import etree
@@ -8,12 +9,12 @@ logger = get_ht_logger(name=__name__)
 
 
 class MetsAttributeExtractor:
-    def __init__(self, path):
+    def __init__(self, path: str):
         self.tree = etree.parse(path)
         self.namespace = self.tree.getroot().nsmap
 
-    def create_mets_map(self) -> dict:
-        mets_map = {}
+    def create_mets_map(self) -> dict[str, Any]:
+        mets_map: dict[str, Any] = {}
 
         # TODO Remove hardcode Use the namespace dictionary to find the element
 
@@ -32,10 +33,10 @@ class MetsAttributeExtractor:
 
         return mets_map
 
-    def get_reading_order(self):
+    def get_reading_order(self) -> dict[str, Any]:
         # Extract from MET.xml file
 
-        reading_order_info = {}
+        reading_order_info: dict[str, Any] = {}
 
         # TODO Remove hardcode Use the namespace dictionary to find the element
         xml_data_elem = self.tree.find(".//{http://www.loc.gov/METS/}xmlData")
@@ -50,7 +51,7 @@ class MetsAttributeExtractor:
         return reading_order_info
 
     @staticmethod
-    def get_unique_features(mets_map):
+    def get_unique_features(mets_map: dict[str, Any]) -> list[str]:
         all_features = []
         for _key, value in mets_map.items():
             if "," in value.get("features"):
@@ -60,7 +61,7 @@ class MetsAttributeExtractor:
                 all_features.append(value.get("features").strip(""))
         return list(set(all_features))
 
-    def create_mets_entry(self):
+    def create_mets_entry(self) -> dict[str, Any]:
         logger.info("Creating METS map")
         mets_map = self.create_mets_map()
 
@@ -86,7 +87,7 @@ class MetsAttributeExtractor:
         }
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--doc_id", help="document ID", required=True, default=None)
 
@@ -101,7 +102,7 @@ def main():
 
     mets_entry = mets_obj.create_mets_entry()
 
-    logger.info(mets_entry.get("METS_maps").get("ht_page_feature"))
+    logger.info(mets_entry.get("METS_maps", {}).get("ht_page_feature"))
 
 
 if __name__ == "__main__":

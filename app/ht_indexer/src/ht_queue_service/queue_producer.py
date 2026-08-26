@@ -1,14 +1,16 @@
 # producer
 import json
 import threading
-from typing import Any
+from typing import Any, cast
 
 import pika.exceptions
+from ht_utils.ht_logger import get_ht_logger
+from ht_utils.ht_utils import get_queue_message_id
+from pika.adapters.blocking_connection import BlockingChannel
+
 from ht_queue_service.channel_creator import ChannelCreator
 from ht_queue_service.queue_config import QueueParams
 from ht_queue_service.queue_manager import QueueManager
-from ht_utils.ht_logger import get_ht_logger
-from ht_utils.ht_utils import get_queue_message_id
 
 logger = get_ht_logger(name=__name__)
 
@@ -73,7 +75,7 @@ class QueueProducer:
             logger.warning("Queue setup not ready. Initializing channel and setup.")
             self.queue_reconnect()
 
-    def _get_thread_channel(self):
+    def _get_thread_channel(self) -> BlockingChannel | None:
         """
         Get a thread-local channel. Creates one if it doesn't exist for this thread.
         For single-threaded usage (main thread), returns the original self.channel for compatibility.
@@ -95,7 +97,7 @@ class QueueProducer:
             # Set up queue for this thread's channel
             self.queue_manager.set_up_queue(self._thread_local.channel)
 
-        return self._thread_local.channel
+        return cast(BlockingChannel | None, self._thread_local.channel)
 
     def _thread_reconnect(self) -> None:
         """
@@ -174,9 +176,11 @@ class QueueProducer:
                 )
                 self._thread_reconnect()
                 channel = self._get_thread_channel()
+            if channel is None:
+                raise RuntimeError("Unable to establish a RabbitMQ channel")
 
             try:
-                body = json.dumps(queue_message)
+                body = json.dumps(queue_message).encode("utf-8")
             except (TypeError, ValueError) as json_err:
                 logger.error(
                     f"Failed to serialize message {queue_message.get('ht_id')}: {json_err}",

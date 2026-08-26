@@ -7,14 +7,14 @@ from pypairtree import pairtree
 os.environ["SDR_DIR"] = f"{Path(__file__).parents[1]}/data/document_generator"
 
 
-def test_get_document_pair_path():
+def test_get_document_pair_path() -> None:
     doc_name = "39015051333915"
 
     path = pairtree.get_pair_path(doc_name)
     assert path == "/39/01/50/51/33/39/15/39015051333915"
 
 
-def test_get_document_pairtree_path():
+def test_get_document_pairtree_path() -> None:
     namespace, obj = "uc2.ark:/13960/t4mk66f1d".split(".")
 
     sanitized_str = pairtree.sanitizeString(obj)
@@ -22,17 +22,17 @@ def test_get_document_pairtree_path():
     assert path == "/ar/k+/=1/39/60/=t/4m/k6/6f/1d/ark+=13960=t4mk66f1d"
 
 
-def test_get_namespace():
+def test_get_namespace() -> None:
     namespace = HtDocument.get_namespace("uc2.ark:/13960/t4mk66f1d")
     assert namespace == "uc2"
 
 
-def test_get_object_id():
+def test_get_object_id() -> None:
     object_id = HtDocument.get_object_id("uc2.ark:/13960/t4mk66f1d")
     assert object_id == "ark:/13960/t4mk66f1d"
 
 
-def test_colon_name_pattern():
+def test_colon_name_pattern() -> None:
     """Test the pattern with a colon in the name
     Check if the namespace, object id and pairtree path are correctly extracted
     """
@@ -57,7 +57,7 @@ def test_colon_name_pattern():
     )
 
 
-def test_document_several_points():
+def test_document_several_points() -> None:
     document_id = "miun.adh1541.0001.001"
 
     namespace = HtDocument.get_namespace(document_id)
@@ -67,7 +67,7 @@ def test_document_several_points():
     assert obj_id == "adh1541.0001.001"
 
 
-def test_raise_document_id_exception():
+def test_raise_document_id_exception() -> None:
     try:
         HtDocument.get_object_id("miun")
     except ValueError as e:
@@ -77,11 +77,11 @@ def test_raise_document_id_exception():
         )
 
 
-def test_pairpath_document_several_points():
+def test_pairpath_document_several_points() -> None:
     assert "miun,adh1541,0001,001" == pairtree.sanitizeString("miun.adh1541.0001.001")
 
 
-def test_document_filesystem_folder():
+def test_document_filesystem_folder() -> None:
     # TODO: USE a data_sample folder to  check the source_path
     ht_doc = HtDocument(document_id="mb.39015078560292_test")
 

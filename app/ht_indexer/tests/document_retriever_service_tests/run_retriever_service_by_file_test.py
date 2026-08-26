@@ -2,6 +2,7 @@ import json
 import os
 import tempfile
 from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
@@ -17,7 +18,7 @@ current_dir = Path(__file__).parent
 
 
 @pytest.fixture()
-def get_input_file():
+def get_input_file() -> Path:
     """TXT file containing the list of items to process"""
     file_path = current_dir.parent / "list_htids_indexer_test.txt"
 
@@ -25,14 +26,14 @@ def get_input_file():
 
 
 @pytest.fixture()
-def get_status_file():
+def get_status_file() -> str:
     """Creates and returns a temporary TXT file to store the status of items to process"""
     tmpfile_status = tempfile.NamedTemporaryFile(mode="w+", delete=False)
     return tmpfile_status.name
 
 
 class TestRunRetrieverServiceByFile:
-    def test_get_non_processed_ids(self, get_input_file, get_status_file):
+    def test_get_non_processed_ids(self, get_input_file: Path, get_status_file: str) -> None:
         with open(get_input_file) as f:
             list_ids = f.read().splitlines()
 
@@ -42,13 +43,13 @@ class TestRunRetrieverServiceByFile:
 
     def test_run_retriever_service_by_file(
         self,
-        get_input_file,
-        get_status_file,
-        solr_catalog_url,
-        get_retriever_service_solr_parameters,
-        get_global_queue_config,
-        get_app_queue_config,
-    ):
+        get_input_file: Path,
+        get_status_file: str,
+        solr_catalog_url: str,
+        get_retriever_service_solr_parameters: dict[str, Any],
+        get_global_queue_config: dict[str, Any],
+        get_app_queue_config: dict[str, Any],
+    ) -> None:
         queue_name = "test_run_retriever_service_by_file"
         batch_size = 1
         requeue_message = False
@@ -77,8 +78,9 @@ class TestRunRetrieverServiceByFile:
         )
 
         consumer_instance = QueueConsumer(producer_queue_config.queue_params)
+        assert consumer_instance.channel is not None
 
-        list_output_messages = []
+        list_output_messages: list[str] = []
         # Service to consume the message
         for method_frame, _properties, body in consumer_instance.consume_message(
             inactivity_timeout=5
@@ -113,6 +115,7 @@ class TestRunRetrieverServiceByFile:
         )
 
         consumer_instance.channel.close()
+        assert consumer_instance.channel_creator.connection.queue_connection is not None
         consumer_instance.channel_creator.connection.queue_connection.close()
 
         # Delete the temporary files
