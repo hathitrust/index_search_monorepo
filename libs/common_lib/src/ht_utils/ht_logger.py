@@ -16,13 +16,5 @@ def get_ht_logger(name: str = __name__, log_level: int | str = logging.INFO) -> 
     logger = logging.getLogger(name)
 
     # set the logging level based on the user selection
-    if log_level == "INFO":
-        logger.setLevel(logging.INFO)
-    elif log_level == "ERROR":
-        logger.setLevel(logging.ERROR)
-    elif log_level == "DEBUG":
-        logger.setLevel(logging.DEBUG)
-    elif log_level == "WARNING":
-        logger.setLevel(logging.WARNING)
     logger.setLevel(log_level)
     return logger

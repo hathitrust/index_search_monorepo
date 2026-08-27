@@ -17,9 +17,6 @@ CATALOG_SOLR_URL = {"dev": "http://localhost:9033", "prod": "http://localhost:90
 FULL_TEXT_SEARCH_SHARDS_X = ",".join(
     [f"http://solr-sdr-search-{i}:8081/solr/core-{i}x" for i in range(1, 12)]
 )
-FULL_TEXT_SEARCH_SHARDS_Y = ",".join(
-    [f"http://solr-sdr-search-{i}:8081/solr/core-{i}y" for i in range(1, 12)]
-)
 
 QUERY_PARAMETER_CONFIG_FILE = os.path.join(
     current_dir, "config_files", "full_text_search", "config_query.yaml"

@@ -48,7 +48,6 @@ class HTSearchQuery:
                 f"File {config_facet_field} to get the filters does not exist. Exception: {e}"
             )
             self.solr_facet_filters = {}  # Empty dictionary
-            pass
 
         self.user_id = user_id  # parameter used to set up the filters
 

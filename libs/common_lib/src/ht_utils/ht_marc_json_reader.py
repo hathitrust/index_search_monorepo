@@ -6,10 +6,6 @@ from typing import IO, Any
 
 from pymarc import Field, Indicators, Record, Subfield
 
-from ht_utils.ht_logger import get_ht_logger
-
-logger = get_ht_logger(name=__name__)
-
 
 class MarcJsonReader:
     """Class to read multiple newline delimited JSON files
@@ -94,9 +90,6 @@ def iter_marc_records(path: Path) -> Iterator[Record]:
     # MarcJsonReader expects a text file-like object, so we open the gzipped file in text mode (rt) with UTF-8 encoding.
     with gzip.open(path, "rt", encoding="utf-8", errors="ignore") as fh:
         for record in MarcJsonReader(fh):
-            if record is None:
-                logger.warning("Skipped malformed MARC JSON record while iterating %s", path)
-                continue
             yield dict_to_pymarc_record(record)
 
 

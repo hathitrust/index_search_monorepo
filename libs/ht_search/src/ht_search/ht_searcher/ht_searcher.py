@@ -160,8 +160,6 @@ class HTSearcher:
             exit()
         count_records = 0
         while count_records < total_records:
-            results: list[Any] = []
-
             query_dict.update({"start": start, "rows": rows})
 
             response = self.send_query(query_dict)
@@ -172,5 +170,4 @@ class HTSearcher:
 
             logger.info(f"Batch documents {count_records}")
             start += rows
-            logger.info(f"Result length {len(results)}")
             yield output

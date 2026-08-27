@@ -11,6 +11,7 @@ classifiers = [
 dependencies = [
     "lxml>=6.1.0,<7",
     "pandas>=3.0.2,<4",
+    "pypairtree>=1.1.0,<2",
     "mysqlclient>=2.2.8,<3",
     "mysql-connector-python>=9.6.0,<10",
     "mysql>=0.0.3,<0.0.4",
