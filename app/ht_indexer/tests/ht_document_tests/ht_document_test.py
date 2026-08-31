@@ -67,14 +67,13 @@ def test_document_several_points() -> None:
     assert obj_id == "adh1541.0001.001"
 
 
-def test_raise_document_id_exception() -> None:
-    try:
-        HtDocument.get_object_id("miun")
-    except ValueError as e:
-        assert (
-            str(e)
-            == "Review the document id miun not enough values to unpack (expected at least 2, got 1)"
-        )
+def test_document_id_without_a_dot_returns_empty_object_id() -> None:
+    # get_object_id used to raise ValueError here (this test used to assert that), but the
+    # current implementation slices document_id.split(".")[1:] instead of unpacking it, so a
+    # dot-less id like "miun" just produces an empty object id instead of raising. Whether that's
+    # the right behavior for a malformed document_id (vs. failing loudly) is an open question,
+    # flagged for follow-up rather than decided here.
+    assert HtDocument.get_object_id("miun") == ""
 
 
 def test_pairpath_document_several_points() -> None:

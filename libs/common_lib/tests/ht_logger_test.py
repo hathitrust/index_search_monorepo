@@ -9,7 +9,10 @@ class TestHTLogger:
         caplog.set_level("INFO", logger="my_log")
         my_log = get_ht_logger(name="my_log", log_level="INFO")
         my_log.info("We now log stdout")
-        assert 0 == 0
+
+        assert len(caplog.records) == 1
+        assert caplog.records[0].levelname == "INFO"
+        assert caplog.records[0].message == "We now log stdout"
 
     def test_error_log_file(self, caplog: pytest.LogCaptureFixture) -> None:
         caplog.set_level("WARNING", logger="my_error_log_warning")
@@ -18,7 +21,10 @@ class TestHTLogger:
             print(1 / 0)
         except ZeroDivisionError as e:
             my_log.error(f"Zero division Error {e}")
-        assert 0 == 0
+
+        assert len(caplog.records) == 1
+        assert caplog.records[0].levelname == "ERROR"
+        assert caplog.records[0].message == "Zero division Error division by zero"
 
     def test_error_log_stdout(self, caplog: pytest.LogCaptureFixture) -> None:
         caplog.set_level("ERROR", logger="my_error_log")
@@ -27,4 +33,7 @@ class TestHTLogger:
             print(1 / 0)
         except ZeroDivisionError as e:
             my_log.error(f"Zero division Error {e}")
-        assert 0 == 0
+
+        assert len(caplog.records) == 1
+        assert caplog.records[0].levelname == "ERROR"
+        assert caplog.records[0].message == "Zero division Error division by zero"

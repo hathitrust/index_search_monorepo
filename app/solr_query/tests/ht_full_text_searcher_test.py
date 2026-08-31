@@ -66,7 +66,10 @@ class TestHTFullTextSearcher:
         )
 
         for result in solr_results:
-            assert "author" in result["response"]["docs"]
-            assert "id" in result["response"]["docs"]
-            assert "title" in result["response"]["docs"]
+            docs = result["response"]["docs"]
+            assert len(docs) > 0
+            for doc in docs:
+                assert "author" in doc
+                assert "id" in doc
+                assert "title" in doc
             assert result["response"]["numFound"] > 1
