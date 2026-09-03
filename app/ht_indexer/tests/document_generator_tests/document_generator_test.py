@@ -5,7 +5,6 @@ from pathlib import Path
 from xml.sax.saxutils import quoteattr
 
 import pytest
-from _pytest.outcomes import Failed
 from document_generator.full_text_document_generator import FullTextDocumentGenerator
 from document_generator.mysql_data_extractor import extract_namespace_and_id
 from ht_utils.text_processor import string_preparation
@@ -36,13 +35,8 @@ def get_allfield_string() -> str:
 class TestDocumentGenerator:
     def test_not_exist_zip_file_full_text_field(self) -> None:
         """Test the function when the zip file does not exist"""
-        try:
-            with pytest.raises(FileNotFoundError):
-                FullTextDocumentGenerator.get_full_text_field(
-                    "../catalog_metadata_tests/data/test.zip"
-                )
-        except Failed:
-            pass
+        with pytest.raises(FileNotFoundError):
+            FullTextDocumentGenerator.get_full_text_field("../catalog_metadata_tests/data/test.zip")
 
     def test_full_text_field_well_generated(self) -> None:
         """
@@ -79,17 +73,6 @@ class TestDocumentGenerator:
                     if zip_doc.getinfo(i_file).filename.endswith(".txt"):
                         doc_str = string_preparation(zip_doc.read(i_file))
                         full_text = full_text + " " + doc_str
-
-    def test_full_text_field(self) -> None:
-        zip_path = (
-            f"{Path(__file__).parents[1]}/document_generator_tests/data/mb.39015078560292_test.zip"
-        )
-
-        try:
-            with pytest.raises(FileNotFoundError):
-                FullTextDocumentGenerator.get_full_text_field(zip_path)
-        except Failed:
-            assert 0 == 0
 
     def test_create_allfields_field(
         self, get_fullrecord_xml: str, get_allfield_string: str

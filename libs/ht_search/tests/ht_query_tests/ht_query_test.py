@@ -2,21 +2,6 @@ from ht_search.config_search import FACET_FILTERS_CONFIG_FILE, QUERY_PARAMETER_C
 from ht_search.ht_query.ht_query import HTSearchQuery
 
 
-def ht_search_query_object() -> HTSearchQuery:
-    """
-    Fixture that instantiates the HTFullTextQuery class
-    :return:
-    """
-
-    return HTSearchQuery(
-        config_query="all",
-        config_query_path=QUERY_PARAMETER_CONFIG_FILE,
-        user_id=None,
-        config_facet_field="all",
-        config_facet_field_path=FACET_FILTERS_CONFIG_FILE,
-    )
-
-
 class TestHTSearchQuery:
     def test_query_string_to_dict(self) -> None:
         assert HTSearchQuery.query_string_to_dict("q=*:*&start=0&rows=10&fl=id&indent=on") == {
@@ -71,7 +56,10 @@ class TestHTSearchQuery:
 
     def test_makey_any_work_query_string(self) -> None:
         query_string = "information retrieval"
-        assert "information OR retrieval" == query_string.replace(" ", " OR ")
+        assert HTSearchQuery.manage_string_query(query_string, operator="OR") == {
+            "q": "information OR retrieval",
+            "q.op": "OR",
+        }
 
     def test_query_filter_creator(self) -> None:
         expected_filter = "rights:(25 OR 15 OR 18 OR 1 OR 21 OR 23 OR 19 OR 13 OR 11 OR 20 OR 7 OR 10 OR 24 OR 14 OR 17 OR 22 OR 12)"
