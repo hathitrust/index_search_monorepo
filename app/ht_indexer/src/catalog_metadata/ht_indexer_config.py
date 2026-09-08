@@ -1,11 +1,8 @@
-import os
 from pathlib import Path
 
 from ht_utils.ht_utils import find_sdr1_obj
 
 MAX_ITEM_IDS = 1000
-
-MYQLS_METADATA = ["coll_id", "ht_heldby", "ht_heldby_brlm", "rights"]
 
 DOCUMENT_LOCAL_PATH = "/tmp/"
 
@@ -87,15 +84,3 @@ IDENTICAL_CATALOG_METADATA = [
     "era",
     "fullrecord",
 ]
-
-# indexer queue
-queue_host = os.getenv("QUEUE_HOST") if os.getenv("QUEUE_HOST") else "localhost"
-indexer_queue_name = "indexer_queue"
-retriever_queue_name = "retriever_queue"
-
-# False means that the message will be discarded from the queue and for our service they will be published
-# in a dead letter queue
-indexer_requeue_message = False
-# Default batch size for the indexer service determined running experiments on the indexer
-# service in the docker container
-indexer_batch_size = 100
