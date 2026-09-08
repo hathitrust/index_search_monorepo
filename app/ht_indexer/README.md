@@ -424,10 +424,10 @@ not from the queue.
 
 ### Processing documents reading the list of ids from a file
 
-The file is created using the Catalog index. The file contains the list of documents to be processed, and it is stored
-in the root of this repository by default. E.g. ~/ht_indexer/filter_ids.txt.
+Provide a plain-text file containing one HathiTrust item ID per line. This file is not included in the
+repository — operators must supply their own file (for example, generated from a Catalog Solr query).
 
-```docker compose exec document_retriever python document_retriever_service/run_retriever_service_by_file.py```
+```docker compose exec document_retriever python document_retriever_service/run_retriever_service_by_file.py --input_document_file /path/to/your/htids.txt```
 
 ## Tests
 
@@ -499,8 +499,10 @@ In the image below, you can see the main kubernetes parts running in this workfl
     * Run the python script to retrieve documents from Catalog given a list of ht_ids stored in a file
       ```
       python src/document_retriever_service/run_retriever_service_by_file.py --query_field item
-            --input_document_file filter_ids.txt
+            --input_document_file /path/to/your/htids.txt
       ```
+      Provide a plain-text file containing one HathiTrust item ID per line. This file is not included
+      in the repository.
     * Run the command below to get a shell on the document_generator service
         ``` 
           kubectl -n fulltext-workshop exec deployment/document-generator -ti /bin/bash
@@ -554,13 +556,14 @@ In the image below, you can see the main kubernetes parts running in this workfl
 
 1. Indexing one million of documents in the Solr server
 
-The file document_retriever_service/1_million_filter_ids.txt contains a list of 1 million of ht_id to be indexed in the
-Solr server. The file is generated querying the Catalog index and using the script get_list_ids_from_Solr_results.py
-implemented in the repository `ht_full_text_search`.
+Generate a list of 1 million ht_ids by querying the Catalog index (for example, with the
+`get_list_ids_from_Solr_results.py` script in the `ht_full_text_search` repository) and save it to a
+plain-text file with one ht_id per line. The file is not included in this repository — operators must
+supply their own.
 
 The command used to retrieve the documents from Catalog index is:
 
-```python document_retriever_service/run_retriever_service_by_file.py --query_field item --input_document_file 1_million_filter_ids.txt
+```python document_retriever_service/run_retriever_service_by_file.py --query_field item --input_document_file /path/to/your/htids.txt
 ```
 
 This experiment will do in the Kubernetes cluster.
@@ -608,7 +611,7 @@ These use cases have been created for experimental purposes. They are not used i
 #### Retrieving files from pairtree-based repository
 
 `python ~/ht_indexer/document_retriever_service/full_text_search_retriever_by_file.py
---list_ids_path /Users/lisepul/Documents/repositories/python/ht_indexer/filter_ids.txt`
+--list_ids_path /path/to/your/htids.txt`
 
 #### Indexing the documents in full-text search index
 
