@@ -1,7 +1,5 @@
 import argparse
 import json
-import os
-import sys
 from collections.abc import Generator
 from dataclasses import dataclass
 from datetime import datetime
@@ -12,10 +10,6 @@ from ht_utils.ht_logger import get_ht_logger
 from ht_utils.ht_mysql import HtMysql, get_mysql_conn
 
 from ht_indexer_monitoring.monitoring_arguments import MonitoringServiceArguments
-
-current = os.path.dirname(os.path.abspath(__file__))
-parent = os.path.dirname(current)
-sys.path.insert(0, parent)
 
 logger = get_ht_logger(name=__name__)
 

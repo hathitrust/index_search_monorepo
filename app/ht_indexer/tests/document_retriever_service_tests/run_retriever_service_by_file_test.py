@@ -1,13 +1,15 @@
+import argparse
 import json
 import os
 import tempfile
 from pathlib import Path
 from typing import Any
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from conftest import create_test_queue_config
 from document_retriever_service.ht_status_retriever_service import get_non_processed_ids
+from document_retriever_service.retriever_arguments import RetrieverServiceByFileArguments
 from document_retriever_service.run_retriever_service_by_file import retrieve_documents_by_file
 from ht_queue_service.queue_consumer import QueueConsumer
 from ht_utils.ht_logger import get_ht_logger
@@ -121,3 +123,65 @@ class TestRunRetrieverServiceByFile:
         # Delete the temporary files
         os.remove(global_path)
         os.remove(app_path)
+
+    def test_retriever_by_file_arguments_status_file_default_not_in_src_package_dir(
+        self,
+    ) -> None:
+        # Arrange: create a real temporary file to satisfy --input_document_file validation
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
+            tmp_input = f.name
+
+        test_argv = [
+            "run_retriever_service_by_file",
+            "--input_document_file",
+            tmp_input,
+        ]
+        src_package_dir = str(Path(__file__).parents[2] / "src" / "document_retriever_service")
+
+        # Act
+        with (
+            patch("sys.argv", test_argv),
+            patch.dict(os.environ, {"SOLR_URL": "http://fake-solr:8983/solr/core-x/"}),
+            patch("document_retriever_service.retriever_arguments.QueueConfig"),
+            patch(
+                "document_retriever_service.retriever_arguments.get_mysql_conn",
+                return_value=MagicMock(),
+            ),
+        ):
+            parser = argparse.ArgumentParser()
+            init_args_obj = RetrieverServiceByFileArguments(parser)
+
+        # Assert
+        assert not init_args_obj.status_file.startswith(src_package_dir)
+
+    def test_retriever_by_file_arguments_status_file_overridable_via_cli(
+        self,
+    ) -> None:
+        # Arrange
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
+            tmp_input = f.name
+        custom_status = "/tmp/my_custom_status.txt"
+
+        test_argv = [
+            "run_retriever_service_by_file",
+            "--input_document_file",
+            tmp_input,
+            "--status_file",
+            custom_status,
+        ]
+
+        # Act
+        with (
+            patch("sys.argv", test_argv),
+            patch.dict(os.environ, {"SOLR_URL": "http://fake-solr:8983/solr/core-x/"}),
+            patch("document_retriever_service.retriever_arguments.QueueConfig"),
+            patch(
+                "document_retriever_service.retriever_arguments.get_mysql_conn",
+                return_value=MagicMock(),
+            ),
+        ):
+            parser = argparse.ArgumentParser()
+            init_args_obj = RetrieverServiceByFileArguments(parser)
+
+        # Assert
+        assert init_args_obj.status_file == custom_status

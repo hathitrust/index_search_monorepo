@@ -2,6 +2,7 @@ import argparse
 import multiprocessing
 import os
 import sys
+import tempfile
 
 from config import config_queue_file_path
 from ht_indexer_monitoring.ht_indexer_tracktable import PROCESSING_STATUS_TABLE_NAME
@@ -13,10 +14,6 @@ from ht_utils.ht_utils import comma_separated_list, get_general_error_message, g
 from . import retriever_config_file_path
 
 logger = get_ht_logger(name=__name__)
-
-current = os.path.dirname(os.path.abspath(__file__))
-parent = os.path.dirname(current)
-sys.path.insert(0, parent)
 
 SOLR_ROW_START = 0
 SOLR_TOTAL_ROWS = 200
@@ -109,6 +106,11 @@ class RetrieverServiceByFileArguments(RetrieverServiceArguments):
             help="TXT file containing the list of items to process",
             default="",
         )
+        parser.add_argument(
+            "--status_file",
+            help="Path to the file used to track which document IDs have been processed.",
+            default=os.path.join(tempfile.gettempdir(), "document_retriever_status.txt"),
+        )
 
         super().__init__(parser)
 
@@ -116,3 +118,4 @@ class RetrieverServiceByFileArguments(RetrieverServiceArguments):
         if not os.path.isfile(self.input_documents_file):
             logger.error(f"File {self.input_documents_file} does not exist")
             sys.exit(1)
+        self.status_file: str = self.args.status_file
