@@ -1,10 +1,8 @@
 import copy
 import os
-import sys
 from typing import Any
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, current_dir)
 
 # Full-text search config parameters
 FULL_TEXT_SOLR_URL = {
