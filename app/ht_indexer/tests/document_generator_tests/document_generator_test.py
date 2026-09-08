@@ -1,5 +1,3 @@
-import os
-import sys
 import zipfile
 from pathlib import Path
 from xml.sax.saxutils import quoteattr
@@ -8,10 +6,6 @@ import pytest
 from document_generator.full_text_document_generator import FullTextDocumentGenerator
 from document_generator.mysql_data_extractor import extract_namespace_and_id
 from ht_utils.text_processor import string_preparation
-
-current = os.path.dirname(os.path.abspath(__file__))
-parent = os.path.dirname(current)
-sys.path.insert(0, parent)
 
 
 @pytest.fixture()
