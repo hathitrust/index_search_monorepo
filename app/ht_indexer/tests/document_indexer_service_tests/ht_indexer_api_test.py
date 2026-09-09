@@ -40,7 +40,7 @@ class TestHTSolrAPI:
         mock_response.status_code = 200
         mock_post.return_value = mock_response
 
-        document_path = Path(__file__).parents[2] / "src" / "ht_indexer_api" / "data" / "add"
+        document_path = Path(__file__).parent / "data" / "add"
         list_documents = ["39015078560292_solr_full_text.xml"]
 
         # Act

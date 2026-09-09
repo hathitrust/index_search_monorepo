@@ -1,5 +1,24 @@
+# Include here any files or directories that should be ignored by Git with a complete monorepo set
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.Python
+
+# Virtual environments
+.venv/
+venv/
+
+# Tooling caches
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+coverage.xml
+
+# OS / editors
 .DS_Store
-.idea
-src/ht_indexer_api/__pycache__
+.idea/
 .vscode/
 .devcontainer/

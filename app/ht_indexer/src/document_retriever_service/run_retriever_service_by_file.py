@@ -2,7 +2,6 @@
 
 import argparse
 import os
-import sys
 import time
 from pathlib import Path
 from typing import Any
@@ -17,10 +16,6 @@ from document_retriever_service.full_text_search_retriever_service import (
 )
 from document_retriever_service.ht_status_retriever_service import get_non_processed_ids
 from document_retriever_service.retriever_arguments import RetrieverServiceByFileArguments
-
-current = os.path.dirname(os.path.abspath(__file__))
-parent = os.path.dirname(current)
-sys.path.insert(0, parent)
 
 
 def retrieve_documents_by_file(
@@ -106,9 +101,6 @@ def main() -> None:
 
     init_args_obj = RetrieverServiceByFileArguments(parser)
 
-    # TODO: Review the logic of the status file
-    status_file = os.path.join(current, "document_retriever_status.txt")
-
     retrieve_documents_by_file(
         init_args_obj.queue_config.queue_params,
         init_args_obj.query_field,
@@ -117,7 +109,7 @@ def main() -> None:
         init_args_obj.solr_password,
         init_args_obj.solr_retriever_query_params,
         init_args_obj.input_documents_file,
-        status_file,
+        init_args_obj.status_file,
         init_args_obj.parallelize,
         init_args_obj.db_conn,
         init_args_obj.max_workers,

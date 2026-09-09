@@ -1,13 +1,16 @@
+import argparse
 import json
 import os
 import tempfile
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from conftest import create_test_queue_config
 from document_retriever_service.ht_status_retriever_service import get_non_processed_ids
+from document_retriever_service.retriever_arguments import RetrieverServiceByFileArguments
 from document_retriever_service.run_retriever_service_by_file import retrieve_documents_by_file
 from ht_queue_service.queue_consumer import QueueConsumer
 from ht_utils.ht_logger import get_ht_logger
@@ -30,6 +33,27 @@ def get_status_file() -> str:
     """Creates and returns a temporary TXT file to store the status of items to process"""
     tmpfile_status = tempfile.NamedTemporaryFile(mode="w+", delete=False)
     return tmpfile_status.name
+
+
+@pytest.fixture
+def stub_retriever_external_services(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """Isolate RetrieverServiceArguments from Solr/MySQL/queue config."""
+    monkeypatch.setenv("SOLR_URL", "http://fake-solr:8983/solr/core-x/")
+    with (
+        patch("document_retriever_service.retriever_arguments.QueueConfig"),
+        patch(
+            "document_retriever_service.retriever_arguments.get_mysql_conn",
+            return_value=MagicMock(),
+        ),
+    ):
+        yield
+
+
+@pytest.fixture
+def temp_input_file(tmp_path: Path) -> str:
+    f = tmp_path / "htids.txt"
+    f.write_text("")
+    return str(f)
 
 
 class TestRunRetrieverServiceByFile:
@@ -121,3 +145,51 @@ class TestRunRetrieverServiceByFile:
         # Delete the temporary files
         os.remove(global_path)
         os.remove(app_path)
+
+    def test_retriever_by_file_arguments_status_file_default_not_in_src_package_dir(
+        self, temp_input_file: str, stub_retriever_external_services: MagicMock
+    ) -> None:
+
+        # Arrange
+        src_package_dir = str(Path(__file__).parents[2] / "src" / "document_retriever_service")
+
+        parser = argparse.ArgumentParser()
+        init_args_obj = RetrieverServiceByFileArguments(
+            parser, argv=["--input_document_file", temp_input_file]
+        )
+
+        # Assert
+        assert not init_args_obj.status_file.startswith(src_package_dir)
+
+    def test_retriever_by_file_arguments_status_file_overridable_via_cli(
+        self, temp_input_file: str, stub_retriever_external_services: MagicMock
+    ) -> None:
+
+        # Act
+        parser = argparse.ArgumentParser()
+        init_args_obj = RetrieverServiceByFileArguments(
+            parser,
+            argv=[
+                "--input_document_file",
+                temp_input_file,
+                "--status_file",
+                "/tmp/my_custom_status.txt",
+            ],
+        )
+
+        # Assert
+        assert init_args_obj.status_file == "/tmp/my_custom_status.txt"
+
+    def test_get_non_processed_ids_missing_status_file_returns_all_unprocessed(self) -> None:
+        # Arrange
+        missing = os.path.join(tempfile.gettempdir(), "does_not_exist_status.txt")
+        if os.path.exists(missing):
+            os.remove(missing)
+        list_ids = ["a", "b", "c"]
+
+        # Act
+        ids2process, processed_ids = get_non_processed_ids(missing, list_ids)
+
+        # Assert
+        assert processed_ids == []
+        assert sorted(ids2process) == ["a", "b", "c"]

@@ -1,7 +1,6 @@
 import argparse
 import copy
 import json
-import os
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -31,10 +30,6 @@ from document_retriever_service.retriever_arguments import RetrieverServiceArgum
 from document_retriever_service.retriever_services_utils import RetrieverServicesUtils
 
 logger = get_ht_logger(name=__name__)
-
-current = os.path.dirname(os.path.abspath(__file__))
-parent = os.path.dirname(current)
-sys.path.insert(0, parent)
 
 WAITING_TIME_QUEUE_PRODUCER = 180  # Wait 3 minutes to send documents in the queue
 WAITING_TIME_MYSQL = 60  # Wait 1 minute to query MySQL checking if there are documents to process (retriever_status = pending)

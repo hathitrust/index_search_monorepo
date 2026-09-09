@@ -1,7 +1,5 @@
-import inspect
 import json
 import os
-import sys
 import time
 from argparse import ArgumentParser
 from statistics import mean, median
@@ -12,9 +10,8 @@ from ht_search.export_all_results import SolrExporter
 from ht_utils.ht_logger import get_ht_logger
 from requests.auth import HTTPBasicAuth
 
-current = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+current = os.path.dirname(os.path.abspath(__file__))
 parent = os.path.dirname(current)
-sys.path.insert(0, parent)
 
 logger = get_ht_logger(name=__name__)
 

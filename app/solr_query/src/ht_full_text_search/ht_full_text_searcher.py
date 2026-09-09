@@ -1,17 +1,11 @@
-import inspect
 import json
 import os
-import sys
 from argparse import ArgumentParser
 
 from ht_search.config_search import FULL_TEXT_SOLR_URL
 from ht_search.ht_query.ht_full_text_query import HTFullTextQuery
 from ht_search.ht_searcher.ht_searcher import HTSearcher
 from ht_utils.ht_logger import get_ht_logger
-
-current = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-parent = os.path.dirname(current)
-sys.path.insert(0, parent)
 
 logger = get_ht_logger(name=__name__)
 

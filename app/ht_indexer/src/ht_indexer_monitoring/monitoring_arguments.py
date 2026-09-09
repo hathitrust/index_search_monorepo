@@ -1,6 +1,5 @@
 import argparse
 import os
-import sys
 from pathlib import Path
 
 from ht_search.config_files import config_files_path
@@ -9,10 +8,6 @@ from ht_utils.ht_logger import get_ht_logger
 from ht_utils.ht_utils import get_solr_url
 
 logger = get_ht_logger(name=__name__)
-
-current = os.path.dirname(os.path.abspath(__file__))
-parent = os.path.dirname(current)
-sys.path.insert(0, parent)
 
 
 class MonitoringServiceArguments:

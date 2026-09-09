@@ -1,4 +1,3 @@
-.DS_Store
-.idea
-src/ht_indexer_api/__pycache__
-.vscode/
+# ht_indexer runtime artifacts
+filter_ids.txt
+src/document_retriever_service/document_retriever_status.txt

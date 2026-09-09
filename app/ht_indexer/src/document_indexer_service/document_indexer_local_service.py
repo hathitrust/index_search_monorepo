@@ -3,7 +3,6 @@
 import argparse
 import glob
 import os
-import sys
 from time import sleep
 
 import requests
@@ -11,10 +10,6 @@ from ht_indexer_api.ht_indexer_api import HTSolrAPI
 from ht_utils.ht_logger import get_ht_logger
 
 logger = get_ht_logger(name=__name__)
-
-current = os.path.dirname(os.path.abspath(__file__))
-parent = os.path.dirname(current)
-sys.path.insert(0, parent)
 
 CHUNK_SIZE = 500
 DOCUMENT_LOCAL_PATH = "/tmp/indexing_data/"

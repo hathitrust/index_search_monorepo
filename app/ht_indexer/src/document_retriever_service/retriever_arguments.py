@@ -2,6 +2,7 @@ import argparse
 import multiprocessing
 import os
 import sys
+import tempfile
 
 from config import config_queue_file_path
 from ht_indexer_monitoring.ht_indexer_tracktable import PROCESSING_STATUS_TABLE_NAME
@@ -14,10 +15,6 @@ from . import retriever_config_file_path
 
 logger = get_ht_logger(name=__name__)
 
-current = os.path.dirname(os.path.abspath(__file__))
-parent = os.path.dirname(current)
-sys.path.insert(0, parent)
-
 SOLR_ROW_START = 0
 SOLR_TOTAL_ROWS = 200
 TOTAL_MYSQL_ROWS = 24000
@@ -25,7 +22,8 @@ MAX_WORKERS = 20
 
 
 class RetrieverServiceArguments:
-    def __init__(self, parser: argparse.ArgumentParser) -> None:
+    # Add argv parameter to allow custom args and avoid mocking sys.argv in tests
+    def __init__(self, parser: argparse.ArgumentParser, argv: list[str] | None = None) -> None:
         parser.add_argument(
             "--list_documents",
             help="List of items to process",
@@ -75,7 +73,7 @@ class RetrieverServiceArguments:
             )
 
             sys.exit(1)
-        self.args = parser.parse_args()
+        self.args = parser.parse_args(argv)
 
         self.parallelize = self.args.parallelize
         mysql_pool_size = 1
@@ -103,16 +101,22 @@ class RetrieverServiceArguments:
 
 
 class RetrieverServiceByFileArguments(RetrieverServiceArguments):
-    def __init__(self, parser: argparse.ArgumentParser) -> None:
+    def __init__(self, parser: argparse.ArgumentParser, argv: list[str] | None = None) -> None:
         parser.add_argument(
             "--input_document_file",
             help="TXT file containing the list of items to process",
             default="",
         )
+        parser.add_argument(
+            "--status_file",
+            help="Path to the file used to track which document IDs have been processed.",
+            default=os.path.join(tempfile.gettempdir(), "document_retriever_status.txt"),
+        )
 
-        super().__init__(parser)
+        super().__init__(parser, argv)
 
         self.input_documents_file = self.args.input_document_file
         if not os.path.isfile(self.input_documents_file):
             logger.error(f"File {self.input_documents_file} does not exist")
             sys.exit(1)
+        self.status_file: str = self.args.status_file
