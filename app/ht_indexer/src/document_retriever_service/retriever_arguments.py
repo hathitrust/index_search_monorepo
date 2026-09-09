@@ -22,7 +22,8 @@ MAX_WORKERS = 20
 
 
 class RetrieverServiceArguments:
-    def __init__(self, parser: argparse.ArgumentParser) -> None:
+    # Add argv parameter to allow custom args and avoid mocking sys.argv in tests
+    def __init__(self, parser: argparse.ArgumentParser, argv: list[str] | None = None) -> None:
         parser.add_argument(
             "--list_documents",
             help="List of items to process",
@@ -72,7 +73,7 @@ class RetrieverServiceArguments:
             )
 
             sys.exit(1)
-        self.args = parser.parse_args()
+        self.args = parser.parse_args(argv)
 
         self.parallelize = self.args.parallelize
         mysql_pool_size = 1
@@ -100,7 +101,7 @@ class RetrieverServiceArguments:
 
 
 class RetrieverServiceByFileArguments(RetrieverServiceArguments):
-    def __init__(self, parser: argparse.ArgumentParser) -> None:
+    def __init__(self, parser: argparse.ArgumentParser, argv: list[str] | None = None) -> None:
         parser.add_argument(
             "--input_document_file",
             help="TXT file containing the list of items to process",
@@ -112,7 +113,7 @@ class RetrieverServiceByFileArguments(RetrieverServiceArguments):
             default=os.path.join(tempfile.gettempdir(), "document_retriever_status.txt"),
         )
 
-        super().__init__(parser)
+        super().__init__(parser, argv)
 
         self.input_documents_file = self.args.input_document_file
         if not os.path.isfile(self.input_documents_file):
