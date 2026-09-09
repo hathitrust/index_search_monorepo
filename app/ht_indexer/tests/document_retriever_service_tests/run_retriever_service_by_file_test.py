@@ -2,10 +2,10 @@ import argparse
 import json
 import os
 import tempfile
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch
-from collections.abc import Iterator
 
 import pytest
 from conftest import create_test_queue_config
