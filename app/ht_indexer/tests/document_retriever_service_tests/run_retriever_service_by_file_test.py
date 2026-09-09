@@ -5,6 +5,7 @@ import tempfile
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch
+from collections.abc import Iterator
 
 import pytest
 from conftest import create_test_queue_config
@@ -35,7 +36,7 @@ def get_status_file() -> str:
 
 
 @pytest.fixture
-def stub_retriever_external_services(monkeypatch):
+def stub_retriever_external_services(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     """Isolate RetrieverServiceArguments from Solr/MySQL/queue config."""
     monkeypatch.setenv("SOLR_URL", "http://fake-solr:8983/solr/core-x/")
     with (
@@ -49,7 +50,7 @@ def stub_retriever_external_services(monkeypatch):
 
 
 @pytest.fixture
-def temp_input_file(tmp_path) -> str:
+def temp_input_file(tmp_path: Path) -> str:
     f = tmp_path / "htids.txt"
     f.write_text("")
     return str(f)
