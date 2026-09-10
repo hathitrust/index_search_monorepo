@@ -46,8 +46,7 @@ jobs:
                 registry_token: ${{ github.token }}
                 rebuild: ${{ inputs.rebuild }}
                 platforms: ${{ inputs.platforms }}
-                build-args:
-                  # ENV=dev
+                build-args: |
                   APP_NAME=ht-indexer
                   APP_DIR=ht_indexer
             - name: Build Solr Query
@@ -56,8 +55,7 @@ jobs:
                 image: ghcr.io/hathitrust/solr_query
                 dockerfile: Dockerfile
                 target: "runtime"
-                build-args:
-                     # ENV=dev
+                build-args: |
                      APP_NAME=solr-query
                      APP_DIR=solr_query
                 img_tag: ${{ inputs.img_tag }}
