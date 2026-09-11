@@ -127,6 +127,8 @@ USER app
 WORKDIR /workspace/app/${APP_DIR}
 
 # Add the code and the dependencies to the PYTHONPATH
-ENV PYTHONPATH="/workspace/app/${APP_DIR}/src:/workspace/app/${APP_DIR}/tests:/workspace/libs/common_lib:/workspace/libs/ht_search"
+ENV PYTHONPATH="/workspace/app/${APP_DIR}/src:/workspace/app/${APP_DIR}/tests:/workspace/libs/common_lib/src:/workspace/libs/ht_search/src"
+
+ENV PATH="/workspace/.venv/bin:${PATH}"
 
 CMD ["tail", "-f", "/dev/null"]
