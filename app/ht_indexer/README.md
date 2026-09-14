@@ -108,11 +108,9 @@ In your workdir:
 
    ```git clone git@github.com:hathitrust/ht_indexer.git```
 2. Go to the folder ``cd ht_indexer``
-3. Create the image
 
-   `docker build -t document_generator .`
 
-4. Run the services
+3. Run the services
 
     1. Populate the database with the table fulltext_item_processing_status
 
@@ -356,7 +354,7 @@ docker compose exec ht_indexer_tracker uv run python -m ht_indexer_monitoring.ht
 
 ```
 
-docker compose exec document_retriever python document_retriever_service/full_text_search_retriever_service.py
+docker compose exec document_retriever uv run python -m document_retriever_service.full_text_search_retriever_service
 --list_documents
 chi.096189208,iau.31858049957305,hvd.32044106262314,chi.096415811,hvd.32044020307005,hvd.32044092647320,iau.31858042938971
 --query_field item
@@ -367,7 +365,7 @@ chi.096189208,iau.31858049957305,hvd.32044106262314,chi.096415811,hvd.3204402030
 
 ```
 
-docker compose exec document_retriever python document_retriever_service/run_retriever_service_by_file.py
+docker compose exec document_retriever uv run python -m document_retriever_service.run_retriever_service_by_file
 --query_field item --input_document_file document_retriever_service/list_htids_indexer_test.txt
 
 ```
