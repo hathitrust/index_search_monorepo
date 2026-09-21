@@ -5,6 +5,21 @@ import pytest
 import yaml
 from ht_queue_service.queue_config import QueueConfig
 
+# The docker compose test environment sets these for the real queue services
+# (e.g. QUEUE_HOST=rabbitmq), so every test here must start from a clean slate or
+# it ends up asserting against real broker config instead of the YAML fixtures.
+_QUEUE_ENV_VARS = [
+    f"{prefix}QUEUE_{suffix}"
+    for prefix in ("", "SRC_", "TGT_")
+    for suffix in ("HOST", "PORT", "USER", "PASS", "NAME")
+]
+
+
+@pytest.fixture(autouse=True)
+def clean_queue_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    for var in _QUEUE_ENV_VARS:
+        monkeypatch.delenv(var, raising=False)
+
 
 def _write_yaml(path: Path, data: dict[str, Any]) -> Path:
     path.write_text(yaml.safe_dump(data))
