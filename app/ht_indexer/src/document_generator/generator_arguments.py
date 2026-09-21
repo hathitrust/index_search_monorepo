@@ -8,12 +8,12 @@ from ht_queue_service.queue_config import QueueConfig, QueueParams
 from ht_queue_service.queue_consumer import QueueConsumer
 from ht_queue_service.queue_producer import QueueProducer
 from ht_utils.ht_logger import get_ht_logger
+from ht_utils.ht_mysql import HtMysql, get_mysql_conn
 
 # utils
 from ht_utils.ht_utils import get_general_error_message
 
 from . import generator_config_file_path
-from .ht_mysql import HtMysql, get_mysql_conn
 
 logger = get_ht_logger(name=__name__)
 

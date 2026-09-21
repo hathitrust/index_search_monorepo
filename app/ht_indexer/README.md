@@ -199,8 +199,8 @@ ht_indexer/
     ├── document_generator_test/
         │ ├── __init__.py
         │ ├── document_generator_test.py
-        │ └── ht_mysyql_test.py
         | └──mets_file_extractor_test.py
+        | └──mysql_data_extractor_test.py
     .
     .
     .

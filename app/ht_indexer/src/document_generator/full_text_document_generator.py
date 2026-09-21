@@ -12,9 +12,8 @@ from ht_document.ht_document import HtDocument
 
 # utils
 from ht_utils.ht_logger import get_ht_logger
+from ht_utils.ht_mysql import HtMysql
 from ht_utils.text_processor import string_preparation
-
-from .ht_mysql import HtMysql
 
 # relative imports
 from .mets_file_extractor import MetsAttributeExtractor

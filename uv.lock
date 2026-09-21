@@ -263,7 +263,6 @@ dependencies = [
     { name = "ht-search" },
     { name = "ht-utils" },
     { name = "lxml" },
-    { name = "mysql" },
     { name = "mysql-connector-python" },
     { name = "mysqlclient" },
     { name = "nest-asyncio" },
@@ -288,7 +287,6 @@ requires-dist = [
     { name = "ht-search", editable = "libs/ht_search" },
     { name = "ht-utils", editable = "libs/common_lib" },
     { name = "lxml", specifier = ">=6.1.0,<7" },
-    { name = "mysql", specifier = ">=0.0.3,<0.0.4" },
     { name = "mysql-connector-python", specifier = ">=9.6.0,<10" },
     { name = "mysqlclient", specifier = ">=2.2.8,<3" },
     { name = "nest-asyncio", specifier = ">=1.6.0,<2" },
@@ -518,18 +516,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/a2/6e/371856a3fb9d31ca8dac321cda606860fa4548858c0cc45d9d1d4ca2628b/mypy_extensions-1.1.0.tar.gz", hash = "sha256:52e68efc3284861e772bbcd66823fde5ae21fd2fdb51c62a211403730b916558", size = 6343, upload-time = "2025-04-22T14:54:24.164Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/79/7b/2c79738432f5c924bef5071f933bcc9efd0473bac3b4aa584a6f7c1c8df8/mypy_extensions-1.1.0-py3-none-any.whl", hash = "sha256:1be4cccdb0f2482337c4743e60421de3a356cd97508abadd57d47403e94f5505", size = 4963, upload-time = "2025-04-22T14:54:22.983Z" },
-]
-
-[[package]]
-name = "mysql"
-version = "0.0.3"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "mysqlclient" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/8d/3c/943f6734849a6aed97d83af689ce7096927b52465df7bccfbcb45a7e7d14/mysql-0.0.3.tar.gz", hash = "sha256:fd7bae7d7301ce7cd3932e5ff7f77bbc8e34872108252866e08d16d6b8e8de8c", size = 2037, upload-time = "2021-05-25T19:52:16.818Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/9a/52/8d29c58f6ae448a72fbc612955bd31accb930ca479a7ba7197f4ae4edec2/mysql-0.0.3-py3-none-any.whl", hash = "sha256:8893cb143a5ac525c49ef358a23b8a0dc9721a95646f7bab6ca2f384c18a6a9a", size = 1237, upload-time = "2021-05-25T19:52:15.462Z" },
 ]
 
 [[package]]

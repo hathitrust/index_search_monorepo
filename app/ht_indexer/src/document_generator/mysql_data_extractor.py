@@ -2,8 +2,7 @@ from typing import Any
 
 from catalog_metadata.ht_indexer_config import MAX_ITEM_IDS
 from ht_utils.ht_logger import get_ht_logger
-
-from .ht_mysql import HtMysql
+from ht_utils.ht_mysql import HtMysql
 
 logger = get_ht_logger(name=__name__)
 
@@ -57,14 +56,15 @@ class MysqlMetadataExtractor:
         """
 
         query_item_in_large_coll = (
-            f"SELECT mb_item.MColl_ID "
-            f"FROM mb_coll_item mb_item, mb_collection mb_coll "
-            f'WHERE mb_item.extern_item_id="{doc_id}" '
-            f"AND mb_coll.num_items > {MAX_ITEM_IDS} "
+            "SELECT mb_item.MColl_ID "
+            "FROM mb_coll_item mb_item, mb_collection mb_coll "
+            "WHERE mb_item.extern_item_id=:doc_id "
+            "AND mb_coll.num_items > :max_item_ids "
         )
+        params = {"doc_id": doc_id, "max_item_ids": MAX_ITEM_IDS}
 
-        logger.info(f"MySQL query: {query_item_in_large_coll}")
-        large_collection_id = self.mysql_obj.query_mysql(query_item_in_large_coll)
+        logger.info(f"MySQL query: {query_item_in_large_coll} params={params}")
+        large_collection_id = self.mysql_obj.query_mysql(query_item_in_large_coll, params=params)
 
         return large_collection_id or []
 
@@ -72,22 +72,25 @@ class MysqlMetadataExtractor:
 
         namespace, _id = extract_namespace_and_id(doc_id)
 
-        query = f'SELECT * FROM rights_current WHERE namespace="{namespace}" AND id="{_id}"'
-        logger.info(f"MySQL query: {query}")
-        return self.mysql_obj.query_mysql(query) or []
+        query = "SELECT * FROM rights_current WHERE namespace=:namespace AND id=:id"
+        params = {"namespace": namespace, "id": _id}
+        logger.info(f"MySQL query: {query} params={params}")
+        return self.mysql_obj.query_mysql(query, params=params) or []
 
     def add_ht_heldby_field(self, doc_id: str) -> list[dict[str, Any]]:
-        query = f'SELECT member_id FROM holdings_htitem_htmember WHERE volume_id="{doc_id}"'
+        query = "SELECT member_id FROM holdings_htitem_htmember WHERE volume_id=:doc_id"
+        params = {"doc_id": doc_id}
 
-        logger.info(f"MySQL query: {query}")
+        logger.info(f"MySQL query: {query} params={params}")
         # ht_heldby is a list of institutions
-        return self.mysql_obj.query_mysql(query) or []
+        return self.mysql_obj.query_mysql(query, params=params) or []
 
     def add_heldby_brlm_field(self, doc_id: str) -> list[dict[str, Any]]:
-        query = f'SELECT member_id FROM holdings_htitem_htmember WHERE volume_id="{doc_id}" AND access_count > 0'
+        query = "SELECT member_id FROM holdings_htitem_htmember WHERE volume_id=:doc_id AND access_count > 0"
+        params = {"doc_id": doc_id}
 
-        logger.info(f"MySQL query: {query}")
-        return self.mysql_obj.query_mysql(query) or []
+        logger.info(f"MySQL query: {query} params={params}")
+        return self.mysql_obj.query_mysql(query, params=params) or []
 
     def retrieve_mysql_data(self, doc_id: str) -> dict[str, Any]:
         entry: dict[str, Any] = {}
