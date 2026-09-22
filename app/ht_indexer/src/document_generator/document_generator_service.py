@@ -4,17 +4,35 @@ import time
 from pathlib import Path
 from typing import Any
 
+from catalog_metadata.ht_indexer_config import STATUS_COMPLETED, STATUS_FAILED, STATUS_PROCESSING
 from ht_document.ht_document import HtDocument
+from ht_indexer_monitoring.ht_indexer_tracktable import PROCESSING_STATUS_TABLE_NAME
 from ht_queue_service.queue_consumer import QueueConsumer
 from ht_queue_service.queue_producer import QueueProducer
 from ht_utils.ht_logger import get_ht_logger
 from ht_utils.ht_mysql import HtMysql
-from ht_utils.ht_utils import get_error_message_by_document, get_general_error_message
+from ht_utils.ht_utils import (
+    get_current_time,
+    get_error_message_by_document,
+    get_general_error_message,
+)
 
 from .full_text_document_generator import FullTextDocumentGenerator
 from .generator_arguments import GeneratorServiceArguments
 
 logger = get_ht_logger(name=__name__)
+
+MYSQL_COLUMN_UPDATE = "generator_status"
+SUCCESS_UPDATE_STATUS = (
+    f"UPDATE {PROCESSING_STATUS_TABLE_NAME} SET status = :status, "
+    f"{MYSQL_COLUMN_UPDATE} = :generator_status, processed_at = :processed_at "
+    f"WHERE ht_id = :ht_id"
+)
+FAILURE_UPDATE_STATUS = (
+    f"UPDATE {PROCESSING_STATUS_TABLE_NAME} SET status = :status, "
+    f"{MYSQL_COLUMN_UPDATE} = :generator_status, processed_at = :processed_at, "
+    f"error = :error WHERE ht_id = :ht_id"
+)
 
 
 class DocumentGeneratorService:
@@ -40,6 +58,7 @@ class DocumentGeneratorService:
 
         # Instantiate the document generator object
         self.document_generator = FullTextDocumentGenerator(db_conn)
+        self.db_conn = db_conn
 
         self.src_queue_consumer = src_queue_consumer
         self.document_repository = document_repository
@@ -146,8 +165,36 @@ class DocumentGeneratorService:
             self.src_queue_consumer.positive_acknowledge(
                 self.src_queue_consumer.channel, delivery_tag
             )
+            self.db_conn.update_status(
+                SUCCESS_UPDATE_STATUS,
+                [
+                    {
+                        "status": STATUS_PROCESSING,
+                        "generator_status": STATUS_COMPLETED,
+                        "processed_at": get_current_time(),
+                        "ht_id": item_id,
+                    }
+                ],
+            )
         except Exception as e:
             self.log_error_document_generator_service(e, message, delivery_tag)
+            item_id_for_update = message.get("ht_id")
+            if item_id_for_update is not None:
+                error_info = get_error_message_by_document("DocumentGeneratorService", e, message)
+                self.db_conn.update_status(
+                    FAILURE_UPDATE_STATUS,
+                    [
+                        {
+                            "status": STATUS_FAILED,
+                            "generator_status": STATUS_FAILED,
+                            "processed_at": get_current_time(),
+                            "error": f"{error_info.get('service_name')}_{error_info.get('error_message')}",
+                            "ht_id": item_id_for_update,
+                        }
+                    ],
+                )
+            else:
+                logger.warning("Cannot update MySQL generator_status: message has no 'ht_id'")
 
 
 def main() -> None:
