@@ -59,6 +59,7 @@ class MysqlMetadataExtractor:
             "SELECT mb_item.MColl_ID "
             "FROM mb_coll_item mb_item, mb_collection mb_coll "
             "WHERE mb_item.extern_item_id=:doc_id "
+            "AND mb_item.MColl_ID = mb_coll.MColl_ID "
             "AND mb_coll.num_items > :max_item_ids "
         )
         params = {"doc_id": doc_id, "max_item_ids": MAX_ITEM_IDS}
