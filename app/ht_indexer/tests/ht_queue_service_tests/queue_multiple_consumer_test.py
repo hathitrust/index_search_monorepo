@@ -29,15 +29,22 @@ class HTMultipleConsumerServiceConcrete(QueueMultipleConsumer):
         if self.channel is None:
             raise RuntimeError("Unable to establish a RabbitMQ channel")
 
+        list_id = [str(doc.get("ht_id")) for doc in batch]
+
+        # Increment count for each message_id
+        for message_id in list_id:
+            self.seen_messages[message_id] += 1
+
+        # consume_batch no longer stops the loop when process_batch returns False
+        # (ETT-1769) -- with requeue_message=True, message ht_id=5 would otherwise be
+        # rejected-and-requeued forever. Once it's been retried max_redelivery times,
+        # let it through instead of failing it again, so the queue can drain to empty
+        # and the consumer stops via the normal shutdown_on_empty_queue path.
+        poison_message_exhausted = self.seen_messages.get("5", 0) > self.max_redelivery
+
         try:
-            list_id = [str(doc.get("ht_id")) for doc in batch]
-
-            # Increment count for each message_id
-            for message_id in list_id:
-                self.seen_messages[message_id] += 1
-
             received_messages = batch.copy()
-            if "5" in list_id:
+            if "5" in list_id and not poison_message_exhausted:
                 try:
                     print(1 / 0)
                 except Exception as e:
@@ -61,14 +68,6 @@ class HTMultipleConsumerServiceConcrete(QueueMultipleConsumer):
             # If requeue_message is True, the message will be requeued to the main queue
             self.redelivery_count += 1
 
-        # Check if the message with ht_id=5 has been seen more than max_redelivery times to stop consuming
-        if "5" in self.seen_messages:
-            # If the message with ht_id=5 is seen more than max_redelivery times, stop consuming
-            if self.seen_messages["5"] >= self.max_redelivery:
-                logger.info(
-                    f"Message with ht_id=5 was redelivered more than {self.max_redelivery} times."
-                )
-                return False
         return True
 
 
