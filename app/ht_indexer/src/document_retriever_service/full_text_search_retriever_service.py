@@ -8,6 +8,12 @@ from typing import Any
 
 import requests
 from catalog_metadata.catalog_metadata import CatalogItemMetadata, CatalogRecordMetadata
+from catalog_metadata.ht_indexer_config import (
+    STATUS_COMPLETED,
+    STATUS_FAILED,
+    STATUS_PENDING,
+    STATUS_PROCESSING,
+)
 from ht_indexer_api.ht_indexer_api import HTSolrAPI
 from ht_indexer_monitoring.ht_indexer_tracktable import (
     HT_INDEXER_TRACKTABLE,
@@ -124,8 +130,8 @@ class FullTextSearchRetrieverQueueService:
 
                 processed_items.append(
                     {
-                        "status": "processing",
-                        "retriever_status": "completed",
+                        "status": STATUS_PROCESSING,
+                        "retriever_status": STATUS_COMPLETED,
                         "processed_at": get_current_time(),
                         "ht_id": item_id,
                     }
@@ -138,8 +144,8 @@ class FullTextSearchRetrieverQueueService:
 
                 failed_items.append(
                     {
-                        "status": "failed",
-                        "retriever_status": "failed",
+                        "status": STATUS_FAILED,
+                        "retriever_status": STATUS_FAILED,
                         "processed_at": get_current_time(),
                         "error": f"{error_info.get('service_name')}_{error_info.get('error_message')}",
                         "ht_id": error_info.get("ht_id"),
@@ -379,7 +385,7 @@ def main() -> None:
         while True:
             total_time_waiting = 0
             list_documents = init_args_obj.db_conn.query_mysql(
-                init_args_obj.retriever_query, params={"status": "pending"}
+                init_args_obj.retriever_query, params={"status": STATUS_PENDING}
             )
             if len(list_documents) == 0:
                 logger.info("No documents to process")

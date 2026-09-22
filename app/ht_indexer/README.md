@@ -145,17 +145,7 @@ follow the steps mentioned in the section [How to set up your python environment
 
 ## Installation
 
-1. Clone the repo
-   ``` git clone git@github.com:hathitrust/ht_indexer.git```
-2. Set up development environment with poetry
-   In your workdir,
-    * `poetry init` # It will set up your local environment and repository details
-    * `poetry env use python` # To find the virtual environment directory, created by poetry
-    * `source ~/ht-indexer-GQmvgxw4-py3.11/bin/activate` # Activate the virtual environment
-    * `poetry add pytest` # Optional: Use this command if you want to add dependencies
-    * `poetry self update` # Update poetry
-    * Since Poetry (2.0.0) the recommended way to activate the virtual environment is using the command
-      `poetry env activate`
+See the Intallation session on the README.md file on the root directory of this monorepo.
 
 ## Content Structure
 
@@ -342,7 +332,8 @@ be one of the following: pending, processing, failed, completed.
 
 ``` 
 cd app/ht_indexer/src
-docker compose exec ht_indexer_tracker uv run python -m ht_indexer_monitoring.ht_indexer_tracktable --env dev --query "*:*" --num_found 100
+docker compose exec ht_indexer_tracker python -m ht_indexer_monitoring.ht_indexer_tracktable --env dev --query "*:*" --num_found 100
+
 ```
 
 * --query "*:*" It retrieves all the documents on Solr server
@@ -354,7 +345,7 @@ docker compose exec ht_indexer_tracker uv run python -m ht_indexer_monitoring.ht
 
 ```
 
-docker compose exec document_retriever uv run python -m document_retriever_service.full_text_search_retriever_service
+docker compose exec document_retriever python -m document_retriever_service.full_text_search_retriever_service
 --list_documents
 chi.096189208,iau.31858049957305,hvd.32044106262314,chi.096415811,hvd.32044020307005,hvd.32044092647320,iau.31858042938971
 --query_field item
@@ -365,7 +356,7 @@ chi.096189208,iau.31858049957305,hvd.32044106262314,chi.096415811,hvd.3204402030
 
 ```
 
-docker compose exec document_retriever uv run python -m document_retriever_service.run_retriever_service_by_file
+docker compose exec document_retriever python -m document_retriever_service.run_retriever_service_by_file
 --query_field item --input_document_file document_retriever_service/list_htids_indexer_test.txt
 
 ```
@@ -568,32 +559,7 @@ This experiment will do in the Kubernetes cluster.
 
 # Resources
 
-### [How to set up your python environment](#project-set-up-local-environment)
-
-On mac, you can use brew to install python and pyenv to manage the python versions.
-
-* Install python
-    * You can read this blog to install python in the right way in
-      python: https://opensource.com/article/19/5/python-3-default-mac
-        * I installed using brew and pyenv
-* Install poetry:
-    * **Good blog to understand and use poetry
-      **: https://blog.networktocode.com/post/upgrade-your-python-project-with-poetry/
-    * **Poetry docs**: https://python-poetry.org/docs/dependency-specification/
-    * **How to manage Python projects with Poetry
-      **: https://www.infoworld.com/article/3527850/how-to-manage-python-projects-with-poetry.html
-
-* Useful poetry commands (Find more information about commands [here](https://python-poetry.org/docs/cli))
-    * Inside the application folder: See the virtual environment used by the application `` poetry env use python ``
-    * Activate the virtual environment: ``source ~/ht-indexer-GQmvgxw4-py3.11/bin/activate``, in Mac poetry creates
-      their files in the home directory, e.g. /Users/user_name/Library/Caches/pypoetry/.
-    * `` poetry export -f requirements.txt --output requirements.txt ``
-    * Use `` poetry update `` if you change your .toml file and want to generate a new version the .lock file
-    * Use ``poetry add ruff@latest`` to add the last version of the package ruff to your project
-    * Use ``poetry add ruff@1.0.0`` to add a specific version of the package ruff to your project
-    * Use ``poetry add git+https://github.com/hathitrust/ht_full_text_search.git@main`` to add a github dependency
-    * In pyproject.toml the dependencies are defined as follows:
-        * ``ht-full-text-search = {git = "https://github.com/hathitrust/ht_full_text_search.git", rev = "main"}``
+Access to the `Resources` session on the `README.md` file in the root directory of this repository.
 
 ### Additional use cases
 
@@ -616,61 +582,6 @@ These use cases have been created for experimental purposes. They are not used i
 `python3 ~/ht_indexer/document_indexer_service/document_indexer_service.py --solr_indexing_api
 http://localhost:8983/solr/#/core-x/ --document_local_path ~/tmp/indexing_data`
 
-#### Data Sampling: Create a sample of data:
-
-Use this module if you want to download data from pairtree-based repository via scp and store it in your local
-environment.
-
-FY: This logic was adopted because it is complex to set up permission in the docker to access to pairtree repository via
-scp
-
-Find this module in: `ht_indexer/ht_utils/sample_data/`. All the logic is implemented in the
-script `sample_data_creator.sh`.
-The script will use the JSON file `full-output-catalog-index.json`, that contains an extract of the Catalog Solr index
-to generate the list of items to index. The file `sample_data_ht_ids.txt` is generated to load the list of items.
-The file `sample_data_path.txt` is also generated with the list of paths. We decided to get the pair-tree path using
-python and use a shell script to download the documents via scp.
-
-The script will generate the folder /sdr1/obj to download the .zip and .mets.xml file for the list of records.
-The folder will be created in the parent directory of ht_indexer repository.
-
-`sample_data_creator.sh` by default,
-
-* 1% of the documents indexed in Catalog image will be added to the sample. You can change the default value
-  passing a different value to the script `sample_data_creator.sh`, e.g., 0.50 to retrieve 50% of the documents in
-  Catalog.
-* only one item per Catalog record will be added to the sample. You can add all the items if you pass True as an
-  argument
-* sdr_dir=/sdr1/obj, you can also change this value passing a different argument.
-
-I have had some issues running the python script with the docker (line 34 of `sample_data_creator.sh`). It seems python
-is not able to receive the arguments defined as environment variables in the console.
-
-To overcome it, I recommend using the python script directly to create the sample of data and before that you should
-define the environment variables SAMPLE_PERCENTAGE and ALL_ITEMS.
-
-``python ht_indexer/ht_utils/sample_data/sample_data_generator.py``
-
-Once you have the list of documents, you want to include in the sample, comment line 34 of
-the `sample_data_creator.sh` script and run it to download the files through scp protocol.
-
-Steps to download a sample pairtree-based repository in your local environment:
-
-In your workdir,
-
-1. Set up the environment variable
-   ```export HT_REPO_HOST=some.host.hathitrust.org```
-2. Use a default set up for generating the folder with the documents to process:
-   ```./ht_utils/sample_data/sample_data_creator.sh```
-3. Passing arguments to generate the sample of data:
-   ```./ht_utils/sample_data/sample_data_creator.sh 0.0011 /sdr1/obj```
-
-Note: Follow the command below if you want to download files from pairtree repository data for testing
-
-   ```
-   $HT_SSH_HOST=some.host.hathitrust.org
-   scp $HT_SSH_HOST:/sdr1/obj/umn/pairtree_root/31/95/1d/03/01/41/20/v/31951d03014120v/31951d03014120v{.zip,mets.xml} ../sdr1/obj
-   ```
 
 ### DockerFile explanations
 

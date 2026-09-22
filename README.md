@@ -350,29 +350,35 @@ In the Makefile we have 3 separate commands:
 
 ## Resources
 
-- Use the command `. $env_name/bin/activate` to activate the virtual environment inside the container $env_name is 
-the name of the virtual environment created by poetry.
 - Enter inside the docker file: `docker compose exec full_text_searcher /bin/bash`
 - Running the scripts: `docker compose exec full_text_searcher python ht_full_text_search/export_all_results.py --env dev --query '"good"'`
 
-### Guides to install python and poetry on macOS
+### Guides to install python and uv on macOS
 
-Recommendation: Use brew to install python and pyenv to manage the python versions.
+Recommendation: use `brew` to install `uv`, and let `uv` itself manage the Python version — you do not need
+`pyenv` or a separate Python install. This repo currently requires Python 3.14+ (`requires-python` in the
+root `pyproject.toml`).
 
-* Install python
-    * You can read this blog to install python in the right way in
-      python: https://opensource.com/article/19/5/python-3-default-mac
-* Install poetry:
-    * **Good blog to understand and use poetry
-      **: https://blog.networktocode.com/post/upgrade-your-python-project-with-poetry/
-    * **Poetry docs**: https://python-poetry.org/docs/dependency-specification/
-    * **How to manage Python projects with Poetry
-      **: https://www.infoworld.com/article/3527850/how-to-manage-python-projects-with-poetry.html
-
-* Useful poetry commands (Find more information about commands [here](https://python-poetry.org/docs/cli))
-    * Inside the application folder: See the virtual environment used by the application `` poetry env use python ``
-    * Activate the virtual environment: ``source ~/ht-indexer-GQmvgxw4-py3.11/bin/activate``, in Mac poetry creates
-      their files in the home directory, e.g. /Users/user_name/Library/Caches/pypoetry/.
+* Install `uv`:
+    * `brew install uv` (see the [official installation docs](https://docs.astral.sh/uv/getting-started/installation/)
+      for alternatives, e.g. the standalone installer `curl -LsSf https://astral.sh/uv/install.sh | sh`).
+    * Verify: `uv --version`.
+* Install/select the Python version with `uv` (no separate `brew install python` or `pyenv` needed):
+    * `uv python install 3.14` — downloads and manages a Python 3.14 build for you.
+    * `uv python list` — see the Python versions `uv` knows about, including any already on your machine.
+    * `uv` automatically picks up the version pinned by `requires-python` in `pyproject.toml` when you run
+      `uv sync`/`uv run` in the repo, so you rarely need to select a version manually.
+* Set up the monorepo environment:
+    * From the repo root: `uv sync` — installs dependencies for the workspace and creates the shared virtual
+      environment (`.venv`) per the single root `uv.lock`.
+    * Activate it directly if you want a plain shell: `source .venv/bin/activate`, or just prefix commands with
+      `uv run` (e.g. `uv run pytest`, `uv run python --version`) which does not require activation.
+* Useful `uv` commands (see the [CLI reference](https://docs.astral.sh/uv/reference/cli/) for the full list):
+    * `uv sync` — install/update dependencies and create the virtualenv.
+    * `uv run <command>` — run a command inside the project's virtualenv without activating it.
+    * `uv add <package>` / `uv remove <package>` — add/remove a dependency in the current project's `pyproject.toml`.
+    * `uv lock --upgrade` — regenerate the lockfile with the latest compatible versions.
+    * `uv tree` — inspect the dependency tree.
 * Python Linter:
 * Ruff: https://astral.sh/ruff
 * Enhancing Python Code Quality: A Comprehensive Guide to Linting with
