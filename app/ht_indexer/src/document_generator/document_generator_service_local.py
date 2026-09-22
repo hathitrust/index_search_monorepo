@@ -6,10 +6,10 @@ from typing import Any
 from catalog_metadata.ht_indexer_config import DOCUMENT_LOCAL_PATH
 from ht_queue_service.queue_consumer import QueueConsumer
 from ht_utils.ht_logger import get_ht_logger
+from ht_utils.ht_mysql import HtMysql
 
 from .document_generator_service import DocumentGeneratorService
 from .generator_arguments import GeneratorServiceArguments
-from .ht_mysql import HtMysql
 
 logger = get_ht_logger(name=__name__)
 

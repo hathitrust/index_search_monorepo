@@ -1,5 +1,4 @@
 import os
-import sys
 import threading
 from typing import Any
 
@@ -12,13 +11,27 @@ from ht_utils.ht_utils import get_general_error_message
 logger = get_ht_logger(name=__name__)
 
 
+class MissingMysqlConfigError(RuntimeError):
+    """Raised when a required MySQL credential env var is missing.
+
+    MYSQL_USER/MYSQL_PASS must be supplied explicitly rather than silently
+    defaulted. A missing credential should fail loudly at startup, not connect
+    as a guessed identity and surface as silent query failures later.
+    """
+
+
 class HtMysql:
     _engine: Engine | None = None  # Class variable to store the SQLAlchemy engine
     _lock = threading.Lock()  # Lock for thread-safe engine creation
     _engine_config: tuple[str, str, str, str, int] | None = None  # Configuration of the engine
 
     def __init__(self, host: str, user: str, password: str, database: str, pool_size: int = 5):
-        """Initialize MySQL connection using SQLAlchemy engine with connection pooling"""
+        """Initialize MySQL connection using SQLAlchemy engine with connection pooling.
+
+        Opens and discards one connection to check if a bad credential or an
+        unreachable host were provided, so it raises immediately here, instead of waiting for the the first
+        service quering MySQL.
+        """
         config = (host, user, password, database, pool_size)
         # TODO: Consider adding more parameters like pool_timeout, pool_recycle, max_overflow to manage them
         # from Kubernetes config or environment variables
@@ -27,13 +40,22 @@ class HtMysql:
             if HtMysql._engine is None:
                 url = f"mysql+mysqlconnector://{user}:{password}@{host}/{database}"
                 # This set up will automatically reconnect if the connection is lost
-                HtMysql._engine = create_engine(
+                engine = create_engine(
                     url,
                     pool_size=pool_size,
                     pool_pre_ping=True,  # Check if connections are alive - test connection before using
                     pool_recycle=1800,  # Recycle connections after 30 minutes - Avoid timeout
                     max_overflow=10,  # Allow some extra connections
                 )
+                try:
+                    with engine.connect():
+                        pass
+                except exc.SQLAlchemyError as e:
+                    logger.error(
+                        f"Unable to connect to MySQL: {get_general_error_message('DatabaseConnection', e)}"
+                    )
+                    raise
+                HtMysql._engine = engine
                 HtMysql._engine_config = config
                 logger.info(f"SQLAlchemy engine created with pool size {pool_size}")
             elif HtMysql._engine_config != config:
@@ -100,32 +122,38 @@ class HtMysql:
             logger.error(f"Error updating status: {e}")
 
 
+def _require_env(name: str) -> str:
+    """Return the env var value, or raise MissingMysqlConfigError if unset/empty.
+
+    :param name: Name of the environment variable to retrieve
+    :return: Value of the environment variable
+    :raises MissingMysqlConfigError: If the environment variable is not set or empty
+    """
+    value = os.getenv(name)
+    if not value:
+        logger.error(f"Error: `{name}` environment variable required")
+        raise MissingMysqlConfigError(f"`{name}` environment variable required")
+    return value
+
+
 def get_mysql_conn(pool_size: int = 1) -> HtMysql:
-    # MySql connection
-    try:
-        mysql_host = os.getenv("MYSQL_HOST", "mysql-sdr")
-        logger.info(f"Connected to MySql_Host: {mysql_host}")
-    except KeyError:
-        logger.error("Error: `MYSQL_HOST` environment variable required")
-        sys.exit(1)
+    """MYSQL_HOST/MYSQL_DATABASE are not secrets, so if they are not provides, it will initiallice to default.
 
-    try:
-        mysql_user = os.getenv("MYSQL_USER", "mdp-lib")
-        logger.info(f"Connected to MySql_User: {mysql_user}")
-    except KeyError:
-        logger.error("Error: `MYSQL_USER` environment variable required")
-        sys.exit(1)
+    MYSQL_USER/MYSQL_PASS are credentials: so, the application will fail fast if there are not provided. We don't want to silently
+    connect as default to a guessed identity.
 
-    try:
-        mysql_pass = os.getenv("MYSQL_PASS", "mdp-lib")
-    except KeyError:
-        logger.error("Error: `MYSQL_PASS` environment variable required")
-        sys.exit(1)
+    :param pool_size: Number of connections in the pool
+    :return: HtMysql instance
+    """
+    mysql_host = os.getenv("MYSQL_HOST", "mysql-sdr")
+    mysql_database = os.getenv("MYSQL_DATABASE", "ht")
+    mysql_user = _require_env("MYSQL_USER")
+    mysql_pass = _require_env("MYSQL_PASS")
 
-    ht_mysql = HtMysql(
-        mysql_host, mysql_user, mysql_pass, os.getenv("MYSQL_DATABASE", "ht"), pool_size=pool_size
-    )
+    logger.info(f"Connecting to MySql_Host: {mysql_host} database: {mysql_database}")
 
-    logger.info("Access by default to `ht` Mysql database")
+    ht_mysql = HtMysql(mysql_host, mysql_user, mysql_pass, mysql_database, pool_size=pool_size)
+
+    logger.info(f"Connected to MySql database `{mysql_database}`")
 
     return ht_mysql

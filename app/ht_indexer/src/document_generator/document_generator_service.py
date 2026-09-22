@@ -8,11 +8,11 @@ from ht_document.ht_document import HtDocument
 from ht_queue_service.queue_consumer import QueueConsumer
 from ht_queue_service.queue_producer import QueueProducer
 from ht_utils.ht_logger import get_ht_logger
+from ht_utils.ht_mysql import HtMysql
 from ht_utils.ht_utils import get_error_message_by_document, get_general_error_message
 
 from .full_text_document_generator import FullTextDocumentGenerator
 from .generator_arguments import GeneratorServiceArguments
-from .ht_mysql import HtMysql
 
 logger = get_ht_logger(name=__name__)
 
