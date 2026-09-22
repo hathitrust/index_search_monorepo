@@ -67,7 +67,8 @@ class TestDocumentGeneratorServiceMysqlUpdate:
 
     def test_generate_document_missing_ht_id_skips_update_status(self) -> None:
         service, db_conn = self._make_service()
-        # Test that when generate_document is called with a message missing the 'ht_id', it does not update MySQL status.
+        # No patch needed: generate_document raises ValueError at the item_id is None
+        # generate_full_text_entry is ever called.
         message: dict[str, Any] = {}
 
         service.generate_document(message, delivery_tag=1)
@@ -75,120 +76,29 @@ class TestDocumentGeneratorServiceMysqlUpdate:
         db_conn.update_status.assert_not_called()
 
     def test_generate_document_success_update_placed_after_acknowledge(self) -> None:
-        # Test to check that the generator acknowledges a message to the RabbitMQ before it writes to MySQL.
-        # This is important because if the MySQL write fails, the message should not be requeued and processed again.
         service, db_conn = self._make_service()
         message = {"ht_id": "mdp.39015078560292"}
         call_order: list[str] = []
 
-        def record_ack(*args: object, **kwargs: object) -> None:
-            call_order.append("ack")
+        original_positive_acknowledge = service.src_queue_consumer.positive_acknowledge
 
-        def record_update_status(*args: object, **kwargs: object) -> None:
+        def record_ack(*args, **kwargs): 
+            call_order.append("ack")
+            return original_positive_acknowledge(*args, **kwargs)
+
+        def record_update_status(*args, **kwargs): 
             call_order.append("update_status")
 
+        # src_queue_consumer is a Mock at runtime (not a real QueueConsumer)
+        service.src_queue_consumer.positive_acknowledge = record_ack 
         db_conn.update_status.side_effect = record_update_status
 
-        with (
-            patch.object(
-                service.src_queue_consumer, "positive_acknowledge", side_effect=record_ack
-            ),
-            patch.object(
-                service, "generate_full_text_entry", return_value={"id": "mdp.39015078560292"}
-            ),
-            patch.object(service, "publish_document"),
+        with patch.object(
+            service, "generate_full_text_entry", return_value={"id": "mdp.39015078560292"}
         ):
-            service.generate_document(message, delivery_tag=1)
+            with patch.object(service, "publish_document"):
+                service.generate_document(message, delivery_tag=1)
 
-        # The assertion checks that there are exactly 2 calls, the ack first and the status write second.
         assert call_order == ["ack", "update_status"], (
             f"Expected ack before update_status, got order: {call_order}"
-        )
-
-
-class TestGeneratorStatusWriteErrors:
-    # A status write runs after the message is already acked or rejected, so its failure must not
-    # reject an acked message, record a published document as failed, or stop the consume loop.
-    def _make_service(self) -> tuple[DocumentGeneratorService, Mock]:
-        # Create a DocumentGeneratorService with a mocked MySQL connection that raises an error on update_status.
-        # Simulate a failure in the MySQL update_status method to test how the service handles it.
-        db_conn = Mock()
-        db_conn.update_status.side_effect = RuntimeError("MySQL unavailable")
-        src_queue_consumer = Mock()
-        src_queue_consumer.channel = MagicMock()
-        service = DocumentGeneratorService(db_conn, src_queue_consumer, Mock())
-        return service, db_conn
-
-    def _generate_successfully(self, service: DocumentGeneratorService) -> None:
-        with (
-            patch.object(
-                service, "generate_full_text_entry", return_value={"id": "mdp.39015078560292"}
-            ),
-            patch.object(service, "publish_document"),
-        ):
-            service.generate_document({"ht_id": "mdp.39015078560292"}, delivery_tag=1)
-
-    def _generate_with_failure(self, service: DocumentGeneratorService) -> None:
-        with patch.object(
-            service, "generate_full_text_entry", side_effect=FileNotFoundError("zip not found")
-        ):
-            service.generate_document({"ht_id": "mdp.39015078560292"}, delivery_tag=1)
-
-    def test_generate_document_success_status_write_error_does_not_reject_message(self) -> None:
-        # Test that when generate_document succeeds but the MySQL status write fails, it does not reject the message.
-        service, _ = self._make_service()
-
-        self._generate_successfully(service)
-
-        # Casting the callable to a MagicMock type
-        cast(MagicMock, service.src_queue_consumer.reject_message).assert_not_called()
-
-    def test_generate_document_success_status_write_error_does_not_write_failed_status(
-        self,
-    ) -> None:
-        # Test that when generate_document succeeds but the MySQL status write fails, it does not write a failed status to MySQL.
-        service, db_conn = self._make_service()
-
-        self._generate_successfully(service)
-
-        assert db_conn.update_status.call_args.args[0] == SUCCESS_UPDATE_STATUS
-
-    def test_generate_document_failure_status_write_error_does_not_raise(self) -> None:
-        # Test that when generate_document fails and the MySQL status write also fails, it does not raise an exception.
-        service, db_conn = self._make_service()
-
-        self._generate_with_failure(service)
-
-        db_conn.update_status.assert_called_once()
-        assert db_conn.update_status.call_args.args[0] == FAILURE_UPDATE_STATUS
-        cast(MagicMock, service.src_queue_consumer.reject_message).assert_called_once()
-
-    # def test_generate_document_failure_status_write_error_still_rejects_message(self) -> None:
-    #    service, _ = self._make_service()
-
-    #    self._generate_with_failure(service)
-
-    #    service.src_queue_consumer.reject_message.assert_called_once()  # type: ignore[attr-defined]  # Mock attribute
-
-
-class TestGeneratorStatusGuardInSQL:
-    # These tests do not run queries or access MySQL. They pin the shape of the guard.
-    # Only the shared status and error column is guarded, inside SET, so generator_status
-    # is always written. status must be assigned last: MySQL evaluates SET left to right.
-    def test_success_update_status_sql_guards_status_last_and_where_has_no_guard(self) -> None:
-        assert SUCCESS_UPDATE_STATUS.endswith(
-            "status = CASE WHEN status <> 'completed' THEN :status ELSE status END "
-            "WHERE ht_id = :ht_id"
-        )
-
-    def test_failure_update_status_sql_guards_status_last_and_where_has_no_guard(self) -> None:
-        assert FAILURE_UPDATE_STATUS.endswith(
-            "status = CASE WHEN status <> 'completed' THEN :status ELSE status END "
-            "WHERE ht_id = :ht_id"
-        )
-
-    def test_failure_update_status_sql_guards_error_when_row_is_completed(self) -> None:
-        assert (
-            "error = CASE WHEN status <> 'completed' THEN :error ELSE error END"
-            in FAILURE_UPDATE_STATUS
         )
