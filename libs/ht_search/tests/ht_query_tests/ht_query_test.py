@@ -137,6 +137,29 @@ class TestHTSearchQuery:
             "q.op": "AND",
         }
 
+    def test_manage_string_query_unsupported_operator_is_used_as_is(self) -> None:
+        """Unlike manage_string_query_solr6, manage_string_query does no operator
+        validation -- any non-None operator string is used verbatim to join the
+        words and set q.op, rather than being rejected or falling back to None.
+        """
+        assert HTSearchQuery.manage_string_query("information retrieval", operator="XOR") == {
+            "q": "information XOR retrieval",
+            "q.op": "XOR",
+        }
+
+    def test_manage_string_query_collapses_whitespace_when_operator_given(self) -> None:
+        assert HTSearchQuery.manage_string_query("  information   retrieval  ", operator="AND") == {
+            "q": "information AND retrieval",
+            "q.op": "AND",
+        }
+
+    def test_manage_string_query_preserves_whitespace_for_exact_phrase(self) -> None:
+        # Unlike the operator branch (which splits/rejoins on whitespace), the
+        # exact-phrase (operator=None) branch wraps input_phrase as-is in quotes.
+        assert HTSearchQuery.manage_string_query("  information retrieval  ") == {
+            "q": '"  information retrieval  "'
+        }
+
     def test_manage_string_query_solr6_or_and_and(self) -> None:
         assert (
             HTSearchQuery.manage_string_query_solr6("information retrieval", operator="OR")
@@ -151,6 +174,20 @@ class TestHTSearchQuery:
         assert (
             HTSearchQuery.manage_string_query_solr6("information retrieval")
             == '"information retrieval"'
+        )
+
+    def test_manage_string_query_solr6_collapses_whitespace_for_or_and_and(self) -> None:
+        assert (
+            HTSearchQuery.manage_string_query_solr6("  information   retrieval  ", operator="OR")
+            == "information OR retrieval"
+        )
+
+    def test_manage_string_query_solr6_preserves_whitespace_for_exact_phrase(self) -> None:
+        # Same asymmetry as manage_string_query: the None-operator branch wraps
+        # input_phrase as-is, it doesn't split()/rejoin like the OR/AND branch does.
+        assert (
+            HTSearchQuery.manage_string_query_solr6("  information retrieval  ")
+            == '"  information retrieval  "'
         )
 
     def test_manage_string_query_solr6_unrecognised_operator_returns_none(self) -> None:
