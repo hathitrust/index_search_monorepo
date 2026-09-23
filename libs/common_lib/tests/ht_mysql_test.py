@@ -1,3 +1,5 @@
+import threading
+import time
 from collections.abc import Generator
 from unittest.mock import MagicMock, patch
 
@@ -75,6 +77,80 @@ class TestHtMysql:
 
         with pytest.raises(sqlalchemy.exc.SQLAlchemyError):
             get_mysql_conn()
+
+    @patch("ht_utils.ht_mysql.create_engine")
+    def test_second_construction_with_same_config_reuses_the_engine(
+        self, mock_create_engine: MagicMock
+    ) -> None:
+        HtMysql("host", "user", "pass", "db")
+        engine_after_first = HtMysql._engine
+
+        HtMysql("host", "user", "pass", "db")
+
+        assert HtMysql._engine is engine_after_first
+        mock_create_engine.assert_called_once()
+
+    @patch("ht_utils.ht_mysql.create_engine")
+    def test_second_construction_with_different_config_raises(
+        self, mock_create_engine: MagicMock
+    ) -> None:
+        HtMysql("host", "user", "pass", "db")
+
+        with pytest.raises(
+            RuntimeError, match="Engine already created with different configuration"
+        ):
+            HtMysql("other-host", "user", "pass", "db")
+
+    def test_get_engine_raises_before_any_construction(self) -> None:
+        with pytest.raises(RuntimeError, match="HtMysql engine not initialized"):
+            HtMysql._get_engine()
+
+    def test_concurrent_construction_with_same_config_creates_engine_exactly_once(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Regression test for the _lock: without it, two threads could both observe
+        _engine is None and each call create_engine(), leaving the second one to silently
+        win. Slowing create_engine down widens the race window so the test would actually
+        catch a regression, rather than passing by luck on a fast machine.
+        """
+        created_engines: list[object] = []
+
+        def slow_create_engine(*args: object, **kwargs: object) -> MagicMock:
+            time.sleep(0.01)
+            engine = MagicMock()
+            created_engines.append(engine)
+            return engine
+
+        monkeypatch.setattr("ht_utils.ht_mysql.create_engine", slow_create_engine)
+
+        threads = [
+            threading.Thread(target=HtMysql, args=("host", "user", "pass", "db")) for _ in range(8)
+        ]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+
+        assert len(created_engines) == 1
+
+    @patch("ht_utils.ht_mysql.create_engine")
+    def test_query_mysql_returns_empty_list_for_blank_query(
+        self, mock_create_engine: MagicMock
+    ) -> None:
+        ht_mysql = get_mysql_conn()
+
+        assert ht_mysql.query_mysql("") == []
+
+    @patch("ht_utils.ht_mysql.create_engine")
+    def test_query_mysql_returns_empty_list_on_sqlalchemy_error(
+        self, mock_create_engine: MagicMock
+    ) -> None:
+        # Construct successfully first (the fail-fast connect check in __init__ must
+        # pass), then break the *next* connect() call, made by query_mysql itself.
+        ht_mysql = get_mysql_conn()
+        mock_create_engine.return_value.connect.side_effect = sqlalchemy.exc.SQLAlchemyError("boom")
+
+        assert ht_mysql.query_mysql("SELECT 1") == []
 
 
 class TestGetMysqlConnRequiredCredentials:
