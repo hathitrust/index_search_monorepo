@@ -22,7 +22,7 @@ def clean_queue_env(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def _write_yaml(path: Path, data: dict[str, Any]) -> Path:
-    path.write_text(yaml.safe_dump(data))
+    path.write_text(yaml.safe_dump(data), encoding="utf-8")
     return path
 
 
