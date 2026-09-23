@@ -40,8 +40,23 @@ logger = get_ht_logger(name=__name__)
 WAITING_TIME_QUEUE_PRODUCER = 180  # Wait 3 minutes to send documents in the queue
 WAITING_TIME_MYSQL = 60  # Wait 1 minute to query MySQL checking if there are documents to process (retriever_status = pending)
 MYSQL_COLUMN_UPDATE = "retriever_status"
-SUCCESS_UPDATE_STATUS = f"UPDATE {PROCESSING_STATUS_TABLE_NAME} SET status = :status, {MYSQL_COLUMN_UPDATE} = :retriever_status, processed_at = :processed_at WHERE ht_id = :ht_id"
-FAILURE_UPDATE_STATUS = f"UPDATE {PROCESSING_STATUS_TABLE_NAME} SET status = :status, {MYSQL_COLUMN_UPDATE} = :retriever_status, processed_at = :processed_at, error = :error WHERE ht_id = :ht_id"
+# Guard: retriever_status is always written, but the shared status and error column only changes
+# while status='pending', so a late batched write can't overwrite what the generator already recorded.
+# The guard lives in SET, not WHERE: a WHERE guard would leave retriever_status='pending' and the
+# item would be re-published on every polling cycle. status must be assigned last, because MySQL
+# evaluates SET left to right and the error guard must read the original status.
+_STATUS_GUARD = f"CASE WHEN status = '{STATUS_PENDING}' THEN :status ELSE status END"
+SUCCESS_UPDATE_STATUS = (
+    f"UPDATE {PROCESSING_STATUS_TABLE_NAME} SET "
+    f"{MYSQL_COLUMN_UPDATE} = :retriever_status, processed_at = :processed_at, "
+    f"status = {_STATUS_GUARD} WHERE ht_id = :ht_id"
+)
+FAILURE_UPDATE_STATUS = (
+    f"UPDATE {PROCESSING_STATUS_TABLE_NAME} SET "
+    f"{MYSQL_COLUMN_UPDATE} = :retriever_status, processed_at = :processed_at, "
+    f"error = CASE WHEN status = '{STATUS_PENDING}' THEN :error ELSE error END, "
+    f"status = {_STATUS_GUARD} WHERE ht_id = :ht_id"
+)
 
 SOLR_BATCH_SIZE = 200  # The chunk size is 200, because Solr will fail with the status code 414. The chunk size was determined
 # by testing the Solr query with different values (e.g., 100-500 and with 200 ht_ids it worked.

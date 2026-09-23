@@ -39,6 +39,9 @@ addopts = "-ra -q -p no:cacheprovider"
 filterwarnings = [
     "ignore::DeprecationWarning:pika.*"
 ]
+markers = [
+    "integration: requires a live service (Solr, MySQL or RabbitMQ)",
+]
 
 [tool.uv]
 default-groups = "all"
