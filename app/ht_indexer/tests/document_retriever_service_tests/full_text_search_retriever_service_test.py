@@ -387,3 +387,27 @@ class TestMainSerialBranch:
         )
         assert documents_arg == ["nyp.001", "nyp.002"]
         assert by_field_arg == "item"
+
+
+class TestRetrieverStatusGuardInSQL:
+    # These tests do not run queries or access MySQL. They pin the shape of the guard. Only the
+    # shared status and error column is guarded, inside SET, so retriever_status is always
+    # written. A guard in WHERE would leave retriever_status='pending' and the item would be
+    # re-published forever. status must be assigned last: MySQL evaluates SET left to right.
+    def test_success_update_status_sql_guards_status_last_and_where_has_no_guard(self) -> None:
+        assert retriever_service_module.SUCCESS_UPDATE_STATUS.endswith(
+            "status = CASE WHEN status = 'pending' THEN :status ELSE status END "
+            "WHERE ht_id = :ht_id"
+        )
+
+    def test_failure_update_status_sql_guards_status_last_and_where_has_no_guard(self) -> None:
+        assert retriever_service_module.FAILURE_UPDATE_STATUS.endswith(
+            "status = CASE WHEN status = 'pending' THEN :status ELSE status END "
+            "WHERE ht_id = :ht_id"
+        )
+
+    def test_failure_update_status_sql_guards_error_when_row_is_not_pending(self) -> None:
+        assert (
+            "error = CASE WHEN status = 'pending' THEN :error ELSE error END"
+            in retriever_service_module.FAILURE_UPDATE_STATUS
+        )

@@ -324,6 +324,50 @@ be one of the following: pending, processing, failed, completed.
 
 ```
 
+#### Status guard: services writing out-of-order
+
+The retriever and the generator both write the shared `status` column. They run as separate processes, and
+the retriever writes to MySQL only after publishing a whole batch (up to 200 items). So the generator can
+finish an item before the retriever records it. Without protection, the later write wins: a retriever
+success could turn a generator `failed` back into `processing`.
+
+To prevent this, each stage always writes its own column (`retriever_status`, `generator_status`), but it
+only changes the shared `status` column (and `error`) when the row's current `status` allows it:
+
+| Stage     | Always written                        | `status` / `error` only changed when |
+|-----------|---------------------------------------|--------------------------------------|
+| Retriever | `retriever_status`, `processed_at`    | `status = 'pending'`                 |
+| Generator | `generator_status`, `processed_at`    | `status <> 'completed'`              |
+
+The guard is a `CASE` expression inside `SET`, not a condition in `WHERE`:
+
+```sql
+UPDATE fulltext_item_processing_status
+SET retriever_status = :retriever_status, processed_at = :processed_at,
+    status = CASE WHEN status = 'pending' THEN :status ELSE status END
+WHERE ht_id = :ht_id
+```
+
+A `WHERE` guard would skip the whole row, leaving `retriever_status = 'pending'`. The retriever selects
+rows by `retriever_status = 'pending'`, so it would publish the same item again on every polling cycle.
+`status` is assigned last in `SET` because MySQL evaluates assignments left to right, and the `error` guard
+has to read the original `status`.
+
+#### Reprocessing items that are not `pending`
+
+When you reprocess items that already ran (for example, with `run_retriever_service_by_file.py`), the
+retriever records `retriever_status` but leaves `status` and `error` unchanged until the generator writes.
+Reset the rows first so they start clean:
+
+```sql
+UPDATE fulltext_item_processing_status
+SET status = 'pending', retriever_status = 'pending', generator_status = 'pending',
+    indexer_status = 'pending', error = NULL
+WHERE ht_id IN ('mdp.39015026143126', 'hvd.32044106262314');
+```
+
+Also clear `error`: success writes don't reset it, so an old error message would otherwise stay on the row.
+
 ## Usage
 
 ### All services (Retriever, Generator and Indexer) using the queue message system
@@ -331,7 +375,6 @@ be one of the following: pending, processing, failed, completed.
 * **Run retriever service**
 
 ``` 
-cd app/ht_indexer/src
 docker compose exec ht_indexer_tracker python -m ht_indexer_monitoring.ht_indexer_tracktable --env dev --query "*:*" --num_found 100
 
 ```
@@ -415,6 +458,8 @@ not from the queue.
 
 Provide a plain-text file containing one HathiTrust item ID per line. This file is not included in the
 repository — operators must supply their own file (for example, generated from a Catalog Solr query).
+
+If any of these items already ran, reset their rows in `fulltext_item_processing_status` first; see [Reprocessing items that are not `pending`](#reprocessing-items-that-are-not-pending).
 
 ```docker compose exec document_retriever python document_retriever_service/run_retriever_service_by_file.py --input_document_file /path/to/your/htids.txt```
 

@@ -75,25 +75,48 @@ class TestDocumentGeneratorServiceMysqlUpdate:
         message = {"ht_id": "mdp.39015078560292"}
         call_order: list[str] = []
 
-        original_positive_acknowledge = service.src_queue_consumer.positive_acknowledge
-
-        def record_ack(*args, **kwargs): 
+        def record_ack(*args: object, **kwargs: object) -> None:
             call_order.append("ack")
-            return original_positive_acknowledge(*args, **kwargs)
 
-        def record_update_status(*args, **kwargs): 
+        def record_update_status(*args: object, **kwargs: object) -> None:
             call_order.append("update_status")
 
-        # src_queue_consumer is a Mock at runtime (not a real QueueConsumer)
-        service.src_queue_consumer.positive_acknowledge = record_ack 
         db_conn.update_status.side_effect = record_update_status
 
-        with patch.object(
-            service, "generate_full_text_entry", return_value={"id": "mdp.39015078560292"}
+        with (
+            patch.object(
+                service.src_queue_consumer, "positive_acknowledge", side_effect=record_ack
+            ),
+            patch.object(
+                service, "generate_full_text_entry", return_value={"id": "mdp.39015078560292"}
+            ),
+            patch.object(service, "publish_document"),
         ):
-            with patch.object(service, "publish_document"):
-                service.generate_document(message, delivery_tag=1)
+            service.generate_document(message, delivery_tag=1)
 
         assert call_order == ["ack", "update_status"], (
             f"Expected ack before update_status, got order: {call_order}"
+        )
+
+
+class TestGeneratorStatusGuardInSQL:
+    # These tests do not run queries or access MySQL. They pin the shape of the guard.
+    # Only the shared status and error column is guarded, inside SET, so generator_status
+    # is always written. status must be assigned last: MySQL evaluates SET left to right.
+    def test_success_update_status_sql_guards_status_last_and_where_has_no_guard(self) -> None:
+        assert SUCCESS_UPDATE_STATUS.endswith(
+            "status = CASE WHEN status <> 'completed' THEN :status ELSE status END "
+            "WHERE ht_id = :ht_id"
+        )
+
+    def test_failure_update_status_sql_guards_status_last_and_where_has_no_guard(self) -> None:
+        assert FAILURE_UPDATE_STATUS.endswith(
+            "status = CASE WHEN status <> 'completed' THEN :status ELSE status END "
+            "WHERE ht_id = :ht_id"
+        )
+
+    def test_failure_update_status_sql_guards_error_when_row_is_completed(self) -> None:
+        assert (
+            "error = CASE WHEN status <> 'completed' THEN :error ELSE error END"
+            in FAILURE_UPDATE_STATUS
         )
