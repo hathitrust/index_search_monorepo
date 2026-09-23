@@ -23,15 +23,21 @@ from .generator_arguments import GeneratorServiceArguments
 logger = get_ht_logger(name=__name__)
 
 MYSQL_COLUMN_UPDATE = "generator_status"
+# Guard: generator_status is always written, but the shared status and error column never
+# overwrites 'completed'. The guard lives in SET, not WHERE, so the stage's own column is not
+# left stale. status must be assigned last, because MySQL evaluates SET left to right and the
+# error guard must read the original status.
+_STATUS_GUARD = f"CASE WHEN status <> '{STATUS_COMPLETED}' THEN :status ELSE status END"
 SUCCESS_UPDATE_STATUS = (
-    f"UPDATE {PROCESSING_STATUS_TABLE_NAME} SET status = :status, "
-    f"{MYSQL_COLUMN_UPDATE} = :generator_status, processed_at = :processed_at "
-    f"WHERE ht_id = :ht_id"
+    f"UPDATE {PROCESSING_STATUS_TABLE_NAME} SET "
+    f"{MYSQL_COLUMN_UPDATE} = :generator_status, processed_at = :processed_at, "
+    f"status = {_STATUS_GUARD} WHERE ht_id = :ht_id"
 )
 FAILURE_UPDATE_STATUS = (
-    f"UPDATE {PROCESSING_STATUS_TABLE_NAME} SET status = :status, "
+    f"UPDATE {PROCESSING_STATUS_TABLE_NAME} SET "
     f"{MYSQL_COLUMN_UPDATE} = :generator_status, processed_at = :processed_at, "
-    f"error = :error WHERE ht_id = :ht_id"
+    f"error = CASE WHEN status <> '{STATUS_COMPLETED}' THEN :error ELSE error END, "
+    f"status = {_STATUS_GUARD} WHERE ht_id = :ht_id"
 )
 
 

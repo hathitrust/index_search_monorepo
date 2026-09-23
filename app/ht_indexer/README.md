@@ -375,7 +375,6 @@ Also clear `error`: success writes don't reset it, so an old error message would
 * **Run retriever service**
 
 ``` 
-cd app/ht_indexer/src
 docker compose exec ht_indexer_tracker python -m ht_indexer_monitoring.ht_indexer_tracktable --env dev --query "*:*" --num_found 100
 
 ```
