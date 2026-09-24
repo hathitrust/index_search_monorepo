@@ -54,6 +54,9 @@ def make_solr_term_query(list_documents: list[str], by_field: str = "item") -> s
     # The terms query parser in Solr is a highly efficient way to search for multiple exact values
     # in a specific field — great for querying by id or any other exact-match field,
     # especially when you're dealing with large lists.
+    # TODO: this doesn't escape a comma embedded in an id, so a single id containing a
+    # comma is indistinguishable from two separate ids to Solr's {!terms} parser. Track
+    # a fix (e.g. escaping or rejecting embedded commas) in a separate ticket.
     query = "{!terms f=ht_id}" + ",".join(list_documents)
 
     if by_field == "record":
