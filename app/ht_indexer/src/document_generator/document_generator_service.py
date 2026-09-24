@@ -4,17 +4,41 @@ import time
 from pathlib import Path
 from typing import Any
 
+from catalog_metadata.ht_indexer_config import STATUS_COMPLETED, STATUS_FAILED, STATUS_PROCESSING
 from ht_document.ht_document import HtDocument
+from ht_indexer_monitoring.ht_indexer_tracktable import PROCESSING_STATUS_TABLE_NAME
 from ht_queue_service.queue_consumer import QueueConsumer
 from ht_queue_service.queue_producer import QueueProducer
 from ht_utils.ht_logger import get_ht_logger
 from ht_utils.ht_mysql import HtMysql
-from ht_utils.ht_utils import get_error_message_by_document, get_general_error_message
+from ht_utils.ht_utils import (
+    get_current_time,
+    get_error_message_by_document,
+    get_general_error_message,
+)
 
 from .full_text_document_generator import FullTextDocumentGenerator
 from .generator_arguments import GeneratorServiceArguments
 
 logger = get_ht_logger(name=__name__)
+
+MYSQL_COLUMN_UPDATE = "generator_status"
+# Guard: generator_status is always written, but the shared status and error column never
+# overwrites 'completed'. The guard lives in SET, not WHERE, so the stage's own column is not
+# left stale. status must be assigned last, because MySQL evaluates SET left to right and the
+# error guard must read the original status.
+_STATUS_GUARD = f"CASE WHEN status <> '{STATUS_COMPLETED}' THEN :status ELSE status END"
+SUCCESS_UPDATE_STATUS = (
+    f"UPDATE {PROCESSING_STATUS_TABLE_NAME} SET "
+    f"{MYSQL_COLUMN_UPDATE} = :generator_status, processed_at = :processed_at, "
+    f"status = {_STATUS_GUARD} WHERE ht_id = :ht_id"
+)
+FAILURE_UPDATE_STATUS = (
+    f"UPDATE {PROCESSING_STATUS_TABLE_NAME} SET "
+    f"{MYSQL_COLUMN_UPDATE} = :generator_status, processed_at = :processed_at, "
+    f"error = CASE WHEN status <> '{STATUS_COMPLETED}' THEN :error ELSE error END, "
+    f"status = {_STATUS_GUARD} WHERE ht_id = :ht_id"
+)
 
 
 class DocumentGeneratorService:
@@ -40,6 +64,7 @@ class DocumentGeneratorService:
 
         # Instantiate the document generator object
         self.document_generator = FullTextDocumentGenerator(db_conn)
+        self.db_conn = db_conn
 
         self.src_queue_consumer = src_queue_consumer
         self.document_repository = document_repository
@@ -148,6 +173,46 @@ class DocumentGeneratorService:
             )
         except Exception as e:
             self.log_error_document_generator_service(e, message, delivery_tag)
+            if item_id is not None:
+                error_info = get_error_message_by_document("DocumentGeneratorService", e, message)
+                self._write_generator_status(
+                    FAILURE_UPDATE_STATUS,
+                    {
+                        "status": STATUS_FAILED,
+                        "generator_status": STATUS_FAILED,
+                        "processed_at": get_current_time(),
+                        "error": f"{error_info.get('service_name')}_{error_info.get('error_message')}",
+                        "ht_id": item_id,
+                    },
+                )
+            else:
+                logger.warning("Cannot update MySQL generator_status: message has no 'ht_id'")
+        else:
+            # In else, not try: the message is already acked, so a status-write error must never
+            # reach the reject path above.
+            self._write_generator_status(
+                SUCCESS_UPDATE_STATUS,
+                {
+                    "status": STATUS_PROCESSING,
+                    "generator_status": STATUS_COMPLETED,
+                    "processed_at": get_current_time(),
+                    "ht_id": item_id,
+                },
+            )
+
+    def _write_generator_status(self, query: str, values: dict[str, Any]) -> None:
+        """Record the generator outcome in MySQL without ever raising.
+
+        Runs after the message is acked or rejected, so a MySQL error here must not change the
+        message's outcome or stop the consume loop. It is logged and the item keeps its old status.
+        """
+        try:
+            self.db_conn.update_status(query, [values])
+        except Exception as e:
+            logger.error(
+                f"Failed to update generator_status ht_id={values.get('ht_id')} "
+                f"{get_general_error_message('DocumentGeneratorService', e)}"
+            )
 
 
 def main() -> None:
