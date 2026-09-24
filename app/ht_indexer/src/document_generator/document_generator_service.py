@@ -171,36 +171,48 @@ class DocumentGeneratorService:
             self.src_queue_consumer.positive_acknowledge(
                 self.src_queue_consumer.channel, delivery_tag
             )
-            self.db_conn.update_status(
-                SUCCESS_UPDATE_STATUS,
-                [
-                    {
-                        "status": STATUS_PROCESSING,
-                        "generator_status": STATUS_COMPLETED,
-                        "processed_at": get_current_time(),
-                        "ht_id": item_id,
-                    }
-                ],
-            )
         except Exception as e:
             self.log_error_document_generator_service(e, message, delivery_tag)
-            item_id_for_update = message.get("ht_id")
-            if item_id_for_update is not None:
+            if item_id is not None:
                 error_info = get_error_message_by_document("DocumentGeneratorService", e, message)
-                self.db_conn.update_status(
+                self._write_generator_status(
                     FAILURE_UPDATE_STATUS,
-                    [
-                        {
-                            "status": STATUS_FAILED,
-                            "generator_status": STATUS_FAILED,
-                            "processed_at": get_current_time(),
-                            "error": f"{error_info.get('service_name')}_{error_info.get('error_message')}",
-                            "ht_id": item_id_for_update,
-                        }
-                    ],
+                    {
+                        "status": STATUS_FAILED,
+                        "generator_status": STATUS_FAILED,
+                        "processed_at": get_current_time(),
+                        "error": f"{error_info.get('service_name')}_{error_info.get('error_message')}",
+                        "ht_id": item_id,
+                    },
                 )
             else:
                 logger.warning("Cannot update MySQL generator_status: message has no 'ht_id'")
+        else:
+            # In else, not try: the message is already acked, so a status-write error must never
+            # reach the reject path above.
+            self._write_generator_status(
+                SUCCESS_UPDATE_STATUS,
+                {
+                    "status": STATUS_PROCESSING,
+                    "generator_status": STATUS_COMPLETED,
+                    "processed_at": get_current_time(),
+                    "ht_id": item_id,
+                },
+            )
+
+    def _write_generator_status(self, query: str, values: dict[str, Any]) -> None:
+        """Record the generator outcome in MySQL without ever raising.
+
+        Runs after the message is acked or rejected, so a MySQL error here must not change the
+        message's outcome or stop the consume loop. It is logged and the item keeps its old status.
+        """
+        try:
+            self.db_conn.update_status(query, [values])
+        except Exception as e:
+            logger.error(
+                f"Failed to update generator_status ht_id={values.get('ht_id')} "
+                f"{get_general_error_message('DocumentGeneratorService', e)}"
+            )
 
 
 def main() -> None:

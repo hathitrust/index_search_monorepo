@@ -99,6 +99,63 @@ class TestDocumentGeneratorServiceMysqlUpdate:
         )
 
 
+class TestGeneratorStatusWriteErrors:
+    # A status write runs after the message is already acked or rejected, so its failure must not
+    # reject an acked message, record a published document as failed, or stop the consume loop.
+    def _make_service(self) -> tuple[DocumentGeneratorService, Mock]:
+        db_conn = Mock()
+        db_conn.update_status.side_effect = RuntimeError("MySQL unavailable")
+        src_queue_consumer = Mock()
+        src_queue_consumer.channel = MagicMock()
+        service = DocumentGeneratorService(db_conn, src_queue_consumer, Mock())
+        return service, db_conn
+
+    def _generate_successfully(self, service: DocumentGeneratorService) -> None:
+        with (
+            patch.object(
+                service, "generate_full_text_entry", return_value={"id": "mdp.39015078560292"}
+            ),
+            patch.object(service, "publish_document"),
+        ):
+            service.generate_document({"ht_id": "mdp.39015078560292"}, delivery_tag=1)
+
+    def _generate_with_failure(self, service: DocumentGeneratorService) -> None:
+        with patch.object(
+            service, "generate_full_text_entry", side_effect=FileNotFoundError("zip not found")
+        ):
+            service.generate_document({"ht_id": "mdp.39015078560292"}, delivery_tag=1)
+
+    def test_generate_document_success_status_write_error_does_not_reject_message(self) -> None:
+        service, _ = self._make_service()
+
+        self._generate_successfully(service)
+
+        service.src_queue_consumer.reject_message.assert_not_called()  # type: ignore[attr-defined]  # Mock attribute
+
+    def test_generate_document_success_status_write_error_does_not_write_failed_status(
+        self,
+    ) -> None:
+        service, db_conn = self._make_service()
+
+        self._generate_successfully(service)
+
+        assert db_conn.update_status.call_args.args[0] == SUCCESS_UPDATE_STATUS
+
+    def test_generate_document_failure_status_write_error_does_not_raise(self) -> None:
+        service, db_conn = self._make_service()
+
+        self._generate_with_failure(service)
+
+        db_conn.update_status.assert_called_once()
+
+    def test_generate_document_failure_status_write_error_still_rejects_message(self) -> None:
+        service, _ = self._make_service()
+
+        self._generate_with_failure(service)
+
+        service.src_queue_consumer.reject_message.assert_called_once()  # type: ignore[attr-defined]  # Mock attribute
+
+
 class TestGeneratorStatusGuardInSQL:
     # These tests do not run queries or access MySQL. They pin the shape of the guard.
     # Only the shared status and error column is guarded, inside SET, so generator_status
