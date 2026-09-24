@@ -87,3 +87,114 @@ class TestHTSearchQuery:
         assert expected_filter == HTSearchQuery.query_filter_creator_rights(
             filter_name, filter_value
         )
+
+    def test_create_boost_phrase_fields(self) -> None:
+        assert (
+            HTSearchQuery.create_boost_phrase_fields([["field1", 2], ["field2", 3]])
+            == "field1^2 field2^3"
+        )
+
+    def test_create_boost_phrase_fields_empty_list(self) -> None:
+        assert HTSearchQuery.create_boost_phrase_fields([]) == ""
+
+    def test_create_params_dict_missing_qf_and_pf_does_not_raise(self) -> None:
+        """Regression test: create_params_dict used to call
+        create_boost_phrase_fields(self.solr_parameters.get("qf")) unguarded, so a config
+        with no "qf" entry raised a TypeError from map(str, None). Both qf and pf are now
+        guarded with `if qf else []`; this pins that fix so it cannot regress.
+        """
+        query = HTSearchQuery()
+        assert query.solr_parameters == {}
+
+        params = query.create_params_dict()
+
+        assert params["qf"] == []
+        assert params["pf"] == []
+
+    def test_create_params_dict_formats_qf_and_pf_when_present(self) -> None:
+        query = HTSearchQuery()
+        query.solr_parameters = {"qf": [["field1", 2]], "pf": [["field2", 3]]}
+
+        params = query.create_params_dict()
+
+        assert params["qf"] == "field1^2"
+        assert params["pf"] == "field2^3"
+
+    def test_query_filter_creator_string_with_list(self) -> None:
+        assert HTSearchQuery.query_filter_creator_string("id", ["a", "b"]) == 'id:("a" OR "b")'
+
+    def test_query_filter_creator_string_with_single_value(self) -> None:
+        assert HTSearchQuery.query_filter_creator_string("id", "a") == 'id:("a")'
+
+    def test_manage_string_query_exact_phrase_when_operator_none(self) -> None:
+        assert HTSearchQuery.manage_string_query("information retrieval") == {
+            "q": '"information retrieval"'
+        }
+
+    def test_manage_string_query_and_operator(self) -> None:
+        assert HTSearchQuery.manage_string_query("information retrieval", operator="AND") == {
+            "q": "information AND retrieval",
+            "q.op": "AND",
+        }
+
+    def test_manage_string_query_unsupported_operator_is_used_as_is(self) -> None:
+        """Unlike manage_string_query_solr6, manage_string_query does no operator
+        validation -- any non-None operator string is used verbatim to join the
+        words and set q.op, rather than being rejected or falling back to None.
+        """
+        assert HTSearchQuery.manage_string_query("information retrieval", operator="XOR") == {
+            "q": "information XOR retrieval",
+            "q.op": "XOR",
+        }
+
+    def test_manage_string_query_collapses_whitespace_when_operator_given(self) -> None:
+        assert HTSearchQuery.manage_string_query("  information   retrieval  ", operator="AND") == {
+            "q": "information AND retrieval",
+            "q.op": "AND",
+        }
+
+    def test_manage_string_query_preserves_whitespace_for_exact_phrase(self) -> None:
+        # Unlike the operator branch (which splits/rejoins on whitespace), the
+        # exact-phrase (operator=None) branch wraps input_phrase as-is in quotes.
+        assert HTSearchQuery.manage_string_query("  information retrieval  ") == {
+            "q": '"  information retrieval  "'
+        }
+
+    def test_manage_string_query_solr6_or_and_and(self) -> None:
+        assert (
+            HTSearchQuery.manage_string_query_solr6("information retrieval", operator="OR")
+            == "information OR retrieval"
+        )
+        assert (
+            HTSearchQuery.manage_string_query_solr6("information retrieval", operator="AND")
+            == "information AND retrieval"
+        )
+
+    def test_manage_string_query_solr6_none_operator_is_exact_phrase(self) -> None:
+        assert (
+            HTSearchQuery.manage_string_query_solr6("information retrieval")
+            == '"information retrieval"'
+        )
+
+    def test_manage_string_query_solr6_collapses_whitespace_for_or_and_and(self) -> None:
+        assert (
+            HTSearchQuery.manage_string_query_solr6("  information   retrieval  ", operator="OR")
+            == "information OR retrieval"
+        )
+
+    def test_manage_string_query_solr6_preserves_whitespace_for_exact_phrase(self) -> None:
+        # Same asymmetry as manage_string_query: the None-operator branch wraps
+        # input_phrase as-is, it doesn't split()/rejoin like the OR/AND branch does.
+        assert (
+            HTSearchQuery.manage_string_query_solr6("  information retrieval  ")
+            == '"  information retrieval  "'
+        )
+
+    def test_manage_string_query_solr6_unrecognised_operator_returns_none(self) -> None:
+        """Any operator other than "OR", "AND" or None falls through to an implicit (now
+        explicit) None return -- a caller passing an unexpected operator value silently
+        gets None back instead of a query string or an error.
+        """
+        assert (
+            HTSearchQuery.manage_string_query_solr6("information retrieval", operator="XOR") is None
+        )
