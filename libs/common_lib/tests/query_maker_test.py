@@ -34,6 +34,18 @@ def test_make_query_empty_list_produces_empty_quoted_clause() -> None:
     assert make_query([]) == 'ht_id:("")'
 
 
+def test_make_query_does_not_escape_solr_special_characters() -> None:
+    """make_query interpolates values directly with no escaping, so an id containing
+    Solr-special characters (colon, quote, backslash, parens) is passed straight into
+    the query string. A colon or unbalanced parens/quotes here can change the query's
+    meaning or produce invalid Solr syntax rather than being treated as a literal id.
+    """
+    assert make_query(["a:b"]) == "ht_id:a:b"
+    assert make_query(['a"b']) == 'ht_id:a"b'
+    assert make_query(["a\\b"]) == "ht_id:a\\b"
+    assert make_query(["a(b)c"]) == "ht_id:a(b)c"
+
+
 # --- make_solr_term_query ------------------------------------------------
 
 
@@ -47,6 +59,14 @@ def test_make_solr_term_query_multiple_documents_are_comma_joined() -> None:
 
 def test_make_solr_term_query_by_field_record_uses_id_field() -> None:
     assert make_solr_term_query(["rec1", "rec2"], by_field="record") == "{!terms f=id}rec1,rec2"
+
+
+def test_make_solr_term_query_by_field_item_uses_ht_id_field() -> None:
+    # by_field="item" is the default; exercised explicitly here rather than only via
+    # omission, mirroring the by_field="record" test above.
+    assert (
+        make_solr_term_query(["item1", "item2"], by_field="item") == "{!terms f=ht_id}item1,item2"
+    )
 
 
 def test_make_solr_term_query_unrecognised_by_field_falls_back_to_ht_id() -> None:
