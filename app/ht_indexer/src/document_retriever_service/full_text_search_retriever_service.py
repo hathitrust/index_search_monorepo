@@ -170,13 +170,30 @@ class FullTextSearchRetrieverQueueService:
                 logger.error(f"Error in publishing document {item_id} {error_info}")
                 continue
 
-        # Update the status of the items in MySQL table
+        # Update the status of the items in MySQL table. The two writes are independent: a failure
+        # in one must not skip the other, or published items stay retriever_status='pending' and
+        # are re-published on the next polling cycle.
         if len(failed_items) > 0:
-            mysql_db.update_status(FAILURE_UPDATE_STATUS, failed_items)
+            FullTextSearchRetrieverQueueService._write_retriever_status(
+                mysql_db, FAILURE_UPDATE_STATUS, failed_items
+            )
 
         if len(processed_items) > 0:
             logger.info(f"Total of processed documents: {len(processed_items)}")
-            mysql_db.update_status(SUCCESS_UPDATE_STATUS, processed_items)
+            FullTextSearchRetrieverQueueService._write_retriever_status(
+                mysql_db, SUCCESS_UPDATE_STATUS, processed_items
+            )
+
+    @staticmethod
+    def _write_retriever_status(mysql_db: HtMysql, query: str, items: list[dict[str, Any]]) -> None:
+        """Record retriever outcomes in MySQL without ever raising; errors are logged."""
+        try:
+            mysql_db.update_status(query, items)
+        except Exception as e:
+            logger.error(
+                f"Failed to update retriever_status for total_items={len(items)} "
+                f"{get_general_error_message('FullTextSearchRetrieverQueueService', e)}"
+            )
 
     def retrieve_documents_from_solr(
         self, solr_query: str, solr_retriever: HTSolrAPI
