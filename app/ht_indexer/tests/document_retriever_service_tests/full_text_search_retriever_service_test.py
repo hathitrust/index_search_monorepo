@@ -390,6 +390,47 @@ class TestMainSerialBranch:
         assert by_field_arg == "item"
 
 
+class TestPublishingDocumentsStatusWriteErrors:
+    # The FAILURE and SUCCESS status writes are independent: one failing must not skip the other,
+    # or the successfully published items stay retriever_status='pending' and are re-published.
+    def _publish_one_failed_and_one_succeeded(self, mysql_db: MagicMock) -> None:
+        records: list[CatalogItemMetadata] = [MagicMock(), MagicMock()]
+        with (
+            patch.object(
+                FullTextSearchRetrieverQueueService,
+                "generate_metadata",
+                side_effect=[({"ht_id": "mdp.fail"}, "mdp.fail"), ({"ht_id": "mdp.ok"}, "mdp.ok")],
+            ),
+            patch.object(
+                RetrieverServicesUtils,
+                "publish_document",
+                side_effect=[RuntimeError("queue down"), None],
+            ),
+        ):
+            FullTextSearchRetrieverQueueService.publishing_documents(MagicMock(), records, mysql_db)
+
+    def test_publishing_documents_failure_status_write_error_still_writes_success_status(
+        self,
+    ) -> None:
+        mysql_db = MagicMock()
+        mysql_db.update_status.side_effect = [RuntimeError("MySQL unavailable"), None]
+
+        self._publish_one_failed_and_one_succeeded(mysql_db)
+
+        assert (
+            mysql_db.update_status.call_args.args[0]
+            == retriever_service_module.SUCCESS_UPDATE_STATUS
+        )
+
+    def test_publishing_documents_success_status_write_error_does_not_raise(self) -> None:
+        mysql_db = MagicMock()
+        mysql_db.update_status.side_effect = RuntimeError("MySQL unavailable")
+
+        self._publish_one_failed_and_one_succeeded(mysql_db)
+
+        assert mysql_db.update_status.call_count == 2
+
+
 class TestRetrieverStatusGuardInSQL:
     # These tests do not run queries or access MySQL. They pin the shape of the guard. Only the
     # shared status and error column is guarded, inside SET, so retriever_status is always
