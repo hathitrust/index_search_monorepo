@@ -242,10 +242,15 @@ services:
       - ./app/ht_indexer/tests:/workspace/app/ht_indexer/tests
       - ../tmp:/tmp
       - ../sdr1/obj:/sdr1/obj
-    command: ["/workspace/.venv/bin/python", "-m", "pytest", "tests"]
+    command: ["/workspace/.venv/bin/python", "-m", "pytest", "tests", "--cov=src", "--cov-report=term-missing"]
     environment:
       <<: *env_indexer
       SOLR_URL: http://solr-sdr-catalog:9033/solr/catalog/
+      # app/ht_indexer is bind-mounted from the host, and on Linux CI runners the
+      # container's non-root user can't write there (works on macOS Docker Desktop,
+      # which doesn't enforce the same host/container UID match). Write coverage's
+      # data file somewhere that's actually part of the container's own filesystem.
+      COVERAGE_FILE: /workspace/.coverage
     depends_on:
       solr-sdr-catalog: *healthy
       solr-lss-dev: *healthy

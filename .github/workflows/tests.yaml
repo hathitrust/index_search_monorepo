@@ -24,7 +24,7 @@ jobs:
         run: uv sync --package ht-utils --package ht-search --package data-operations
 
       - name: Run unit tests
-        run: uv run pytest -m "not integration" libs app/data_operations/tests
+        run: uv run pytest -m "not integration" libs app/data_operations/tests --cov=libs --cov-report=term-missing
 
   lint:
     runs-on: ubuntu-latest

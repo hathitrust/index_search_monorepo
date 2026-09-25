@@ -29,6 +29,7 @@ dependencies = [
 [dependency-groups]
 dev = [
     "pytest>=9,<10",
+    "pytest-cov>=7.1.0,<8",
 ]
 
 [tool.pytest.ini_options]
