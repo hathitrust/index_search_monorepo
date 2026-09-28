@@ -65,6 +65,7 @@ class DocumentIndexerQueueService(QueueMultipleConsumer):
             raise RuntimeError("Unable to establish a RabbitMQ channel")
         start_time = time.time()
 
+        success = True
         try:
             response = self.solr_api_full_text.index_documents(batch)
             logger.info(
@@ -80,6 +81,7 @@ class DocumentIndexerQueueService(QueueMultipleConsumer):
 
         except Exception as e:
             logger.info(f"Failed process=indexing with error={e}")
+            success = False
             failed_messages = batch  # self.batch
             failed_messages_tags = delivery_tags.copy()
             # Requeue the full list of failed messages to the Dead Letter Queue
@@ -87,7 +89,7 @@ class DocumentIndexerQueueService(QueueMultipleConsumer):
 
         batch.clear()
         delivery_tags.clear()
-        return True
+        return success
 
 
 def start_service(solr_api_full_text: HTSolrAPI, queue_params: QueueParams) -> None:

@@ -57,9 +57,11 @@ class QueueMultipleConsumer(ABC):
         If the processing is successful, acknowledge all the messages in the batch.
         If the processing fails, requeue all the failed messages to the Dead Letter Queue.
         Clear the batch and the delivery tags lists.
+        Return True if the batch was processed successfully, False if it was dead-lettered.
+        consume_batch logs this but does not stop on False -- it moves on to the next batch.
         :param batch: List of messages to process.
         :param delivery_tag: List of delivery tags for acknowledging messages.
-        :return: None
+        :return: True on success, False if the batch was dead-lettered.
         """
         pass
 
@@ -121,12 +123,12 @@ class QueueMultipleConsumer(ABC):
                     continue
             try:
                 batch_data = [orjson.loads(body) for body in batch]
-                # Process batch of messages and acknowledge them if successful
-                # If the process_batch method returns False, stop consuming messages from the queue.
-                # We use it for testing purposes. However, we could add a flag to the service to stop consuming messages.
+                # Process batch of messages and acknowledge them if successful. process_batch
+                # returns False when the whole batch failed and was dead-lettered; that's
+                # logged here for visibility, but the consumer keeps running and moves on to
+                # the next batch rather than stopping the service (ETT-1769).
                 if not self.process_batch(batch_data, delivery_tag):
-                    logger.info("Batch processing returned False. Stopping consumption.")
-                    break
+                    logger.info("Batch processing failed; continuing to the next batch.")
 
             except Exception as e:
                 logger.error(f"[!] Error processing batch: {e}")
@@ -202,8 +204,6 @@ class QueueMultipleConsumer(ABC):
         """Stop consuming messages
         Use this function for testing purposes only.
         """
-        # TODO: To stop the services we should add shutdown_on_empty_queue flag as a class attribute and we should return False
-        #         when the queue is empty on the method process_batch.
         logger.info("Time's up! Stopping consumer...")
         if self.channel is not None:
             self.channel.close()
