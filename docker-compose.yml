@@ -204,6 +204,7 @@ services:
     depends_on:
       solr-lss-dev: *healthy
       rabbitmq: *healthy
+      mysql-sdr: *healthy
     tty: true
     stdin_open: true
     environment:

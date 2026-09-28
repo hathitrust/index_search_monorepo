@@ -167,18 +167,18 @@ class TestGeneratorStatusGuardInSQL:
     # is always written. status must be assigned last: MySQL evaluates SET left to right.
     def test_success_update_status_sql_guards_status_last_and_where_has_no_guard(self) -> None:
         assert SUCCESS_UPDATE_STATUS.endswith(
-            "status = CASE WHEN status <> 'completed' THEN :status ELSE status END "
+            "status = CASE WHEN status NOT IN ('completed', 'failed') THEN :status ELSE status END "
             "WHERE ht_id = :ht_id"
         )
 
     def test_failure_update_status_sql_guards_status_last_and_where_has_no_guard(self) -> None:
         assert FAILURE_UPDATE_STATUS.endswith(
-            "status = CASE WHEN status <> 'completed' THEN :status ELSE status END "
+            "status = CASE WHEN status NOT IN ('completed', 'failed') THEN :status ELSE status END "
             "WHERE ht_id = :ht_id"
         )
 
-    def test_failure_update_status_sql_guards_error_when_row_is_completed(self) -> None:
+    def test_failure_update_status_sql_guards_error_when_row_is_not_terminal(self) -> None:
         assert (
-            "error = CASE WHEN status <> 'completed' THEN :error ELSE error END"
+            "error = CASE WHEN status NOT IN ('completed', 'failed') THEN :error ELSE error END"
             in FAILURE_UPDATE_STATUS
         )

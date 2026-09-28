@@ -2,7 +2,13 @@ from collections.abc import Generator
 from typing import Any
 
 import pytest
-from catalog_metadata.ht_indexer_config import STATUS_COMPLETED, STATUS_PROCESSING
+from catalog_metadata.ht_indexer_config import STATUS_COMPLETED, STATUS_FAILED, STATUS_PROCESSING
+from document_generator.document_generator_service import (
+    SUCCESS_UPDATE_STATUS as GENERATOR_SUCCESS_UPDATE_STATUS,
+)
+from document_indexer_service.document_indexer_service import (
+    FAILURE_UPDATE_STATUS as INDEXER_FAILURE_UPDATE_STATUS,
+)
 from document_retriever_service.full_text_search_retriever_service import (
     SUCCESS_UPDATE_STATUS,
 )
@@ -35,10 +41,21 @@ SELECT_ROW = f"""
     WHERE ht_id = :ht_id
 """
 
+SELECT_ROW_FULL = f"""
+    SELECT status, retriever_status, generator_status, indexer_status, error
+    FROM {PROCESSING_STATUS_TABLE_NAME}
+    WHERE ht_id = :ht_id
+"""
+
 DELETE_TEST_ROW = f"DELETE FROM {PROCESSING_STATUS_TABLE_NAME} WHERE ht_id = :ht_id"
 
 
-def _seed_row(status: str, generator_status: str, error: str | None) -> Generator[HtMysql]:
+def _seed_row(
+    status: str,
+    generator_status: str,
+    error: str | None,
+    indexer_status: str = "pending",
+) -> Generator[HtMysql]:
     """Insert the test row, yield the HtMysql connection, then delete the row.
 
     Uses update_status instead of query_mysql for insert and teardown: update_status
@@ -56,7 +73,7 @@ def _seed_row(status: str, generator_status: str, error: str | None) -> Generato
                 "status": status,
                 "retriever_status": "pending",
                 "generator_status": generator_status,
-                "indexer_status": "pending",
+                "indexer_status": indexer_status,
                 "error": error,
             }
         ],
@@ -76,6 +93,20 @@ def seeded_failed_row() -> Generator[HtMysql]:
 def seeded_pending_row() -> Generator[HtMysql]:
     """Normal flow: the retriever writes before the generator touches the row."""
     yield from _seed_row("pending", "pending", None)
+
+
+@pytest.fixture
+def seeded_indexer_completed_row() -> Generator[HtMysql]:
+    """Simulates: the indexer completed the item (indexer_status='completed');
+    the generator's ack write lands late."""
+    yield from _seed_row("completed", "processing", None, indexer_status="completed")
+
+
+@pytest.fixture
+def seeded_indexer_failed_row() -> Generator[HtMysql]:
+    """Simulates: the indexer failed (indexer_status='failed');
+    a late generator success must not revert status."""
+    yield from _seed_row("failed", "processing", "test_indexer_error", indexer_status="failed")
 
 
 def _fire_retriever_success_update(db_conn: HtMysql) -> dict[str, Any]:
@@ -134,3 +165,79 @@ class TestStatusGuardIntegration:
         row = _fire_retriever_success_update(seeded_pending_row)
 
         assert row["status"] == "processing"
+
+
+def _fire_generator_success_update(db_conn: HtMysql) -> dict[str, Any]:
+    """Act: fire the generator's SUCCESS update, then return the row as it stands afterward."""
+    db_conn.update_status(
+        GENERATOR_SUCCESS_UPDATE_STATUS,
+        [
+            {
+                "status": STATUS_PROCESSING,
+                "generator_status": STATUS_COMPLETED,
+                "processed_at": get_current_time(),
+                "ht_id": TEST_HT_ID,
+            }
+        ],
+    )
+    rows = db_conn.query_mysql(SELECT_ROW_FULL, {"ht_id": TEST_HT_ID})
+    return rows[0]
+
+
+@pytest.mark.integration
+class TestTerminalStateGuardIntegration:
+    """Terminal states written by the indexer must not be overwritten by upstream stages."""
+
+    def test_late_generator_success_does_not_overwrite_indexer_failed_status(
+        self, seeded_indexer_failed_row: HtMysql
+    ) -> None:
+        row = _fire_generator_success_update(seeded_indexer_failed_row)
+
+        assert row["status"] == "failed"
+
+    def test_late_generator_success_does_not_overwrite_indexer_completed_status(
+        self, seeded_indexer_completed_row: HtMysql
+    ) -> None:
+        row = _fire_generator_success_update(seeded_indexer_completed_row)
+
+        assert row["status"] == "completed"
+
+    def test_late_retriever_success_does_not_overwrite_indexer_completed_status(
+        self, seeded_indexer_completed_row: HtMysql
+    ) -> None:
+        seeded_indexer_completed_row.update_status(
+            SUCCESS_UPDATE_STATUS,
+            [
+                {
+                    "status": STATUS_PROCESSING,
+                    "retriever_status": STATUS_COMPLETED,
+                    "processed_at": get_current_time(),
+                    "ht_id": TEST_HT_ID,
+                }
+            ],
+        )
+        rows = seeded_indexer_completed_row.query_mysql(SELECT_ROW_FULL, {"ht_id": TEST_HT_ID})
+        row = rows[0]
+
+        assert row["status"] == "completed"
+
+    def test_indexer_failure_on_processing_row_sets_failed_and_error(
+        self, seeded_pending_row: HtMysql
+    ) -> None:
+        seeded_pending_row.update_status(
+            INDEXER_FAILURE_UPDATE_STATUS,
+            [
+                {
+                    "indexer_status": STATUS_FAILED,
+                    "processed_at": get_current_time(),
+                    "error": "test_indexer_error",
+                    "status": STATUS_FAILED,
+                    "ht_id": TEST_HT_ID,
+                }
+            ],
+        )
+        rows = seeded_pending_row.query_mysql(SELECT_ROW_FULL, {"ht_id": TEST_HT_ID})
+        row = rows[0]
+
+        assert row["status"] == "failed"
+        assert row["error"] is not None and row["error"] != ""
