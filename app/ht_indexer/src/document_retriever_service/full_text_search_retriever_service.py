@@ -8,6 +8,12 @@ from typing import Any
 
 import requests
 from catalog_metadata.catalog_metadata import CatalogItemMetadata, CatalogRecordMetadata
+from catalog_metadata.ht_indexer_config import (
+    STATUS_COMPLETED,
+    STATUS_FAILED,
+    STATUS_PENDING,
+    STATUS_PROCESSING,
+)
 from ht_indexer_api.ht_indexer_api import HTSolrAPI
 from ht_indexer_monitoring.ht_indexer_tracktable import (
     HT_INDEXER_TRACKTABLE,
@@ -34,8 +40,23 @@ logger = get_ht_logger(name=__name__)
 WAITING_TIME_QUEUE_PRODUCER = 180  # Wait 3 minutes to send documents in the queue
 WAITING_TIME_MYSQL = 60  # Wait 1 minute to query MySQL checking if there are documents to process (retriever_status = pending)
 MYSQL_COLUMN_UPDATE = "retriever_status"
-SUCCESS_UPDATE_STATUS = f"UPDATE {PROCESSING_STATUS_TABLE_NAME} SET status = :status, {MYSQL_COLUMN_UPDATE} = :retriever_status, processed_at = :processed_at WHERE ht_id = :ht_id"
-FAILURE_UPDATE_STATUS = f"UPDATE {PROCESSING_STATUS_TABLE_NAME} SET status = :status, {MYSQL_COLUMN_UPDATE} = :retriever_status, processed_at = :processed_at, error = :error WHERE ht_id = :ht_id"
+# Guard: retriever_status is always written, but the shared status and error column only changes
+# while status='pending', so a late batched write can't overwrite what the generator already recorded.
+# The guard lives in SET, not WHERE: a WHERE guard would leave retriever_status='pending' and the
+# item would be re-published on every polling cycle. status must be assigned last, because MySQL
+# evaluates SET left to right and the error guard must read the original status.
+_STATUS_GUARD = f"CASE WHEN status = '{STATUS_PENDING}' THEN :status ELSE status END"
+SUCCESS_UPDATE_STATUS = (
+    f"UPDATE {PROCESSING_STATUS_TABLE_NAME} SET "
+    f"{MYSQL_COLUMN_UPDATE} = :retriever_status, processed_at = :processed_at, "
+    f"status = {_STATUS_GUARD} WHERE ht_id = :ht_id"
+)
+FAILURE_UPDATE_STATUS = (
+    f"UPDATE {PROCESSING_STATUS_TABLE_NAME} SET "
+    f"{MYSQL_COLUMN_UPDATE} = :retriever_status, processed_at = :processed_at, "
+    f"error = CASE WHEN status = '{STATUS_PENDING}' THEN :error ELSE error END, "
+    f"status = {_STATUS_GUARD} WHERE ht_id = :ht_id"
+)
 
 SOLR_BATCH_SIZE = 200  # The chunk size is 200, because Solr will fail with the status code 414. The chunk size was determined
 # by testing the Solr query with different values (e.g., 100-500 and with 200 ht_ids it worked.
@@ -124,8 +145,8 @@ class FullTextSearchRetrieverQueueService:
 
                 processed_items.append(
                     {
-                        "status": "processing",
-                        "retriever_status": "completed",
+                        "status": STATUS_PROCESSING,
+                        "retriever_status": STATUS_COMPLETED,
                         "processed_at": get_current_time(),
                         "ht_id": item_id,
                     }
@@ -138,8 +159,8 @@ class FullTextSearchRetrieverQueueService:
 
                 failed_items.append(
                     {
-                        "status": "failed",
-                        "retriever_status": "failed",
+                        "status": STATUS_FAILED,
+                        "retriever_status": STATUS_FAILED,
                         "processed_at": get_current_time(),
                         "error": f"{error_info.get('service_name')}_{error_info.get('error_message')}",
                         "ht_id": error_info.get("ht_id"),
@@ -149,13 +170,30 @@ class FullTextSearchRetrieverQueueService:
                 logger.error(f"Error in publishing document {item_id} {error_info}")
                 continue
 
-        # Update the status of the items in MySQL table
+        # Update the status of the items in MySQL table. The two writes are independent: a failure
+        # in one must not skip the other, or published items stay retriever_status='pending' and
+        # are re-published on the next polling cycle.
         if len(failed_items) > 0:
-            mysql_db.update_status(FAILURE_UPDATE_STATUS, failed_items)
+            FullTextSearchRetrieverQueueService._write_retriever_status(
+                mysql_db, FAILURE_UPDATE_STATUS, failed_items
+            )
 
         if len(processed_items) > 0:
             logger.info(f"Total of processed documents: {len(processed_items)}")
-            mysql_db.update_status(SUCCESS_UPDATE_STATUS, processed_items)
+            FullTextSearchRetrieverQueueService._write_retriever_status(
+                mysql_db, SUCCESS_UPDATE_STATUS, processed_items
+            )
+
+    @staticmethod
+    def _write_retriever_status(mysql_db: HtMysql, query: str, items: list[dict[str, Any]]) -> None:
+        """Record retriever outcomes in MySQL without ever raising; errors are logged."""
+        try:
+            mysql_db.update_status(query, items)
+        except Exception as e:
+            logger.error(
+                f"Failed to update retriever_status for total_items={len(items)} "
+                f"{get_general_error_message('FullTextSearchRetrieverQueueService', e)}"
+            )
 
     def retrieve_documents_from_solr(
         self, solr_query: str, solr_retriever: HTSolrAPI
@@ -379,7 +417,7 @@ def main() -> None:
         while True:
             total_time_waiting = 0
             list_documents = init_args_obj.db_conn.query_mysql(
-                init_args_obj.retriever_query, params={"status": "pending"}
+                init_args_obj.retriever_query, params={"status": STATUS_PENDING}
             )
             if len(list_documents) == 0:
                 logger.info("No documents to process")

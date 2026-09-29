@@ -6,6 +6,15 @@ MAX_ITEM_IDS = 1000
 
 DOCUMENT_LOCAL_PATH = "/tmp/"
 
+# Status values for the fulltext_item_processing_status table (columns: status,
+# retriever_status, generator_status, indexer_status).
+# Values must match the ENUM definition in ht_indexer_monitoring.ht_indexer_tracktable.
+STATUS_PENDING = "pending"
+STATUS_PROCESSING = "processing"
+STATUS_FAILED = "failed"
+STATUS_COMPLETED = "completed"
+STATUS_REQUEUED = "requeued"
+
 
 # Look for the sdr1 obj folder in the root of the container
 # and if it is not found, use the default path
