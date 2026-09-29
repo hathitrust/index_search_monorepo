@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, cast
 from unittest.mock import MagicMock, Mock, patch
 
 from document_generator.document_generator_service import (
@@ -21,7 +21,7 @@ class TestDocumentGeneratorServiceMysqlUpdate:
     def test_generate_document_success_calls_update_status_with_processing_and_completed(
         self,
     ) -> None:
-        # Test that when generate_document is called and succeeds, it calls update_status to update MySQL with 
+        # Test that when generate_document is called and succeeds, it calls update_status to update MySQL with
         # status=processing and generator_status=completed.
         service, db_conn = self._make_service()
         message = {"ht_id": "mdp.39015078560292"}
@@ -43,7 +43,7 @@ class TestDocumentGeneratorServiceMysqlUpdate:
     def test_generate_document_failure_calls_update_status_with_failed_and_failed(
         self,
     ) -> None:
-        # Test that when generate_document is called and fails, it calls update_status to update MySQL with 
+        # Test that when generate_document is called and fails, it calls update_status to update MySQL with
         # status=failed and generator_status=failed, and includes an error message.
         service, db_conn = self._make_service()
         message = {"ht_id": "mdp.39015078560292"}
@@ -140,7 +140,8 @@ class TestGeneratorStatusWriteErrors:
 
         self._generate_successfully(service)
 
-        service.src_queue_consumer.reject_message.assert_not_called()  
+        # Casting the callable to a MagicMock type
+        cast(MagicMock, service.src_queue_consumer.reject_message).assert_not_called()
 
     def test_generate_document_success_status_write_error_does_not_write_failed_status(
         self,
@@ -160,9 +161,9 @@ class TestGeneratorStatusWriteErrors:
 
         db_conn.update_status.assert_called_once()
         assert db_conn.update_status.call_args.args[0] == FAILURE_UPDATE_STATUS
-        service.src_queue_consumer.reject_message.assert_called_once()
+        cast(MagicMock, service.src_queue_consumer.reject_message).assert_called_once()
 
-    #def test_generate_document_failure_status_write_error_still_rejects_message(self) -> None:
+    # def test_generate_document_failure_status_write_error_still_rejects_message(self) -> None:
     #    service, _ = self._make_service()
 
     #    self._generate_with_failure(service)
