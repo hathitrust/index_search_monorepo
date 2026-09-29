@@ -55,6 +55,11 @@ jobs:
 
       - name: Set up Indexer
         run: |
+          # Bind-mounted into the ht-indexer_tests container as /workspace/coverage.
+          # Docker auto-creates missing bind-mount sources as root-owned, which the
+          # container's non-root user couldn't write to -- create it writable first.
+          mkdir -p coverage
+          chmod 777 coverage
           docker compose --profile ht-indexer_tests up -d --wait
 
       - name: Run tests
