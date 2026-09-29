@@ -151,12 +151,17 @@ class DocumentGeneratorService:
 
     def generate_document(self, message: dict[str, Any], delivery_tag: int) -> None:
 
+        item_id = message.get("ht_id")
+        if item_id is None:
+            # Fail early: without an ht_id there is nothing to generate and no MySQL row to update.
+            self.log_error_document_generator_service(
+                ValueError("message is missing 'ht_id'"), message, delivery_tag
+            )
+            logger.warning("Cannot update MySQL generator_status: message has no 'ht_id'")
+            return
+
         # try to generate the full text entry dictionary, if it fails, the message is rejected
         try:
-            item_id = message.get("ht_id")
-            if item_id is None:
-                raise ValueError("message is missing 'ht_id'")
-
             full_text_document = self.generate_full_text_entry(
                 item_id, message, self.document_repository
             )
@@ -173,20 +178,17 @@ class DocumentGeneratorService:
             )
         except Exception as e:
             self.log_error_document_generator_service(e, message, delivery_tag)
-            if item_id is not None:
-                error_info = get_error_message_by_document("DocumentGeneratorService", e, message)
-                self._write_generator_status(
-                    FAILURE_UPDATE_STATUS,
-                    {
-                        "status": STATUS_FAILED,
-                        "generator_status": STATUS_FAILED,
-                        "processed_at": get_current_time(),
-                        "error": f"{error_info.get('service_name')}_{error_info.get('error_message')}",
-                        "ht_id": item_id,
-                    },
-                )
-            else:
-                logger.warning("Cannot update MySQL generator_status: message has no 'ht_id'")
+            error_info = get_error_message_by_document("DocumentGeneratorService", e, message)
+            self._write_generator_status(
+                FAILURE_UPDATE_STATUS,
+                {
+                    "status": STATUS_FAILED,
+                    "generator_status": STATUS_FAILED,
+                    "processed_at": get_current_time(),
+                    "error": f"{error_info.get('service_name')}_{error_info.get('error_message')}",
+                    "ht_id": item_id,
+                },
+            )
         else:
             # In else, not try: the message is already acked, so a status-write error must never
             # reach the reject path above.
