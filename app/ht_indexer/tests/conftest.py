@@ -9,6 +9,7 @@ from unittest.mock import MagicMock, Mock
 
 import pytest
 from catalog_metadata.catalog_metadata import CatalogItemMetadata, CatalogRecordMetadata
+from ht_queue_service.channel_creator import ChannelCreator
 from document_generator.document_generator_service import DocumentGeneratorService
 from document_indexer_service.document_indexer_service import DocumentIndexerQueueService
 from ht_queue_service.queue_config import QueueConfig
