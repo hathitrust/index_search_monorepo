@@ -4,7 +4,7 @@ import os
 import uuid
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 from unittest.mock import MagicMock, Mock
 
 import pytest
