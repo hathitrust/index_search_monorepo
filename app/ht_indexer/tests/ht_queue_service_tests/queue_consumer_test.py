@@ -1,10 +1,11 @@
 import json
-import os
 from collections import defaultdict
+from collections.abc import Callable
 from typing import Any
 
 import pytest
-from conftest import create_test_queue_config
+from conftest import close_channel_and_connection, ensure_queue_ready_and_purged
+from ht_queue_service.queue_config import QueueConfig
 from ht_queue_service.queue_consumer import QueueConsumer
 from ht_queue_service.queue_producer import QueueProducer
 from ht_utils.ht_logger import get_ht_logger
@@ -37,50 +38,21 @@ def list_messages() -> list[dict[str, Any]]:
 
 class TestQueueConsumer:
     def test_queue_consume_message(
-        self,
-        one_message: dict[str, Any],
-        get_global_queue_config: dict[str, Any],
-        get_app_queue_config: dict[str, Any],
+        self, one_message: dict[str, Any], make_queue_config: Callable[..., QueueConfig]
     ) -> None:
         """Test for consuming a message from the queue
         One message is published and consumed, then at the end of the test the queue is empty
-        :param one_message: fixture to get a single message
-        :param get_global_queue_config: fixture to get the global queue configuration
-        :param get_app_queue_config: fixture to get the application queue configuration
-        : return: None
         """
-        queue_name = "test_queue_consume_message"
-        batch_size = 1
-        requeue_message = False
-
-        queue_config, global_path, app_path = create_test_queue_config(
-            get_global_queue_config,
-            get_app_queue_config,
-            queue_name,
-            batch_size=batch_size,
-            requeue_message=requeue_message,
-        )
+        queue_config = make_queue_config(batch_size=1, requeue_message=False)
 
         producer_instance = QueueProducer(queue_config.queue_params)
-
-        logger.info(f"Checking if the queue {queue_name} exists before publishing messages")
-
-        # Clean up the queue
-        if not producer_instance.queue_manager.is_ready(producer_instance.channel):
-            producer_instance.queue_reconnect()
-
-        assert producer_instance.channel is not None
-        # Clean up the queue
-        producer_instance.channel.queue_purge(producer_instance.queue_manager.queue_name)
+        ensure_queue_ready_and_purged(producer_instance)
 
         # Publish the message to the queue
         producer_instance.publish_messages(one_message)
 
-        logger.info("Closing the producer channel after publishing the message")
-        producer_instance.channel.close()
-        logger.info("Closing the producer connection")
-        assert producer_instance.channel_creator.connection.queue_connection is not None
-        producer_instance.channel_creator.connection.queue_connection.close()
+        logger.info("Closing the producer channel and connection after publishing the message")
+        close_channel_and_connection(producer_instance)
 
         consumer_instance = QueueConsumer(queue_config.queue_params)
         assert consumer_instance.channel is not None
@@ -105,36 +77,14 @@ class TestQueueConsumer:
                 )
                 break
         consumer_instance.channel.queue_purge(consumer_instance.queue_manager.queue_name)
-        logger.info(f"Closing the channel for the consumer instance: {queue_name}")
-        consumer_instance.channel.close()
-        logger.info("Closing the queue connection")
-        assert consumer_instance.channel_creator.connection.queue_connection is not None
-        consumer_instance.channel_creator.connection.queue_connection.close()
-
-        # Cleanup
-        os.remove(global_path)
-        os.remove(app_path)
+        logger.info("Closing the channel and connection for the consumer instance")
+        close_channel_and_connection(consumer_instance)
 
     def test_queue_consume_message_empty(
-        self, get_global_queue_config: dict[str, Any], get_app_queue_config: dict[str, Any]
+        self, make_queue_config: Callable[..., QueueConfig]
     ) -> None:
-        """Test for consuming a message from an empty queue
-        :param get_global_queue_config: fixture to get the global queue configuration
-        :param get_app_queue_config: fixture to get the application queue configuration
-        : return: None
-        """
-
-        queue_name = "test_queue_consume_message_empty"
-        batch_size = 1
-        requeue_message = False
-
-        queue_config, global_path, app_path = create_test_queue_config(
-            get_global_queue_config,
-            get_app_queue_config,
-            queue_name,
-            batch_size=batch_size,
-            requeue_message=requeue_message,
-        )
+        """Test for consuming a message from an empty queue"""
+        queue_config = make_queue_config(batch_size=1, requeue_message=False)
 
         consumer_instance = QueueConsumer(queue_config.queue_params)
         assert consumer_instance.channel is not None
@@ -155,64 +105,30 @@ class TestQueueConsumer:
                 )
                 break
         assert list_docs == []
-        logger.info(f"Closing the channel for the consumer instance: {queue_name}")
-        consumer_instance.channel.close()
-        logger.info("Closing the queue connection")
-        assert consumer_instance.channel_creator.connection.queue_connection is not None
-        consumer_instance.channel_creator.connection.queue_connection.close()
-
-        # Cleanup
-        os.remove(global_path)
-        os.remove(app_path)
+        logger.info("Closing the channel and connection for the consumer instance")
+        close_channel_and_connection(consumer_instance)
 
     def test_queue_requeue_message_requeue_false(
-        self,
-        list_messages: list[dict[str, Any]],
-        get_global_queue_config: dict[str, Any],
-        get_app_queue_config: dict[str, Any],
+        self, list_messages: list[dict[str, Any]], make_queue_config: Callable[..., QueueConfig]
     ) -> None:
         """Test for re-queueing a message from the queue, the massage with ht_id=5 is rejected and routed
         to the dead letter queue and discarded from the main queue
-
-        :param list_messages: fixture to get a list of messages
-        :param get_global_queue_config: fixture to get the global queue configuration
-        :param get_app_queue_config: fixture to get the application queue configuration
-        : return: None
         """
-
-        queue_name = "test_queue_requeue_message_requeue_false"
-        batch_size = 1
-        requeue_message = False
-
-        producer_queue_config, global_path, app_path = create_test_queue_config(
-            get_global_queue_config,
-            get_app_queue_config,
-            queue_name,
-            batch_size=batch_size,
-            requeue_message=requeue_message,
-        )
+        producer_queue_config = make_queue_config(batch_size=1, requeue_message=False)
 
         # Define the producer instance
         producer_instance = QueueProducer(producer_queue_config.queue_params)
 
-        consumer_queue_config, consumer_global_path, consumer_app_path = create_test_queue_config(
-            get_global_queue_config,
-            get_app_queue_config,
-            queue_name,
+        consumer_queue_config = make_queue_config(
+            queue_name=producer_queue_config.queue_params.queue_name,
             batch_size=1,
-            requeue_message=requeue_message,
+            requeue_message=False,
         )
 
         # Define the consumer instance
         consumer_instance = QueueConsumer(consumer_queue_config.queue_params)
-
-        # Create the queue
-        if not consumer_instance.queue_manager.is_ready(consumer_instance.channel):
-            consumer_instance.queue_reconnect()
-
+        ensure_queue_ready_and_purged(consumer_instance)
         assert consumer_instance.channel is not None
-        # Clean up the queue
-        consumer_instance.channel.queue_purge(consumer_instance.queue_manager.queue_name)
 
         # Create a new channel for the dead letter queue
         dlx_channel = consumer_instance.channel_creator.get_channel()
@@ -225,13 +141,8 @@ class TestQueueConsumer:
             producer_instance.publish_messages(item)
 
         # Close the producer channel after publishing all messages
-        logger.info("Closing the producer channel after publishing all messages")
-        assert producer_instance.channel is not None
-        producer_instance.channel.close()
-
-        logger.info("Closing the producer connection")
-        assert producer_instance.channel_creator.connection.queue_connection is not None
-        producer_instance.channel_creator.connection.queue_connection.close()
+        logger.info("Closing the producer channel and connection after publishing all messages")
+        close_channel_and_connection(producer_instance)
 
         # Consume messages from the main queue to reject the message with ht_id=5
         for method_frame, _, body in consumer_instance.consume_message(inactivity_timeout=5):
@@ -292,70 +203,26 @@ class TestQueueConsumer:
         dlx_channel.close()
 
         # Close the consumer channel
-        logger.info(
-            f"Closing the channel for the main queue: {consumer_instance.queue_manager.queue_name}"
-        )
         consumer_instance.channel.queue_purge(consumer_instance.queue_manager.queue_name)
-
-        logger.info(
-            f"Closing the channel for the main queue: {consumer_instance.queue_manager.queue_name}"
-        )
-        consumer_instance.channel.close()
-
-        logger.info("Closing the queue connection")
-        assert consumer_instance.channel_creator.connection.queue_connection is not None
-        consumer_instance.channel_creator.connection.queue_connection.close()
-
-        # Cleanup
-        os.remove(global_path)
-        os.remove(app_path)
-        os.remove(consumer_global_path)
-        os.remove(consumer_app_path)
+        logger.info("Closing the channel and connection for the main queue")
+        close_channel_and_connection(consumer_instance)
 
     def test_queue_requeue_message_requeue_true(
-        self,
-        list_messages: list[dict[str, Any]],
-        get_global_queue_config: dict[str, Any],
-        get_app_queue_config: dict[str, Any],
+        self, list_messages: list[dict[str, Any]], make_queue_config: Callable[..., QueueConfig]
     ) -> None:
         """Test for re-queueing a message from the queue, the message with ht_id=5 is rejected, and instead of routing the message
         to the dead letter queue, it is requeue to the main queue
-        param list_messages: fixture to get a list of messages
-        :param get_global_queue_config: fixture to get the global queue configuration
-        :param get_app_queue_config: fixture to get the application queue configuration
-        : return: None
         """
-
-        queue_name = "test_queue_requeue_message_requeue_true"
-        batch_size = 1
-        requeue_message = True
-
-        producer_queue_config, global_path, app_path = create_test_queue_config(
-            get_global_queue_config,
-            get_app_queue_config,
-            queue_name,
-            batch_size=batch_size,
-            requeue_message=False,
-        )
+        producer_queue_config = make_queue_config(batch_size=1, requeue_message=False)
 
         # Define the producer instance
         producer_instance = QueueProducer(producer_queue_config.queue_params)
+        ensure_queue_ready_and_purged(producer_instance)
 
-        logger.info(f"Checking if the queue {queue_name} exists before publishing messages")
-        # Clean up the queue
-        if not producer_instance.queue_manager.is_ready(producer_instance.channel):
-            producer_instance.queue_reconnect()
-
-        assert producer_instance.channel is not None
-        # Clean up the queue
-        producer_instance.channel.queue_purge(producer_instance.queue_manager.queue_name)
-
-        consumer_queue_config, consumer_global_path, consumer_app_path = create_test_queue_config(
-            get_global_queue_config,
-            get_app_queue_config,
-            queue_name,
-            batch_size=batch_size,
-            requeue_message=requeue_message,
+        consumer_queue_config = make_queue_config(
+            queue_name=producer_queue_config.queue_params.queue_name,
+            batch_size=1,
+            requeue_message=True,
         )
 
         # Define the consumer instance
@@ -369,11 +236,8 @@ class TestQueueConsumer:
             producer_instance.publish_messages(item)
 
         # Close the producer channel after publishing all messages
-        logger.info("Closing the producer channel after publishing all messages")
-        producer_instance.channel.close()
-        logger.info("Closing the producer connection")
-        assert producer_instance.channel_creator.connection.queue_connection is not None
-        producer_instance.channel_creator.connection.queue_connection.close()
+        logger.info("Closing the producer channel and connection after publishing all messages")
+        close_channel_and_connection(producer_instance)
 
         # Tracks how many times each ht_id is seen
         # Once the message is rejected, it will be requeued to the main queue and RabbitMQ will try to deliver it again,
@@ -424,17 +288,5 @@ class TestQueueConsumer:
             f"Queue cleanup: Deleting all messages in the queue: {consumer_instance.queue_manager.queue_name}"
         )
         consumer_instance.channel.queue_purge(consumer_instance.queue_manager.queue_name)
-        logger.info(
-            f"Closing the channel for the main queue: {consumer_instance.queue_manager.queue_name}"
-        )
-        consumer_instance.channel.close()
-
-        logger.info("Closing the queue connection")
-        assert consumer_instance.channel_creator.connection.queue_connection is not None
-        consumer_instance.channel_creator.connection.queue_connection.close()
-
-        # Cleanup
-        os.remove(global_path)
-        os.remove(app_path)
-        os.remove(consumer_global_path)
-        os.remove(consumer_app_path)
+        logger.info("Closing the channel and connection for the main queue")
+        close_channel_and_connection(consumer_instance)
