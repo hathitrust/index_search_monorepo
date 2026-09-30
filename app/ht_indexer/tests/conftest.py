@@ -2,19 +2,66 @@ import copy
 import json
 import os
 import uuid
-from collections.abc import Callable, Generator
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any
+from unittest.mock import MagicMock, Mock
 
 import pytest
 from catalog_metadata.catalog_metadata import CatalogItemMetadata, CatalogRecordMetadata
-from ht_queue_service.channel_creator import ChannelCreator
+from document_generator.document_generator_service import DocumentGeneratorService
+from document_indexer_service.document_indexer_service import DocumentIndexerQueueService
 from ht_queue_service.queue_config import QueueConfig
 from ht_queue_service.queue_manager import QueueManager
 from ht_utils.ht_utils import create_temporary_yaml_file, get_solr_url
 from pika.adapters.blocking_connection import BlockingChannel
 
+IndexerServiceFactory = Callable[..., tuple[DocumentIndexerQueueService, MagicMock, MagicMock]]
+
 current = os.path.dirname(__file__)
+
+
+@pytest.fixture
+def make_generator_service() -> tuple[DocumentGeneratorService, Mock]:
+    """Fixture providing a fresh service and its mocked dependencies."""
+    db_conn = Mock()
+    src_queue_consumer = Mock()
+    src_queue_consumer.channel = MagicMock()
+    tgt_queue_producer = MagicMock()
+    service = DocumentGeneratorService(db_conn, src_queue_consumer, tgt_queue_producer)
+    return service, db_conn
+
+
+@pytest.fixture
+def mock_solr() -> MagicMock:
+    """Provides a default successful Solr Mock."""
+    solr = MagicMock()
+    solr.index_documents.return_value = MagicMock(status_code=200)
+    return solr
+
+
+@pytest.fixture
+def make_indexer_service(
+    mock_solr: MagicMock,
+) -> IndexerServiceFactory:
+    """Returns the factory function _create_service, so we call it to get the tuple service, channel, _ = make_indexer_service()"""
+
+    def _create_service(
+        solr_api: MagicMock | None = None,
+    ) -> tuple[DocumentIndexerQueueService, MagicMock, MagicMock]:
+        service = DocumentIndexerQueueService.__new__(DocumentIndexerQueueService)
+        service.solr_api_full_text = solr_api or mock_solr
+
+        channel = MagicMock()
+        service.channel = channel
+        service.queue_manager = MagicMock(dead_letter_queue_name="dlq_name")
+        service.requeue_message = False
+
+        db_conn = MagicMock()
+        service.db_conn = db_conn
+        return service, channel, db_conn
+
+    return _create_service
 
 
 @pytest.fixture

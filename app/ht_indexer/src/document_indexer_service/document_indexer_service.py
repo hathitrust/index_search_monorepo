@@ -23,11 +23,12 @@ logger = get_ht_logger(name=__name__)
 MYSQL_COLUMN_UPDATE = "indexer_status"
 # No status guard: the indexer is the terminal stage and is authoritative on the final state.
 # Its success proves the document is in Solr; its failure is the last word. No downstream
-# stage writes status after it, so no race guard is needed.
+# stage writes status after it, so no race guard is needed. Success clears error, so an item
+# that failed upstream and was later indexed doesn't keep a stale error on a completed row.
 SUCCESS_UPDATE_STATUS = (
     f"UPDATE {PROCESSING_STATUS_TABLE_NAME} SET "
     f"{MYSQL_COLUMN_UPDATE} = :indexer_status, processed_at = :processed_at, "
-    f"status = :status WHERE ht_id = :ht_id"
+    f"error = NULL, status = :status WHERE ht_id = :ht_id"
 )
 FAILURE_UPDATE_STATUS = (
     f"UPDATE {PROCESSING_STATUS_TABLE_NAME} SET "

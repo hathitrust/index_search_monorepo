@@ -340,7 +340,7 @@ it, so it writes `status` unconditionally.
 |-----------|---------------------------------------|---------------------------------------------------|
 | Retriever | `retriever_status`, `processed_at`    | `status = 'pending'`                              |
 | Generator | `generator_status`, `processed_at`    | `status NOT IN ('completed','failed')`            |
-| Indexer   | `indexer_status`, `processed_at`      | *(none — terminal stage, unconditional)*          |
+| Indexer   | `indexer_status`, `processed_at`      | *(none — terminal stage, unconditional; success clears `error`)* |
 
 The guard is a `CASE` expression inside `SET`, not a condition in `WHERE`:
 
