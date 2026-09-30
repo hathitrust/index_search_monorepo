@@ -2,16 +2,16 @@ import copy
 import json
 import os
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Generator
 from pathlib import Path
 from typing import Any, Protocol
 from unittest.mock import MagicMock, Mock
 
 import pytest
 from catalog_metadata.catalog_metadata import CatalogItemMetadata, CatalogRecordMetadata
-from ht_queue_service.channel_creator import ChannelCreator
 from document_generator.document_generator_service import DocumentGeneratorService
 from document_indexer_service.document_indexer_service import DocumentIndexerQueueService
+from ht_queue_service.channel_creator import ChannelCreator
 from ht_queue_service.queue_config import QueueConfig
 from ht_queue_service.queue_manager import QueueManager
 from ht_utils.ht_utils import create_temporary_yaml_file, get_solr_url
