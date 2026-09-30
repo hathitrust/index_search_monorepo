@@ -134,13 +134,44 @@ class DocumentIndexerQueueService(QueueMultipleConsumer):
         except Exception as e:
             logger.info(f"Failed process=indexing with error={e}")
             success = False
+            error_msg = f"DocumentIndexerService_{type(e).__name__}: {e}"
             failed_messages = batch  # self.batch
             failed_messages_tags = delivery_tags.copy()
             # Requeue the full list of failed messages to the Dead Letter Queue
             self.requeue_failed_messages(failed_messages, failed_messages_tags, e, self.channel)
-
-        batch.clear()
-        delivery_tags.clear()
+            self._write_indexer_status(
+                FAILURE_UPDATE_STATUS,
+                [
+                    {
+                        "indexer_status": STATUS_FAILED,
+                        "processed_at": get_current_time(),
+                        "error": error_msg,
+                        "status": STATUS_FAILED,
+                        "ht_id": ht_id,
+                    }
+                    for ht_id in ht_ids
+                ],
+            )
+            logger.info(f"Wrote indexer_status=failed for {len(ht_ids)} items.")
+        else:
+            # In else, not try: messages are already acked, so a status-write error must
+            # never reach the reject path above.
+            self._write_indexer_status(
+                SUCCESS_UPDATE_STATUS,
+                [
+                    {
+                        "indexer_status": STATUS_COMPLETED,
+                        "processed_at": get_current_time(),
+                        "status": STATUS_COMPLETED,
+                        "ht_id": ht_id,
+                    }
+                    for ht_id in ht_ids
+                ],
+            )
+            logger.info(f"Wrote indexer_status=completed for {len(ht_ids)} items.")
+        finally:
+            batch.clear()
+            delivery_tags.clear()
         return success
 
 

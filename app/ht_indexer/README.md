@@ -373,28 +373,6 @@ Also clear `error`: success writes don't reset it, so an old error message would
 Also reset `indexer_status` to `'pending'`; a previous run's `indexer_status='completed'` or
 `indexer_status='failed'` would otherwise remain and the pipeline status report would show stale data.
 
-### Pipeline status report
-
-`pipeline_status_report.py` prints a grouped count table showing how many items are in each
-combination of `retriever_status`, `generator_status`, `indexer_status`, and shared `status`.
-Run it repeatedly during a pipeline run to monitor progress:
-
-```
-docker compose exec ht_indexer_tracker python -m ht_indexer_monitoring.pipeline_status_report \
-    --ht_id_file /path/to/ht_ids.txt
-```
-
-- `--ht_id_file`: text file with one ht_id per line (same format as `run_retriever_service_by_file.py`).
-- `--chunk_size` (optional, default `500`): maximum ht_ids per SQL `IN` clause.
-
-Columns:
-- `retriever_status`, `generator_status`, `indexer_status`: per-stage outcome for the group.
-- `status`: shared aggregate status.
-- `count`: number of items in the group.
-
-The `Total: N items` footer sums all groups. When the pipeline completes, `Total` should equal the
-number of lines in the ht_id file.
-
 ## Usage
 
 ### All services (Retriever, Generator and Indexer) using the queue message system

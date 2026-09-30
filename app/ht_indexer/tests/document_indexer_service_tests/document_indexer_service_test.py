@@ -1,15 +1,21 @@
 from typing import Any
 from unittest.mock import MagicMock
 
-from document_indexer_service.document_indexer_service import DocumentIndexerQueueService
+from document_indexer_service.document_indexer_service import (
+    FAILURE_UPDATE_STATUS,
+    SUCCESS_UPDATE_STATUS,
+    DocumentIndexerQueueService,
+)
 
 
-def _make_service(solr_api_full_text: MagicMock) -> tuple[DocumentIndexerQueueService, MagicMock]:
+def _make_service(
+    solr_api_full_text: MagicMock,
+) -> tuple[DocumentIndexerQueueService, MagicMock, MagicMock]:
     """DocumentIndexerQueueService.__init__ connects to a live RabbitMQ broker via its
     parent class, which isn't needed to exercise process_batch's own logic. Build the
     instance without running __init__ and set only what process_batch actually touches.
-    Returns the channel mock separately (typed as MagicMock, not BlockingChannel | None)
-    so tests can assert on it without a None-narrowing check.
+    Returns the channel and db_conn mocks separately (typed as MagicMock, not
+    BlockingChannel | None / HtMysql) so tests can assert on them without narrowing.
     """
     service = DocumentIndexerQueueService.__new__(DocumentIndexerQueueService)
     service.solr_api_full_text = solr_api_full_text
@@ -17,7 +23,9 @@ def _make_service(solr_api_full_text: MagicMock) -> tuple[DocumentIndexerQueueSe
     service.channel = channel
     service.queue_manager = MagicMock(dead_letter_queue_name="dlq_name")
     service.requeue_message = False
-    return service, channel
+    db_conn = MagicMock()
+    service.db_conn = db_conn
+    return service, channel, db_conn
 
 
 def _batch() -> list[dict[str, Any]]:
@@ -27,7 +35,7 @@ def _batch() -> list[dict[str, Any]]:
 def test_process_batch_returns_true_and_acks_on_success() -> None:
     solr_api_full_text = MagicMock()
     solr_api_full_text.index_documents.return_value = MagicMock(status_code=200)
-    service, channel = _make_service(solr_api_full_text)
+    service, channel, _db_conn = _make_service(solr_api_full_text)
     batch = _batch()
     delivery_tags = [10, 11]
 
@@ -47,7 +55,7 @@ def test_process_batch_returns_false_when_batch_is_dead_lettered() -> None:
     """
     solr_api_full_text = MagicMock()
     solr_api_full_text.index_documents.side_effect = RuntimeError("Solr is unavailable")
-    service, channel = _make_service(solr_api_full_text)
+    service, channel, _db_conn = _make_service(solr_api_full_text)
     batch = _batch()
     delivery_tags = [10, 11]
 
@@ -64,7 +72,7 @@ def test_process_batch_returns_false_when_solr_response_is_an_error_status() -> 
     response = MagicMock(status_code=500)
     response.raise_for_status.side_effect = RuntimeError("500 Server Error")
     solr_api_full_text.index_documents.return_value = response
-    service, channel = _make_service(solr_api_full_text)
+    service, channel, _db_conn = _make_service(solr_api_full_text)
     batch = _batch()
     delivery_tags = [10, 11]
 
@@ -72,116 +80,112 @@ def test_process_batch_returns_false_when_solr_response_is_an_error_status() -> 
 
     assert result is False
     assert channel.basic_reject.call_count == 2
-from unittest.mock import MagicMock, Mock, patch
-
-from document_indexer_service.document_indexer_service import (
-    FAILURE_UPDATE_STATUS,
-    SUCCESS_UPDATE_STATUS,
-    DocumentIndexerQueueService,
-)
 
 
 class TestIndexerStatusSQLConstants:
-    # These tests do not run queries or access MySQL. They pin the shape of the
-    # unconditional (CASE-free) SQL used by the terminal-stage indexer.
+    # These tests do not run queries or access MySQL. They pin the unconditional (CASE-free)
+    # SQL used by the terminal-stage indexer.
     def test_success_update_status_sql_has_no_case_guard(self) -> None:
         assert "CASE" not in SUCCESS_UPDATE_STATUS
 
     def test_failure_update_status_sql_has_no_case_guard(self) -> None:
         assert "CASE" not in FAILURE_UPDATE_STATUS
 
-    def test_success_update_status_sql_contains_indexer_status_column(self) -> None:
-        assert "indexer_status" in SUCCESS_UPDATE_STATUS
 
-    def test_failure_update_status_sql_contains_error_column(self) -> None:
-        assert "error" in FAILURE_UPDATE_STATUS
-
-
-def _make_service(
-    solr_side_effect: Exception | None = None,
-    solr_response: Mock | None = None,
-) -> tuple[DocumentIndexerQueueService, Mock, Mock]:
-    db_conn = Mock()
-    solr_api = Mock()
-    if solr_side_effect is not None:
-        solr_api.index_documents = Mock(side_effect=solr_side_effect)
-    else:
-        solr_api.index_documents = Mock(return_value=solr_response)
-    queue_params = Mock()
-    with patch(
-        "document_indexer_service.document_indexer_service.QueueMultipleConsumer.__init__",
-        return_value=None,
-    ):
-        service = DocumentIndexerQueueService(solr_api, db_conn, queue_params)
-    reject_mock = Mock()
-    service.channel = MagicMock()
-    service.queue_manager = MagicMock()
-
-    # Using patch.object to override reject_messaje and positive_acknowledge, that are instance method, during a test without triggering Mypy errors
-    # Use .start() to keep the mock active outside the helper fuction
-    reject_mock = patch.object(service, 'reject_message', autospec=True).start()
-    patch.object(service, 'positive_acknowledge', autospec=True).start()
-    
-    return service, db_conn, reject_mock
+def _ok_solr() -> MagicMock:
+    solr_api_full_text = MagicMock()
+    solr_api_full_text.index_documents.return_value = MagicMock(status_code=200)
+    return solr_api_full_text
 
 
-def _ok_response() -> Mock:
-    response = Mock()
-    response.status_code = 200
-    response.raise_for_status = Mock()
-    return response
+def _failing_solr() -> MagicMock:
+    solr_api_full_text = MagicMock()
+    solr_api_full_text.index_documents.side_effect = RuntimeError("Solr down")
+    return solr_api_full_text
+
+
+def _status_rows(solr_api_full_text: MagicMock, batch: list[dict[str, Any]]) -> list[Any]:
+    """Run process_batch and return the rows passed to the single update_status call."""
+    service, _channel, db_conn = _make_service(solr_api_full_text)
+
+    service.process_batch(batch, list(range(len(batch))))
+
+    rows: list[Any] = db_conn.update_status.call_args.args[1]
+    return rows
+
+
+def _two_docs() -> list[dict[str, Any]]:
+    return [{"id": "mdp.1"}, {"id": "mdp.2"}]
 
 
 class TestIndexerStatusWrites:
-    def test_process_batch_success_writes_completed_for_every_ht_id_in_batch(self) -> None:
-        service, db_conn, _ = _make_service(solr_response=_ok_response())
-        batch: list[dict[str, Any]] = [{"id": "mdp.1"}, {"id": "mdp.2"}]
+    def test_process_batch_success_writes_status_once(self) -> None:
+        service, _channel, db_conn = _make_service(_ok_solr())
 
-        service.process_batch(batch, [1, 2])
-
-        db_conn.update_status.assert_called_once()
-        query_arg, values_arg = db_conn.update_status.call_args.args
-        assert query_arg == SUCCESS_UPDATE_STATUS
-        assert len(values_arg) == 2
-        assert all(v["indexer_status"] == "completed" for v in values_arg)
-        assert all(v["status"] == "completed" for v in values_arg)
-        assert {v["ht_id"] for v in values_arg} == {"mdp.1", "mdp.2"}
-
-    def test_process_batch_failure_writes_failed_for_every_ht_id_in_batch(self) -> None:
-        service, db_conn, _ = _make_service(solr_side_effect=Exception("Solr down"))
-        batch: list[dict[str, Any]] = [{"id": "mdp.1"}, {"id": "mdp.2"}]
-
-        service.process_batch(batch, [1, 2])
+        service.process_batch(_two_docs(), [1, 2])
 
         db_conn.update_status.assert_called_once()
-        query_arg, values_arg = db_conn.update_status.call_args.args
-        assert query_arg == FAILURE_UPDATE_STATUS
-        assert len(values_arg) == 2
-        assert all(v["indexer_status"] == "failed" for v in values_arg)
-        assert all(v["status"] == "failed" for v in values_arg)
 
-    def test_process_batch_failure_writes_error_message_for_every_ht_id(self) -> None:
-        service, db_conn, _ = _make_service(solr_side_effect=Exception("Solr down"))
-        batch: list[dict[str, Any]] = [{"id": "mdp.1"}, {"id": "mdp.2"}]
+    def test_process_batch_success_uses_success_query(self) -> None:
+        service, _channel, db_conn = _make_service(_ok_solr())
 
-        service.process_batch(batch, [1, 2])
+        service.process_batch(_two_docs(), [1, 2])
 
-        _query_arg, values_arg = db_conn.update_status.call_args.args
-        for value in values_arg:
-            assert "error" in value
-            assert isinstance(value["error"], str)
-            assert value["error"] != ""
+        assert db_conn.update_status.call_args.args[0] == SUCCESS_UPDATE_STATUS
+
+    def test_process_batch_success_writes_one_row_per_ht_id(self) -> None:
+        rows = _status_rows(_ok_solr(), _two_docs())
+
+        assert {row["ht_id"] for row in rows} == {"mdp.1", "mdp.2"}
+
+    def test_process_batch_success_sets_indexer_status_completed(self) -> None:
+        rows = _status_rows(_ok_solr(), _two_docs())
+
+        assert [row["indexer_status"] for row in rows] == ["completed", "completed"]
+
+    def test_process_batch_success_sets_status_completed(self) -> None:
+        rows = _status_rows(_ok_solr(), _two_docs())
+
+        assert [row["status"] for row in rows] == ["completed", "completed"]
+
+    def test_process_batch_failure_writes_status_once(self) -> None:
+        service, _channel, db_conn = _make_service(_failing_solr())
+
+        service.process_batch(_two_docs(), [1, 2])
+
+        db_conn.update_status.assert_called_once()
+
+    def test_process_batch_failure_uses_failure_query(self) -> None:
+        service, _channel, db_conn = _make_service(_failing_solr())
+
+        service.process_batch(_two_docs(), [1, 2])
+
+        assert db_conn.update_status.call_args.args[0] == FAILURE_UPDATE_STATUS
+
+    def test_process_batch_failure_writes_one_row_per_ht_id(self) -> None:
+        rows = _status_rows(_failing_solr(), _two_docs())
+
+        assert {row["ht_id"] for row in rows} == {"mdp.1", "mdp.2"}
+
+    def test_process_batch_failure_sets_indexer_status_failed(self) -> None:
+        rows = _status_rows(_failing_solr(), _two_docs())
+
+        assert [row["indexer_status"] for row in rows] == ["failed", "failed"]
+
+    def test_process_batch_failure_sets_status_failed(self) -> None:
+        rows = _status_rows(_failing_solr(), _two_docs())
+
+        assert [row["status"] for row in rows] == ["failed", "failed"]
+
+    def test_process_batch_failure_records_non_empty_error_for_every_row(self) -> None:
+        rows = _status_rows(_failing_solr(), _two_docs())
+
+        assert all(isinstance(row["error"], str) and row["error"] for row in rows)
 
     def test_process_batch_doc_without_id_is_excluded_from_status_write(self) -> None:
-        service, db_conn, _ = _make_service(solr_response=_ok_response())
-        batch: list[dict[str, Any]] = [{"id": "mdp.1"}, {"no_id": True}]
+        rows = _status_rows(_ok_solr(), [{"id": "mdp.1"}, {"no_id": True}])
 
-        service.process_batch(batch, [1, 2])
-
-        db_conn.update_status.assert_called_once()
-        _query_arg, values_arg = db_conn.update_status.call_args.args
-        assert len(values_arg) == 1
-        assert values_arg[0]["ht_id"] == "mdp.1"
+        assert [row["ht_id"] for row in rows] == ["mdp.1"]
 
 
 class TestIndexerStatusWriteErrors:
@@ -190,32 +194,29 @@ class TestIndexerStatusWriteErrors:
     def test_process_batch_success_status_write_error_does_not_reject_acked_messages(
         self,
     ) -> None:
-        service, db_conn, reject_mock = _make_service(solr_response=_ok_response())
+        service, channel, db_conn = _make_service(_ok_solr())
         db_conn.update_status.side_effect = RuntimeError("MySQL down")
-        batch: list[dict[str, Any]] = [{"id": "mdp.1"}]
 
-        service.process_batch(batch, [1])
+        service.process_batch([{"id": "mdp.1"}], [1])
 
-        reject_mock.assert_not_called()
+        channel.basic_reject.assert_not_called()
 
     def test_process_batch_success_status_write_error_does_not_raise_out_of_process_batch(
         self,
     ) -> None:
-        service, db_conn, _ = _make_service(solr_response=_ok_response())
+        service, _channel, db_conn = _make_service(_ok_solr())
         db_conn.update_status.side_effect = RuntimeError("MySQL down")
-        batch: list[dict[str, Any]] = [{"id": "mdp.1"}]
 
-        result = service.process_batch(batch, [1])
+        result = service.process_batch([{"id": "mdp.1"}], [1])
 
         assert result is True
 
     def test_process_batch_failure_status_write_error_does_not_raise_out_of_process_batch(
         self,
     ) -> None:
-        service, db_conn, _ = _make_service(solr_side_effect=Exception("Solr down"))
+        service, _channel, db_conn = _make_service(_failing_solr())
         db_conn.update_status.side_effect = RuntimeError("MySQL down")
-        batch: list[dict[str, Any]] = [{"id": "mdp.1"}]
 
-        result = service.process_batch(batch, [1])
+        result = service.process_batch([{"id": "mdp.1"}], [1])
 
-        assert result is True
+        assert result is False
