@@ -242,10 +242,17 @@ services:
       - ./app/ht_indexer/tests:/workspace/app/ht_indexer/tests
       - ../tmp:/tmp
       - ../sdr1/obj:/sdr1/obj
-    command: ["/workspace/.venv/bin/python", "-m", "pytest", "tests"]
+      # Coverage data lands here so it's readable outside the container -- e.g. for
+      # a future Coveralls upload step. The host-side ./coverage dir must exist and
+      # be writable by the container's non-root user before this runs (see the "Set
+      # up Indexer" CI step), or this hits the same bind-mount permission problem
+      # COVERAGE_FILE below already works around for /workspace itself.
+      - ./coverage:/workspace/coverage
+    command: ["/workspace/.venv/bin/python", "-m", "pytest", "tests", "--cov=src", "--cov-report=term-missing"]
     environment:
       <<: *env_indexer
       SOLR_URL: http://solr-sdr-catalog:9033/solr/catalog/
+      COVERAGE_FILE: /workspace/coverage/.coverage
     depends_on:
       solr-sdr-catalog: *healthy
       solr-lss-dev: *healthy
