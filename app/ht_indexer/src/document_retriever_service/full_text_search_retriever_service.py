@@ -8,12 +8,7 @@ from typing import Any
 
 import requests
 from catalog_metadata.catalog_metadata import CatalogItemMetadata, CatalogRecordMetadata
-from catalog_metadata.ht_indexer_config import (
-    STATUS_COMPLETED,
-    STATUS_FAILED,
-    STATUS_PENDING,
-    STATUS_PROCESSING,
-)
+from catalog_metadata.ht_indexer_config import ProcessingStatus
 from ht_indexer_api.ht_indexer_api import HTSolrAPI
 from ht_indexer_monitoring.ht_indexer_tracktable import (
     HT_INDEXER_TRACKTABLE,
@@ -45,7 +40,7 @@ MYSQL_COLUMN_UPDATE = "retriever_status"
 # The guard lives in SET, not WHERE: a WHERE guard would leave retriever_status='pending' and the
 # item would be re-published on every polling cycle. status must be assigned last, because MySQL
 # evaluates SET left to right and the error guard must read the original status.
-_STATUS_GUARD = f"CASE WHEN status = '{STATUS_PENDING}' THEN :status ELSE status END"
+_STATUS_GUARD = f"CASE WHEN status = '{ProcessingStatus.PENDING}' THEN :status ELSE status END"
 SUCCESS_UPDATE_STATUS = (
     f"UPDATE {PROCESSING_STATUS_TABLE_NAME} SET "
     f"{MYSQL_COLUMN_UPDATE} = :retriever_status, processed_at = :processed_at, "
@@ -54,7 +49,7 @@ SUCCESS_UPDATE_STATUS = (
 FAILURE_UPDATE_STATUS = (
     f"UPDATE {PROCESSING_STATUS_TABLE_NAME} SET "
     f"{MYSQL_COLUMN_UPDATE} = :retriever_status, processed_at = :processed_at, "
-    f"error = CASE WHEN status = '{STATUS_PENDING}' THEN :error ELSE error END, "
+    f"error = CASE WHEN status = '{ProcessingStatus.PENDING}' THEN :error ELSE error END, "
     f"status = {_STATUS_GUARD} WHERE ht_id = :ht_id"
 )
 
@@ -145,8 +140,8 @@ class FullTextSearchRetrieverQueueService:
 
                 processed_items.append(
                     {
-                        "status": STATUS_PROCESSING,
-                        "retriever_status": STATUS_COMPLETED,
+                        "status": ProcessingStatus.PROCESSING,
+                        "retriever_status": ProcessingStatus.COMPLETED,
                         "processed_at": get_current_time(),
                         "ht_id": item_id,
                     }
@@ -159,8 +154,8 @@ class FullTextSearchRetrieverQueueService:
 
                 failed_items.append(
                     {
-                        "status": STATUS_FAILED,
-                        "retriever_status": STATUS_FAILED,
+                        "status": ProcessingStatus.FAILED,
+                        "retriever_status": ProcessingStatus.FAILED,
                         "processed_at": get_current_time(),
                         "error": f"{error_info.get('service_name')}_{error_info.get('error_message')}",
                         "ht_id": error_info.get("ht_id"),
@@ -417,7 +412,7 @@ def main() -> None:
         while True:
             total_time_waiting = 0
             list_documents = init_args_obj.db_conn.query_mysql(
-                init_args_obj.retriever_query, params={"status": STATUS_PENDING}
+                init_args_obj.retriever_query, params={"status": ProcessingStatus.PENDING}
             )
             if len(list_documents) == 0:
                 logger.info("No documents to process")

@@ -2,7 +2,7 @@ import argparse
 import time
 from typing import Any
 
-from catalog_metadata.ht_indexer_config import STATUS_COMPLETED, STATUS_FAILED
+from catalog_metadata.ht_indexer_config import ProcessingStatus
 from ht_indexer_api.ht_indexer_api import HTSolrAPI
 from ht_indexer_monitoring.ht_indexer_tracktable import PROCESSING_STATUS_TABLE_NAME
 from ht_queue_service.queue_config import QueueParams
@@ -144,10 +144,10 @@ class DocumentIndexerQueueService(QueueMultipleConsumer):
                 FAILURE_UPDATE_STATUS,
                 [
                     {
-                        "indexer_status": STATUS_FAILED,
+                        "indexer_status": ProcessingStatus.FAILED,
                         "processed_at": get_current_time(),
                         "error": error_msg,
-                        "status": STATUS_FAILED,
+                        "status": ProcessingStatus.FAILED,
                         "ht_id": ht_id,
                     }
                     for ht_id in ht_ids
@@ -161,9 +161,9 @@ class DocumentIndexerQueueService(QueueMultipleConsumer):
                 SUCCESS_UPDATE_STATUS,
                 [
                     {
-                        "indexer_status": STATUS_COMPLETED,
+                        "indexer_status": ProcessingStatus.COMPLETED,
                         "processed_at": get_current_time(),
-                        "status": STATUS_COMPLETED,
+                        "status": ProcessingStatus.COMPLETED,
                         "ht_id": ht_id,
                     }
                     for ht_id in ht_ids

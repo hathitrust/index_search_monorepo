@@ -4,7 +4,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from catalog_metadata.ht_indexer_config import STATUS_COMPLETED, STATUS_FAILED, STATUS_PROCESSING
+from catalog_metadata.ht_indexer_config import ProcessingStatus
 from ht_document.ht_document import HtDocument
 from ht_indexer_monitoring.ht_indexer_tracktable import PROCESSING_STATUS_TABLE_NAME
 from ht_queue_service.queue_consumer import QueueConsumer
@@ -28,7 +28,7 @@ MYSQL_COLUMN_UPDATE = "generator_status"
 # so the stage's own column is not left stale. status must be assigned last, because MySQL
 # evaluates SET left to right and the error guard must read the original status.
 _STATUS_GUARD = (
-    f"CASE WHEN status NOT IN ('{STATUS_COMPLETED}', '{STATUS_FAILED}') "
+    f"CASE WHEN status NOT IN ('{ProcessingStatus.COMPLETED}', '{ProcessingStatus.FAILED}') "
     f"THEN :status ELSE status END"
 )
 SUCCESS_UPDATE_STATUS = (
@@ -39,7 +39,7 @@ SUCCESS_UPDATE_STATUS = (
 FAILURE_UPDATE_STATUS = (
     f"UPDATE {PROCESSING_STATUS_TABLE_NAME} SET "
     f"{MYSQL_COLUMN_UPDATE} = :generator_status, processed_at = :processed_at, "
-    f"error = CASE WHEN status NOT IN ('{STATUS_COMPLETED}', '{STATUS_FAILED}') "
+    f"error = CASE WHEN status NOT IN ('{ProcessingStatus.COMPLETED}', '{ProcessingStatus.FAILED}') "
     f"THEN :error ELSE error END, "
     f"status = {_STATUS_GUARD} WHERE ht_id = :ht_id"
 )
@@ -187,8 +187,8 @@ class DocumentGeneratorService:
                 self._write_generator_status(
                     FAILURE_UPDATE_STATUS,
                     {
-                        "status": STATUS_FAILED,
-                        "generator_status": STATUS_FAILED,
+                        "status": ProcessingStatus.FAILED,
+                        "generator_status": ProcessingStatus.FAILED,
                         "processed_at": get_current_time(),
                         "error": f"{error_info.get('service_name')}_{error_info.get('error_message')}",
                         "ht_id": item_id,
@@ -202,8 +202,8 @@ class DocumentGeneratorService:
             self._write_generator_status(
                 SUCCESS_UPDATE_STATUS,
                 {
-                    "status": STATUS_PROCESSING,
-                    "generator_status": STATUS_COMPLETED,
+                    "status": ProcessingStatus.PROCESSING,
+                    "generator_status": ProcessingStatus.COMPLETED,
                     "processed_at": get_current_time(),
                     "ht_id": item_id,
                 },
