@@ -2,6 +2,7 @@ from typing import Any
 from unittest.mock import MagicMock
 
 from document_indexer_service.document_indexer_service import DocumentIndexerQueueService
+from pytest import LogCaptureFixture
 
 
 def _make_service(solr_api_full_text: MagicMock) -> tuple[DocumentIndexerQueueService, MagicMock]:
@@ -21,7 +22,7 @@ def _make_service(solr_api_full_text: MagicMock) -> tuple[DocumentIndexerQueueSe
 
 
 def _batch() -> list[dict[str, Any]]:
-    return [{"ht_id": "1"}, {"ht_id": "2"}]
+    return [{"ht_id": "test.item1"}, {"ht_id": "test.item2"}]
 
 
 def test_process_batch_returns_true_and_acks_on_success() -> None:
@@ -37,6 +38,17 @@ def test_process_batch_returns_true_and_acks_on_success() -> None:
     assert channel.basic_ack.call_count == 2
     assert batch == []
     assert delivery_tags == []
+
+def test_process_batch_logs_document_ids(caplog: LogCaptureFixture) -> None:
+    solr_api_full_text = MagicMock()
+    solr_api_full_text.index_documents.return_value = MagicMock(status_code=200)
+    service, channel = _make_service(solr_api_full_text)
+    batch = _batch()
+
+    service.process_batch(batch, [])
+
+    assert "test.item1" in caplog.text
+    assert "test.item2" in caplog.text
 
 
 def test_process_batch_returns_false_when_batch_is_dead_lettered() -> None:
