@@ -13,7 +13,8 @@ dependencies = [
     "sqlalchemy>=2.0.49,<3",
     "mysql-connector-python>=9.6.0,<10",
     "pymarc>=5.3.1",
-    "pyyaml>=6.0.3,<7"
+    "pyyaml>=6.0.3,<7",
+    "structlog>=26.1.0",
 ]
 
 
