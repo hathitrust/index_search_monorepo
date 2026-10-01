@@ -35,7 +35,7 @@ x-env-common-indexer: &env_common_indexer
 services:
   ht_indexer_tracker:
     container_name: ht_indexer_tracker
-    profiles: [ ht-indexer,ht-indexer_tests ]
+    profiles: [ ht-indexer ]
     # image: ht-indexer
     build:
       context: .
@@ -56,7 +56,7 @@ services:
     stdin_open: true
   document_retriever:
     container_name: document_retriever
-    profiles: [ ht-indexer, ht-indexer_tests ]
+    profiles: [ ht-indexer ]
     # image: ht-indexer
     build:
       context: .
@@ -156,7 +156,7 @@ services:
       - 9033
   document_generator:
     container_name: document_generator
-    profiles: [ ht-indexer, ht-indexer_tests ]
+    profiles: [ ht-indexer ]
     # image: ht-indexer
     build:
       context: .
@@ -188,7 +188,7 @@ services:
     command: ["/workspace/.venv/bin/python", "-m" ,"document_generator.document_generator_service" ]
   document_indexer:
     container_name: document_indexer
-    profiles: [ ht-indexer, ht-indexer_tests ]
+    profiles: [ ht-indexer ]
     # image: ht-indexer
     build:
       context: .
@@ -261,12 +261,6 @@ services:
       solr-lss-dev: *healthy
       rabbitmq: *healthy
       mysql-sdr: *healthy
-      document_generator:
-        condition: service_started
-      document_indexer:
-        condition: service_started
-      document_retriever:
-        condition: service_started
   ###############################SolrQueryInterface###############################
   solr_query_api:
     container_name: full_text_search_api
