@@ -68,6 +68,9 @@ class DocumentIndexerQueueService(QueueMultipleConsumer):
         success = True
         try:
             response = self.solr_api_full_text.index_documents(batch)
+            for i in batch:
+                logger.info(f"Indexed {i['ht_id']}")
+
             logger.info(
                 f"Success process=indexing {len(batch)} items."
                 f"Operation status: {response.status_code} Time={time.time() - start_time:.10f} "
