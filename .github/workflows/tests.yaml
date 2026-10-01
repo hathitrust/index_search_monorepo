@@ -53,18 +53,14 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Set up Indexer
+      - name: Run tests
         run: |
           # Bind-mounted into the ht-indexer_tests container as /workspace/coverage.
           # Docker auto-creates missing bind-mount sources as root-owned, which the
           # container's non-root user couldn't write to -- create it writable first.
           mkdir -p coverage
           chmod 777 coverage
-          docker compose --profile ht-indexer_tests up -d --wait
-
-      - name: Run tests
-        run: |
-          DOCKER_COMPOSE_PROFILES=ht-indexer_tests docker compose run --rm ht-indexer_tests
+          docker compose run --rm ht-indexer_tests
 
       # 👇 ADD DEBUG STEP HERE
       - name: Dump ZooKeeper logs
@@ -79,10 +75,6 @@ jobs:
       steps:
         - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-        - name: Set up Solr
-          run: |
-            docker compose --profile solr-query_tests up -d --wait
-
         - name: Run tests
           run: |
-            DOCKER_COMPOSE_PROFILES=solr-query_tests docker compose run --rm solr-query_tests
+            docker compose run --rm solr-query_tests
