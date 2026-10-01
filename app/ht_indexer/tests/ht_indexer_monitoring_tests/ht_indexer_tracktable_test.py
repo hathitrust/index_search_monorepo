@@ -94,7 +94,9 @@ class TestHTIndexerTracktable:
         # Simulate your parsing function here using the mock file path
         ids = mock_file.read_text().splitlines()
         data = [
-            HTIndexerTrackData(ht_id=hid, record_id=f"record_{hid}", status=ProcessingStatus.PENDING)
+            HTIndexerTrackData(
+                ht_id=hid, record_id=f"record_{hid}", status=ProcessingStatus.PENDING
+            )
             for hid in ids
         ]
 
