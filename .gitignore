@@ -16,6 +16,7 @@ venv/
 .pytest_cache/
 .coverage
 coverage.xml
+/coverage/
 
 # OS / editors
 .DS_Store
