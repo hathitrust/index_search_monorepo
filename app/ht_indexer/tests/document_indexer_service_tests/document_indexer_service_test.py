@@ -4,7 +4,19 @@ from unittest.mock import MagicMock
 
 import pytest
 import requests
+import structlog
 from document_indexer_service.document_indexer_service import DocumentIndexerQueueService
+from structlog.testing import LogCapture
+
+
+@pytest.fixture
+def caplog() -> LogCapture:
+    return LogCapture()
+
+
+@pytest.fixture(autouse=True)
+def fixture_configure_structlog(caplog: LogCapture) -> None:
+    structlog.configure(processors=[caplog])
 
 
 @pytest.fixture(autouse=True)
@@ -35,8 +47,9 @@ def _make_service(solr_api_full_text: MagicMock) -> tuple[DocumentIndexerQueueSe
     return service, channel
 
 
+# list of solr documents
 def _batch() -> list[dict[str, Any]]:
-    return [{"id": "1"}, {"id": "2"}]
+    return [{"id": "test.item1"}, {"id": "test.item2"}]
 
 
 def _http_error(status_code: int) -> requests.exceptions.HTTPError:
@@ -79,6 +92,18 @@ def test_process_batch_returns_true_and_acks_on_success() -> None:
     assert channel.basic_ack.call_count == 2
     assert batch == []
     assert delivery_tags == []
+
+
+def test_process_batch_logs_document_ids(caplog: LogCapture) -> None:
+    solr_api_full_text = MagicMock()
+    solr_api_full_text.index_documents.return_value = MagicMock(status_code=200)
+    service, channel = _make_service(solr_api_full_text)
+    batch = _batch()
+
+    service.process_batch(batch, [])
+
+    assert any(log.get("ht_id") == "test.item1" for log in caplog.entries)
+    assert any(log.get("ht_id") == "test.item2" for log in caplog.entries)
 
 
 def test_process_batch_acks_good_documents_and_dead_letters_only_the_bad_one() -> None:

@@ -218,7 +218,7 @@ class HTSearchQuery:
         if self.solr_facet_filters:
             params.update(HTSearchQuery.facet_creator(self.solr_facet_filters.get("facet")))
 
-        logger.info(params)
+        logger.info("solr query", params=params)
         if fl:
             params.update({"fl": fl})
 
@@ -252,4 +252,4 @@ if __name__ == "__main__":
     Q = HTSearchQuery(config_query="all")
     solr_query = Q.make_solr_query(q_string=query_string, operator="OR")
 
-    logger.info(solr_query)
+    logger.info("solr query", query=solr_query)
