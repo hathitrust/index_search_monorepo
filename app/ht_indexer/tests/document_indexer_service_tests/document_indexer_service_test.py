@@ -39,6 +39,7 @@ def test_process_batch_returns_true_and_acks_on_success() -> None:
     assert batch == []
     assert delivery_tags == []
 
+
 def test_process_batch_logs_document_ids(caplog: LogCaptureFixture) -> None:
     solr_api_full_text = MagicMock()
     solr_api_full_text.index_documents.return_value = MagicMock(status_code=200)
