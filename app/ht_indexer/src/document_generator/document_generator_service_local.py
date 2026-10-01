@@ -4,7 +4,7 @@ import os
 from typing import Any
 
 from catalog_metadata.ht_indexer_config import DOCUMENT_LOCAL_PATH
-from ht_queue_service.queue_consumer import QueueConsumer
+from ht_queue_service.queue_config import QueueParams
 from ht_utils.ht_logger import get_ht_logger
 from ht_utils.ht_mysql import HtMysql
 
@@ -18,7 +18,7 @@ class DocumentGeneratorServiceLocal(DocumentGeneratorService):
     def __init__(
         self,
         db_conn: HtMysql,
-        src_queue_consumer: QueueConsumer,
+        src_queue_params: QueueParams,
         document_local_path: str | None = DOCUMENT_LOCAL_PATH,
         document_repository: str = "local",
         document_local_folder: str = "indexing_data",
@@ -29,7 +29,7 @@ class DocumentGeneratorServiceLocal(DocumentGeneratorService):
         the full text search entry and publish the document in a local folder
 
         :param db_conn: Mysql connection
-        :param src_queue_consumer: Connection of the queue to read the message
+        :param src_queue_params: Queue parameters for retrieving messages from the queue
         :param document_local_path: Path of the folder where the documents (.xml file to index) are stored.
         :param document_local_folder: Folder where the documents are stored
         :param document_repository: The plain text of the item is in the local or remote repository
@@ -38,7 +38,7 @@ class DocumentGeneratorServiceLocal(DocumentGeneratorService):
 
         super().__init__(
             db_conn,
-            src_queue_consumer,
+            src_queue_params,
             None,
             document_repository=document_repository,
             tgt_local=tgt_local,
@@ -87,13 +87,13 @@ def main() -> None:
     # Generate full-text search document in a local folder
     document_generator_service = DocumentGeneratorServiceLocal(
         init_args_obj.db_conn,
-        init_args_obj.src_queue_consumer,
+        init_args_obj.src_queue_config.queue_params,
         document_local_path=init_args_obj.document_local_path,
         document_repository=init_args_obj.document_repository,
         document_local_folder="indexing_data",
         tgt_local=init_args_obj.tgt_local,
     )
-    document_generator_service.consume_messages()
+    document_generator_service.start_consuming()
 
 
 if __name__ == "__main__":

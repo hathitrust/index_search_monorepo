@@ -3,8 +3,7 @@ import os
 from typing import Any
 
 import pytest
-from conftest import create_test_queue_config
-from ht_queue_service.queue_consumer import QueueConsumer
+from conftest import ConcreteQueueConsumer, create_test_queue_config
 from ht_queue_service.queue_producer import QueueProducer
 from ht_utils.ht_logger import get_ht_logger
 
@@ -44,10 +43,15 @@ class TestQueueProducer:
         producer_instance.channel.close()
 
         # Consume the message to ensure it was published correctly
-        consumer_instance = QueueConsumer(producer_queue_config.queue_params)
+        consumer_instance = ConcreteQueueConsumer(producer_queue_config.queue_params)
 
         list_message: list[dict[str, Any]] = []
-        for method_frame, _, body in consumer_instance.consume_message(inactivity_timeout=5):
+        assert consumer_instance.channel is not None
+        for method_frame, _, body in consumer_instance.consume_dead_letter_messages(
+            consumer_instance.channel,
+            inactivity_timeout=5,
+            queue_name=consumer_instance.queue_manager.queue_name,
+        ):
             if method_frame:
                 output_message = json.loads(body.decode("utf-8"))
                 list_message.append(output_message)

@@ -8,9 +8,21 @@ from typing import Any
 import pytest
 from catalog_metadata.catalog_metadata import CatalogItemMetadata, CatalogRecordMetadata
 from ht_queue_service.queue_config import QueueConfig
+from ht_queue_service.queue_multiple_consumer import QueueMultipleConsumer
 from ht_utils.ht_utils import create_temporary_yaml_file, get_solr_url
 
 current = os.path.dirname(__file__)
+
+
+class ConcreteQueueConsumer(QueueMultipleConsumer):
+    """Minimal concrete QueueMultipleConsumer for tests that only need to purge,
+    reconnect, or drain a single message via consume_dead_letter_messages() --
+    not batch processing. process_batch is never invoked by those call paths;
+    it exists only to satisfy QueueMultipleConsumer's ABC contract.
+    """
+
+    def process_batch(self, batch: list[Any], delivery_tag: list[int]) -> bool:
+        return True
 
 
 @pytest.fixture

@@ -7,7 +7,8 @@ from typing import Any
 from catalog_metadata.ht_indexer_config import STATUS_COMPLETED, STATUS_FAILED, STATUS_PROCESSING
 from ht_document.ht_document import HtDocument
 from ht_indexer_monitoring.ht_indexer_tracktable import PROCESSING_STATUS_TABLE_NAME
-from ht_queue_service.queue_consumer import QueueConsumer
+from ht_queue_service.queue_config import QueueParams
+from ht_queue_service.queue_multiple_consumer import QueueMultipleConsumer
 from ht_queue_service.queue_producer import QueueProducer
 from ht_utils.ht_logger import get_ht_logger
 from ht_utils.ht_mysql import HtMysql
@@ -41,11 +42,11 @@ FAILURE_UPDATE_STATUS = (
 )
 
 
-class DocumentGeneratorService:
+class DocumentGeneratorService(QueueMultipleConsumer):
     def __init__(
         self,
         db_conn: HtMysql,
-        src_queue_consumer: QueueConsumer,
+        src_queue_params: QueueParams,
         tgt_queue_producer: QueueProducer | None,
         document_repository: str = "pairtree",
         tgt_local: bool = False,
@@ -55,18 +56,19 @@ class DocumentGeneratorService:
         the full text search entry and publish the document in a queue
 
         :param db_conn: MySql connection
-        :param src_queue_consumer: Retrieving messages from the queue
+        :param src_queue_params: Queue parameters for retrieving messages from the queue
         :param tgt_queue_producer: Publishing messages to the queue
         :param tgt_local: Indicates if the document will be published in a queue or locally
         :param document_repository: Parameter to know if the plain text of the items is in the local or remote
         repository
         """
 
+        super().__init__(src_queue_params)
+
         # Instantiate the document generator object
         self.document_generator = FullTextDocumentGenerator(db_conn)
         self.db_conn = db_conn
 
-        self.src_queue_consumer = src_queue_consumer
         self.document_repository = document_repository
         # Always set, even when tgt_local -- previously this attribute was only assigned in
         # the `not tgt_local` branch, so a tgt_local instance would raise AttributeError the
@@ -133,21 +135,16 @@ class DocumentGeneratorService:
         error_info = get_error_message_by_document("DocumentGeneratorService", e, document)
 
         logger.error(f"Document {document.get('ht_id')} failed {error_info}")
-        if self.src_queue_consumer.channel is None:
+        if self.channel is None:
             raise RuntimeError("Unable to establish a RabbitMQ channel")
-        self.src_queue_consumer.reject_message(self.src_queue_consumer.channel, delivery_tag)
+        self.reject_message(self.channel, delivery_tag)
 
-    def consume_messages(self) -> None:
-        try:
-            for method_frame, _properties, body in self.src_queue_consumer.consume_message():
-                if method_frame:
-                    message = json.loads(body.decode("utf-8"))
-                    self.generate_document(message, method_frame.delivery_tag)
-        except Exception as e:
-            logger.error(
-                f"There is something wrong with the queue connection: "
-                f"{get_general_error_message('DocumentGeneratorService', e)}"
-            )
+    def process_batch(self, batch: list[Any], delivery_tag: list[int]) -> bool:
+        for message, tag in zip(batch, delivery_tag, strict=True):
+            self.generate_document(message, tag)
+        batch.clear()
+        delivery_tag.clear()
+        return True
 
     def generate_document(self, message: dict[str, Any], delivery_tag: int) -> None:
 
@@ -171,11 +168,9 @@ class DocumentGeneratorService:
             self.publish_document(full_text_document)
             # Acknowledge the message to src_queue if the message is processed successfully and published in
             # the other queue
-            if self.src_queue_consumer.channel is None:
+            if self.channel is None:
                 raise RuntimeError("Unable to establish a RabbitMQ channel")
-            self.src_queue_consumer.positive_acknowledge(
-                self.src_queue_consumer.channel, delivery_tag
-            )
+            self.positive_acknowledge(self.channel, delivery_tag)
         except Exception as e:
             self.log_error_document_generator_service(e, message, delivery_tag)
             error_info = get_error_message_by_document("DocumentGeneratorService", e, message)
@@ -223,12 +218,12 @@ def main() -> None:
 
     document_generator_service = DocumentGeneratorService(
         init_args_obj.db_conn,
-        init_args_obj.src_queue_consumer,
+        init_args_obj.src_queue_config.queue_params,
         init_args_obj.tgt_queue_producer,
         init_args_obj.document_repository,
         tgt_local=init_args_obj.tgt_local,
     )
-    document_generator_service.consume_messages()
+    document_generator_service.start_consuming()
 
 
 if __name__ == "__main__":
