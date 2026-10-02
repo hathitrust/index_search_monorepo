@@ -8,14 +8,27 @@ from document_generator.document_generator_service import (
 )
 
 
+def _make_service_with_mocks(db_conn: Mock) -> DocumentGeneratorService:
+    """DocumentGeneratorService.__init__ connects to a live RabbitMQ broker via its
+    parent class (QueueMultipleConsumer), which isn't needed to exercise generate_document's
+    own logic. Build the instance without running __init__ and set only what
+    generate_document/log_error_document_generator_service actually touch -- mirrors the
+    pattern in document_indexer_service_test.py's _make_service.
+    """
+    service = DocumentGeneratorService.__new__(DocumentGeneratorService)
+    service.db_conn = db_conn
+    service.document_repository = "pairtree"
+    service.tgt_queue_producer = Mock()
+    service.channel = MagicMock()
+    service.requeue_message = False
+    return service
+
+
 class TestDocumentGeneratorServiceMysqlUpdate:
     def _make_service(self) -> tuple[DocumentGeneratorService, Mock]:
-        # Create a DocumentGeneratorService with a mocked MySQL connection and queue consumer/producer.
+        # Create a DocumentGeneratorService with a mocked MySQL connection and queue channel.
         db_conn = Mock()
-        src_queue_consumer = Mock()
-        src_queue_consumer.channel = MagicMock()
-        tgt_queue_producer = Mock()
-        service = DocumentGeneratorService(db_conn, src_queue_consumer, tgt_queue_producer)
+        service = _make_service_with_mocks(db_conn)
         return service, db_conn
 
     def test_generate_document_success_calls_update_status_with_processing_and_completed(
@@ -90,9 +103,7 @@ class TestDocumentGeneratorServiceMysqlUpdate:
         db_conn.update_status.side_effect = record_update_status
 
         with (
-            patch.object(
-                service.src_queue_consumer, "positive_acknowledge", side_effect=record_ack
-            ),
+            patch.object(service, "positive_acknowledge", side_effect=record_ack),
             patch.object(
                 service, "generate_full_text_entry", return_value={"id": "mdp.39015078560292"}
             ),
@@ -114,9 +125,7 @@ class TestGeneratorStatusWriteErrors:
         # Simulate a failure in the MySQL update_status method to test how the service handles it.
         db_conn = Mock()
         db_conn.update_status.side_effect = RuntimeError("MySQL unavailable")
-        src_queue_consumer = Mock()
-        src_queue_consumer.channel = MagicMock()
-        service = DocumentGeneratorService(db_conn, src_queue_consumer, Mock())
+        service = _make_service_with_mocks(db_conn)
         return service, db_conn
 
     def _generate_successfully(self, service: DocumentGeneratorService) -> None:
@@ -140,8 +149,7 @@ class TestGeneratorStatusWriteErrors:
 
         self._generate_successfully(service)
 
-        # Casting the callable to a MagicMock type
-        cast(MagicMock, service.src_queue_consumer.reject_message).assert_not_called()
+        cast(MagicMock, service.channel).basic_reject.assert_not_called()
 
     def test_generate_document_success_status_write_error_does_not_write_failed_status(
         self,
@@ -161,14 +169,14 @@ class TestGeneratorStatusWriteErrors:
 
         db_conn.update_status.assert_called_once()
         assert db_conn.update_status.call_args.args[0] == FAILURE_UPDATE_STATUS
-        cast(MagicMock, service.src_queue_consumer.reject_message).assert_called_once()
+        cast(MagicMock, service.channel).basic_reject.assert_called_once()
 
     # def test_generate_document_failure_status_write_error_still_rejects_message(self) -> None:
     #    service, _ = self._make_service()
 
     #    self._generate_with_failure(service)
 
-    #    service.src_queue_consumer.reject_message.assert_called_once()  # type: ignore[attr-defined]  # Mock attribute
+    #    service.channel.basic_reject.assert_called_once()  # type: ignore[attr-defined]  # Mock attribute
 
 
 class TestGeneratorStatusGuardInSQL:

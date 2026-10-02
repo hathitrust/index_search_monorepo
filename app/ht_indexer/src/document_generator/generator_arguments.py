@@ -5,7 +5,6 @@ from config import config_queue_file_path
 from ht_queue_service.queue_config import QueueConfig, QueueParams
 
 # root imports
-from ht_queue_service.queue_consumer import QueueConsumer
 from ht_queue_service.queue_producer import QueueProducer
 from ht_utils.ht_logger import get_ht_logger
 from ht_utils.ht_mysql import HtMysql, get_mysql_conn
@@ -53,11 +52,6 @@ class GeneratorServiceArguments:
         # Queue configuration
         self.src_queue_config, self.tgt_queue_config = (
             GeneratorServiceArguments._build_queue_configs()
-        )
-
-        # Queue clients
-        self.src_queue_consumer = GeneratorServiceArguments._make_consumer(
-            self.src_queue_config.queue_params
         )
 
         self.tgt_local: bool = self.args.tgt_local
@@ -127,21 +121,6 @@ class GeneratorServiceArguments:
             logger.exception("Unexpected error creating QueueConfig")
             logger.error(
                 f"Queue configuration error: {get_general_error_message('DocumentGeneratorService', e)}"
-            )
-            sys.exit(1)
-
-    @staticmethod
-    def _make_consumer(queue_params: QueueParams) -> QueueConsumer:
-        try:
-            return QueueConsumer(queue_params)
-        except KeyError as e:
-            logger.error(
-                f"Missing environment variables: {get_general_error_message('DocumentGeneratorService', e)}"
-            )
-            sys.exit(1)
-        except Exception as e:
-            logger.error(
-                f"Queue connection required: {get_general_error_message('DocumentGeneratorService', e)}"
             )
             sys.exit(1)
 

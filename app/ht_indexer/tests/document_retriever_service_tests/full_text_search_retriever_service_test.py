@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import requests
 from catalog_metadata.catalog_metadata import CatalogItemMetadata
-from conftest import create_test_queue_config
+from conftest import ConcreteQueueConsumer, create_test_queue_config
 from document_retriever_service import (
     full_text_search_retriever_service as retriever_service_module,
 )
@@ -15,7 +15,6 @@ from document_retriever_service.full_text_search_retriever_service import (
 )
 from document_retriever_service.retriever_services_utils import RetrieverServicesUtils
 from ht_indexer_api.ht_indexer_api import HTSolrAPI
-from ht_queue_service.queue_consumer import QueueConsumer
 from ht_utils.ht_logger import get_ht_logger
 from ht_utils.query_maker import make_solr_term_query
 
@@ -123,7 +122,7 @@ class TestFullTextRetrieverService:
 
         queue_params = get_queue_config[0].queue_params
         # Define the consumer instance
-        consumer_instance = QueueConsumer(queue_params)
+        consumer_instance = ConcreteQueueConsumer(queue_params)
 
         logger.info(f"Checking if the queue {queue_params.queue_name} exists before the test")
         if not consumer_instance.queue_manager.is_ready(consumer_instance.channel):
@@ -150,8 +149,10 @@ class TestFullTextRetrieverService:
         )
 
         # Service to consume the message
-        for method_frame, _properties, body in consumer_instance.consume_message(
-            inactivity_timeout=5
+        for method_frame, _properties, body in consumer_instance.consume_dead_letter_messages(
+            consumer_instance.channel,
+            inactivity_timeout=5,
+            queue_name=consumer_instance.queue_manager.queue_name,
         ):
             if method_frame:
                 output_message = json.loads(body.decode("utf-8"))

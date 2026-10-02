@@ -11,10 +11,22 @@ from catalog_metadata.catalog_metadata import CatalogItemMetadata, CatalogRecord
 from ht_queue_service.channel_creator import ChannelCreator
 from ht_queue_service.queue_config import QueueConfig
 from ht_queue_service.queue_manager import QueueManager
+from ht_queue_service.queue_multiple_consumer import QueueMultipleConsumer
 from ht_utils.ht_utils import create_temporary_yaml_file, get_solr_url
 from pika.adapters.blocking_connection import BlockingChannel
 
 current = os.path.dirname(__file__)
+
+
+class ConcreteQueueConsumer(QueueMultipleConsumer):
+    """Minimal concrete QueueMultipleConsumer for tests that only need to purge,
+    reconnect, or drain a single message via consume_dead_letter_messages() --
+    not batch processing. process_batch is never invoked by those call paths;
+    it exists only to satisfy QueueMultipleConsumer's ABC contract.
+    """
+
+    def process_batch(self, batch: list[Any], delivery_tag: list[int]) -> bool:
+        return True
 
 
 @pytest.fixture
@@ -163,8 +175,8 @@ def make_queue_config(
 
 
 class QueueServiceLike(Protocol):
-    """Structural type for QueueProducer/QueueConsumer/QueueMultipleConsumer --
-    they don't share a base class, but all three expose this same shape."""
+    """Structural type for QueueProducer/QueueMultipleConsumer -- they don't
+    share a base class, but both expose this same shape."""
 
     channel: BlockingChannel | None
     channel_creator: ChannelCreator

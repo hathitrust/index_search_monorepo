@@ -8,11 +8,10 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
-from conftest import create_test_queue_config
+from conftest import ConcreteQueueConsumer, create_test_queue_config
 from document_retriever_service.ht_status_retriever_service import get_non_processed_ids
 from document_retriever_service.retriever_arguments import RetrieverServiceByFileArguments
 from document_retriever_service.run_retriever_service_by_file import retrieve_documents_by_file
-from ht_queue_service.queue_consumer import QueueConsumer
 from ht_utils.ht_logger import get_ht_logger
 
 logger = get_ht_logger(name=__name__)
@@ -101,13 +100,15 @@ class TestRunRetrieverServiceByFile:
             1,
         )
 
-        consumer_instance = QueueConsumer(producer_queue_config.queue_params)
+        consumer_instance = ConcreteQueueConsumer(producer_queue_config.queue_params)
         assert consumer_instance.channel is not None
 
         list_output_messages: list[str] = []
         # Service to consume the message
-        for method_frame, _properties, body in consumer_instance.consume_message(
-            inactivity_timeout=5
+        for method_frame, _properties, body in consumer_instance.consume_dead_letter_messages(
+            consumer_instance.channel,
+            inactivity_timeout=5,
+            queue_name=consumer_instance.queue_manager.queue_name,
         ):
             if method_frame:
                 list_output_messages.append(json.loads(body.decode("utf-8"))["ht_id"])
