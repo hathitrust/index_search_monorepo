@@ -35,7 +35,7 @@ x-env-common-indexer: &env_common_indexer
 services:
   ht_indexer_tracker:
     container_name: ht_indexer_tracker
-    profiles: [ ht-indexer,ht-indexer_tests ]
+    profiles: [ ht-indexer ]
     # image: ht-indexer
     build:
       context: .
@@ -56,7 +56,7 @@ services:
     stdin_open: true
   document_retriever:
     container_name: document_retriever
-    profiles: [ ht-indexer, ht-indexer_tests ]
+    profiles: [ ht-indexer ]
     # image: ht-indexer
     build:
       context: .
@@ -111,16 +111,19 @@ services:
       ZK_HOST: zoo1:2181
       SOLR_OPTS: -XX:-UseLargePages
       SOLR_MODULES: analysis-extras
+      SOLR_AUTHENTICATION_OPTS: -Dbasicauth=solr:solrRocks
     depends_on:
       zoo1: *healthy
     volumes:
       - solr1_data:/var/solr
     # start solr in the background, wait for it to start, then create the collection
-    command: [ "sh", "-c", 'solr-foreground -c & sleep 150 && export SOLR_AUTHENTICATION_OPTS=-Dbasicauth=admin:solrRocks && solr create_collection -d /opt/solr/core-x -c core-x -shards 1 -replicationFactor 1 -p 8983 && wait' ]
+    command: [ "sh", "-c", "solr-foreground & /usr/bin/create_collection_if_needed && wait" ]
     healthcheck:
       <<: *healthcheck-defaults
-      test: [ "CMD-SHELL", "curl -s -u admin:solrRocks 'http://localhost:8983/solr/admin/collections?action=CLUSTERSTATUS&collection=core-x' | grep -q '\"state\":\"active\"'" ]
-      timeout: 30s
+      test: [ "CMD-SHELL", "bin/solr healthcheck -c core-x" ]
+      interval: 10s
+      start_period: 30s
+      timeout: 10s
       retries: 10
   zoo1: # Zookeeper run in standalone mode for development and testing purposes. In production, we would use a Zookeeper ensemble for high availability.
     image: zookeeper:3.9.0
@@ -153,7 +156,7 @@ services:
       - 9033
   document_generator:
     container_name: document_generator
-    profiles: [ ht-indexer, ht-indexer_tests ]
+    profiles: [ ht-indexer ]
     # image: ht-indexer
     build:
       context: .
@@ -185,7 +188,7 @@ services:
     command: ["/workspace/.venv/bin/python", "-m" ,"document_generator.document_generator_service" ]
   document_indexer:
     container_name: document_indexer
-    profiles: [ ht-indexer, ht-indexer_tests ]
+    profiles: [ ht-indexer ]
     # image: ht-indexer
     build:
       context: .
@@ -258,12 +261,6 @@ services:
       solr-lss-dev: *healthy
       rabbitmq: *healthy
       mysql-sdr: *healthy
-      document_generator:
-        condition: service_started
-      document_indexer:
-        condition: service_started
-      document_retriever:
-        condition: service_started
   ###############################SolrQueryInterface###############################
   solr_query_api:
     container_name: full_text_search_api
@@ -334,8 +331,8 @@ services:
           APP_DIR: data_operations
           MODULE_NAME: metadata_extractor
       volumes:
-        - ./app/data_operations/src/${MODULE_NAME}/data:/app/src/${MODULE_NAME}/data:ro
-        - ./app/data_operations/src/${MODULE_NAME}/output:/app/src/${MODULE_NAME}/output
+        - ./app/data_operations/src/metadata_extractor/data:/app/src/metadata_extractor/data:ro
+        - ./app/data_operations/src/metadata_extractor/output:/app/src/metadata_extractor/output
       tty: true
       stdin_open: true
 ############ Volumes ## ############################
