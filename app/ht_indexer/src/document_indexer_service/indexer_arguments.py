@@ -6,6 +6,7 @@ from config import config_queue_file_path
 from ht_indexer_api.ht_indexer_api import HTSolrAPI
 from ht_queue_service.queue_config import QueueConfig
 from ht_utils.ht_logger import get_ht_logger
+from ht_utils.ht_mysql import HtMysql, get_mysql_conn
 from ht_utils.ht_utils import get_general_error_message
 
 from . import indexer_config_file_path
@@ -36,6 +37,8 @@ class IndexerServiceArguments:
         )
 
         self.args = parser.parse_args()
+
+        self.db_conn: HtMysql = self.get_db_conn()
 
         solr_user = os.getenv("SOLR_USER")
         solr_password = os.getenv("SOLR_PASSWORD")
@@ -75,3 +78,15 @@ class IndexerServiceArguments:
             )
 
             sys.exit(1)
+
+    def get_db_conn(self, pool_size: int = 1) -> HtMysql:
+        """Create (once) and return a MySQL connection."""
+        try:
+            self.db_conn = get_mysql_conn(pool_size=pool_size)
+        except Exception as e:
+            logger.error(
+                f"Failed to create MySQL connection: "
+                f"{get_general_error_message('DocumentIndexerService', e)}"
+            )
+            sys.exit(1)
+        return self.db_conn
