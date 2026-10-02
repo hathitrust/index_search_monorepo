@@ -6,12 +6,12 @@ import yaml
 from ht_queue_service.queue_config import QueueConfig
 
 # The docker compose test environment sets these for the real queue services
-# (e.g. QUEUE_HOST=rabbitmq), so every test here must start from a clean slate or
+# (e.g. RABBITMQ_INDEXER_RW_HOST=rabbitmq), so every test here must start from a clean slate or
 # it ends up asserting against real broker config instead of the YAML fixtures.
 _QUEUE_ENV_VARS = [
-    f"{prefix}QUEUE_{suffix}"
+    f"RABBITMQ_INDEXER_{prefix}RW_{suffix}"
     for prefix in ("", "SRC_", "TGT_")
-    for suffix in ("HOST", "PORT", "USER", "PASS", "NAME")
+    for suffix in ("HOST", "PORT", "USERNAME", "PASSWORD", "QUEUE_NAME")
 ]
 
 
@@ -114,7 +114,7 @@ def test_custom_arguments_override_generated_dlx_arguments(tmp_path: Path) -> No
 def test_env_var_overrides_config_file_value(
     global_config_path: Path, app_config_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("QUEUE_HOST", "env-host")
+    monkeypatch.setenv("RABBITMQ_INDEXER_RW_HOST", "env-host")
 
     params = QueueConfig(global_config_path, app_config_path).get_params()
 
@@ -124,7 +124,7 @@ def test_env_var_overrides_config_file_value(
 def test_env_var_port_is_converted_to_int(
     global_config_path: Path, app_config_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("QUEUE_PORT", "1234")
+    monkeypatch.setenv("RABBITMQ_INDEXER_RW_PORT", "1234")
 
     params = QueueConfig(global_config_path, app_config_path).get_params()
 
@@ -135,7 +135,7 @@ def test_env_var_port_is_converted_to_int(
 def test_prefixed_env_var_is_used_when_prefix_given(
     global_config_path: Path, app_config_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("SRC_QUEUE_HOST", "src-env-host")
+    monkeypatch.setenv("RABBITMQ_INDEXER_SRC_RW_HOST", "src-env-host")
 
     params = QueueConfig(global_config_path, app_config_path, prefix="SRC_").get_params()
 
@@ -145,7 +145,7 @@ def test_prefixed_env_var_is_used_when_prefix_given(
 def test_unprefixed_env_var_is_ignored_when_prefix_given(
     global_config_path: Path, app_config_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("QUEUE_HOST", "unprefixed-env-host")
+    monkeypatch.setenv("RABBITMQ_INDEXER_RW_HOST", "unprefixed-env-host")
 
     params = QueueConfig(global_config_path, app_config_path, prefix="SRC_").get_params()
 

@@ -14,7 +14,7 @@ logger = get_ht_logger(name=__name__)
 class MissingMysqlConfigError(RuntimeError):
     """Raised when a required MySQL credential env var is missing.
 
-    MYSQL_USER/MYSQL_PASS must be supplied explicitly rather than silently
+    MYSQL_HT_RO_USER/MYSQL_HT_RO_PASS must be supplied explicitly rather than silently
     defaulted. A missing credential should fail loudly at startup, not connect
     as a guessed identity and surface as silent query failures later.
     """
@@ -137,18 +137,20 @@ def _require_env(name: str) -> str:
 
 
 def get_mysql_conn(pool_size: int = 1) -> HtMysql:
-    """MYSQL_HOST/MYSQL_DATABASE are not secrets, so if they are not provides, it will initiallice to default.
+    """Connection info must be provided as environment variables:
 
-    MYSQL_USER/MYSQL_PASS are credentials: so, the application will fail fast if there are not provided. We don't want to silently
-    connect as default to a guessed identity.
+    MYSQL_HT_RO_HOST
+    MYSQL_HT_RO_USERNAME
+    MYSQL_HT_RO_PASSWORD
+    MYSQL_HT_RO_DATABASE
 
     :param pool_size: Number of connections in the pool
     :return: HtMysql instance
     """
-    mysql_host = os.getenv("MYSQL_HOST", "mysql-sdr")
-    mysql_database = os.getenv("MYSQL_DATABASE", "ht")
-    mysql_user = _require_env("MYSQL_USER")
-    mysql_pass = _require_env("MYSQL_PASS")
+    mysql_host = _require_env("MYSQL_HT_RO_HOST")
+    mysql_database = _require_env("MYSQL_HT_RO_DATABASE")
+    mysql_user = _require_env("MYSQL_HT_RO_USERNAME")
+    mysql_pass = _require_env("MYSQL_HT_RO_PASSWORD")
 
     logger.info(f"Connecting to MySql_Host: {mysql_host} database: {mysql_database}")
 

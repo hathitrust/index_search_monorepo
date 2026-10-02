@@ -12,17 +12,15 @@ logger = get_ht_logger(name=__name__)
 class TestChannelCreator:
     """Test the QueueConnection class"""
 
-    def test_create_channel_close(
-        self, get_global_queue_config: dict[str, Any], get_rabbit_mq_host_name: str
-    ) -> None:
+    def test_create_channel_close(self, get_global_queue_config: dict[str, Any]) -> None:
         """Test the creation and closing of a channel using ChannelCreator
         :param get_global_queue_config: Fixture to get the global queue configuration
         :return: None
         """
         channel_creator = ChannelCreator(
-            user=get_global_queue_config.get("user", "guest"),
-            password=get_global_queue_config.get("password", "guest"),
-            host=get_rabbit_mq_host_name,
+            user=get_global_queue_config["queue"]["user"],
+            password=get_global_queue_config["queue"]["password"],
+            host=get_global_queue_config["queue"]["host"],
         )
 
         # Creating a channel

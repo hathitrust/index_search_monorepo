@@ -21,7 +21,7 @@ jobs:
           enable-cache: true
 
       - name: Install workspace
-        run: uv sync --package ht-utils --package ht-search --package data-operations
+        run: uv sync --all-packages
 
       - name: Run unit tests
         run: uv run pytest -m "not integration" libs app/data_operations/tests --cov=libs --cov-report=term-missing --cov-report=xml
@@ -73,7 +73,7 @@ jobs:
           # container's non-root user couldn't write to -- create it writable first.
           mkdir -p coverage
           chmod 777 coverage
-          docker compose run --rm ht-indexer_tests
+          docker compose run --rm ht-indexer-tests
 
       # Same fix as unit_tests: make filenames repo-relative (--cov=src makes them
       # relative to app/ht_indexer/src).
@@ -103,7 +103,7 @@ jobs:
 
         - name: Run tests
           run: |
-            docker compose run --rm solr-query_tests
+            docker compose run --rm solr-query-tests
 
   # Merge the parallel unit/indexer reports into one Coveralls build per commit.
   # Coverage scope is libs (unit) and app/ht_indexer (indexer) only, so
