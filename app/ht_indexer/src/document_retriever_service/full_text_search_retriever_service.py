@@ -248,9 +248,10 @@ class FullTextSearchRetrieverQueueService:
                     )
                     # This is the most efficient way to retrieve the items from Catalog
                 else:
-                    # Process all the items of a record
+                    # Process all the items of a record, but filter by chunk if provided
+                    # This prevents retrieving all items in the record when we only want specific ones
                     results = RetrieverServicesUtils.create_catalog_object_by_record_id(
-                        record, catalog_record_metadata
+                        record, catalog_record_metadata, filter_item_ids=chunk
                     )
 
                 record_metadata_list.extend(results)

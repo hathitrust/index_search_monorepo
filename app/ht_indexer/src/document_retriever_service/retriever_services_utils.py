@@ -59,18 +59,24 @@ class RetrieverServicesUtils:
 
     @staticmethod
     def create_catalog_object_by_record_id(
-        record: dict[str, Any], catalog_record_metadata: CatalogRecordMetadata
+        record: dict[str, Any],
+        catalog_record_metadata: CatalogRecordMetadata,
+        filter_item_ids: list[str] | None = None,
     ) -> list[CatalogItemMetadata]:
         """Receive a record and return a list of item, and their metadata
+        If filter_list is provided, only return items that are in the filter list.
         :param record: dict with catalog record (retrieve from Solr)
         :param catalog_record_metadata: CatalogRecordMetadata object
+        :param filter_item_ids: Optional list of item ids to filter the results
         """
 
         results: list[CatalogItemMetadata] = []
         for item_id in record.get("ht_id") or []:
-            results.append(
-                RetrieverServicesUtils.get_catalog_object(item_id, catalog_record_metadata)
-            )
+            # If filter_list is provided, only include items in the filter list
+            if filter_item_ids is None or item_id in filter_item_ids:
+                results.append(
+                    RetrieverServicesUtils.get_catalog_object(item_id, catalog_record_metadata)
+                )
 
         return results
 

@@ -27,6 +27,9 @@ make test APP_NAME=ht-indexer
 make test APP_NAME=solr-query
 ```
 
+Mark any test requiring a live service (Solr, MySQL, RabbitMQ) with `@pytest.mark.integration`
+(defined in the root `pyproject.toml`) so it's excluded from the fast lane.
+
 CI runs the same commands (see `.github/workflows/tests.yaml`), and the `lint` job blocks
 merging on `libs` + `app/ht_indexer`, so it's worth catching failures locally first.
 

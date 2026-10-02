@@ -85,6 +85,7 @@ class TestFullTextRetrieverService:
         query = make_solr_term_query(list_documents, by_field="item")
         assert query == """{!terms f=ht_id separator=\" \"}nyp.33433082002258 not_exist_document"""
 
+    @pytest.mark.integration
     def test_full_text_service_retrieve_documents_from_solr(
         self,
         get_document_retriever_service: FullTextSearchRetrieverQueueService,
@@ -112,6 +113,74 @@ class TestFullTextRetrieverService:
         assert metadata.get("countryOfPubStr") == ["India"]
         assert item_id == list_documents[0]
 
+    def test_generate_chunk_metadata_by_record_filters_to_requested_items(self) -> None:
+        """Use case: when a record contains multiple items, only the requested IDs should be returned.
+
+        This protects against the regression where a record-by-record query returned every item
+        in the record instead of only the ones explicitly requested in the input chunk.
+        """
+        requested_documents = [
+            "nyp.33433082002258",
+            "nyp.33433082046495",
+        ]
+        by_field = "record"
+
+        # Use a record with more items than the ones we requested.
+        solr_output = {
+            "response": {
+                "docs": [
+                    {
+                        "id": "008394936",
+                        "ht_id": [
+                            "nyp.33433082002258",
+                            "nyp.33433082046495",
+                            "nyp.33433082046503",
+                            "nyp.33433082046529",
+                            "nyp.33433082046537",
+                        ],
+                        "htsource": ["New York Public Library"] * 5,
+                    }
+                ]
+            }
+        }
+
+        record_metadata_list = FullTextSearchRetrieverQueueService.generate_chunk_metadata(
+            requested_documents, solr_output, by_field
+        )
+
+        assert len(record_metadata_list) == 2
+        returned_ids = [item.ht_id for item in record_metadata_list]
+        assert set(returned_ids) == set(requested_documents)
+
+    def test_generate_chunk_metadata_by_record_does_not_return_extra_items(self) -> None:
+        """Use case: protect against the original 1000 -> 17000 bug.
+
+        The record may have many more items than the requested chunk.
+        The output must never exceed the number of requested IDs.
+        """
+        requested_documents = [f"nyp.item_{i:04d}" for i in range(10)]
+        by_field = "record"
+
+        solr_output = {
+            "response": {
+                "docs": [
+                    {
+                        "id": "100673101",
+                        "ht_id": [f"nyp.item_{i:04d}" for i in range(17)],
+                        "htsource": ["New York Public Library"] * 17,
+                    }
+                ]
+            }
+        }
+
+        record_metadata_list = FullTextSearchRetrieverQueueService.generate_chunk_metadata(
+            requested_documents, solr_output, by_field
+        )
+
+        assert len(record_metadata_list) == len(requested_documents)
+        assert set(item.ht_id for item in record_metadata_list) == set(requested_documents)
+
+    @pytest.mark.integration
     def test_full_text_search_retriever_service(
         self,
         get_retriever_service_solr_parameters: dict[str, Any],
@@ -185,6 +254,7 @@ class TestFullTextRetrieverService:
         os.remove(get_queue_config[1])
         os.remove(get_queue_config[2])
 
+    @pytest.mark.integration
     def test_retrieve_documents_by_item(
         self,
         get_solr_request: HTSolrAPI,
@@ -222,6 +292,7 @@ class TestFullTextRetrieverService:
 
         assert len(record_metadata_list) == 9
 
+    @pytest.mark.integration
     def test_retrieve_documents_by_record(
         self,
         get_solr_request: HTSolrAPI,
@@ -250,6 +321,7 @@ class TestFullTextRetrieverService:
 
         assert len(record_metadata_list) == 4
 
+    @pytest.mark.integration
     def test_retrieve_documents_by_item_only_one(
         self,
         get_document_retriever_service: FullTextSearchRetrieverQueueService,
@@ -275,6 +347,7 @@ class TestFullTextRetrieverService:
 
         assert len(record_metadata_list) == 1
 
+    @pytest.mark.integration
     def test_retrieve_documents_by_record_list_records(
         self,
         get_document_retriever_service: FullTextSearchRetrieverQueueService,
@@ -301,6 +374,7 @@ class TestFullTextRetrieverService:
 
         assert len(record_metadata_list) == 5
 
+    @pytest.mark.integration
     def test_retrieve_documents_empty_result(
         self,
         get_document_retriever_service: FullTextSearchRetrieverQueueService,
@@ -319,6 +393,7 @@ class TestFullTextRetrieverService:
 
         assert output.get("response").get("numFound") == 0
 
+    @pytest.mark.integration
     def test_solr_is_not_working(
         self,
         get_retriever_service_solr_parameters: dict[str, Any],
