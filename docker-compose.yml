@@ -68,7 +68,9 @@ services:
         APP_DIR: ht_indexer
     volumes:
       - ../tmp:/tmp
-      - ./app/ht_indexer:/app
+      # Mount source where the image's PYTHONPATH reads it (Dockerfile), so edits apply without a rebuild
+      - ./app/ht_indexer:/workspace/app/ht_indexer
+      - ./libs:/workspace/libs
       - ../sdr1/obj:/sdr1/obj
     ports:
       - "8081:8081"
@@ -169,7 +171,9 @@ services:
     volumes:
       - ../tmp:/tmp:rm
       - ../sdr1/obj:/sdr1/obj
-      - ./app/ht_indexer:/app
+      # Mount source where the image's PYTHONPATH reads it (Dockerfile), so edits apply without a rebuild
+      - ./app/ht_indexer:/workspace/app/ht_indexer
+      - ./libs:/workspace/libs
     depends_on:
       rabbitmq: *healthy
       mysql-sdr: *healthy
@@ -201,7 +205,9 @@ services:
     volumes:
       - ../tmp:/tmp:rm
       - ../sdr1/obj:/sdr1/obj
-      - ./app/ht_indexer:/app
+      # Mount source where the image's PYTHONPATH reads it (Dockerfile), so edits apply without a rebuild
+      - ./app/ht_indexer:/workspace/app/ht_indexer
+      - ./libs:/workspace/libs
     ports:
       - "8082:8082"
     depends_on:
@@ -243,6 +249,7 @@ services:
     volumes:
       - ./app/ht_indexer:/workspace/app/ht_indexer
       - ./app/ht_indexer/tests:/workspace/app/ht_indexer/tests
+      - ./libs:/workspace/libs
       - ../tmp:/tmp
       - ../sdr1/obj:/sdr1/obj
       # Coverage data lands here so it's readable outside the container -- e.g. for
