@@ -24,7 +24,15 @@ jobs:
         run: uv sync --package ht-utils --package ht-search --package data-operations
 
       - name: Run unit tests
-        run: uv run pytest -m "not integration" libs app/data_operations/tests --cov=libs --cov-report=term-missing
+        run: uv run pytest -m "not integration" libs app/data_operations/tests --cov=libs --cov-report=term-missing --cov-report=xml
+
+      - name: Report to Coveralls
+        uses: coverallsapp/github-action@648a8eb78e6d50909eff900e4ec85cab4524a45b # v2.3.7
+        with:
+          github-token: ${{ secrets.github_token }}
+          file: coverage.xml
+          flag-name: unit
+          parallel: true
 
   lint:
     runs-on: ubuntu-latest
@@ -62,6 +70,19 @@ jobs:
           chmod 777 coverage
           docker compose run --rm ht-indexer_tests
 
+      # The container records /workspace/... paths; point <source> at the runner's
+      # checkout so Coveralls can match files to the repo.
+      - name: Rewrite coverage paths
+        run: sed -i "s#<source>/workspace/#<source>${GITHUB_WORKSPACE}/#" coverage/coverage.xml
+
+      - name: Report to Coveralls
+        uses: coverallsapp/github-action@648a8eb78e6d50909eff900e4ec85cab4524a45b # v2.3.7
+        with:
+          github-token: ${{ secrets.github_token }}
+          file: coverage/coverage.xml
+          flag-name: indexer
+          parallel: true
+
       # 👇 ADD DEBUG STEP HERE
       - name: Dump ZooKeeper logs
         if: failure()
@@ -78,3 +99,17 @@ jobs:
         - name: Run tests
           run: |
             docker compose run --rm solr-query_tests
+
+  # Merge the parallel unit/indexer reports into one Coveralls build per commit.
+  # Coverage scope is libs (unit) and app/ht_indexer (indexer) only, so
+  # test_solr_query and the other apps are intentionally not reported.
+  coveralls_finished:
+    needs: [unit_tests, test_indexer]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Coveralls Finished
+        uses: coverallsapp/github-action@648a8eb78e6d50909eff900e4ec85cab4524a45b # v2.3.7
+        with:
+          github-token: ${{ secrets.github_token }}
+          parallel-finished: true

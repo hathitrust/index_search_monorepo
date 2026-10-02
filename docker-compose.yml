@@ -251,7 +251,7 @@ services:
       # up Indexer" CI step), or this hits the same bind-mount permission problem
       # COVERAGE_FILE below already works around for /workspace itself.
       - ./coverage:/workspace/coverage
-    command: ["/workspace/.venv/bin/python", "-m", "pytest", "tests", "--cov=src", "--cov-report=term-missing"]
+    command: ["/workspace/.venv/bin/python", "-m", "pytest", "tests", "--cov=src", "--cov-report=term-missing", "--cov-report=xml:/workspace/coverage/coverage.xml"]
     environment:
       <<: *env_indexer
       SOLR_URL: http://solr-sdr-catalog:9033/solr/catalog/
