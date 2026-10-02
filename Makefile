@@ -37,7 +37,7 @@ type-check:
 test-unit:
 	uv run pytest -m "not integration" libs app/data_operations/tests
 
-test-all:
+test-all: up-tests
 	uv run pytest .
 
 build-all:
@@ -56,6 +56,9 @@ build:
 	--target runtime -t $(APP_NAME) \
 	.
 
+up-tests:
+	docker compose up -d --wait
+
 # Run ht_indexer application in the docker container. The docker compose is in the root directory
 # TODO: run build-all before up to ensure the images are built before running the containers
 up: # build-all
@@ -63,5 +66,5 @@ up: # build-all
 
 # Run ht_indexer tests in the docker container. The docker compose is in the root directory
 test:
-	DOCKER_COMPOSE_PROFILES=$(APP_NAME)_tests docker compose run --rm $(APP_NAME)_tests
+	docker compose run --rm $(APP_NAME)-tests
 

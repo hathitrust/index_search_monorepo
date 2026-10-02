@@ -53,20 +53,20 @@ class QueueConfig:
         """
 
         self.env_mapping = {
-            "host": "QUEUE_HOST",
-            "port": "QUEUE_PORT",
-            "user": "QUEUE_USER",
-            "password": "QUEUE_PASS",
-            "queue_name": "QUEUE_NAME",
+            "host": "RABBITMQ_INDEXER_RW_HOST",
+            "port": "RABBITMQ_INDEXER_RW_PORT",
+            "user": "RABBITMQ_INDEXER_RW_USERNAME",
+            "password": "RABBITMQ_INDEXER_RW_PASSWORD",
+            "queue_name": "RABBITMQ_INDEXER_RW_NAME",
         }
 
         if prefix:
             self.env_mapping = {
-                "host": f"{prefix}QUEUE_HOST",
-                "port": f"{prefix}QUEUE_PORT",
-                "user": f"{prefix}QUEUE_USER",
-                "password": f"{prefix}QUEUE_PASS",
-                "queue_name": f"{prefix}QUEUE_NAME",
+                "host": f"RABBITMQ_INDEXER_{prefix}RW_HOST",
+                "port": f"RABBITMQ_INDEXER_{prefix}RW_PORT",
+                "user": f"RABBITMQ_INDEXER_{prefix}RW_USERNAME",
+                "password": f"RABBITMQ_INDEXER_{prefix}RW_PASSWORD",
+                "queue_name": f"RABBITMQ_INDEXER_{prefix}RW_QUEUE_NAME",
             }
 
         default_global_config = _load_config(global_path)["queue"]

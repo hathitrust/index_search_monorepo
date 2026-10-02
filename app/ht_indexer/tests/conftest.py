@@ -8,11 +8,14 @@ from typing import Any, Protocol
 
 import pytest
 from catalog_metadata.catalog_metadata import CatalogItemMetadata, CatalogRecordMetadata
+from dotenv import load_dotenv
 from ht_queue_service.channel_creator import ChannelCreator
 from ht_queue_service.queue_config import QueueConfig
 from ht_queue_service.queue_manager import QueueManager
 from ht_utils.ht_utils import create_temporary_yaml_file, get_solr_url
 from pika.adapters.blocking_connection import BlockingChannel
+
+load_dotenv()
 
 current = os.path.dirname(__file__)
 
@@ -20,16 +23,15 @@ current = os.path.dirname(__file__)
 @pytest.fixture
 def get_global_queue_config() -> dict[str, Any]:
     """
-    Creates an in-memory YAML file from a base dictionary,
-    applies updates, and returns a file-like object or path.
+    Returns rabbitmq configuration for testing purposes.
     """
 
     return {
         "queue": {
-            "host": "rabbitmq",  # "localhost", #, #
-            "port": 5672,
-            "user": "guest",
-            "password": "guest",
+            "host": os.environ["RABBITMQ_INDEXER_RW_HOST"],
+            "port": os.environ["RABBITMQ_INDEXER_RW_PORT"],
+            "user": os.environ["RABBITMQ_INDEXER_RW_USERNAME"],
+            "password": os.environ["RABBITMQ_INDEXER_RW_PASSWORD"],
         }
     }
 
@@ -85,7 +87,7 @@ def get_rabbit_mq_host_name() -> str:
     """
     This function is used to create the host name for the RabbitMQ
     """
-    return "rabbitmq"  # "localhost"
+    return os.environ["RABBITMQ_INDEXER_RW_HOST"]
 
 
 @pytest.fixture

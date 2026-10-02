@@ -7,7 +7,8 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 # Full-text search config parameters
 FULL_TEXT_SOLR_URL = {
     "prod": "http://macc-ht-solr-lss-1.umdl.umich.edu:8081/solr/core-1x",
-    "dev": "http://solr-lss-dev:8983/solr/core-x",
+    # "dev": "http://solr-lss-dev:8983/solr/core-x",
+    "dev": "http://admin:solrRocks@localhost:8983/solr/core-x",
 }
 
 CATALOG_SOLR_URL = {"dev": "http://localhost:9033", "prod": "http://localhost:9033"}

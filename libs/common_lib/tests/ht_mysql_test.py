@@ -24,8 +24,8 @@ def mysql_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
     """It runs automatically before every test in this file, so it sets the
     required MySQL credentials for get_mysql_conn(); tests exercising the
     missing-credential path delete them explicitly."""
-    monkeypatch.setenv("MYSQL_USER", "test-user")
-    monkeypatch.setenv("MYSQL_PASS", "test-pass")
+    monkeypatch.setenv("MYSQL_HT_RO_USERNAME", "test-user")
+    monkeypatch.setenv("MYSQL_HT_RO_PASSWORD", "test-pass")
 
 
 class TestHtMysql:
@@ -158,20 +158,20 @@ class TestGetMysqlConnRequiredCredentials:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.delenv(
-            "MYSQL_USER", raising=False
+            "MYSQL_HT_RO_USERNAME", raising=False
         )  # undoes what mysql_credentials fixture just set
 
-        with pytest.raises(MissingMysqlConfigError, match="MYSQL_USER"):
+        with pytest.raises(MissingMysqlConfigError, match="MYSQL_HT_RO_USERNAME"):
             get_mysql_conn()
 
     def test_get_mysql_conn_raises_when_mysql_pass_missing(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.delenv(
-            "MYSQL_PASS", raising=False
+            "MYSQL_HT_RO_PASSWORD", raising=False
         )  # undoes what mysql_credentials fixture just set
 
-        with pytest.raises(MissingMysqlConfigError, match="MYSQL_PASS"):
+        with pytest.raises(MissingMysqlConfigError, match="MYSQL_HT_RO_PASSWORD"):
             get_mysql_conn()
 
     def test_get_mysql_conn_raises_when_mysql_user_is_empty_string(
@@ -180,8 +180,8 @@ class TestGetMysqlConnRequiredCredentials:
         """An explicitly empty value must be treated the same as unset, not passed
         through as a valid (blank) credential."""
         monkeypatch.setenv(
-            "MYSQL_USER", ""
+            "MYSQL_HT_RO_USERNAME", ""
         )  # undoes what mysql_credentials fixture just set to am empty string
 
-        with pytest.raises(MissingMysqlConfigError, match="MYSQL_USER"):
+        with pytest.raises(MissingMysqlConfigError, match="MYSQL_HT_RO_USERNAME"):
             get_mysql_conn()
