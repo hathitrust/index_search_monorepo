@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
+from catalog_metadata.ht_indexer_config import ProcessingStatus
 from ht_search.export_all_results import SolrExporter
 from ht_utils.ht_logger import get_ht_logger
 from ht_utils.ht_mysql import HtMysql, get_mysql_conn
@@ -39,10 +40,10 @@ class HTIndexerTrackData:
 
     record_id: str
     ht_id: str
-    status: str = "pending"
-    retriever_status: str = "pending"
-    generator_status: str = "pending"
-    indexer_status: str = "pending"
+    status: ProcessingStatus = ProcessingStatus.PENDING
+    retriever_status: ProcessingStatus = ProcessingStatus.PENDING
+    generator_status: ProcessingStatus = ProcessingStatus.PENDING
+    indexer_status: ProcessingStatus = ProcessingStatus.PENDING
     error: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
@@ -82,7 +83,11 @@ class HTIndexerTracktable:
             if "ht_id" in dict_x:
                 if dict_x["ht_id"] is not None:
                     for ht_id in dict_x["ht_id"]:
-                        record = {"ht_id": ht_id, "record_id": dict_x["id"], "status": "pending"}
+                        record = {
+                            "ht_id": ht_id,
+                            "record_id": dict_x["id"],
+                            "status": ProcessingStatus.PENDING,
+                        }
                         data.append(
                             HTIndexerTrackData(
                                 ht_id=record["ht_id"],

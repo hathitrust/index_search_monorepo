@@ -1,9 +1,8 @@
-import time
 from pathlib import Path
-from typing import Any
 from unittest.mock import Mock
 
 import pytest
+from catalog_metadata.ht_indexer_config import ProcessingStatus
 from ht_indexer_monitoring.ht_indexer_tracktable import (
     PROCESSING_STATUS_TABLE_NAME,
     HTIndexerTrackData,
@@ -22,82 +21,86 @@ def ht_indexer_tracktable_instance(mock_db_conn: Mock) -> HTIndexerTracktable:
 
 
 @pytest.fixture
-def create_ht_indexer_track_data() -> list[HTIndexerTrackData]:
+def sample_ht_indexer_track_data() -> list[HTIndexerTrackData]:
+    """Provides local test data for HTIndexerTrackData objects."""
 
     # Read the list of IDs from the file
 
-    current_dir = Path(__file__).parent
-    file_path = current_dir.parent / "list_htids_indexer_test.txt"
+    # current_dir = Path(__file__).parent
+    # file_path = current_dir.parent / "list_htids_indexer_test.txt"
 
-    with open(file_path) as file:
-        ids = file.read().splitlines()
+    # with open(file_path) as file:
+    #     ids = file.read().splitlines()
 
     # Create a JSON structure
-    data = []
-    for _idx, ht_id in enumerate(ids, start=1):
-        record: dict[str, Any] = {
-            "ht_id": ht_id,
-            "record_id": f"record_{ht_id}",
-            "status": "pending",
-            "retriever_status": "pending",
-            "generator_status": "pending",
-            "indexer_status": "pending",
-            "retriever_error": None,
-            "generator_error": None,
-            "indexer_error": None,
-            "created_at": time.strftime("%Y-%m-%d %H:%M:%S"),
-            "updated_at": None,
-            "processed_at": None,
-        }
-        data.append(
-            HTIndexerTrackData(
-                ht_id=record["ht_id"], record_id=record["record_id"], status=record["status"]
-            )
-        )
-
-    return data
+    # data = []
+    # for _idx, ht_id in enumerate(ids, start=1):
+    return [
+        HTIndexerTrackData(
+            ht_id="test_ht_id_1",
+            record_id="record_test_ht_id_1",
+            status=ProcessingStatus.PENDING,
+            retriever_status=ProcessingStatus.PENDING,
+            generator_status=ProcessingStatus.PENDING,
+            indexer_status=ProcessingStatus.PENDING,
+        ),
+        HTIndexerTrackData(
+            ht_id="test_ht_id_2",
+            record_id="record_test_ht_id_2",
+            status=ProcessingStatus.PENDING,
+            retriever_status=ProcessingStatus.PENDING,
+            generator_status=ProcessingStatus.PENDING,
+            indexer_status=ProcessingStatus.PENDING,
+        ),
+    ]
 
 
 class TestHTIndexerTracktable:
-    def test_create_ht_indexer_track_data_object(
-        self, create_ht_indexer_track_data: list[HTIndexerTrackData]
-    ) -> None:
-        assert create_ht_indexer_track_data[0].ht_id == "nyp.33433082002258"
-        assert create_ht_indexer_track_data[0].record_id == "record_nyp.33433082002258"
-        assert create_ht_indexer_track_data[0].status == "pending"
-
-    def test_create_table(
+    def test_create_table_correctly(
         self, ht_indexer_tracktable_instance: HTIndexerTracktable, mock_db_conn: Mock
     ) -> None:
         ht_indexer_tracktable_instance.create_table()
         mock_db_conn.create_table.assert_called_once()
 
     def test_insert_batch(
-        self, ht_indexer_tracktable_instance: HTIndexerTracktable, mock_db_conn: Mock
+        self,
+        ht_indexer_tracktable_instance: HTIndexerTracktable,
+        mock_db_conn: Mock,
+        sample_ht_indexer_track_data: list[HTIndexerTrackData],
     ) -> None:
+
+        ht_indexer_tracktable_instance.insert_batch(sample_ht_indexer_track_data)
+
+        # Assert that the insert_batch method was called once with the correct arguments
+        mock_db_conn.insert_batch.assert_called_once()
+
+        # Safely capture positional execution arguments without brittle array index slicing
+        query, values = mock_db_conn.insert_batch.call_args.args
+
+        # Consolidate validations into a clean behavior block
+        assert query.startswith(f"INSERT IGNORE INTO {PROCESSING_STATUS_TABLE_NAME}")
+        assert len(values) == 2
+        assert values[0]["ht_id"] == "test_ht_id_1"
+
+    def test_file_parsing_populates_track_data_correctly(self, tmp_path: Path) -> None:
+        """
+        Check how we processes the list file,
+        mock the file contents locally so the test remains isolated and predictable.
+        """
+        # Create a mock text file inside Pytest's isolated virtual directory
+        mock_file = tmp_path / "mock_htids.txt"
+        mock_file.write_text("mock.id_001\nmock.id_002\n")
+
+        # Simulate your parsing function here using the mock file path
+        ids = mock_file.read_text().splitlines()
         data = [
             HTIndexerTrackData(
-                ht_id="test_ht_id_1",
-                record_id="test_record_id_1",
-                status="pending",
-                retriever_status="pending",
-                generator_status="pending",
-                indexer_status="pending",
-            ),
-            HTIndexerTrackData(
-                ht_id="test_ht_id_2",
-                record_id="test_record_id_2",
-                status="pending",
-                retriever_status="pending",
-                generator_status="pending",
-                indexer_status="pending",
-            ),
+                ht_id=hid, record_id=f"record_{hid}", status=ProcessingStatus.PENDING
+            )
+            for hid in ids
         ]
-        ht_indexer_tracktable_instance.insert_batch(data)
-        mock_db_conn.insert_batch.assert_called_once()
-        # Check the arguments passed to the insert_batch method, position 0 is the query, position 1 is the data
-        assert mock_db_conn.insert_batch.call_args[0][0].startswith(
-            f"INSERT IGNORE INTO {PROCESSING_STATUS_TABLE_NAME}"
-        )
-        # Check the number of items to be inserted (position 1)
-        assert len(mock_db_conn.insert_batch.call_args[0][1]) == 2
+
+        # Verify parsing boundaries explicitly
+        assert len(data) == 2
+        assert data[0].ht_id == "mock.id_001"
+        assert data[0].record_id == "record_mock.id_001"

@@ -1,3 +1,4 @@
+from enum import StrEnum
 from pathlib import Path
 
 from ht_utils.ht_utils import find_sdr1_obj
@@ -6,14 +7,21 @@ MAX_ITEM_IDS = 1000
 
 DOCUMENT_LOCAL_PATH = "/tmp/"
 
-# Status values for the fulltext_item_processing_status table (columns: status,
-# retriever_status, generator_status, indexer_status).
-# Values must match the ENUM definition in ht_indexer_monitoring.ht_indexer_tracktable.
-STATUS_PENDING = "pending"
-STATUS_PROCESSING = "processing"
-STATUS_FAILED = "failed"
-STATUS_COMPLETED = "completed"
-STATUS_REQUEUED = "requeued"
+
+class ProcessingStatus(StrEnum):
+    """Status values for the fulltext_item_processing_status table.
+
+    Used in the status, retriever_status, generator_status and indexer_status columns.
+    Values must match the ENUM definitions in
+    ht_indexer_monitoring.ht_indexer_tracktable.HT_INDEXER_TRACKTABLE; the test
+    catalog_metadata_tests/ht_indexer_config_test.py fails if they drift.
+    """
+
+    PENDING = "pending"
+    PROCESSING = "processing"
+    FAILED = "failed"
+    COMPLETED = "completed"
+    REQUEUED = "requeued"
 
 
 # Look for the sdr1 obj folder in the root of the container
