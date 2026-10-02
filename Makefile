@@ -8,11 +8,11 @@ LINT_PATHS = app libs
 # incrementally; currently scoped to libs and app/ht_indexer.
 TYPE_CHECK_PATHS = libs app/ht_indexer
 
-install:
-	uv sync
+sync:
+	uv sync --all-packages
 
 # Check the code with ruff. The first command checks for linting errors, while the second command checks for formatting issues.
-check-code:
+check-code: sync
 	uv run ruff check $(LINT_PATHS)
 	uv run ruff format --check $(LINT_PATHS)
 
@@ -20,24 +20,24 @@ check-code:
 # The first command attempts to fix linting errors, while the second command formats the code.
 # The '|| true' part ensures that even if the first command fails (e.g., due to unfixable issues), the second command will still run to format the code.
 # Apply safe fixes only
-fix-code:
+fix-code: sync
 	uv run ruff check --fix $(LINT_PATHS) || true
 	uv run ruff format $(LINT_PATHS)
 
 # Apply unsafe fixes as well. Use with caution, as it may change the behavior of the code.
-fix-code-unsafe:
+fix-code-unsafe: sync
 	uv run ruff check --fix --unsafe-fixes $(LINT_PATHS)
 	uv run ruff format $(LINT_PATHS)
 
 # Explicit typing check
-type-check:
+type-check: sync
 	uv run mypy $(TYPE_CHECK_PATHS)
 
 # Fast test lane: no Solr, MySQL or RabbitMQ required.
-test-unit:
+test-unit: sync
 	uv run pytest -m "not integration" libs app/data_operations/tests
 
-test-all:
+test-all: sync up-tests
 	uv run pytest .
 
 build-all:
@@ -56,6 +56,9 @@ build:
 	--target runtime -t $(APP_NAME) \
 	.
 
+up-tests:
+	docker compose up -d --wait
+
 # Run ht_indexer application in the docker container. The docker compose is in the root directory
 # TODO: run build-all before up to ensure the images are built before running the containers
 up: # build-all
@@ -63,5 +66,5 @@ up: # build-all
 
 # Run ht_indexer tests in the docker container. The docker compose is in the root directory
 test:
-	DOCKER_COMPOSE_PROFILES=$(APP_NAME)_tests docker compose run --rm $(APP_NAME)_tests
+	docker compose run --rm $(APP_NAME)-tests
 

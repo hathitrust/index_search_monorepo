@@ -13,3 +13,5 @@ docker-compose.yml
 **/__pycache__/
 **/*.py[cod]
 **/.cache/
+
+.env*
