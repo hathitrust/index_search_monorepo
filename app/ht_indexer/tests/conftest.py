@@ -13,7 +13,8 @@ from ht_queue_service.channel_creator import ChannelCreator
 from ht_queue_service.queue_config import QueueConfig
 from ht_queue_service.queue_manager import QueueManager
 from ht_queue_service.queue_multiple_consumer import QueueMultipleConsumer
-from ht_utils.ht_utils import create_temporary_yaml_file, get_solr_url
+from ht_utils.ht_env_config import HtEnvConfig
+from ht_utils.ht_utils import create_temporary_yaml_file
 from pika.adapters.blocking_connection import BlockingChannel
 
 load_dotenv()
@@ -96,10 +97,7 @@ def create_test_queue_config(
 
 @pytest.fixture
 def get_rabbit_mq_host_name() -> str:
-    """
-    This function is used to create the host name for the RabbitMQ
-    """
-    return os.environ["RABBITMQ_INDEXER_RW_HOST"]
+    return HtEnvConfig().rabbitmq_indexer_rw_host
 
 
 @pytest.fixture
@@ -135,7 +133,7 @@ def get_item_metadata(
 
 @pytest.fixture
 def solr_catalog_url() -> str:
-    return get_solr_url()
+    return HtEnvConfig().catalog_solr_ro_url
 
 
 @pytest.fixture

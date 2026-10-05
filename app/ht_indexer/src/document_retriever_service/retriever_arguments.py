@@ -7,9 +7,10 @@ import tempfile
 from config import config_queue_file_path
 from ht_indexer_monitoring.ht_indexer_tracktable import PROCESSING_STATUS_TABLE_NAME
 from ht_queue_service.queue_config import QueueConfig
+from ht_utils.ht_env_config import HtEnvConfig
 from ht_utils.ht_logger import get_ht_logger
 from ht_utils.ht_mysql import get_mysql_conn
-from ht_utils.ht_utils import comma_separated_list, get_general_error_message, get_solr_url
+from ht_utils.ht_utils import comma_separated_list, get_general_error_message
 
 from . import retriever_config_file_path
 
@@ -91,11 +92,10 @@ class RetrieverServiceArguments:
         # Retriever 24k items from the database
         self.retriever_query = f"SELECT ht_id, record_id FROM {PROCESSING_STATUS_TABLE_NAME} WHERE retriever_status = :status LIMIT {TOTAL_MYSQL_ROWS}"
 
-        # TODO Remove the line below once SolrExporter been updated self.solr_url = f"{solr_url}/query"
-
-        self.solr_host = get_solr_url()
-        self.solr_user = os.getenv("SOLR_USER")
-        self.solr_password = os.getenv("SOLR_PASSWORD")
+        env_config = HtEnvConfig()
+        self.solr_host = env_config.catalog_solr_ro_url
+        self.solr_user = env_config.solr_user
+        self.solr_password = env_config.solr_password
 
         self.solr_retriever_query_params = {"q": "*:*", "rows": SOLR_TOTAL_ROWS, "wt": "json"}
 

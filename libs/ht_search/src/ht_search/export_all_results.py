@@ -7,10 +7,11 @@ from typing import Any
 
 import requests
 import yaml
+from ht_utils.ht_env_config import HtEnvConfig
 from requests.auth import HTTPBasicAuth
 
 from ht_search.config_files import config_files_path
-from ht_search.config_search import FULL_TEXT_SOLR_URL, default_solr_params
+from ht_search.config_search import default_solr_params
 
 # This is a quick attempt to do a query to solr more or less as we issue it in
 # production and to then export all results using the cursorMark results
@@ -201,19 +202,18 @@ class SolrExporter:
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("--env", default=os.environ.get("HT_ENVIRONMENT", "dev"))
-    parser.add_argument("--solr_host", help="Solr host", default=None)
     parser.add_argument("--collection_name", help="Name of the collection", default=None)
     parser.add_argument("--query", help="Query string", required=True)
 
     args = parser.parse_args()
 
-    # Receive as a parameter an specific solr url
-    if args.solr_host:
-        solr_url = f"{args.solr_host}/solr/{args.collection_name}"
-    else:  # Use the default solr url, depending on the environment. If prod environment, use shards
-        solr_url = FULL_TEXT_SOLR_URL[args.env]
+    env_config = HtEnvConfig()
+
     solr_exporter = SolrExporter(
-        solr_url, args.env, user=os.getenv("SOLR_USER"), password=os.getenv("SOLR_PASSWORD")
+        env_config.full_text_solr_ro_url,
+        args.env,
+        user=env_config.solr_user,
+        password=env_config.solr_password,
     )
 
     # importlib.resources.files() is typed as Traversable, which typeshed doesn't declare as

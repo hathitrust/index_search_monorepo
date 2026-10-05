@@ -9,8 +9,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from ht_search.config_files import config_files_path
 from ht_search.config_files.solr_data_sample import SOLR_OUTPUT_SAMPLE
-from ht_search.config_search import FULL_TEXT_SOLR_URL
 from ht_search.export_all_results import SolrExporter
+from ht_utils.ht_env_config import HtEnvConfig
 from ht_utils.ht_logger import get_ht_logger
 
 exporter_api = {}
@@ -31,11 +31,10 @@ def main():
         """
         logger.info("Connecting with Solr server")
 
-        solr_url = FULL_TEXT_SOLR_URL[args.env]
-        if args.solr_url:
-            solr_url = args.solr_url
+        env_config = HtEnvConfig()
+        solr_url = env_config.full_text_solr_ro_url
         exporter_api["obj"] = SolrExporter(
-            solr_url, args.env, user=os.getenv("SOLR_USER"), password=os.getenv("SOLR_PASSWORD")
+            solr_url, args.env, user=env_config.solr_user, password=env_config.solr_password
         )
         yield
 

@@ -1,9 +1,8 @@
-import os
-
 from catalog_metadata.ht_indexer_config import (
     DOCUMENT_LOCAL_PATH,
     get_local_document_folder,
 )
+from ht_utils.ht_env_config import HtEnvConfig
 from ht_utils.ht_logger import get_ht_logger
 from pypairtree import pairtree
 
@@ -37,7 +36,7 @@ class HtDocument:
 
         # By default path files are in /sdr1/obj
         if document_repository == "pairtree":
-            self.source_path = f"{os.environ.get('SDR_DIR')}/{self.namespace}/pairtree_root{self.get_document_pairtree_path()}"  # /sdr1/obj/
+            self.source_path = f"{HtEnvConfig().sdr_dir}/{self.namespace}/pairtree_root{self.get_document_pairtree_path()}"  # /sdr1/obj/
         else:
             # A sample_data will be in the same folder of the repository
             self.source_path = f"{get_local_document_folder()}/{self.file_name}"

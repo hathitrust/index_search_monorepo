@@ -1,8 +1,7 @@
-import os
 from unittest.mock import patch
 
 from ht_full_text_search.ht_full_text_searcher import HTFullTextSearcher
-from ht_search import config_search
+from ht_utils.ht_env_config import HtEnvConfig
 
 
 class TestRetrieveDocumentsFromFile:
@@ -53,11 +52,12 @@ class TestRetrieveDocumentsFromFile:
 
 class TestHTFullTextSearcher:
     def test_search(self, ht_full_text_query):
+        env_config = HtEnvConfig()
         searcher = HTFullTextSearcher(
-            solr_url=config_search.FULL_TEXT_SOLR_URL["dev"],
+            solr_url=env_config.full_text_solr_ro_url,
             ht_search_query=ht_full_text_query,
-            user=os.getenv("SOLR_USER"),
-            password=os.getenv("SOLR_PASSWORD"),
+            user=env_config.solr_user,
+            password=env_config.solr_password,
         )
         solr_results = searcher.solr_result_query_dict(
             query_string="majority of the votes",

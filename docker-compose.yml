@@ -9,10 +9,10 @@ x-healthcheck-defaults: &healthcheck-defaults
 
 # Common environment variables for all services
 x-env-common: &env_common
-    CATALOG_SOLR_RO_URL: http://solr-sdr-catalog:9033/solr/catalog/
+    CATALOG_SOLR_RO_URL: http://solr-sdr-catalog:9033/solr/catalog
+    FULL_TEXT_SOLR_RO_URL: http://admin:solrRocks@solr-lss-dev:8983/solr/core-x
     SOLR_USER: admin
     SOLR_PASSWORD: solrRocks
-    ENV: dev
 
 # Environment variables specific to the indexer services
 x-env-indexer: &env_indexer
@@ -25,7 +25,6 @@ x-env-indexer: &env_indexer
     MYSQL_HT_RO_PASSWORD: mdp-admin
     MYSQL_HT_RO_DATABASE: ht
     SDR_DIR: /sdr1/obj
-    ENV: dev
 
 # Common + indexer environment merged once, so services reference a single alias
 # instead of `<<: [*env_common, *env_indexer]`, which trips the compose schema linter
@@ -41,7 +40,6 @@ services:
       dockerfile: Dockerfile
       target: runtime
       args:
-        ENV: dev
         APP_NAME: ht-indexer
         APP_DIR: ht_indexer
     environment:
@@ -60,7 +58,6 @@ services:
       dockerfile: Dockerfile
       target: runtime
       args:
-        ENV: dev
         APP_NAME: ht-indexer
         APP_DIR: ht_indexer
     volumes:
@@ -151,7 +148,6 @@ services:
       dockerfile: Dockerfile
       target: runtime
       args:
-        ENV: dev
         APP_NAME: ht-indexer
         APP_DIR: ht_indexer
     volumes:
@@ -186,7 +182,6 @@ services:
       dockerfile: Dockerfile
       target: runtime
       args:
-        ENV: dev
         APP_NAME: ht-indexer
         APP_DIR: ht_indexer
     volumes:
@@ -225,7 +220,6 @@ services:
       dockerfile: Dockerfile
       target: runtime
       args:
-        ENV: dev
         APP_NAME: ht-indexer
         APP_DIR: ht_indexer
     volumes:
@@ -257,7 +251,6 @@ services:
       dockerfile: Dockerfile
       target: runtime
       args:
-        ENV: dev
         APP_NAME: solr-query
         APP_DIR: solr_query
     stdin_open: true
@@ -270,13 +263,12 @@ services:
       <<: *env_common
     command: [ "/workspace/.venv/bin/python", "-m", "ht_full_text_search.main", "--env",  "dev"]
   data-loader: # It is probably for this application I should create the image first
-    profiles: [ solr-query ]
+    profiles: [ solr-query, solr-query-tests ]
     build:
       context: .
       dockerfile: Dockerfile
       target: runtime
       args:
-        ENV: dev
         APP_NAME: solr-query
         APP_DIR: solr_query
     stdin_open: true
@@ -293,7 +285,6 @@ services:
       dockerfile: Dockerfile
       target: runtime
       args:
-        ENV: dev
         APP_NAME: solr-query
         APP_DIR: solr_query
     environment: *env_common
@@ -310,7 +301,6 @@ services:
         dockerfile: Dockerfile
         target: runtime
         args:
-          ENV: dev
           APP_NAME: data-operations
           APP_DIR: data_operations
           MODULE_NAME: metadata_extractor
