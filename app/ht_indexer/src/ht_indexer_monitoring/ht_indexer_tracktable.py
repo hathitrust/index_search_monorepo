@@ -91,13 +91,8 @@ class HTIndexerTracktable:
             if "ht_id" in dict_x:
                 if dict_x["ht_id"] is not None:
                     for ht_id in dict_x["ht_id"]:
-                        record = {"ht_id": ht_id, "record_id": dict_x["id"], "status": "pending"}
                         data.append(
-                            HTIndexerTrackData(
-                                ht_id=record["ht_id"],
-                                record_id=record["record_id"],
-                                status=record["status"],
-                            )
+                            HTIndexerTrackData(ht_id=ht_id, record_id=dict_x["id"])
                         )
 
             # Insert in MySQL a batch size of 500 records
