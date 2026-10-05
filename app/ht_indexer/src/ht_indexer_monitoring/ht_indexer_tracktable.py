@@ -1,13 +1,16 @@
 import argparse
 import json
+import os
 from collections.abc import Generator
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
+from ht_search.config_files import config_files_path
 from ht_search.export_all_results import SolrExporter
 from ht_utils.ht_logger import get_ht_logger
 from ht_utils.ht_mysql import HtMysql, get_mysql_conn
+from ht_utils.ht_utils import get_solr_url
 
 from ht_indexer_monitoring.monitoring_arguments import MonitoringServiceArguments
 
@@ -52,31 +55,37 @@ class HTIndexerTrackData:
 class HTIndexerTracktable:
     """Class to interact with MySQL table fulltext_item_processing_status"""
 
-    def __init__(self, db_conn: HtMysql, solr_exporter: SolrExporter | None = None) -> None:
+    def __init__(self, db_conn: HtMysql) -> None:
         self.mysql_obj = db_conn
-        self.solr_exporter = solr_exporter
+        self.solr_exporter = SolrExporter(
+            get_solr_url(),
+            os.environ.get("HT_ENVIRONMENT", "dev"),
+            user=os.getenv("SOLR_USER"),
+            password=os.getenv("SOLR_PASSWORD"),
+        )
+        # importlib.resources.files() is typed as Traversable, which typeshed doesn't declare
+        # as PathLike -- but for this package (a regular installed directory, not a zip) it is.
+        self.query_config_file_path = Path(
+            config_files_path,  # type: ignore[arg-type]
+            "catalog_search/config_query.yaml",
+        )
 
     def get_catalog_data(
         self,
-        query: str,
-        query_config_file_path: Path,
-        conf_query: str,
-        list_output_fields: list[str],
+        query: str
     ) -> Generator[list[HTIndexerTrackData]]:
         """
         Get the data from the catalog.
         :return: List of data
         """
-        if self.solr_exporter is None:
-            raise RuntimeError("solr_exporter is required")
 
         # '"good"'
         data: list[HTIndexerTrackData] = []
         for x in self.solr_exporter.run_cursor(
             query,
-            query_config_file_path,
-            conf_query=conf_query,
-            list_output_fields=list_output_fields,
+            self.query_config_file_path,
+            conf_query="all",
+            list_output_fields=["ht_id", "id"],
         ):
             dict_x = json.loads(x)
             if "ht_id" in dict_x:
@@ -139,19 +148,14 @@ def main() -> None:
 
     # MySQL connection to retrieve documents from the ht database
     db_conn = get_mysql_conn()
-    ht_indexer_tracktable = HTIndexerTracktable(db_conn, solr_exporter=init_args_obj.solr_exporter)
+    ht_indexer_tracktable = HTIndexerTracktable(db_conn)
 
     if not ht_indexer_tracktable.mysql_obj.table_exists(PROCESSING_STATUS_TABLE_NAME):
         logger.info(f"Creating {PROCESSING_STATUS_TABLE_NAME} table.")
         ht_indexer_tracktable.create_table()
 
     total_documents = 0
-    for item in ht_indexer_tracktable.get_catalog_data(
-        init_args_obj.query,
-        init_args_obj.query_config_file_path,
-        init_args_obj.conf_query,
-        init_args_obj.output_fields,
-    ):
+    for item in ht_indexer_tracktable.get_catalog_data(init_args_obj.query):
         total_documents += len(item)
 
         # Add data to the table
