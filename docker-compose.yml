@@ -300,7 +300,7 @@ services:
     command: [ "/workspace/.venv/bin/python", "-m", "pytest"]
     depends_on:
       solr-lss-dev: *healthy
-      data_loader:
+      data-loader:
         condition: service_completed_successfully
 ###############################data_operations-MARC###############################
   data-operations:
