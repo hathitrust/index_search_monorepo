@@ -31,7 +31,7 @@
 
 ## About the Project
 
-This repository is a monorepo for all the Python code generated as part of the HathiTrust Index Search project. 
+This repository is a monorepo for all the Python code for HathiTrust full-text indexing and search.
 It contains multiple subprojects, each with its own functionality and purpose. 
 
 For example, the `ht_search` project is responsible for searching documents in Solr, while the `ht_indexer` 
@@ -40,6 +40,65 @@ monitoring and tracking the indexing process.
 
 The monorepo structure allows for better organization and management of shared code and dependencies.
 The monorepo structure is to maintain and supports collaborative development, and scale new projects and features.
+
+## Getting Started
+
+### Local development (running python outside a container)
+
+1. Clone the repo
+
+```bash
+git clone https://github.com/hathitrust/index_search_monorepo.git
+```
+
+2. Install dependencies and run tests
+
+See instructions to install uv in the [official documentation](https://docs.astral.sh/uv/getting-started/installation/). On Mac OS, use [homebrew](https://brew.sh/) to install uv, and then use uv to install and manage python versions; see [more info on uv and python on MacOS](https://github.com/hathitrust/index_search_monorepo/wiki/Installing-uv-and-python-on-Mac-OS).
+
+In the checked-out repository:
+
+```bash
+make test-all
+```
+
+This will:
+* install dependencies and create a virtual environment
+* build and start containers needed for running tests
+* run the tests
+
+If you want to run only specific tests in your local environment, use for
+example:
+
+```bash
+uv run pytest libs/common_lib/tests/ht_utils_test.py
+``` 
+
+### Running tests in containers
+
+This setup does not require installing python or uv locally.
+
+1. Clone the repository:
+
+```bash
+git clone github.com/hathitrust/index_search_monorepo.git
+```
+
+2. Build containers and run tests
+
+In the checked-out repository:
+
+```bash
+docker compose run --rm ht-indexer-tests
+docker compose run --rm solr-query-tests
+```
+
+### Creating A Pull Request
+
+1. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
+2. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
+3. Squash your commits (`git rebase -i HEAD~n` where n is the number of commits you want to squash)
+4. Push to the Branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
 
 ## Built With
 * [Python](https://www.python.org/)
@@ -58,32 +117,6 @@ The monorepo structure is to maintain and supports collaborative development, an
   * Ruff—Multi-purpose tool that combines linting (including docstring checks) and formatter for Python code
 
 
-## Phases
-
-The project is divided into several phases, each focusing on different aspects of the indexing and searching process.
-
-* **Phase 1**: Create a monorepo merging `ht_search` and `ht_indexer` projects. The script here has used to keep the 
-previous commit history of both projects.
-* **Phase 1.1**: Create a Docker image for the monorepo, which includes all the necessary dependencies and configurations.
-* **Phase 1.2**: Structure the monorepo to include shared libraries and projects, making it easier to manage dependencies and code reuse.
-* **Phase 1.3**: Structure `ht_indexer` to ensure all the features are working as expected with the new monorepo structure.
-* **Phase 2**: Set up a CI/CD pipeline to automate testing, and deployment for `ht_indexer` project.
-* **Phase 3**: Structure `ht_search` project to ensure all the features are working as expected with the new monorepo structure.
-* **Phase 4**: Set up a CI/CD pipeline to automate testing, and deployment for `ht_search` project.
-* **Phase 5**: Repeat the process for other projects in the monorepo, ensuring that each project is properly structured and tested.
-* **Phase 6**: Install the monorepo in editable mode, allowing for real-time updates during development.
-  * Define dependencies in editable mode add `develop = true ==> {common-lib = {path = "../../libs/common_lib", develop = true}`
-  * This approach is useful to develop using the docker image, as it allows you to edit the code in the 
-  monorepo and see the changes reflected in the Docker container without having to rebuild the image every time.
-  * I don't know how to do this yet, but I will figure it out.
-* Phase 7: Python dependency management migration from Poetry to UV and docker file refactor to use UV for dependency management and application execution.
-  * Refactor the Dockerfile to use UV for dependency management and application execution.
-  * Update the documentation to reflect the changes in the dependency management and Dockerfile.
-  * Manage all the application of this monorepo using a Makefile in the root of the monorepo, which will include commands to build the Docker image, run the container, and execute tests.
-* Phase 8: Migrate to a new Python version (from 3.12 to 3.14) and update the dependencies to ensure compatibility with the new Python version.
-  * Upgrade the Docker image to use `3.14-slim-trixie` as the base image. Trixie image is based on Debian 13, which is the latest stable version of Debian and 
-  it includes newer kernel and security updates, and it is compatible with the latest Python versions.
-
 ## Project Set Up
 
 All the applications and library run in a docker container, and it is based on the [python:3.11.0a7-slim-buster](https://hub.docker.com/_/python) image. 
@@ -93,10 +126,10 @@ We use `Makefile` and `Dockerfile` to manage the environment set up and build th
 in the Docker image and locally.
 
 In the `Makefile` in the root of the monorepo, we have defined commands to build the Docker image, run the containers, 
-and execute tests for each project. Each command receives the project name (APP_NAME) and project directory (APP_DIR) as arguments, 
+and execute tests for each project. Each command receives the project name (`APP_NAME`) and project directory (`APP_DIR`) as arguments, 
 which are used to build the image and run the container for the specific project.
 
-**Steps to add a dependency**:
+**Steps to add a dependency for docker images**:
 
 In the Dockerfile,
 * In the docker file, we have three stages: `base`, `deps` and `runtime`. 
@@ -201,69 +234,6 @@ Breaking changes in shared libraries are addressed across all dependent projects
 The modular design allows for the easy addition of new projects or shared libraries without disrupting the existing structure.
 The use of Docker ensures that new projects can be deployed independently.
 
-## CI/CD architecture
-
-How could we use git diff to detect the changes in the monorepo and decide what the service to deploy are?
-
-Next step: create a script to run `git diff` command to identify the changed paths
-
-
-If there are changes in the `libs` directory, we need to deploy all the services because all of them depend 
-on the shared libraries.
-
-### Installation
-
-1. Clone the repo
-   ``` git clone https://github.com/hathitrust/index_search_monorepo.git```
-
-2. Set up a development environment with uv
-
-See instructions to install uv in the [official documentation](https://docs.astral.sh/uv/getting-started/installation/).
-
-In your workdir,
-
-* Go to an application: `cd app/ht_indexer`
-* `uv sync` # It will install the dependencies of the project and create a virtual environment for the project
-* `uv run pytest app/ht_indexer -v`  It will run the tests of the project using the virtual environment created
-* Use `uv build` to build the project and create a wheel file in the dist/ directory.
-
-Note: This local environment set up is useful for development. As this application dependens on other resources such as
-Solr, MySQL, and RabbitMQ, it is recommended to use the Docker environment for testing and running the application. 
-Otherwise, you will need to set up these resources locally and configure the application to connect to them, 
-which can be complex and time-consuming.
-
-## Usage
-
-To use the monorepo, follow these steps:
-1. Clone the repository:
-```git clone go.github.com/hathitrust/index_search_monorepo.git```
-2. Navigate to the project directory:
-```cd index_search_monorepo```
-3. Create the Docker image:
- ```
-   make build APP_NAME=ht-indexer APP_DIR=ht_indexer
- ```
-4. Run the Docker container:
-```
-   make up APP_NAME=ht-indexer
-```
-
-5. Run the tests:
-```
-   make test APP_NAME=ht-indexer
-```
-
-Use the command `uv run pytest libs/common_lib/tests/ht_utils_test.py` if you want to run specific tests in your local 
-environment.
-
-### Creating A Pull Request
-
-1. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
-2. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
-3. Squash your commits (`git rebase -i HEAD~n` where n is the number of commits you want to squash)
-4. Push to the Branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
 ## Struction of the monorepo:
 
 ```aiignore
@@ -353,171 +323,4 @@ In the Makefile we have 3 separate commands:
 - Enter inside the docker file: `docker compose exec full_text_searcher /bin/bash`
 - Running the scripts: `docker compose exec full_text_searcher python ht_full_text_search/export_all_results.py --env dev --query '"good"'`
 
-### Guides to install python and uv on macOS
-
-Recommendation: use `brew` to install `uv`, and let `uv` itself manage the Python version — you do not need
-`pyenv` or a separate Python install. This repo currently requires Python 3.14+ (`requires-python` in the
-root `pyproject.toml`).
-
-* Install `uv`:
-    * `brew install uv` (see the [official installation docs](https://docs.astral.sh/uv/getting-started/installation/)
-      for alternatives, e.g. the standalone installer `curl -LsSf https://astral.sh/uv/install.sh | sh`).
-    * Verify: `uv --version`.
-* Install/select the Python version with `uv` (no separate `brew install python` or `pyenv` needed):
-    * `uv python install 3.14` — downloads and manages a Python 3.14 build for you.
-    * `uv python list` — see the Python versions `uv` knows about, including any already on your machine.
-    * `uv` automatically picks up the version pinned by `requires-python` in `pyproject.toml` when you run
-      `uv sync`/`uv run` in the repo, so you rarely need to select a version manually.
-* Set up the monorepo environment:
-    * From the repo root: `uv sync` — installs dependencies for the workspace and creates the shared virtual
-      environment (`.venv`) per the single root `uv.lock`.
-    * Activate it directly if you want a plain shell: `source .venv/bin/activate`, or just prefix commands with
-      `uv run` (e.g. `uv run pytest`, `uv run python --version`) which does not require activation.
-* Useful `uv` commands (see the [CLI reference](https://docs.astral.sh/uv/reference/cli/) for the full list):
-    * `uv sync` — install/update dependencies and create the virtualenv.
-    * `uv run <command>` — run a command inside the project's virtualenv without activating it.
-    * `uv add <package>` / `uv remove <package>` — add/remove a dependency in the current project's `pyproject.toml`.
-    * `uv lock --upgrade` — regenerate the lockfile with the latest compatible versions.
-    * `uv tree` — inspect the dependency tree.
-* Python Linter:
-* Ruff: https://astral.sh/ruff
-* Enhancing Python Code Quality: A Comprehensive Guide to Linting with
-* Ruff: https://dev.to/ken_mwaura1/enhancing-python-code-quality-a-comprehensive-guide-to-linting-with-ruff-3d6g
-
-### Guide to upgrade python, uv and dependencies
-
-Every January, we need to upgrade the python version to the latest version. When we upgrade the python version, we 
-also need to upgrade the dependencies of the project to ensure that they are compatible with the new python version.
-
-Steps to upgrade the python version and dependencies:
-- Upgrade the python version in the local environment and in the Dockerfile. e.g. `3.12 -> 3.13`
-- Upgrade `uv` version
-- project dependencies (libs and app)
-
-Avoid duplicate tooling versions across apps. Common packages should be centralized in the `pyproject.toml` file in the 
-root of the monorepo.
-
-```
-[dependency-groups]
-dev = [
-  "ruff>=0.4.2,<0.5",
-  "mypy>=1.10,<2",
-  "pytest>=8,<9"
-]
-```
-
-When we upgrade the python version is recommended to check and fix breaking changes first and then upgrade the dependencies. 
-This approach allows us to identify any compatibility issues early on and address them before upgrading all the 
-dependencies and reducing the risk of breaking the code. We should update `uv` the last, 
-as it is the tool we use to manage the dependencies and virtual environments, 
-and we want to ensure that it is compatible with the new python version before upgrading it. Upgrade the dependencies
-gradually, starting with the most critical ones, and then upgrading the rest of the dependencies. 
-
-#### Upgrade Python version
-
-**Step 1 — (Optional) Upgrade Python on local environment**
-
- — Check the current python version
-`python --version`
- — Upgrade python to the latest version
-`brew update`
-`brew upgrade`
-`brew install python@3.12`
- — Check the python version again
-`python --version`
-
-**Step 2 — Update Dockerfile**
-
-```
-    ARG PYTHON_VERSION=3.13
-    FROM python:${PYTHON_VERSION}-slim-bookworm
-```
-
-**Step 3 — Update `pyproject.toml` (ALL projects)**
-
-`requires-python = ">=3.13,<4"`
-
-**Step 4 — Recreate lockfile**
-
-`uv lock --upgrade` 
-
-**Step 5 — Validate environment**
-```
-uv sync
-uv run python --version
-```
-
-#### Upgrade `uv`
-
-**Step 1 — Update Dockerfile**
-```
-ARG UV_VERSION=0.11.7
-
-FROM ghcr.io/astral-sh/uv:${UV_VERSION} AS uv
-FROM python:${PYTHON_VERSION}-slim-bookworm
-
-COPY --from=uv /uv /bin/uv
-```
-
-**Step 2 — (Optional) Update locally**
-`curl -Ls https://astral.sh/uv/install.sh | sh`
-
-**Step 3 — Validate**
-`uv --version`
-
-####  Upgrade dependencies (controlled)
-
-This step is necessary to ensure that the dependencies are compatible with the new python version. 
-It is recommended to upgrade the dependencies selectively (Step 2), starting with the most critical ones, 
-and then upgrading the rest of the dependencies. This approach allows you to identify any compatibility 
-issues early on and address them before upgrading all the dependencies and reducing the risk of breaking the code.
-
-**Step 1 — Upgrade selectively (recommended)**
-
-`uv lock --upgrade-package <package>`
-
-Example: `uv lock --upgrade-package ruff`
-
-In `pyproject.toml` file, we control the versions of the dependencies e.g. `ruff>=0.4.2,<0.5`, so when we run 
-the command `uv lock --upgrade-package ruff` you won't upgrade to the latest version. My recommendation is to upgrade 
-the dependencies one by one updating the pyproject.toml file. 
-
-Use the command `uv tree` to see the dependency tree and check the dependencies that need to be updated. 
-You can use `uv tree | grep pytest ` to check the version of pytest and see if it is compatible with the new python version.
-
-Use [pip pages](https://pypi.org/project/openpyxl/) to check the latest version of the dependencies and update the `pyproject.toml` file accordingly.
-
-**Step 2 — Or upgrade everything**
-`uv lock --upgrade`
-
-**Step 3 — Sync**
-`uv sync`
-
-####  Validate the monorepo
-
-Step 1 — (Optional) Run checks
-
-Run this command for all the applications in the monorepo to check the code style and linting issues, 
-and to fix them if possible.
-```
-make check-code APP_PATH=app/ht_indexer
-make fix-code APP_PATH=app/ht_indexer
-```
-
-Step 2 — Run typing checks
-
-```
-make type-check APP_PATH=app/ht_indexer
-```
-
-Step 2 — Run tests
-```make test-all
-```
-
-#### Build the Docker image and run the container to ensure everything works as expected.
-
-```
-make build APP_NAME=ht-indexer APP_DIR=ht_indexer
-make up APP_NAME=ht-indexer
-make test APP_NAME=ht-indexer
-```
+- [Upgrading python, uv, and dependencies](https://github.com/hathitrust/index_search_monorepo/wiki/Upgrading-python,-uv,-and-dependencies)
