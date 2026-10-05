@@ -60,7 +60,7 @@ jobs:
           # container's non-root user couldn't write to -- create it writable first.
           mkdir -p coverage
           chmod 777 coverage
-          docker compose run --rm ht-indexer_tests
+          docker compose run --rm ht-indexer-tests
 
       # 👇 ADD DEBUG STEP HERE
       - name: Dump ZooKeeper logs
@@ -77,4 +77,4 @@ jobs:
 
         - name: Run tests
           run: |
-            docker compose run --rm solr-query_tests
+            docker compose run --rm solr-query-tests
