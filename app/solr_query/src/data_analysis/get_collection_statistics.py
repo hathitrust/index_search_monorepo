@@ -3,7 +3,7 @@ from argparse import ArgumentParser
 
 import pandas as pd
 from ht_full_text_search.ht_full_text_searcher import HTFullTextSearcher
-from ht_search.config_search import FULL_TEXT_SOLR_URL
+from ht_search.config_search import FULL_TEXT_SOLR_RO_URL
 from ht_search.ht_query.ht_full_text_query import HTFullTextQuery
 from ht_utils.ht_logger import get_ht_logger
 
@@ -230,7 +230,7 @@ if __name__ == "__main__":
     if args.solr_url:
         solr_url = args.solr_url
     else:  # Use the default solr url, depending on the environment. If prod environment, use shards
-        solr_url = FULL_TEXT_SOLR_URL[args.env]
+        solr_url = FULL_TEXT_SOLR_RO_URL
 
     # The current production server does not require user and password
 

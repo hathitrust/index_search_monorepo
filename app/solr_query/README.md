@@ -156,12 +156,12 @@ The main classes are:
 
 ## Usage
 
-If you will use this application outside the docker file, you will have to change the Solr URL in the file `config_search.py`
+Set the `FULL_TEXT_SOLR_RO_URL` environment variable to the full URL to the
+query endpoint, including basic auth; see `.env` for an example:
 
-SOLR_URL = {
-    "prod": "http://macc-ht-solr-lss-1.umdl.umich.edu:8081/solr/core-1x/query",
-    "dev": "http://localhost:8983/solr/core-x/query"
-}
+```
+export FULL_TEXT_SOLR_RO_URL=http://user:pass@localhost:8983/solr/collname/query
+```
 
 **Phase 1**
 - Initially, the application was created to run experiments comparing the results of the full-text search 

@@ -10,6 +10,7 @@ x-healthcheck-defaults: &healthcheck-defaults
 # Common environment variables for all services
 x-env-common: &env_common
     CATALOG_SOLR_RO_URL: http://solr-sdr-catalog:9033/solr/catalog/
+    FULL_TEXT_SOLR_RO_URL: http://admin:solrRocks@solr-lss-dev:8983/solr/core-x
     SOLR_USER: admin
     SOLR_PASSWORD: solrRocks
     ENV: dev
@@ -270,7 +271,7 @@ services:
       <<: *env_common
     command: [ "/workspace/.venv/bin/python", "-m", "ht_full_text_search.main", "--env",  "dev"]
   data-loader: # It is probably for this application I should create the image first
-    profiles: [ solr-query ]
+    profiles: [ solr-query, solr-query-tests ]
     build:
       context: .
       dockerfile: Dockerfile
