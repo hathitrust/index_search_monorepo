@@ -1,5 +1,15 @@
 # Contributing
 
+## General workflow
+
+Branches and commits should reference tickets where applicable.
+
+1. Create your Feature Branch (`git checkout -b ETT-1234-featurename`)
+2. Commit your Changes (`git commit -m 'ETT-1234: Add some AmazingFeature'`)
+3. Rebase and squash your commits (`git rebase -i main`)
+4. Push to the Branch (`git push origin ETT-1234-featurename`)
+5. Open a Pull Request
+
 ## Before opening a PR
 
 Run these, in order, from the repo root:
@@ -13,10 +23,7 @@ make test-unit    # fast lane, no Solr/MySQL/RabbitMQ needed
 If you touched `ht_indexer` or `solr_query`, also run the matching live-service suite:
 
 ```sh
-docker compose --profile ht-indexer_tests up -d --wait
 make test APP_NAME=ht-indexer
-
-docker compose --profile solr-query_tests up -d --wait
 make test APP_NAME=solr-query
 ```
 
