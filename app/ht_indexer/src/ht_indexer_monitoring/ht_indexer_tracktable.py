@@ -70,10 +70,7 @@ class HTIndexerTracktable:
             "catalog_search/config_query.yaml",
         )
 
-    def get_catalog_data(
-        self,
-        query: str
-    ) -> Generator[list[HTIndexerTrackData]]:
+    def get_catalog_data(self, query: str) -> Generator[list[HTIndexerTrackData]]:
         """
         Get the data from the catalog.
         :return: List of data
@@ -91,9 +88,7 @@ class HTIndexerTracktable:
             if "ht_id" in dict_x:
                 if dict_x["ht_id"] is not None:
                     for ht_id in dict_x["ht_id"]:
-                        data.append(
-                            HTIndexerTrackData(ht_id=ht_id, record_id=dict_x["id"])
-                        )
+                        data.append(HTIndexerTrackData(ht_id=ht_id, record_id=dict_x["id"]))
 
             # Insert in MySQL a batch size of 500 records
             if len(data) >= MYSQL_INSERT_BATCH_SIZE:
