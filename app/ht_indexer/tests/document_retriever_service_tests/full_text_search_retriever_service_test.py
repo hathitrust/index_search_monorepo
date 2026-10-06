@@ -20,6 +20,30 @@ from ht_utils.query_maker import make_solr_term_query
 
 logger = get_ht_logger(name=__name__)
 
+RECORD_ID = "008394936"
+RECORD_HT_IDS = [
+    "nyp.33433082002258",
+    "nyp.33433082046495",
+    "nyp.33433082046503",
+    "nyp.33433082046529",
+    "nyp.33433082046537",
+]
+
+
+def _solr_output_one_record_five_items() -> dict[str, Any]:
+    """Solr response with one record holding more items than any test requests."""
+    return {
+        "response": {
+            "docs": [
+                {
+                    "id": RECORD_ID,
+                    "ht_id": list(RECORD_HT_IDS),
+                    "htsource": ["New York Public Library"] * len(RECORD_HT_IDS),
+                }
+            ]
+        }
+    }
+
 
 @pytest.fixture
 def get_queue_config(
@@ -113,72 +137,32 @@ class TestFullTextRetrieverService:
         assert metadata.get("countryOfPubStr") == ["India"]
         assert item_id == list_documents[0]
 
-    def test_generate_chunk_metadata_by_record_filters_to_requested_items(self) -> None:
-        """Use case: when a record contains multiple items, only the requested IDs should be returned.
+    @pytest.mark.parametrize("by_field", ["item", "ht_id"])
+    def test_generate_chunk_metadata_non_record_field_returns_only_requested_items(
+        self, by_field: str
+    ) -> None:
+        """Use case: the query was by ht_id, so only the requested items of the record are returned.
 
-        This protects against the regression where a record-by-record query returned every item
-        in the record instead of only the ones explicitly requested in the input chunk.
+        "ht_id" covers the regression where any by_field other than "item" fell into the record
+        branch and published every item of the record (1000 requested -> ~17000 published).
         """
-        requested_documents = [
-            "nyp.33433082002258",
-            "nyp.33433082046495",
-        ]
-        by_field = "record"
-
-        # Use a record with more items than the ones we requested.
-        solr_output = {
-            "response": {
-                "docs": [
-                    {
-                        "id": "008394936",
-                        "ht_id": [
-                            "nyp.33433082002258",
-                            "nyp.33433082046495",
-                            "nyp.33433082046503",
-                            "nyp.33433082046529",
-                            "nyp.33433082046537",
-                        ],
-                        "htsource": ["New York Public Library"] * 5,
-                    }
-                ]
-            }
-        }
+        requested_documents = ["nyp.33433082002258", "nyp.33433082046495"]
 
         record_metadata_list = FullTextSearchRetrieverQueueService.generate_chunk_metadata(
-            requested_documents, solr_output, by_field
+            requested_documents, _solr_output_one_record_five_items(), by_field
         )
 
-        assert len(record_metadata_list) == 2
-        returned_ids = [item.ht_id for item in record_metadata_list]
-        assert set(returned_ids) == set(requested_documents)
+        assert sorted(item.ht_id for item in record_metadata_list) == sorted(requested_documents)
 
-    def test_generate_chunk_metadata_by_record_does_not_return_extra_items(self) -> None:
-        """Use case: protect against the original 1000 -> 17000 bug.
-
-        The record may have many more items than the requested chunk.
-        The output must never exceed the number of requested IDs.
-        """
-        requested_documents = [f"nyp.item_{i:04d}" for i in range(10)]
-        by_field = "record"
-
-        solr_output = {
-            "response": {
-                "docs": [
-                    {
-                        "id": "100673101",
-                        "ht_id": [f"nyp.item_{i:04d}" for i in range(17)],
-                        "htsource": ["New York Public Library"] * 17,
-                    }
-                ]
-            }
-        }
+    def test_generate_chunk_metadata_by_record_returns_all_items(self) -> None:
+        """Use case: the query was by record id, so every item of the record is returned."""
+        requested_documents = [RECORD_ID]
 
         record_metadata_list = FullTextSearchRetrieverQueueService.generate_chunk_metadata(
-            requested_documents, solr_output, by_field
+            requested_documents, _solr_output_one_record_five_items(), "record"
         )
 
-        assert len(record_metadata_list) == len(requested_documents)
-        assert set(item.ht_id for item in record_metadata_list) == set(requested_documents)
+        assert sorted(item.ht_id for item in record_metadata_list) == sorted(RECORD_HT_IDS)
 
     @pytest.mark.integration
     def test_full_text_search_retriever_service(

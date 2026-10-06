@@ -239,19 +239,15 @@ class FullTextSearchRetrieverQueueService:
 
             # If there is something with Solr retrieving a chunk of documents will try to retrieve the next chunk
             try:
-                if by_field == "item":
-                    # Validate query field = ht_id, list_documents could contain 1 or more items, but they probably are from
-                    # different records
-                    # Process a specific item of a record
+                if by_field == "record":
+                    # Process all the items of a record. Query was by {!terms f=id}
+                    results = RetrieverServicesUtils.create_catalog_object_by_record_id(
+                        record, catalog_record_metadata
+                    )
+                else:
+                    # Query was by ht_id: keep only the requested items, not every item of the record
                     results = RetrieverServicesUtils.create_catalog_object_by_item_id(
                         chunk, record, catalog_record_metadata
-                    )
-                    # This is the most efficient way to retrieve the items from Catalog
-                else:
-                    # Process all the items of a record, but filter by chunk if provided
-                    # This prevents retrieving all items in the record when we only want specific ones
-                    results = RetrieverServicesUtils.create_catalog_object_by_record_id(
-                        record, catalog_record_metadata, filter_item_ids=chunk
                     )
 
                 record_metadata_list.extend(results)
