@@ -34,7 +34,8 @@ class RetrieverServiceArguments:
         parser.add_argument(
             "--query_field",
             help="Could be item or record. If item, the query contains the ht_id of the item",
-            default="ht_id",
+            choices=["item", "record"],
+            default="item",
         )
         parser.add_argument(
             "--parallelize",
