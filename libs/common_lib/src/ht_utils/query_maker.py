@@ -2,6 +2,32 @@ from ht_utils.ht_logger import get_ht_logger
 
 logger = get_ht_logger(name=__name__)
 
+# The standard list: + - && || ! ( ) { } [ ] ^ " ~ * ? : \ /
+# For the one-character reserved symbols, use `maketrans` as it is efficient.
+# For `&&` and `||` we replace them explicitly since `maketrans` does not accept
+# keys longer than one character.
+SOLR_RESERVED_CHARACTER_TABLE = str.maketrans(
+    {
+        "+": "\\+",
+        "-": "\\-",
+        "!": "\\!",
+        "(": "\\(",
+        ")": "\\)",
+        "{": "\\{",
+        "}": "\\}",
+        "[": "\\[",
+        "]": "\\]",
+        "^": "\\^",
+        '"': '\\"',
+        "~": "\\~",
+        "*": "\\*",
+        "?": "\\?",
+        ":": "\\:",
+        "\\": "\\\\",
+        "/": "\\/",
+    }
+)
+
 
 def make_query(list_documents: list[str], by_field: str = "item") -> str:
     """
@@ -19,6 +45,7 @@ def make_query(list_documents: list[str], by_field: str = "item") -> str:
     str
         Query to retrieve the documents from the Catalog
     """
+    list_documents = [_escape_solr_term(doc) for doc in list_documents]
     query_field = "ht_id"
     if by_field == "item":
         query_field = "ht_id"
@@ -31,6 +58,21 @@ def make_query(list_documents: list[str], by_field: str = "item") -> str:
         values = '"'.join(("", values, ""))
         query = f"{query_field}:({values})"
     return query
+
+
+def _escape_solr_term(term: str) -> str:
+    """
+    Escape each of the standard Solr reserved characters,
+    special-casing the two-character `&&` and `||` which are
+    incompatible with Python's`maketrans`.
+    """
+    # Note: the Solr docs are ambiguous as to whether both `&`/`|` characters
+    # need to be escaped but it seems least surprising to assume so.
+    # Doing so handles the extreme edge case of term = "&&&" (the third ampersand
+    # is unescaped and Solr should treat it like a literal).
+    term = term.translate(SOLR_RESERVED_CHARACTER_TABLE)
+    term = term.replace("&&", "\\&\\&")
+    return term.replace("||", "\\|\\|")
 
 
 def make_solr_term_query(list_documents: list[str], by_field: str = "item") -> str:
@@ -54,9 +96,10 @@ def make_solr_term_query(list_documents: list[str], by_field: str = "item") -> s
     # The terms query parser in Solr is a highly efficient way to search for multiple exact values
     # in a specific field — great for querying by id or any other exact-match field,
     # especially when you're dealing with large lists.
-    # TODO: this doesn't escape a comma embedded in an id, so a single id containing a
-    # comma is indistinguishable from two separate ids to Solr's {!terms} parser. Track
-    # a fix (e.g. escaping or rejecting embedded commas) in a separate ticket.
+
+    # Assume a comma embedded in a document id is there for a reason. (Validating inputs
+    # should happen elsewhere). Backslash-escape embedded commas to preserve semantics.
+    list_documents = [doc.replace(",", "\\,") for doc in list_documents]
     query = "{!terms f=ht_id}" + ",".join(list_documents)
 
     if by_field == "record":
