@@ -59,32 +59,38 @@ def test_make_query_escapes_solr_special_characters() -> None:
 
 
 def test_make_solr_term_query_single_document_defaults_to_ht_id_field() -> None:
-    assert make_solr_term_query(["item1"]) == "{!terms f=ht_id}item1"
+    assert make_solr_term_query(["item1"]) == '{!terms f=ht_id separator=" "}item1'
 
 
-def test_make_solr_term_query_multiple_documents_are_comma_joined() -> None:
-    assert make_solr_term_query(["item1", "item2"]) == "{!terms f=ht_id}item1,item2"
+def test_make_solr_term_query_multiple_documents_are_space_joined() -> None:
+    assert make_solr_term_query(["item1", "item2"]) == '{!terms f=ht_id separator=" "}item1 item2'
 
 
 def test_make_solr_term_query_by_field_record_uses_id_field() -> None:
-    assert make_solr_term_query(["rec1", "rec2"], by_field="record") == "{!terms f=id}rec1,rec2"
+    assert (
+        make_solr_term_query(["rec1", "rec2"], by_field="record")
+        == '{!terms f=id separator=" "}rec1 rec2'
+    )
 
 
 def test_make_solr_term_query_by_field_item_uses_ht_id_field() -> None:
     # by_field="item" is the default; exercised explicitly here rather than only via
     # omission, mirroring the by_field="record" test above.
     assert (
-        make_solr_term_query(["item1", "item2"], by_field="item") == "{!terms f=ht_id}item1,item2"
+        make_solr_term_query(["item1", "item2"], by_field="item")
+        == '{!terms f=ht_id separator=" "}item1 item2'
     )
 
 
 def test_make_solr_term_query_unrecognised_by_field_falls_back_to_ht_id() -> None:
-    assert make_solr_term_query(["item1"], by_field="bogus") == "{!terms f=ht_id}item1"
+    assert (
+        make_solr_term_query(["item1"], by_field="bogus") == '{!terms f=ht_id separator=" "}item1'
+    )
 
 
 def test_make_solr_term_query_empty_list_produces_empty_term_list() -> None:
-    assert make_solr_term_query([]) == "{!terms f=ht_id}"
+    assert make_solr_term_query([]) == '{!terms f=ht_id separator=" "}'
 
 
-def test_make_solr_term_query_escapes_commas_within_an_id() -> None:
-    assert make_solr_term_query(["ab,cd", "ef"]) == "{!terms f=ht_id}ab\\,cd,ef"
+def test_make_solr_term_query_handles_commas_within_an_id() -> None:
+    assert make_solr_term_query(["ab,cd", "ef"]) == '{!terms f=ht_id separator=" "}ab,cd ef'

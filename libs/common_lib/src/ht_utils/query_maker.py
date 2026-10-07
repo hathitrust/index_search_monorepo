@@ -97,11 +97,8 @@ def make_solr_term_query(list_documents: list[str], by_field: str = "item") -> s
     # in a specific field — great for querying by id or any other exact-match field,
     # especially when you're dealing with large lists.
 
-    # Assume a comma embedded in a document id is there for a reason. (Validating inputs
-    # should happen elsewhere). Backslash-escape embedded commas to preserve semantics.
-    list_documents = [doc.replace(",", "\\,") for doc in list_documents]
-    query = "{!terms f=ht_id}" + ",".join(list_documents)
-
-    if by_field == "record":
-        query = "{!terms f=id}" + ",".join(list_documents)
-    return query
+    # We can be quite confident that space will never be allowed in ht_ids,
+    # so use it as a delimiter rather than the default comma (which though not attested
+    # seems not quite as unlikely to occur in the wild).
+    field = "id" if by_field == "record" else "ht_id"
+    return f'{{!terms f={field} separator=" "}}' + " ".join(list_documents)
