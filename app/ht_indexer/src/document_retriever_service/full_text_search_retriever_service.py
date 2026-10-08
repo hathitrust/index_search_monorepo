@@ -259,6 +259,25 @@ class FullTextSearchRetrieverQueueService:
                 logger.error(f"Error in getting documents from Solr {error_info}")
         return record_metadata_list
 
+    @staticmethod
+    def log_ht_ids_not_in_catalog(
+        chunk: list[str], record_metadata_list: list[CatalogItemMetadata]
+    ) -> set[str]:
+        """Log the ht_ids requested in the chunk that Catalog did not return.
+        Only valid when the chunk holds ht_ids (by_field == "item").
+
+        :param chunk: list of ht_ids sent to Solr
+        :param record_metadata_list: items returned by Catalog
+        :return: set of ht_ids not found in Catalog
+        """
+        missing = set(chunk) - {record.ht_id for record in record_metadata_list}
+        for item_id in sorted(missing):
+            logger.error(
+                f"Error in retrieving document {item_id} "
+                f"FullTextSearchRetrieverQueueService_not found in Catalog"
+            )
+        return missing
+
     def full_text_search_retriever_service(
         self, mysql_db: HtMysql, initial_documents: list[str], by_field: str = "item"
     ) -> None:
@@ -300,6 +319,12 @@ class FullTextSearchRetrieverQueueService:
             record_metadata_list = FullTextSearchRetrieverQueueService.generate_chunk_metadata(
                 chunk, output, by_field
             )
+
+            # In record mode the chunk holds record ids, so it can't be compared with ht_ids
+            if by_field == "item":
+                FullTextSearchRetrieverQueueService.log_ht_ids_not_in_catalog(
+                    chunk, record_metadata_list
+                )
 
             logger.info(f"Metadata generator: Total items = {len(record_metadata_list)}.")
             logger.info(f"Metadata generator: Total time = {time.time() - start_time}")

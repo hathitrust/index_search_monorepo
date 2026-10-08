@@ -391,6 +391,74 @@ class TestMainSerialBranch:
         assert by_field_arg == "item"
 
 
+class TestLogHtIdsNotInCatalog:
+    @staticmethod
+    def _items(*ht_ids: str) -> list[CatalogItemMetadata]:
+        items: list[CatalogItemMetadata] = []
+        for ht_id in ht_ids:
+            item = MagicMock()
+            item.ht_id = ht_id
+            items.append(item)
+        return items
+
+    def test_logs_error_for_each_ht_id_missing_from_catalog(self) -> None:
+        with patch.object(retriever_service_module, "logger") as mock_logger:
+            missing = FullTextSearchRetrieverQueueService.log_ht_ids_not_in_catalog(
+                ["mdp.1", "mdp.2", "mdp.3"], self._items("mdp.1")
+            )
+
+        assert missing == {"mdp.2", "mdp.3"}
+        assert mock_logger.error.call_count == 2
+        logged = [call.args[0] for call in mock_logger.error.call_args_list]
+        assert "mdp.2" in logged[0] and "not found in Catalog" in logged[0]
+        assert "mdp.3" in logged[1] and "not found in Catalog" in logged[1]
+
+    def test_does_not_log_when_all_ht_ids_are_returned(self) -> None:
+        with patch.object(retriever_service_module, "logger") as mock_logger:
+            missing = FullTextSearchRetrieverQueueService.log_ht_ids_not_in_catalog(
+                ["mdp.1", "mdp.2"], self._items("mdp.1", "mdp.2")
+            )
+
+        assert missing == set()
+        mock_logger.error.assert_not_called()
+
+
+class TestRetrieverLoopMissingHtIdsCheck:
+    # Infrastructure-free: Solr, the queue and the publishing step are mocked, so the test only
+    # checks when the loop runs the "not found in Catalog" check.
+    @staticmethod
+    def _run_loop(by_field: str) -> MagicMock:
+        service = FullTextSearchRetrieverQueueService(
+            MagicMock(), "http://solr", "solr_user", "solr_password", {}
+        )
+        response = MagicMock()
+        response.content = json.dumps({"response": {"docs": []}}).encode("utf-8")
+        with (
+            patch.object(FullTextSearchRetrieverQueueService, "get_queue_producer"),
+            patch.object(retriever_service_module, "HTSolrAPI"),
+            patch.object(service, "retrieve_documents_from_solr", return_value=response),
+            patch.object(
+                FullTextSearchRetrieverQueueService, "generate_chunk_metadata", return_value=[]
+            ),
+            patch.object(FullTextSearchRetrieverQueueService, "publishing_documents"),
+            patch.object(
+                FullTextSearchRetrieverQueueService, "log_ht_ids_not_in_catalog"
+            ) as mock_check,
+        ):
+            service.full_text_search_retriever_service(MagicMock(), ["mdp.1", "mdp.2"], by_field)
+        return mock_check
+
+    def test_item_mode_checks_for_ht_ids_not_in_catalog(self) -> None:
+        mock_check = self._run_loop("item")
+
+        mock_check.assert_called_once_with(["mdp.1", "mdp.2"], [])
+
+    def test_record_mode_skips_the_check_because_chunk_holds_record_ids(self) -> None:
+        mock_check = self._run_loop("record")
+
+        mock_check.assert_not_called()
+
+
 class TestPublishingDocumentsStatusWriteErrors:
     # The FAILURE and SUCCESS status writes are independent: one failing must not skip the other,
     # or the successfully published items stay retriever_status='pending' and are re-published.
