@@ -1,3 +1,4 @@
+import pytest
 from ht_utils.query_maker import make_query, make_solr_term_query
 
 # --- make_query ---------------------------------------------------------
@@ -94,3 +95,8 @@ def test_make_solr_term_query_empty_list_produces_empty_term_list() -> None:
 
 def test_make_solr_term_query_handles_commas_within_an_id() -> None:
     assert make_solr_term_query(["ab,cd", "ef"]) == '{!terms f=ht_id separator=" "}ab,cd ef'
+
+
+def test_make_solr_term_query_raises_on_spaces_within_an_id() -> None:
+    with pytest.raises(RuntimeError):
+        make_solr_term_query(["ab cd", "ef"])

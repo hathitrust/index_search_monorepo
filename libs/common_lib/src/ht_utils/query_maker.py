@@ -100,5 +100,8 @@ def make_solr_term_query(list_documents: list[str], by_field: str = "item") -> s
     # We can be quite confident that space will never be allowed in ht_ids,
     # so use it as a delimiter rather than the default comma (which though not attested
     # seems not quite as unlikely to occur in the wild).
+    if any(" " in id for id in list_documents):
+        raise RuntimeError(f"space detected in one or more of {list_documents}")
+
     field = "id" if by_field == "record" else "ht_id"
     return f'{{!terms f={field} separator=" "}}' + " ".join(list_documents)
