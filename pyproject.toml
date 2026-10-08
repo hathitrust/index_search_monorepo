@@ -8,6 +8,9 @@ readme = "README.md"
 classifiers = [
     "Programming Language :: Python :: 3.14",
 ]
+dependencies = [
+    "python-dotenv>=1.2.2",
+]
 
 [dependency-groups]
 dev = [

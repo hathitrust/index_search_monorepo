@@ -10,7 +10,7 @@ import yaml
 from requests.auth import HTTPBasicAuth
 
 from ht_search.config_files import config_files_path
-from ht_search.config_search import FULL_TEXT_SOLR_URL, default_solr_params
+from ht_search.config_search import FULL_TEXT_SOLR_RO_URL, default_solr_params
 
 # This is a quick attempt to do a query to solr more or less as we issue it in
 # production and to then export all results using the cursorMark results
@@ -211,7 +211,7 @@ if __name__ == "__main__":
     if args.solr_host:
         solr_url = f"{args.solr_host}/solr/{args.collection_name}"
     else:  # Use the default solr url, depending on the environment. If prod environment, use shards
-        solr_url = FULL_TEXT_SOLR_URL[args.env]
+        solr_url = FULL_TEXT_SOLR_RO_URL
     solr_exporter = SolrExporter(
         solr_url, args.env, user=os.getenv("SOLR_USER"), password=os.getenv("SOLR_PASSWORD")
     )

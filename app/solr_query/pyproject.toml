@@ -19,6 +19,7 @@ dependencies = [
     "openpyxl>=3.1.5,<4",
     "ht-search",
     "ht-utils",
+    "python-dotenv>=1.2.2",
 ]
 
 [dependency-groups]

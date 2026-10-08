@@ -9,23 +9,22 @@ x-healthcheck-defaults: &healthcheck-defaults
 
 # Common environment variables for all services
 x-env-common: &env_common
+    CATALOG_SOLR_RO_URL: http://solr-sdr-catalog:9033/solr/catalog/
+    FULL_TEXT_SOLR_RO_URL: http://admin:solrRocks@solr-lss-dev:8983/solr/core-x
     SOLR_USER: admin
     SOLR_PASSWORD: solrRocks
-    POETRY_VERSION: 1.5.1
-    ENV: dev
 
 # Environment variables specific to the indexer services
 x-env-indexer: &env_indexer
-    QUEUE_HOST: rabbitmq
-    QUEUE_PASS: guest
-    QUEUE_USER: guest
-    MYSQL_HOST: mysql-sdr
-    MYSQL_USER: mdp-admin
-    MYSQL_PASS: mdp-admin
+    RABBITMQ_INDEXER_RW_HOST: rabbitmq
+    RABBITMQ_INDEXER_RW_PORT: 5672
+    RABBITMQ_INDEXER_RW_USERNAME: guest
+    RABBITMQ_INDEXER_RW_PASSWORD: guest
+    MYSQL_HT_RO_HOST: mysql-sdr
+    MYSQL_HT_RO_USERNAME: mdp-admin
+    MYSQL_HT_RO_PASSWORD: mdp-admin
+    MYSQL_HT_RO_DATABASE: ht
     SDR_DIR: /sdr1/obj
-    MYSQL_DATABASE: ht
-    MYSQL_RANDOM_ROOT_PASSWORD: 1
-    ENV: dev
 
 # Common + indexer environment merged once, so services reference a single alias
 # instead of `<<: [*env_common, *env_indexer]`, which trips the compose schema linter
@@ -33,8 +32,7 @@ x-env-common-indexer: &env_common_indexer
     <<: [*env_common, *env_indexer]
 
 services:
-  ht_indexer_tracker:
-    container_name: ht_indexer_tracker
+  ht-indexer-tracker:
     profiles: [ ht-indexer ]
     # image: ht-indexer
     build:
@@ -42,20 +40,17 @@ services:
       dockerfile: Dockerfile
       target: runtime
       args:
-        ENV: dev
         APP_NAME: ht-indexer
         APP_DIR: ht_indexer
     environment:
       << : *env_common_indexer
-      SOLR_URL: http://solr-sdr-catalog:9033/solr/catalog/
       PACKAGE: ht_indexer
     depends_on:
       solr-sdr-catalog: *healthy
       mysql-sdr: *healthy
     tty: true
     stdin_open: true
-  document_retriever:
-    container_name: document_retriever
+  document-retriever:
     profiles: [ ht-indexer ]
     # image: ht-indexer
     build:
@@ -63,7 +58,6 @@ services:
       dockerfile: Dockerfile
       target: runtime
       args:
-        ENV: dev
         APP_NAME: ht-indexer
         APP_DIR: ht_indexer
     volumes:
@@ -74,7 +68,6 @@ services:
       - "8081:8081"
     environment:
       << : *env_common_indexer
-      SOLR_URL: http://solr-sdr-catalog:9033/solr/catalog/
       QUEUE_NAME: retriever_queue
     depends_on:
       solr-sdr-catalog: *healthy
@@ -86,7 +79,6 @@ services:
                "--parallelize" ]
   mysql-sdr:
     image: ghcr.io/hathitrust/db-image:latest
-    profiles: [ ht-indexer, ht-indexer_tests ]
     volumes:
       - mysql_sdr_data:/var/lib/mysql
     restart: always
@@ -102,8 +94,6 @@ services:
       retries: 3
   solr-lss-dev:
     image: ghcr.io/hathitrust/full-text-search-cloud:solr9-shards-docker
-    profiles: [ ht-indexer, ht-indexer_tests, solr-query, solr-query_tests ]
-    container_name: solr-lss-dev
     ports:
       - "8983:8983"
     environment:
@@ -127,8 +117,6 @@ services:
       retries: 10
   zoo1: # Zookeeper run in standalone mode for development and testing purposes. In production, we would use a Zookeeper ensemble for high availability.
     image: zookeeper:3.9.0
-    profiles: [ ht-indexer, ht-indexer_tests, solr-query, solr-query_tests ]
-    container_name: zoo1
     restart: "always"
     hostname: zoo1
     ports:
@@ -143,8 +131,6 @@ services:
       <<: *healthcheck-defaults
       test: ["CMD", "nc", "-z", "-w", "2", "localhost", "2181"] # Check if ZooKeeper is listening on port 2181
   solr-sdr-catalog:
-    container_name: solr-sdr-catalog
-    profiles: [ ht-indexer, ht-indexer_tests ]
     image: ghcr.io/hathitrust/catalog-solr-sample-standalone:solr-standalone
     healthcheck:
       <<: *healthcheck-defaults
@@ -154,8 +140,7 @@ services:
       - "9033:9033"
     expose:
       - 9033
-  document_generator:
-    container_name: document_generator
+  document-generator:
     profiles: [ ht-indexer ]
     # image: ht-indexer
     build:
@@ -163,7 +148,6 @@ services:
       dockerfile: Dockerfile
       target: runtime
       args:
-        ENV: dev
         APP_NAME: ht-indexer
         APP_DIR: ht_indexer
     volumes:
@@ -177,17 +161,20 @@ services:
     stdin_open: true
     environment:
       <<: *env_indexer
-      SRC_QUEUE_HOST: rabbitmq
-      SRC_QUEUE_NAME: retriever_queue
-      SRC_QUEUE_PASS: guest
-      SRC_QUEUE_USER: guest
-      TGT_QUEUE_HOST: rabbitmq
-      TGT_QUEUE_NAME: indexer_queue
+      RABBITMQ_INDEXER_SRC_RW_HOST: rabbitmq
+      RABBITMQ_INDEXER_SRC_RW_PORT: 5672
+      RABBITMQ_INDEXER_SRC_RW_USERNAME: guest
+      RABBITMQ_INDEXER_SRC_RW_PASSWORD: guest
+      RABBITMQ_INDEXER_SRC_RW_QUEUE_NAME: retriever_queue
+      RABBITMQ_INDEXER_TGT_RW_HOST: rabbitmq
+      RABBITMQ_INDEXER_TGT_RW_PORT: 5672
+      RABBITMQ_INDEXER_TGT_RW_USERNAME: guest
+      RABBITMQ_INDEXER_TGT_RW_PASSWORD: guest
+      RABBITMQ_INDEXER_TGT_RW_QUEUE_NAME: indexer_queue
       TGT_QUEUE_PASS: guest
       TGT_QUEUE_USER: guest
     command: ["/workspace/.venv/bin/python", "-m" ,"document_generator.document_generator_service" ]
-  document_indexer:
-    container_name: document_indexer
+  document-indexer:
     profiles: [ ht-indexer ]
     # image: ht-indexer
     build:
@@ -195,7 +182,6 @@ services:
       dockerfile: Dockerfile
       target: runtime
       args:
-        ENV: dev
         APP_NAME: ht-indexer
         APP_DIR: ht_indexer
     volumes:
@@ -214,8 +200,6 @@ services:
       QUEUE_NAME: indexer_queue
     command: ["/workspace/.venv/bin/python", "-m","document_indexer_service.document_indexer_service", "--solr_indexing_api", "http://solr-lss-dev:8983/solr/#/core-x/", "--batch_size", "100" ]
   rabbitmq:
-    container_name: rabbitmq
-    profiles: [ ht-indexer, ht-indexer_tests ]
     image: rabbitmq:3.13-management
     ports:
       - "5672:5672"
@@ -228,16 +212,14 @@ services:
       test: [ "CMD", "rabbitmqctl", "status" ]
       interval: 5s
       timeout: 10s
-  ht-indexer_tests:
-    container_name: indexer_tests
-    profiles: [ ht-indexer_tests ]
+  ht-indexer-tests:
+    profiles: [ ht-indexer-tests ]
     # image: ht-indexer
     build:
       context: .
       dockerfile: Dockerfile
       target: runtime
       args:
-        ENV: dev
         APP_NAME: ht-indexer
         APP_DIR: ht_indexer
     volumes:
@@ -253,7 +235,7 @@ services:
       - ./coverage:/workspace/coverage
     command: ["/workspace/.venv/bin/python", "-m", "pytest", "tests", "--cov=src", "--cov-report=term-missing"]
     environment:
-      <<: *env_indexer
+      <<: *env_common_indexer
       SOLR_URL: http://solr-sdr-catalog:9033/solr/catalog/
       COVERAGE_FILE: /workspace/coverage/.coverage
     depends_on:
@@ -262,15 +244,13 @@ services:
       rabbitmq: *healthy
       mysql-sdr: *healthy
   ###############################SolrQueryInterface###############################
-  solr_query_api:
-    container_name: full_text_search_api
+  solr-query-api:
     profiles: [ solr-query ]
     build:
       context: .
       dockerfile: Dockerfile
       target: runtime
       args:
-        ENV: dev
         APP_NAME: solr-query
         APP_DIR: solr_query
     stdin_open: true
@@ -282,15 +262,13 @@ services:
     environment:
       <<: *env_common
     command: [ "/workspace/.venv/bin/python", "-m", "ht_full_text_search.main", "--env",  "dev"]
-  data_loader: # It is probably for this application I should create the image first
-    container_name: data_loader
-    profiles: [ solr-query, solr-query_tests ]
+  data-loader: # It is probably for this application I should create the image first
+    profiles: [ solr-query, solr-query-tests ]
     build:
       context: .
       dockerfile: Dockerfile
       target: runtime
       args:
-        ENV: dev
         APP_NAME: solr-query
         APP_DIR: solr_query
     stdin_open: true
@@ -300,33 +278,29 @@ services:
     depends_on:
       solr-lss-dev: *healthy
     entrypoint: ["/bin/sh", "-c" ,"src/indexing_data.sh http://solr-lss-dev:8983 src/solr_dataset core-x" ]
-  solr-query_tests:
-    container_name: solr-query_tests
-    profiles: [ solr-query_tests ]
+  solr-query-tests:
+    profiles: [ solr-query-tests ]
     build:
       context: .
       dockerfile: Dockerfile
       target: runtime
       args:
-        ENV: dev
         APP_NAME: solr-query
         APP_DIR: solr_query
     environment: *env_common
     command: [ "/workspace/.venv/bin/python", "-m", "pytest"]
     depends_on:
       solr-lss-dev: *healthy
-      data_loader:
+      data-loader:
         condition: service_completed_successfully
 ###############################data_operations-MARC###############################
-  data_operations:
-      container_name: data_operations
+  data-operations:
       profiles: [ data-operations ]
       build:
         context: .
         dockerfile: Dockerfile
         target: runtime
         args:
-          ENV: dev
           APP_NAME: data-operations
           APP_DIR: data_operations
           MODULE_NAME: metadata_extractor

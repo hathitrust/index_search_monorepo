@@ -376,6 +376,9 @@ wheels = [
 name = "index-search-monorepo"
 version = "0.2.0"
 source = { virtual = "." }
+dependencies = [
+    { name = "python-dotenv" },
+]
 
 [package.dev-dependencies]
 dev = [
@@ -387,6 +390,7 @@ dev = [
 ]
 
 [package.metadata]
+requires-dist = [{ name = "python-dotenv", specifier = ">=1.2.2" }]
 
 [package.metadata.requires-dev]
 dev = [
@@ -913,6 +917,7 @@ dependencies = [
     { name = "ht-search" },
     { name = "ht-utils" },
     { name = "openpyxl" },
+    { name = "python-dotenv" },
     { name = "uvicorn" },
 ]
 
@@ -927,6 +932,7 @@ requires-dist = [
     { name = "ht-search", editable = "libs/ht_search" },
     { name = "ht-utils", editable = "libs/common_lib" },
     { name = "openpyxl", specifier = ">=3.1.5,<4" },
+    { name = "python-dotenv", specifier = ">=1.2.2" },
     { name = "uvicorn", specifier = ">=0.45.0,<0.46" },
 ]
 

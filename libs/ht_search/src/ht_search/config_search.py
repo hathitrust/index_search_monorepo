@@ -5,13 +5,10 @@ from typing import Any
 current_dir = os.path.dirname(os.path.abspath(__file__))
 
 # Full-text search config parameters
-FULL_TEXT_SOLR_URL = {
-    "prod": "http://macc-ht-solr-lss-1.umdl.umich.edu:8081/solr/core-1x",
-    "dev": "http://solr-lss-dev:8983/solr/core-x",
-}
+FULL_TEXT_SOLR_RO_URL = os.environ["FULL_TEXT_SOLR_RO_URL"]
+CATALOG_SOLR_RO_URL = os.environ["CATALOG_SOLR_RO_URL"]
 
-CATALOG_SOLR_URL = {"dev": "http://localhost:9033", "prod": "http://localhost:9033"}
-
+# only needed for old (pre-solr-cloud) production
 FULL_TEXT_SEARCH_SHARDS_X = ",".join(
     [f"http://solr-sdr-search-{i}:8081/solr/core-{i}x" for i in range(1, 12)]
 )

@@ -4,7 +4,7 @@ from argparse import ArgumentParser
 from pathlib import Path
 
 from ht_search.config_files import config_files_path
-from ht_search.config_search import CATALOG_SOLR_URL, FULL_TEXT_SOLR_URL
+from ht_search.config_search import CATALOG_SOLR_RO_URL, FULL_TEXT_SOLR_RO_URL
 from ht_search.export_all_results import SolrExporter
 from ht_utils.ht_logger import get_ht_logger
 
@@ -43,13 +43,13 @@ def main():
     args = parser.parse_args()
 
     # Default parameters are for full-text search
-    solr_host = FULL_TEXT_SOLR_URL[args.env]
+    solr_host = FULL_TEXT_SOLR_RO_URL
     config_files = "full_text_search"
     conf_query = "ocr"
 
     # Overwrite default parameter for Catalog search
     if args.cluster_name == "catalog":
-        solr_host = CATALOG_SOLR_URL[args.env]
+        solr_host = CATALOG_SOLR_RO_URL
         config_files = "catalog_search"
         conf_query = "all"
 
