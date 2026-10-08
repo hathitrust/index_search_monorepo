@@ -26,6 +26,11 @@ jobs:
       - name: Run unit tests
         run: uv run pytest -m "not integration" libs app/data_operations/tests --cov=libs --cov-report=term-missing --cov-report=xml
 
+      # Coveralls matches files by the XML filename attribute relative to the repo
+      # root, but coverage writes them relative to the --cov source (libs/).
+      - name: Rewrite coverage paths
+        run: sed -i 's#filename="#filename="libs/#' coverage.xml
+
       - name: Report to Coveralls
         uses: coverallsapp/github-action@648a8eb78e6d50909eff900e4ec85cab4524a45b # v2.3.7
         with:
@@ -70,10 +75,10 @@ jobs:
           chmod 777 coverage
           docker compose run --rm ht-indexer_tests
 
-      # The container records /workspace/... paths; point <source> at the runner's
-      # checkout so Coveralls can match files to the repo.
+      # Same fix as unit_tests: make filenames repo-relative (the container's
+      # --cov=src source is app/ht_indexer).
       - name: Rewrite coverage paths
-        run: sed -i "s#<source>/workspace/#<source>${GITHUB_WORKSPACE}/#" coverage/coverage.xml
+        run: sed -i 's#filename="#filename="app/ht_indexer/#' coverage/coverage.xml
 
       - name: Report to Coveralls
         uses: coverallsapp/github-action@648a8eb78e6d50909eff900e4ec85cab4524a45b # v2.3.7
