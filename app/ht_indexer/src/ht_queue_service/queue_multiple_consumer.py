@@ -28,7 +28,7 @@ class QueueMultipleConsumer(ABC):
         """
 
         self.channel_creator = ChannelCreator(
-            queue_params.user, queue_params.password, queue_params.host
+            queue_params.user, queue_params.password, queue_params.host, queue_params.heartbeat
         )  # Factory to create channels
         self.channel = self.channel_creator.get_channel()
 

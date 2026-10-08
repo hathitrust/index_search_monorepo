@@ -17,7 +17,7 @@ src_queue:
     # The queue arguments
     arguments: { }
     # The queue heartbeat interval
-    heartbeat: 60
+    heartbeat: 600
     # The queue connection timeout
     connection_timeout: 10
     # The queue retry interval
@@ -39,7 +39,7 @@ tgt_queue:
     # The queue arguments
     arguments: { }
     # The queue heartbeat interval
-    heartbeat: 60
+    heartbeat: 600
     # The queue connection timeout
     connection_timeout: 10
     # The queue retry interval

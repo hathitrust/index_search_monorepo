@@ -39,6 +39,7 @@ class TestQueueManager:
             user=get_global_queue_config.get("user", "guest"),
             password=get_global_queue_config.get("password", "guest"),
             host=get_rabbit_mq_host_name,
+            heartbeat=get_global_queue_config.get("heartbeat", 600),
         )
 
         # Creating a channel
