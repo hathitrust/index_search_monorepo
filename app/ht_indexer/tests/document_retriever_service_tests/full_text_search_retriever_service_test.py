@@ -83,7 +83,7 @@ class TestFullTextRetrieverService:
         """Use case: Check if the Solr query is created correctly"""
         list_documents = ["nyp.33433082002258", "not_exist_document"]
         query = make_solr_term_query(list_documents, by_field="item")
-        assert query == """{!terms f=ht_id}nyp.33433082002258,not_exist_document"""
+        assert query == """{!terms f=ht_id separator=\" \"}nyp.33433082002258 not_exist_document"""
 
     def test_full_text_service_retrieve_documents_from_solr(
         self,
