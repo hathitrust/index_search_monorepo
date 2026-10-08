@@ -137,6 +137,14 @@ In the Dockerfile,
 the specific project without having to run all the projects in the monorepo. 
 * To build the image we define the arguments `APP_NAME` and `APP_DIR` that are used to build the image for the specific project.
 
+### Configuration
+
+Environment variables are used for configuring access to solr, mariadb, and
+rabbitmq. `.env` sets environment variables when running tests outside a
+container; environment variables are defined in `docker-compose.yml` when
+running the application inside a container. See `.env` for a list of all
+environment variables that can be set. For development, it should not generally
+be necessary to adjust environment variables.
 
 ## Design 
 
@@ -230,7 +238,7 @@ Breaking changes in shared libraries are addressed across all dependent projects
 The modular design allows for the easy addition of new projects or shared libraries without disrupting the existing structure.
 The use of Docker ensures that new projects can be deployed independently.
 
-## Struction of the monorepo:
+## Structure of this repository:
 
 ```aiignore
 index_search_monorepo

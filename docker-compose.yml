@@ -13,7 +13,6 @@ x-env-common: &env_common
     FULL_TEXT_SOLR_RO_URL: http://admin:solrRocks@solr-lss-dev:8983/solr/core-x
     SOLR_USER: admin
     SOLR_PASSWORD: solrRocks
-    ENV: dev
 
 # Environment variables specific to the indexer services
 x-env-indexer: &env_indexer
@@ -26,7 +25,6 @@ x-env-indexer: &env_indexer
     MYSQL_HT_RO_PASSWORD: mdp-admin
     MYSQL_HT_RO_DATABASE: ht
     SDR_DIR: /sdr1/obj
-    ENV: dev
 
 # Common + indexer environment merged once, so services reference a single alias
 # instead of `<<: [*env_common, *env_indexer]`, which trips the compose schema linter
@@ -42,7 +40,6 @@ services:
       dockerfile: Dockerfile
       target: runtime
       args:
-        ENV: dev
         APP_NAME: ht-indexer
         APP_DIR: ht_indexer
     environment:
@@ -61,7 +58,6 @@ services:
       dockerfile: Dockerfile
       target: runtime
       args:
-        ENV: dev
         APP_NAME: ht-indexer
         APP_DIR: ht_indexer
     volumes:
@@ -152,7 +148,6 @@ services:
       dockerfile: Dockerfile
       target: runtime
       args:
-        ENV: dev
         APP_NAME: ht-indexer
         APP_DIR: ht_indexer
     volumes:
@@ -187,7 +182,6 @@ services:
       dockerfile: Dockerfile
       target: runtime
       args:
-        ENV: dev
         APP_NAME: ht-indexer
         APP_DIR: ht_indexer
     volumes:
@@ -226,7 +220,6 @@ services:
       dockerfile: Dockerfile
       target: runtime
       args:
-        ENV: dev
         APP_NAME: ht-indexer
         APP_DIR: ht_indexer
     volumes:
@@ -258,7 +251,6 @@ services:
       dockerfile: Dockerfile
       target: runtime
       args:
-        ENV: dev
         APP_NAME: solr-query
         APP_DIR: solr_query
     stdin_open: true
@@ -277,7 +269,6 @@ services:
       dockerfile: Dockerfile
       target: runtime
       args:
-        ENV: dev
         APP_NAME: solr-query
         APP_DIR: solr_query
     stdin_open: true
@@ -294,7 +285,6 @@ services:
       dockerfile: Dockerfile
       target: runtime
       args:
-        ENV: dev
         APP_NAME: solr-query
         APP_DIR: solr_query
     environment: *env_common
@@ -311,7 +301,6 @@ services:
         dockerfile: Dockerfile
         target: runtime
         args:
-          ENV: dev
           APP_NAME: data-operations
           APP_DIR: data_operations
           MODULE_NAME: metadata_extractor

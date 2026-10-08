@@ -92,11 +92,7 @@ When the container is running, some services will be started, including:
   * To access to prod Solr server, you need it, 
     * to have a VPN connection to the HathiTrust network
     * to set up an ssh tunnel `ssh -L8081:macc-ht-solr-lss-1.umdl.umich.edu:8081 test.babel.hathitrust.org`.
-    * the Solr URL will be http://macc-ht-solr-lss-1.umdl.umich.edu:8081/solr/core-1x/query
-    * to run the application in your local environment with the parameter `--env prod`.We don't have an 
-    acceptable alternative, nor is it necessary to set up access to the production server via a Docker file.
-  * To query production, you will have to run the application locally and open an ssh connection to macc-ht.
-  * To locally run the application, you can also set up the environment variable `HT_ENVIRONMENT` (dev or prod) to define the desired environment.
+    * set the environment variable `FULL_TEXT_SOLR_RO_URL` to http://localhost:8081/solr/core-1x/query
 
 In your workdir,
   

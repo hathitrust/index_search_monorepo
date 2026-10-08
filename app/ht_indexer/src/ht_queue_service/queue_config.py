@@ -1,6 +1,7 @@
 import copy
 import dataclasses
 import os
+from ht_utils.ht_env_config import HtEnvConfig
 from pathlib import Path
 from typing import Any
 
@@ -9,6 +10,7 @@ import yaml
 
 @dataclasses.dataclass
 class QueueParams:
+    """Marshalls configuration from the environment and from YAML files to create connection parameters for rabbitmq"""
     host: str
     port: int
     user: str
@@ -52,22 +54,13 @@ class QueueConfig:
         for document_generator service that has a source (_SRC) and target (_TGT) queues.
         """
 
+        prefix = prefix.lower()
         self.env_mapping = {
-            "host": "RABBITMQ_INDEXER_RW_HOST",
-            "port": "RABBITMQ_INDEXER_RW_PORT",
-            "user": "RABBITMQ_INDEXER_RW_USERNAME",
-            "password": "RABBITMQ_INDEXER_RW_PASSWORD",
-            "queue_name": "RABBITMQ_INDEXER_RW_NAME",
+            "host": f"rabbitmq_indexer_{prefix}rw_host",
+            "port": f"rabbitmq_indexer_{prefix}rw_port",
+            "user": f"rabbitmq_indexer_{prefix}rw_username",
+            "password": f"rabbitmq_indexer_{prefix}rw_password",
         }
-
-        if prefix:
-            self.env_mapping = {
-                "host": f"RABBITMQ_INDEXER_{prefix}RW_HOST",
-                "port": f"RABBITMQ_INDEXER_{prefix}RW_PORT",
-                "user": f"RABBITMQ_INDEXER_{prefix}RW_USERNAME",
-                "password": f"RABBITMQ_INDEXER_{prefix}RW_PASSWORD",
-                "queue_name": f"RABBITMQ_INDEXER_{prefix}RW_QUEUE_NAME",
-            }
 
         default_global_config = _load_config(global_path)["queue"]
 
@@ -91,11 +84,12 @@ class QueueConfig:
         """
 
         queue_cfg = copy.deepcopy(config)
+        env_config = HtEnvConfig()
 
         # Override with environment variables if they exist
         # Environment variables take precedence over config file values
-        for key, env_var in self.env_mapping.items():
-            env_value = os.getenv(env_var)
+        for key, attrname in self.env_mapping.items():
+            env_value = getattr(env_config,attrname)
             if env_value is not None:
                 queue_cfg[key] = int(env_value) if key == "port" else env_value
 
