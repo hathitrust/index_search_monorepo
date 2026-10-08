@@ -75,10 +75,10 @@ jobs:
           chmod 777 coverage
           docker compose run --rm ht-indexer_tests
 
-      # Same fix as unit_tests: make filenames repo-relative (the container's
-      # --cov=src source is app/ht_indexer).
+      # Same fix as unit_tests: make filenames repo-relative (--cov=src makes them
+      # relative to app/ht_indexer/src).
       - name: Rewrite coverage paths
-        run: sed -i 's#filename="#filename="app/ht_indexer/#' coverage/coverage.xml
+        run: sed -i 's#filename="#filename="app/ht_indexer/src/#' coverage/coverage.xml
 
       - name: Report to Coveralls
         uses: coverallsapp/github-action@648a8eb78e6d50909eff900e4ec85cab4524a45b # v2.3.7
