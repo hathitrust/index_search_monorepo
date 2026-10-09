@@ -1,11 +1,13 @@
 import os
 from pathlib import Path
 
+import pytest
 from ht_document.ht_document import HtDocument
 from pypairtree import pairtree
 
-os.environ["SDR_DIR"] = f"{Path(__file__).parents[1]}/data/document_generator"
-
+@pytest.fixture(autouse=True)
+def set_sdr_dir(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("SDR_DIR", f"{Path(__file__).parents[1]}/data/document_generator")
 
 def test_get_document_pair_path() -> None:
     doc_name = "39015051333915"
@@ -32,7 +34,7 @@ def test_get_object_id() -> None:
     assert object_id == "ark:/13960/t4mk66f1d"
 
 
-def test_colon_name_pattern() -> None:
+def test_colon_name_pattern(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test the pattern with a colon in the name
     Check if the namespace, object id and pairtree path are correctly extracted
     """
@@ -42,7 +44,7 @@ def test_colon_name_pattern() -> None:
     obj_id = HtDocument.get_object_id("coo1.ark:/13960/t57d3f780")
     assert obj_id == "ark:/13960/t57d3f780"
 
-    os.environ["SDR_DIR"] = "/sdr1/obj"
+    monkeypatch.setenv("SDR_DIR", "/sdr1/obj")
     ht_doc = HtDocument(document_id="coo1.ark:/13960/t57d3f780", document_repository="pairtree")
 
     doc_path = ht_doc.get_document_pairtree_path()

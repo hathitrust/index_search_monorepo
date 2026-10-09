@@ -105,6 +105,10 @@ class HtEnvConfig:
     def solr_password(self) -> str:
         return self._env("SOLR_PASSWORD")
 
+    @property
+    def sdr_dir(self) -> str:
+        return self._env("SDR_DIR")
+
     def __new__(cls) -> HtEnvConfig:
         if cls.instance is None:
             cls.instance = super().__new__(cls)

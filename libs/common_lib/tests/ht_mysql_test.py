@@ -5,7 +5,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import sqlalchemy.exc
-from ht_utils.ht_mysql import HtMysql, MissingMysqlConfigError, get_mysql_conn
+from ht_utils.ht_mysql import HtMysql, get_mysql_conn
+from ht_utils.ht_env_config import HtEnvConfigMissingError
 
 
 @pytest.fixture(autouse=True)
@@ -161,7 +162,7 @@ class TestGetMysqlConnRequiredCredentials:
             "MYSQL_HT_RO_USERNAME", raising=False
         )  # undoes what mysql_credentials fixture just set
 
-        with pytest.raises(MissingMysqlConfigError, match="MYSQL_HT_RO_USERNAME"):
+        with pytest.raises(HtEnvConfigMissingError, match="MYSQL_HT_RO_USERNAME"):
             get_mysql_conn()
 
     def test_get_mysql_conn_raises_when_mysql_pass_missing(
@@ -171,7 +172,7 @@ class TestGetMysqlConnRequiredCredentials:
             "MYSQL_HT_RO_PASSWORD", raising=False
         )  # undoes what mysql_credentials fixture just set
 
-        with pytest.raises(MissingMysqlConfigError, match="MYSQL_HT_RO_PASSWORD"):
+        with pytest.raises(HtEnvConfigMissingError, match="MYSQL_HT_RO_PASSWORD"):
             get_mysql_conn()
 
     def test_get_mysql_conn_raises_when_mysql_user_is_empty_string(
@@ -183,5 +184,5 @@ class TestGetMysqlConnRequiredCredentials:
             "MYSQL_HT_RO_USERNAME", ""
         )  # undoes what mysql_credentials fixture just set to am empty string
 
-        with pytest.raises(MissingMysqlConfigError, match="MYSQL_HT_RO_USERNAME"):
+        with pytest.raises(HtEnvConfigMissingError, match="MYSQL_HT_RO_USERNAME"):
             get_mysql_conn()
