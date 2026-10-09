@@ -1,16 +1,16 @@
 import copy
 import dataclasses
-import os
-from ht_utils.ht_env_config import HtEnvConfig
 from pathlib import Path
 from typing import Any
 
 import yaml
+from ht_utils.ht_env_config import HtEnvConfig
 
 
 @dataclasses.dataclass
 class QueueParams:
     """Marshalls configuration from the environment and from YAML files to create connection parameters for rabbitmq"""
+
     host: str
     port: int
     user: str
@@ -47,6 +47,10 @@ class QueueConfig:
         """
         Initialize the QueueConfig with default values or load from a YAML file.
 
+        Environment variables are required for the host, port, username, and
+        password; see HtEnvConfig for the list of RabbitMQ-specific environment
+        variables.
+
         :param global_path: Path to the global YAML configuration file.
         :param app_path: Path to the application-specific YAML configuration file.
         :param config_key: Key to identify the specific queue configuration in the YAML files.
@@ -65,7 +69,7 @@ class QueueConfig:
         default_global_config = _load_config(global_path)["queue"]
 
         # Load the global configuration
-        global_cfg = self._merge_env_vars(default_global_config)
+        global_cfg = self._load_env_vars(default_global_config)
 
         default_app_config = _load_config(app_path)[config_key]
 
@@ -73,23 +77,18 @@ class QueueConfig:
         app_cfg = {**global_cfg, **default_app_config}
 
         # Load the application-specific configuration
-        self.merged_config = self._merge_env_vars(app_cfg)
+        self.merged_config = self._load_env_vars(app_cfg)
 
         self.queue_params = QueueParams(**self._create_queue_params())
 
-    def _merge_env_vars(self, config: dict[str, Any]) -> dict[str, Any]:
-        """
-        Merge environment variables with the configuration file values.
-        Environment variables take precedence over config file values.
-        """
-
+    def _load_env_vars(self, config: dict[str, Any]) -> dict[str, Any]:
         queue_cfg = copy.deepcopy(config)
         env_config = HtEnvConfig()
 
         # Override with environment variables if they exist
         # Environment variables take precedence over config file values
         for key, attrname in self.env_mapping.items():
-            env_value = getattr(env_config,attrname)
+            env_value = getattr(env_config, attrname)
             if env_value is not None:
                 queue_cfg[key] = int(env_value) if key == "port" else env_value
 

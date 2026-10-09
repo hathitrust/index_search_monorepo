@@ -1,5 +1,7 @@
 import os
-from dotenv import load_dotenv
+
+# from functools import property
+
 
 class HtEnvConfigMissingError(RuntimeError):
     """Raised when a required env var is missing.
@@ -50,7 +52,7 @@ class HtEnvConfig:
     @property
     def rabbitmq_indexer_src_rw_password(self) -> str:
         return self._env("RABBITMQ_INDEXER_SRC_RW_PASSWORD")
-    
+
     @property
     def rabbitmq_indexer_tgt_rw_host(self) -> str:
         return self._env("RABBITMQ_INDEXER_TGT_RW_HOST")
@@ -107,9 +109,6 @@ class HtEnvConfig:
         if cls.instance is None:
             cls.instance = super().__new__(cls)
         return cls.instance
-
-    def __init__(self) -> None:
-        load_dotenv()
 
     def _env(self, var: str) -> str:
         val = os.getenv(var)

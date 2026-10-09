@@ -1,6 +1,7 @@
 import pytest
 from ht_utils.ht_env_config import HtEnvConfig, HtEnvConfigMissingError
 
+
 class TestHTEnvConfig:
     def test_returns_env_var(self) -> None:
         assert HtEnvConfig().solr_user == "admin"

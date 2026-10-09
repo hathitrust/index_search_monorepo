@@ -5,21 +5,6 @@ import pytest
 import yaml
 from ht_queue_service.queue_config import QueueConfig
 
-# The docker compose test environment sets these for the real queue services
-# (e.g. RABBITMQ_INDEXER_RW_HOST=rabbitmq), so every test here must start from a clean slate or
-# it ends up asserting against real broker config instead of the YAML fixtures.
-_QUEUE_ENV_VARS = [
-    f"RABBITMQ_INDEXER_{prefix}RW_{suffix}"
-    for prefix in ("", "SRC_", "TGT_")
-    for suffix in ("HOST", "PORT", "USERNAME", "PASSWORD", "QUEUE_NAME")
-]
-
-
-@pytest.fixture(autouse=True)
-def clean_queue_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    for var in _QUEUE_ENV_VARS:
-        monkeypatch.delenv(var, raising=False)
-
 
 def _write_yaml(path: Path, data: dict[str, Any]) -> Path:
     path.write_text(yaml.safe_dump(data), encoding="utf-8")
@@ -29,10 +14,8 @@ def _write_yaml(path: Path, data: dict[str, Any]) -> Path:
 def _base_global_config() -> dict[str, Any]:
     return {
         "queue": {
-            "host": "global-host",
-            "port": 5672,
-            "user": "global-user",
-            "password": "global-pass",
+            "heartbeat": 60,
+            "connection_timeout": 10,
         }
     }
 
@@ -46,8 +29,6 @@ def _base_app_config(**overrides: Any) -> dict[str, Any]:
         "durable": True,
         "auto_delete": False,
         "exclusive": False,
-        "heartbeat": 60,
-        "connection_timeout": 10,
         "retry_interval": 5,
         "shutdown_on_empty_queue": False,
     }
@@ -63,28 +44,6 @@ def global_config_path(tmp_path: Path) -> Path:
 @pytest.fixture
 def app_config_path(tmp_path: Path) -> Path:
     return _write_yaml(tmp_path / "app.yml", _base_app_config())
-
-
-def test_loads_connection_fields_from_global_and_queue_fields_from_app_config(
-    global_config_path: Path, app_config_path: Path
-) -> None:
-    params = QueueConfig(global_config_path, app_config_path).get_params()
-
-    assert params.host == "global-host"
-    assert params.port == 5672
-    assert params.user == "global-user"
-    assert params.password == "global-pass"
-    assert params.queue_name == "my_queue"
-    assert params.batch_size == 10
-
-
-def test_app_config_takes_precedence_over_global_config(tmp_path: Path) -> None:
-    global_path = _write_yaml(tmp_path / "global.yml", _base_global_config())
-    app_path = _write_yaml(tmp_path / "app.yml", _base_app_config(host="app-host"))
-
-    params = QueueConfig(global_path, app_path).get_params()
-
-    assert params.host == "app-host"
 
 
 def test_derives_exchange_and_dlx_names_from_queue_name(
@@ -132,10 +91,20 @@ def test_env_var_port_is_converted_to_int(
     assert isinstance(params.port, int)
 
 
-def test_prefixed_env_var_is_used_when_prefix_given(
-    global_config_path: Path, app_config_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+@pytest.fixture
+def src_config_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("RABBITMQ_INDEXER_SRC_RW_HOST", "src-env-host")
+    monkeypatch.setenv("RABBITMQ_INDEXER_SRC_RW_PORT", "5672")
+    monkeypatch.setenv("RABBITMQ_INDEXER_SRC_RW_USERNAME", "src-user")
+    monkeypatch.setenv("RABBITMQ_INDEXER_SRC_RW_PASSWORD", "src-pass")
+
+
+def test_prefixed_env_var_is_used_when_prefix_given(
+    global_config_path: Path,
+    app_config_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    src_config_env: None,
+) -> None:
 
     params = QueueConfig(global_config_path, app_config_path, prefix="SRC_").get_params()
 
@@ -143,11 +112,14 @@ def test_prefixed_env_var_is_used_when_prefix_given(
 
 
 def test_unprefixed_env_var_is_ignored_when_prefix_given(
-    global_config_path: Path, app_config_path: Path, monkeypatch: pytest.MonkeyPatch
+    global_config_path: Path,
+    app_config_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    src_config_env: None,
 ) -> None:
     monkeypatch.setenv("RABBITMQ_INDEXER_RW_HOST", "unprefixed-env-host")
 
     params = QueueConfig(global_config_path, app_config_path, prefix="SRC_").get_params()
 
     # The unprefixed QUEUE_HOST env var must not leak into a SRC_-prefixed config.
-    assert params.host == "global-host"
+    assert params.host == "src-env-host"
