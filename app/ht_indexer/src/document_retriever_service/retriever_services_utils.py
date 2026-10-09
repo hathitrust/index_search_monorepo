@@ -59,7 +59,8 @@ class RetrieverServicesUtils:
 
     @staticmethod
     def create_catalog_object_by_record_id(
-        record: dict[str, Any], catalog_record_metadata: CatalogRecordMetadata
+        record: dict[str, Any],
+        catalog_record_metadata: CatalogRecordMetadata,
     ) -> list[CatalogItemMetadata]:
         """Receive a record and return a list of item, and their metadata
         :param record: dict with catalog record (retrieve from Solr)
