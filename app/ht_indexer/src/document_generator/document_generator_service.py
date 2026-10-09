@@ -1,5 +1,6 @@
 import argparse
 import json
+import sys
 import time
 from pathlib import Path
 from typing import Any
@@ -223,7 +224,13 @@ def main() -> None:
         init_args_obj.document_repository,
         tgt_local=init_args_obj.tgt_local,
     )
-    document_generator_service.start_consuming()
+    try:
+        document_generator_service.start_consuming()
+    except Exception:
+        # Exception has been logged, just say we're bailing out
+        logger.error("[!] Exiting")
+    finally:
+        sys.exit(1)
 
 
 if __name__ == "__main__":
