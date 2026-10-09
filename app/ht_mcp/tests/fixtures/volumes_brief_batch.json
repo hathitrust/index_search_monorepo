@@ -1,0 +1,31 @@
+{
+  "oclc:00000001": {
+    "records": {
+      "000000001": {
+        "recordURL": "https://catalog.hathitrust.org/Record/000000001",
+        "titles": ["Example Title"],
+        "isbns": [],
+        "issns": [],
+        "oclcs": ["00000001"],
+        "lccns": ["00000001"],
+        "publishDates": ["2000"]
+      }
+    },
+    "items": [
+      {
+        "fromRecord": "000000001",
+        "htid": "test.00000001",
+        "itemURL": "https://babel.hathitrust.org/cgi/pt?id=test.00000001",
+        "rightsCode": "ic",
+        "usRightsString": "Limited (search-only)",
+        "orig": "Test University",
+        "enumcron": false,
+        "lastUpdate": "20000101"
+      }
+    ]
+  },
+  "oclc:00000002": {
+    "records": {},
+    "items": []
+  }
+}
