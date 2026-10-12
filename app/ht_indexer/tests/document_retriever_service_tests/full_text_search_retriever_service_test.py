@@ -6,7 +6,13 @@ from unittest.mock import MagicMock, patch
 import pytest
 import requests
 from catalog_metadata.catalog_metadata import CatalogItemMetadata
-from conftest import ConcreteQueueConsumer, create_test_queue_config
+from conftest import (
+    ConcreteQueueConsumer,
+    close_channel_and_connection,
+    create_test_queue_config,
+    drain_ht_ids,
+    ensure_queue_ready_and_purged,
+)
 from document_retriever_service import (
     full_text_search_retriever_service as retriever_service_module,
 )
@@ -45,8 +51,22 @@ def _solr_output_one_record_five_items() -> dict[str, Any]:
     }
 
 
+def _items_for(
+    service: FullTextSearchRetrieverQueueService, ids: list[str], by_field: str, sorl: HTSolrAPI
+) -> list[CatalogItemMetadata]:
+
+    # Build the query to retrieve the total of documents to process
+    query = make_solr_term_query(ids, by_field)
+
+    # Retrieve the documents from Solr
+    output = json.loads(service.retrieve_documents_from_solr(query, sorl).content.decode("utf-8"))
+
+    # Generate the metadata for the documents
+    return FullTextSearchRetrieverQueueService.generate_chunk_metadata(ids, output, by_field)
+
+
 @pytest.fixture
-def get_queue_config(
+def queue_config(
     get_global_queue_config: dict[str, Any], get_app_queue_config: dict[str, Any]
 ) -> tuple[Any, Any, Any]:
     """This function is used to create the queue configuration
@@ -77,7 +97,7 @@ def get_catalog_retriever_service_solr_fake_solr_url() -> HTSolrAPI:
 
 
 @pytest.fixture
-def get_solr_request(solr_catalog_url: str) -> HTSolrAPI:
+def solr_client(solr_catalog_url: str) -> HTSolrAPI:
     return HTSolrAPI(solr_catalog_url, "solr_user", "solr_password")
 
 
@@ -85,16 +105,16 @@ def get_solr_request(solr_catalog_url: str) -> HTSolrAPI:
 def get_document_retriever_service(
     solr_catalog_url: str,
     get_retriever_service_solr_parameters: dict[str, Any],
-    get_queue_config: tuple[Any, Any, Any],
+    queue_config: tuple[Any, Any, Any],
 ) -> FullTextSearchRetrieverQueueService:
     """Fixture to create the document retriever service object
     :param solr_catalog_url: fixture to get the Solr URL
     :param get_retriever_service_solr_parameters: fixture to get the Solr parameters
-    :param get_queue_config: fixture to get the queue configuration
+    :param queue_config: fixture to get the queue configuration
     : return: FullTextSearchRetrieverQueueService object
     """
     return FullTextSearchRetrieverQueueService(
-        get_queue_config[0].queue_params,
+        queue_config[0].queue_params,
         solr_catalog_url,
         "solr_user",
         "solr_password",
@@ -113,16 +133,14 @@ class TestFullTextRetrieverService:
     def test_full_text_service_retrieve_documents_from_solr(
         self,
         get_document_retriever_service: FullTextSearchRetrieverQueueService,
-        get_solr_request: HTSolrAPI,
+        solr_client: HTSolrAPI,
     ) -> None:
         """Use case: Check if the documents are retrieved from Solr"""
         list_documents = ["nyp.33433082002258", "not_exist_document"]
 
         query = make_solr_term_query(list_documents, by_field="item")
 
-        response = get_document_retriever_service.retrieve_documents_from_solr(
-            query, get_solr_request
-        )
+        response = get_document_retriever_service.retrieve_documents_from_solr(query, solr_client)
 
         output = json.loads(response.content.decode("utf-8"))
         assert output.get("response").get("numFound") == 1
@@ -169,21 +187,18 @@ class TestFullTextRetrieverService:
         self,
         get_retriever_service_solr_parameters: dict[str, Any],
         solr_catalog_url: str,
-        get_queue_config: tuple[Any, Any, Any],
+        queue_config: tuple[Any, Any, Any],
     ) -> None:
         """Use case: Check if the message is sent to the queue"""
 
-        queue_params = get_queue_config[0].queue_params
+        queue_params = queue_config[0].queue_params
         # Define the consumer instance
         consumer_instance = ConcreteQueueConsumer(queue_params)
 
-        logger.info(f"Checking if the queue {queue_params.queue_name} exists before the test")
-        if not consumer_instance.queue_manager.is_ready(consumer_instance.channel):
-            # If the queue is already set up, purge it to remove any existing messages
-            consumer_instance.queue_reconnect()
+        ensure_queue_ready_and_purged(consumer_instance)
+
         assert consumer_instance.channel is not None
         logger.info(f"Purging the queue {queue_params.queue_name} before the test")
-        consumer_instance.channel.queue_purge(consumer_instance.queue_manager.queue_name)
 
         list_documents = ["nyp.33433082002258", "not_exist_document"]
 
@@ -202,176 +217,57 @@ class TestFullTextRetrieverService:
         )
 
         # Service to consume the message
-        for method_frame, _properties, body in consumer_instance.consume_dead_letter_messages(
-            consumer_instance.channel,
-            inactivity_timeout=5,
-            queue_name=consumer_instance.queue_manager.queue_name,
-        ):
-            if method_frame:
-                output_message = json.loads(body.decode("utf-8"))
-                assert output_message.get("ht_id") == list_documents[0]
+        ht_ids = drain_ht_ids(consumer_instance)
+        assert ht_ids[0] == list_documents[0]
 
-                # Acknowledge the message if the message is processed successfully
-                consumer_instance.positive_acknowledge(
-                    consumer_instance.channel, method_frame.delivery_tag
-                )
-                break
-            else:
-                logger.info("The queue is empty: Test ended")
-                break
-
-            # Clean up the queue, if the queue is already set up
-        if not consumer_instance.queue_manager.is_ready(consumer_instance.channel):
-            # Clean up the queue - To make sure the purge is done all the messages must be acknowledged
-            consumer_instance.queue_reconnect()
-
-        assert consumer_instance.channel is not None
-        consumer_instance.channel.queue_purge(consumer_instance.queue_manager.queue_name)
-
-        # Close the channel
-        consumer_instance.channel.close()
-        # Close the consumer instance - TCP connection
-        assert consumer_instance.channel_creator.connection.queue_connection is not None
-        consumer_instance.channel_creator.connection.queue_connection.close()
+        # Clean up the queue, if the queue is already set up
+        close_channel_and_connection(consumer_instance)
 
         # Delete the temporary files
-        os.remove(get_queue_config[1])
-        os.remove(get_queue_config[2])
+        os.remove(queue_config[1])
+        os.remove(queue_config[2])
 
     @pytest.mark.integration
-    def test_retrieve_documents_by_item(
-        self,
-        get_solr_request: HTSolrAPI,
-        get_document_retriever_service: FullTextSearchRetrieverQueueService,
-    ) -> None:
-        """Use case: Receive a list of items (ht_id) to index and retrieve the metadata from Catalog
-        We want to index only the item that appear in the list and not all the items of each record.
-        """
-        list_documents = [
-            "nyp.33433082002258",
-            "nyp.33433082046495",
-            "nyp.33433082046503",
-            "nyp.33433082046529",
-            "nyp.33433082046537",
-            "nyp.33433082046545",
-            "nyp.33433082067798",
-            "nyp.33433082067806",
-            "nyp.33433082067822",
-        ]
-        by_field = "item"
-
-        # Build the query to retrieve the total of documents to process
-        query = make_solr_term_query(list_documents, by_field)
-
-        # Retrieve the documents from Solr
-        response = get_document_retriever_service.retrieve_documents_from_solr(
-            query, get_solr_request
-        )
-        output = json.loads(response.content.decode("utf-8"))
-
-        # Generate the metadata for the documents
-        record_metadata_list = FullTextSearchRetrieverQueueService.generate_chunk_metadata(
-            list_documents, output, by_field
-        )
-
-        assert len(record_metadata_list) == 9
-
-    @pytest.mark.integration
-    def test_retrieve_documents_by_record(
-        self,
-        get_solr_request: HTSolrAPI,
-        get_retriever_service_solr_parameters: dict[str, Any],
-        solr_catalog_url: str,
-        get_document_retriever_service: FullTextSearchRetrieverQueueService,
-    ) -> None:
-        """Use case: Receive one record to process all their items"""
-
-        list_documents = ["008394936"]
-        by_field = "record"
-
-        # Build the query to retrieve the total of documents to process
-        query = make_solr_term_query(list_documents, by_field)
-
-        # Retrieve the documents from Solr
-        response = get_document_retriever_service.retrieve_documents_from_solr(
-            query, get_solr_request
-        )
-        output = json.loads(response.content.decode("utf-8"))
-
-        # Generate the metadata for the documents
-        record_metadata_list = FullTextSearchRetrieverQueueService.generate_chunk_metadata(
-            list_documents, output, by_field
-        )
-
-        assert len(record_metadata_list) == 4
-
-    @pytest.mark.integration
-    def test_retrieve_documents_by_item_only_one(
+    @pytest.mark.parametrize(
+        ("ids", "by_field", "expected"),
+        [
+            # """Use case: Receive a list of items (ht_id) to index and retrieve the metadata from Catalog
+            # We want to index only the item that appear in the list and not all the items of each record.
+            # """
+            pytest.param(["nyp.33433082002258"], "item", 1, id="one-item"),
+            pytest.param(RECORD_HT_IDS, "item", 5, id="five-items"),
+            # """Use case: Receive a list of record ids to index and retrieve the metadata from Catalog
+            # We want to index all the items of each record.
+            # """
+            pytest.param(["008394936"], "record", 4, id="one-record"),
+            pytest.param(["008394936", "100393743"], "record", 5, id="two-records"),
+        ],
+    )
+    def test_retrieve_documents_returns_expected_item_count(
         self,
         get_document_retriever_service: FullTextSearchRetrieverQueueService,
-        get_solr_request: HTSolrAPI,
+        solr_client: HTSolrAPI,
+        ids: list[str],
+        by_field: str,
+        expected: int,
     ) -> None:
-        """Use case: Retrieve only the metadata of the item given by parameter"""
-        list_documents = ["nyp.33433082002258"]
-        by_field = "item"
-
-        # Build the query to retrieve the total of documents to process
-        query = make_solr_term_query(list_documents, by_field)
-
-        # Retrieve the documents from Solr
-        response = get_document_retriever_service.retrieve_documents_from_solr(
-            query, get_solr_request
+        """Use case: Check if the number of items retrieved from Solr is as expected"""
+        assert (
+            len(_items_for(get_document_retriever_service, ids, by_field, solr_client)) == expected
         )
-        output = json.loads(response.content.decode("utf-8"))
-
-        # Generate the metadata for the documents
-        record_metadata_list = FullTextSearchRetrieverQueueService.generate_chunk_metadata(
-            list_documents, output, by_field
-        )
-
-        assert len(record_metadata_list) == 1
-
-    @pytest.mark.integration
-    def test_retrieve_documents_by_record_list_records(
-        self,
-        get_document_retriever_service: FullTextSearchRetrieverQueueService,
-        get_solr_request: HTSolrAPI,
-    ) -> None:
-        """Use case: Receive one record to process all their items"""
-
-        list_documents = ["008394936", "100393743"]
-        by_field = "record"
-
-        # Build the query to retrieve the total of documents to process
-        query = make_solr_term_query(list_documents, by_field)
-
-        # Retrieve the documents from Solr
-        response = get_document_retriever_service.retrieve_documents_from_solr(
-            query, get_solr_request
-        )
-        output = json.loads(response.content.decode("utf-8"))
-
-        # Generate the metadata for the documents
-        record_metadata_list = FullTextSearchRetrieverQueueService.generate_chunk_metadata(
-            list_documents, output, by_field
-        )
-
-        assert len(record_metadata_list) == 5
 
     @pytest.mark.integration
     def test_retrieve_documents_empty_result(
         self,
         get_document_retriever_service: FullTextSearchRetrieverQueueService,
-        get_solr_request: HTSolrAPI,
+        solr_client: HTSolrAPI,
     ) -> None:
         """Use case: Check of the results list is empty because the input item is not in Solr"""
         list_documents = ["this_id_does_not_exist_in_solr"]
 
         query = make_solr_term_query(list_documents, by_field="item")
 
-        response = get_document_retriever_service.retrieve_documents_from_solr(
-            query, get_solr_request
-        )
+        response = get_document_retriever_service.retrieve_documents_from_solr(query, solr_client)
 
         output = json.loads(response.content.decode("utf-8"))
 
@@ -527,7 +423,8 @@ class TestRetrieverLoopMissingHtIdsCheck:
 class TestPublishingDocumentsStatusWriteErrors:
     # The FAILURE and SUCCESS status writes are independent: one failing must not skip the other,
     # or the successfully published items stay retriever_status='pending' and are re-published.
-    def _publish_one_failed_and_one_succeeded(self, mysql_db: MagicMock) -> None:
+    @staticmethod
+    def _publish_one_failed_and_one_succeeded(mysql_db: MagicMock) -> None:
         records: list[CatalogItemMetadata] = [MagicMock(), MagicMock()]
         with (
             patch.object(
@@ -549,7 +446,7 @@ class TestPublishingDocumentsStatusWriteErrors:
         mysql_db = MagicMock()
         mysql_db.update_status.side_effect = [RuntimeError("MySQL unavailable"), None]
 
-        self._publish_one_failed_and_one_succeeded(mysql_db)
+        TestPublishingDocumentsStatusWriteErrors._publish_one_failed_and_one_succeeded(mysql_db)
 
         assert (
             mysql_db.update_status.call_args.args[0]
@@ -560,11 +457,12 @@ class TestPublishingDocumentsStatusWriteErrors:
         mysql_db = MagicMock()
         mysql_db.update_status.side_effect = RuntimeError("MySQL unavailable")
 
-        self._publish_one_failed_and_one_succeeded(mysql_db)
+        TestPublishingDocumentsStatusWriteErrors._publish_one_failed_and_one_succeeded(mysql_db)
 
         assert mysql_db.update_status.call_count == 2
 
 
+# TODO: Remove this test class once the MySQL status been removed from the retriever service.
 class TestRetrieverStatusGuardInSQL:
     # These tests do not run queries or access MySQL. They pin the shape of the guard. Only the
     # shared status and error column is guarded, inside SET, so retriever_status is always
@@ -587,3 +485,53 @@ class TestRetrieverStatusGuardInSQL:
             "error = CASE WHEN status = 'pending' THEN :error ELSE error END"
             in retriever_service_module.FAILURE_UPDATE_STATUS
         )
+
+
+class TestRetrieverPublishCounts:
+    # Infrastructure-free: the counts feed the run_retriever_service_by_file summary
+    # (seeded = published to the queue, errors = publish failures).
+
+    def test_full_text_search_retriever_service_two_chunks_returns_summed_counts(self) -> None:
+        service = FullTextSearchRetrieverQueueService(
+            MagicMock(), "http://solr", "solr_user", "solr_password", {}
+        )
+        # Patch the retrieve_documents_from_solr method to return a mock response with no documents
+        response = MagicMock()
+        response.content = json.dumps({"response": {"docs": []}}).encode("utf-8")
+        with (
+            patch.object(retriever_service_module, "SOLR_BATCH_SIZE", 1),
+            patch.object(FullTextSearchRetrieverQueueService, "get_queue_producer"),
+            patch.object(retriever_service_module, "HTSolrAPI"),
+            patch.object(service, "retrieve_documents_from_solr", return_value=response),
+            patch.object(
+                FullTextSearchRetrieverQueueService, "generate_chunk_metadata", return_value=[]
+            ),
+            patch.object(
+                FullTextSearchRetrieverQueueService,
+                "publishing_documents",
+                side_effect=[
+                    retriever_service_module.PublishCounts(published=1, failed=0),
+                    retriever_service_module.PublishCounts(published=0, failed=1),
+                ],
+            ),
+        ):
+            counts = service.full_text_search_retriever_service(
+                MagicMock(), ["mdp.1", "mdp.2"], "item"
+            )
+
+        assert counts == retriever_service_module.PublishCounts(published=1, failed=1)
+
+    def test_run_retriever_service_threads_failed_batch_counts_its_ids_as_failed(self) -> None:
+        service = MagicMock()
+        service.full_text_search_retriever_service.side_effect = [
+            retriever_service_module.PublishCounts(published=2, failed=0),
+            RuntimeError("Solr down"),
+        ]
+
+        # max_workers=2 splits the 4 ids into two batches of 2. Whichever batch gets the error,
+        # the totals are the same.
+        counts = retriever_service_module.run_retriever_service_threads(
+            MagicMock(), ["mdp.1", "mdp.2", "mdp.3", "mdp.4"], "item", service, 2
+        )
+
+        assert counts == retriever_service_module.PublishCounts(published=2, failed=2)

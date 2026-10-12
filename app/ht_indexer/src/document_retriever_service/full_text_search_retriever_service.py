@@ -4,6 +4,7 @@ import json
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass
 from typing import Any
 
 import requests
@@ -69,6 +70,17 @@ SOLR_ID_EXTRACTION_STRATEGIES = {
 }
 
 
+@dataclass(frozen=True)
+class PublishCounts:
+    """How many items were published to the queue and how many failed."""
+
+    published: int = 0
+    failed: int = 0
+
+    def __add__(self, other: PublishCounts) -> PublishCounts:
+        return PublishCounts(self.published + other.published, self.failed + other.failed)
+
+
 class FullTextSearchRetrieverQueueService:
     """
     This class is responsible to retrieve the documents from the Catalog and generate the full text search entry
@@ -129,7 +141,7 @@ class FullTextSearchRetrieverQueueService:
         queue_producer_conn: QueueProducer | None,
         result: list[CatalogItemMetadata],
         mysql_db: HtMysql,
-    ) -> None:
+    ) -> PublishCounts:
         processed_items: list[dict[str, Any]] = []
         failed_items: list[dict[str, Any]] = []
 
@@ -183,6 +195,8 @@ class FullTextSearchRetrieverQueueService:
             FullTextSearchRetrieverQueueService._write_retriever_status(
                 mysql_db, SUCCESS_UPDATE_STATUS, processed_items
             )
+
+        return PublishCounts(published=len(processed_items), failed=len(failed_items))
 
     @staticmethod
     def _write_retriever_status(mysql_db: HtMysql, query: str, items: list[dict[str, Any]]) -> None:
@@ -277,7 +291,7 @@ class FullTextSearchRetrieverQueueService:
 
     def full_text_search_retriever_service(
         self, mysql_db: HtMysql, initial_documents: list[str], by_field: str = "item"
-    ) -> None:
+    ) -> PublishCounts:
         """
         This method is used to retrieve the documents from the Catalog and generate the full text search entry
         If the Solr is not available, an error will be raised, and the process will be stopped
@@ -285,6 +299,8 @@ class FullTextSearchRetrieverQueueService:
         We run Solr queries in batch
         Each batch will retrieve 200 documents because Solr will fail with the status code 414
         if the URI is too Long.
+
+        :return: total of items published to the queue and failed, across all chunks
         """
 
         if self.queue_params is None:
@@ -296,6 +312,8 @@ class FullTextSearchRetrieverQueueService:
         queue_producer = FullTextSearchRetrieverQueueService.get_queue_producer(self.queue_params)
 
         solr_retriever = HTSolrAPI(self.solr_host, self.solr_user, self.solr_password)
+
+        counts = PublishCounts()
 
         # As we have a long list of ht_ids/ids, the recommendation is to split the list of documents into chunks
         # and create query batch to avoid the Solr URI too long error.
@@ -327,9 +345,11 @@ class FullTextSearchRetrieverQueueService:
             logger.info(f"Metadata generator: Total time = {time.time() - start_time}")
 
             # Publish the documents in the queue
-            FullTextSearchRetrieverQueueService.publishing_documents(
+            counts += FullTextSearchRetrieverQueueService.publishing_documents(
                 queue_producer, record_metadata_list, mysql_db
             )
+
+        return counts
 
 
 def run_retriever_service_threads(
@@ -338,7 +358,7 @@ def run_retriever_service_threads(
     by_field: str,
     document_retriever_service: FullTextSearchRetrieverQueueService,
     max_workers: int,
-) -> None:
+) -> PublishCounts:
     """
     Run the retriever service
 
@@ -350,14 +370,15 @@ def run_retriever_service_threads(
     :param by_field:
     :param document_retriever_service:
     :param max_workers: Number of threads to use
-    :return: None
+    :return: total of items published and failed. A batch whose thread failed counts all its
+        ids as failed.
     """
 
     total_documents = len(list_documents)
 
     if total_documents <= 0:
         logger.info("Nothing to process")
-        return
+        return PublishCounts()
 
     # The number of MySQL connections is equal to batch_size
     batch_size = round(total_documents / max_workers + 0.5)
@@ -367,6 +388,7 @@ def run_retriever_service_threads(
     ]
 
     start_time = time.time()
+    counts = PublishCounts()
 
     # Use ThreadPoolExecutor instead of multiprocessing.Process
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -385,14 +407,16 @@ def run_retriever_service_threads(
         for future in as_completed(future_to_batch):
             batch = future_to_batch[future]
             try:
-                future.result()  # This will raise an exception if the thread failed
+                counts += future.result()  # This will raise an exception if the thread failed
                 logger.debug(f"Successfully processed batch of {len(batch)} documents")
             except Exception as e:
                 logger.error(f"Thread failed processing batch of {len(batch)} documents: {e}")
+                counts += PublishCounts(failed=len(batch))
 
     logger.info(
         f"Threading=retrieving: Total time to retrieve documents {time.time() - start_time:.10f}"
     )
+    return counts
 
 
 def main() -> None:
