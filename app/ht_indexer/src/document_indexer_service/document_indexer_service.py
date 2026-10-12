@@ -6,7 +6,7 @@ from ht_indexer_api.ht_indexer_api import HTSolrAPI
 from ht_queue_service.queue_config import QueueParams
 from ht_queue_service.queue_multiple_consumer import QueueMultipleConsumer
 from ht_utils.ht_logger import get_ht_logger
-from ht_utils.ht_utils import get_error_message_by_document
+from ht_utils.ht_utils import get_error_message_by_document, get_queue_message_id
 from pika.adapters.blocking_connection import BlockingChannel
 
 from .indexer_arguments import IndexerServiceArguments
@@ -69,7 +69,7 @@ class DocumentIndexerQueueService(QueueMultipleConsumer):
         try:
             response = self.solr_api_full_text.index_documents(batch)
             for i in batch:
-                logger.info(f"Indexed {i['ht_id']}")
+                logger.info(f"Indexed {get_queue_message_id(i)}")
 
             logger.info(
                 f"Success process=indexing {len(batch)} items."
