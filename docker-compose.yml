@@ -26,6 +26,17 @@ x-env-indexer: &env_indexer
     MYSQL_HT_RO_DATABASE: ht
     SDR_DIR: /sdr1/obj
 
+x-ht-indexer-vols: &ht_indexer_vols
+    - ../tmp:/tmp
+    - ./app/ht_indexer:/workspace/app/ht_indexer
+    - ./libs:/workspace/libs
+    - ../sdr1/obj:/sdr1/obj
+
+x-solr-query-vols: &solr_query_vols
+    - ./app/solr_query:/workspace/app/solr_query
+    - ./libs:/workspace/libs
+
+
 # Common + indexer environment merged once, so services reference a single alias
 # instead of `<<: [*env_common, *env_indexer]`, which trips the compose schema linter
 x-env-common-indexer: &env_common_indexer
@@ -60,10 +71,7 @@ services:
       args:
         APP_NAME: ht-indexer
         APP_DIR: ht_indexer
-    volumes:
-      - ../tmp:/tmp
-      - ./app/ht_indexer:/app
-      - ../sdr1/obj:/sdr1/obj
+    volumes: *ht_indexer_vols
     ports:
       - "8081:8081"
     environment:
@@ -150,10 +158,7 @@ services:
       args:
         APP_NAME: ht-indexer
         APP_DIR: ht_indexer
-    volumes:
-      - ../tmp:/tmp:rm
-      - ../sdr1/obj:/sdr1/obj
-      - ./app/ht_indexer:/app
+    volumes: *ht_indexer_vols
     depends_on:
       rabbitmq: *healthy
       mysql-sdr: *healthy
@@ -184,10 +189,7 @@ services:
       args:
         APP_NAME: ht-indexer
         APP_DIR: ht_indexer
-    volumes:
-      - ../tmp:/tmp:rm
-      - ../sdr1/obj:/sdr1/obj
-      - ./app/ht_indexer:/app
+    volumes: *ht_indexer_vols
     ports:
       - "8082:8082"
     depends_on:
@@ -224,9 +226,7 @@ services:
         APP_DIR: ht_indexer
     volumes:
       - ./app/ht_indexer:/workspace/app/ht_indexer
-      - ./app/ht_indexer/tests:/workspace/app/ht_indexer/tests
-      - ../tmp:/tmp
-      - ../sdr1/obj:/sdr1/obj
+      - ./libs:/workspace/libs
       # Coverage data lands here so it's readable outside the container -- e.g. for
       # a future Coveralls upload step. The host-side ./coverage dir must exist and
       # be writable by the container's non-root user before this runs (see the "Set
@@ -253,6 +253,7 @@ services:
       args:
         APP_NAME: solr-query
         APP_DIR: solr_query
+    volumes: *solr_query_vols
     stdin_open: true
     depends_on:
       solr-lss-dev: *healthy
@@ -271,6 +272,7 @@ services:
       args:
         APP_NAME: solr-query
         APP_DIR: solr_query
+    volumes: *solr_query_vols
     stdin_open: true
     tty: true
     environment:
@@ -287,6 +289,7 @@ services:
       args:
         APP_NAME: solr-query
         APP_DIR: solr_query
+    volumes: *solr_query_vols
     environment: *env_common
     command: [ "/workspace/.venv/bin/python", "-m", "pytest"]
     depends_on:
