@@ -453,6 +453,12 @@ class TestRetrieverLoopMissingHtIdsCheck:
 
         mock_check.assert_called_once_with(["mdp.1", "mdp.2"], [])
 
+    def test_ht_id_query_field_checks_for_ht_ids_not_in_catalog(self) -> None:
+        # --query_field still defaults to "ht_id" until PR #48 lands
+        mock_check = self._run_loop("ht_id")
+
+        mock_check.assert_called_once_with(["mdp.1", "mdp.2"], [])
+
     def test_record_mode_skips_the_check_because_chunk_holds_record_ids(self) -> None:
         mock_check = self._run_loop("record")
 

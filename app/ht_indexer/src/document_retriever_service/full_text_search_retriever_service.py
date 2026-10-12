@@ -264,7 +264,7 @@ class FullTextSearchRetrieverQueueService:
         chunk: list[str], record_metadata_list: list[CatalogItemMetadata]
     ) -> set[str]:
         """Log the ht_ids requested in the chunk that Catalog did not return.
-        Only valid when the chunk holds ht_ids (by_field == "item").
+        Only valid when the chunk holds ht_ids (by_field != "record").
 
         :param chunk: list of ht_ids sent to Solr
         :param record_metadata_list: items returned by Catalog
@@ -321,7 +321,7 @@ class FullTextSearchRetrieverQueueService:
             )
 
             # In record mode the chunk holds record ids, so it can't be compared with ht_ids
-            if by_field == "item":
+            if by_field != "record":
                 FullTextSearchRetrieverQueueService.log_ht_ids_not_in_catalog(
                     chunk, record_metadata_list
                 )
