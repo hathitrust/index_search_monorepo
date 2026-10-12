@@ -21,8 +21,9 @@ def _make_service(solr_api_full_text: MagicMock) -> tuple[DocumentIndexerQueueSe
     return service, channel
 
 
+# list of solr documents
 def _batch() -> list[dict[str, Any]]:
-    return [{"ht_id": "test.item1"}, {"ht_id": "test.item2"}]
+    return [{"id": "test.item1"}, {"id": "test.item2"}]
 
 
 def test_process_batch_returns_true_and_acks_on_success() -> None:
