@@ -189,6 +189,32 @@ class QueueMultipleConsumer(ABC):
         """
         used_channel.basic_reject(delivery_tag=basic_deliver, requeue=self.requeue_message)
 
+    def retry_message(
+        self, used_channel: pika.adapters.blocking_connection.BlockingChannel, delivery_tag: int
+    ) -> None:
+        """Put a message back on its queue to be tried again, regardless of requeue_message.
+
+        Use it when the failure is not the message's fault (e.g. Solr or RabbitMQ is down).
+
+        :param used_channel: The RabbitMQ channel to nack the message on
+        :param delivery_tag: The delivery tag of the message to retry
+        :return: None
+        """
+        used_channel.basic_nack(delivery_tag=delivery_tag, requeue=True)
+
+    def dead_letter_message(
+        self, used_channel: pika.adapters.blocking_connection.BlockingChannel, delivery_tag: int
+    ) -> None:
+        """Send a message to the Dead Letter Queue, regardless of requeue_message.
+
+        Use it when the message itself can never be processed (e.g. a bad document).
+
+        :param used_channel: The RabbitMQ channel to reject the message on
+        :param delivery_tag: The delivery tag of the message to dead-letter
+        :return: None
+        """
+        used_channel.basic_reject(delivery_tag=delivery_tag, requeue=False)
+
     def positive_acknowledge(
         self, used_channel: pika.adapters.blocking_connection.BlockingChannel, delivery_tag: int
     ) -> None:
