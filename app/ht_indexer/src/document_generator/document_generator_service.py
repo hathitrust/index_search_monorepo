@@ -224,12 +224,9 @@ def main() -> None:
         init_args_obj.document_repository,
         tgt_local=init_args_obj.tgt_local,
     )
-    try:
-        document_generator_service.start_consuming()
-    except Exception:
-        # Exception has been logged, just say we're bailing out
+    if not document_generator_service.start_consuming():
+        # The error was already logged by start_consuming; exit non-zero so the orchestrator restarts us
         logger.error("[!] Exiting")
-    finally:
         sys.exit(1)
 
 
