@@ -11,9 +11,6 @@ from pika.adapters.blocking_connection import BlockingChannel
 
 from .indexer_arguments import IndexerServiceArguments
 
-logger = get_ht_logger(name=__name__)
-
-
 class DocumentIndexerQueueService(QueueMultipleConsumer):
     def __init__(self, solr_api_full_text: HTSolrAPI, queue_params: QueueParams):
         """Initialize the Document Indexer Queue Service.
@@ -21,8 +18,10 @@ class DocumentIndexerQueueService(QueueMultipleConsumer):
         :param queue_params: The object with the queue parameters
         """
         # Call the parent class constructor that initializes the connection to the queue
+        print("IN __init__ for DocumentIndexerQueueService")
         super().__init__(queue_params)
         self.solr_api_full_text = solr_api_full_text
+        self.logger = get_ht_logger(__file__)
 
     def requeue_failed_messages(
         self,
@@ -40,13 +39,13 @@ class DocumentIndexerQueueService(QueueMultipleConsumer):
         if channel is None:
             raise RuntimeError("Unable to establish a RabbitMQ channel")
 
-        logger.info(
+        self.logger.info(
             f"Send total_messages={len(delivery_tags)} to the {self.queue_manager.dead_letter_queue_name}."
         )
 
         for message, delivery_tag in zip(messages, delivery_tags, strict=False):
             error_info = get_error_message_by_document("DocumentIndexerService", error, message)
-            logger.error(f"Failed process=indexing error_detail={error_info}")
+            self.logger.error("Failed", process='indexing', error_detail=error_info)
             self.reject_message(channel, delivery_tag)
 
     def process_batch(self, batch: list[dict[str, Any]], delivery_tags: list[int]) -> bool:
@@ -69,12 +68,10 @@ class DocumentIndexerQueueService(QueueMultipleConsumer):
         try:
             response = self.solr_api_full_text.index_documents(batch)
             for i in batch:
-                logger.info(f"Indexed {get_queue_message_id(i)}")
+                self.logger.info("Indexed", ht_id=get_queue_message_id(i))
 
-            logger.info(
-                f"Success process=indexing {len(batch)} items."
-                f"Operation status: {response.status_code} Time={time.time() - start_time:.10f} "
-            )
+            self.logger.info("Success", process='indexing', item_count=len(batch),
+                operation_status=response.status_code, elapsed_time=time.time() - start_time)
 
             response.raise_for_status()
 
@@ -83,7 +80,7 @@ class DocumentIndexerQueueService(QueueMultipleConsumer):
                 self.positive_acknowledge(self.channel, delivery_tag)
 
         except Exception as e:
-            logger.info(f"Failed process=indexing with error={e}")
+            self.logger.info(f"Failed process=indexing with error={e}")
             success = False
             failed_messages = batch  # self.batch
             failed_messages_tags = delivery_tags.copy()
@@ -97,7 +94,7 @@ class DocumentIndexerQueueService(QueueMultipleConsumer):
 
 def start_service(solr_api_full_text: HTSolrAPI, queue_params: QueueParams) -> None:
     document_indexer_queue_service = DocumentIndexerQueueService(solr_api_full_text, queue_params)
-    logger.info(f"Starting Document Indexer Service with queue: {queue_params.queue_name}")
+    get_ht_logger().info(f"Starting Document Indexer Service with queue: {queue_params.queue_name}")
     # Start consuming messages from the queue
     document_indexer_queue_service.start_consuming()
 

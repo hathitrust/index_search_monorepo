@@ -1,9 +1,23 @@
+import pytest
+import structlog
 from typing import Any
 from unittest.mock import MagicMock
+from ht_utils.ht_logger import get_ht_logger
+
+from structlog.testing import LogCapture
+
+@pytest.fixture
+def caplog() -> LogCapture:
+    return LogCapture()
+
+@pytest.fixture(autouse=True)
+def fixture_configure_structlog(caplog: LogCapture) -> None:
+    print("CONFIGURING LOG CAPTURE")
+    structlog.configure(
+        processors=[caplog]
+    )
 
 from document_indexer_service.document_indexer_service import DocumentIndexerQueueService
-from pytest import LogCaptureFixture
-
 
 def _make_service(solr_api_full_text: MagicMock) -> tuple[DocumentIndexerQueueService, MagicMock]:
     """DocumentIndexerQueueService.__init__ connects to a live RabbitMQ broker via its
@@ -12,12 +26,15 @@ def _make_service(solr_api_full_text: MagicMock) -> tuple[DocumentIndexerQueueSe
     Returns the channel mock separately (typed as MagicMock, not BlockingChannel | None)
     so tests can assert on it without a None-narrowing check.
     """
+    # FIXME look at using composition instead of inheritance - inject a fake
+    # QueueMultipleConsumer
     service = DocumentIndexerQueueService.__new__(DocumentIndexerQueueService)
     service.solr_api_full_text = solr_api_full_text
     channel = MagicMock()
     service.channel = channel
     service.queue_manager = MagicMock(dead_letter_queue_name="dlq_name")
     service.requeue_message = False
+    service.logger=get_ht_logger(__file__)
     return service, channel
 
 
@@ -41,7 +58,7 @@ def test_process_batch_returns_true_and_acks_on_success() -> None:
     assert delivery_tags == []
 
 
-def test_process_batch_logs_document_ids(caplog: LogCaptureFixture) -> None:
+def test_process_batch_logs_document_ids(caplog: LogCapture) -> None:
     solr_api_full_text = MagicMock()
     solr_api_full_text.index_documents.return_value = MagicMock(status_code=200)
     service, channel = _make_service(solr_api_full_text)
@@ -49,8 +66,8 @@ def test_process_batch_logs_document_ids(caplog: LogCaptureFixture) -> None:
 
     service.process_batch(batch, [])
 
-    assert "test.item1" in caplog.text
-    assert "test.item2" in caplog.text
+    assert any(log.get('ht_id') == "test.item1" for log in caplog.entries)
+    assert any(log.get('ht_id') == "test.item2" for log in caplog.entries)
 
 
 def test_process_batch_returns_false_when_batch_is_dead_lettered() -> None:

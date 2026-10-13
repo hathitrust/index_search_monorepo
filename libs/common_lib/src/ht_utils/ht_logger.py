@@ -1,20 +1,22 @@
 import logging
-import sys
+from typing import Any
+
+import structlog
+
+structlog.configure(
+        processors=[
+            structlog.processors.TimeStamper(fmt="iso"),
+            structlog.processors.JSONRenderer()
+            ],
+        )
 
 
-def get_ht_logger(name: str = __name__, log_level: int | str = logging.INFO) -> logging.Logger:
-    # set the logging format
-    log_format = "%(asctime)s  :: %(name)s :: %(levelname)s :: %(message)s"
 
-    # Create the root logger using stdout output
-    logging.basicConfig(
-        stream=sys.stdout,
-        format=log_format,
+def get_ht_logger(name: str = __name__, log_level: int | str = logging.INFO) -> structlog.stdlib.BoundLogger:
+#    print(f"GET YE LOGGER {name} 🪵")
+
+    structlog.configure(
+        wrapper_class=structlog.make_filtering_bound_logger(log_level),
     )
 
-    # Instantiate the logger for each class of using it
-    logger = logging.getLogger(name)
-
-    # set the logging level based on the user selection
-    logger.setLevel(log_level)
-    return logger
+    return structlog.stdlib.get_logger().bind(name=name)
