@@ -1,0 +1,38 @@
+[project]
+name = "ht-mcp"
+version = "0.1.0"
+description = "MCP server exposing HathiTrust catalog data to AI assistants"
+requires-python = ">=3.14"
+readme = "README.md"
+keywords = [
+    "mcp",
+    "catalog",
+    "HathiTrust",
+]
+classifiers = [
+    "Programming Language :: Python :: 3.14",
+]
+dependencies = [
+    "mcp[cli]>=1.30,<2",
+    "httpx>=0.28,<0.29",
+    "pydantic-settings>=2.15,<3",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9,<10",
+    "pytest-asyncio>=1.4,<2",
+    "respx>=0.23,<0.24",
+]
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+# -p no:cacheprovider is to avoid pytest warning about pytest_cache fixture
+# -ra is to show extra test summary info; -q is to suppress pytest header
+addopts = "-ra -q -p no:cacheprovider"
+asyncio_mode = "auto"
+markers = ["integration: requires running catalog service"]
+
+[tool.uv]
+default-groups = "all"
+package = true # This is an application package, so we set this to true to allow building/installing it.
