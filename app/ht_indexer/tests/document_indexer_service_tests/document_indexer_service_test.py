@@ -1,8 +1,18 @@
+import time
 from typing import Any
 from unittest.mock import MagicMock
 
+import pytest
 import requests
 from document_indexer_service.document_indexer_service import DocumentIndexerQueueService
+
+
+@pytest.fixture(autouse=True)
+def sleeps(monkeypatch: pytest.MonkeyPatch) -> list[float]:
+    """Record the backoff waits instead of really sleeping."""
+    recorded: list[float] = []
+    monkeypatch.setattr(time, "sleep", recorded.append)
+    return recorded
 
 
 def _make_service(solr_api_full_text: MagicMock) -> tuple[DocumentIndexerQueueService, MagicMock]:
@@ -18,6 +28,10 @@ def _make_service(solr_api_full_text: MagicMock) -> tuple[DocumentIndexerQueueSe
     service.channel = channel
     service.queue_manager = MagicMock(dead_letter_queue_name="dlq_name")
     service.requeue_message = False
+    service.max_retries = 5
+    service.retry_attempts = {}
+    service.retried_in_batch = 0
+    service.consecutive_retry_batches = 0
     return service, channel
 
 
@@ -187,3 +201,112 @@ def test_process_batch_dead_letters_a_document_that_fails_with_an_unknown_error(
     assert result is False
     assert _dead_lettered_tags(channel) == [10, 11]
     assert channel.basic_nack.call_count == 0
+
+
+# --- Bounded retry and backoff ---------------------------------------------------------------
+
+
+def test_message_that_keeps_getting_a_server_error_is_dead_lettered_after_max_retries() -> None:
+    """A poison message cannot be put back forever (ETT-1894)."""
+    solr_api_full_text = MagicMock()
+    solr_api_full_text.index_documents.return_value = _error_response(503)
+    service, channel = _make_service(solr_api_full_text)
+    service.max_retries = 2
+
+    # The queue hands the same message back each time, with a new delivery tag.
+    for delivery_tag in (10, 11, 12):
+        service.process_batch([{"ht_id": "1"}], [delivery_tag])
+
+    assert _retried_tags(channel) == [10, 11]
+    assert _dead_lettered_tags(channel) == [12]
+    # Its count is cleared once it has left the queue.
+    assert service.retry_attempts == {}
+
+
+def test_outage_never_uses_up_a_messages_retries() -> None:
+    """Good messages must survive any outage: being unreachable is not the message's fault."""
+    solr_api_full_text = MagicMock()
+    solr_api_full_text.index_documents.side_effect = requests.exceptions.ConnectionError("refused")
+    service, channel = _make_service(solr_api_full_text)
+    service.max_retries = 2
+
+    for delivery_tag in range(10, 20):
+        service.process_batch([{"ht_id": "1"}], [delivery_tag])
+
+    assert len(_retried_tags(channel)) == 10
+    assert channel.basic_reject.call_count == 0
+    assert service.retry_attempts == {}
+
+
+def test_retry_count_is_cleared_when_the_message_is_finally_indexed() -> None:
+    solr_api_full_text = MagicMock()
+    solr_api_full_text.index_documents.side_effect = [
+        _error_response(503),  # batch
+        _error_response(503),  # the document alone
+        _ok_response(),  # next delivery
+    ]
+    service, channel = _make_service(solr_api_full_text)
+
+    service.process_batch([{"ht_id": "1"}], [10])
+    assert service.retry_attempts == {"1": 1}
+    service.process_batch([{"ht_id": "1"}], [11])
+
+    assert service.retry_attempts == {}
+    assert _acked_tags(channel) == [11]
+
+
+def test_retries_are_counted_per_message_even_without_an_ht_id() -> None:
+    solr_api_full_text = MagicMock()
+    solr_api_full_text.index_documents.return_value = _error_response(503)
+    service, channel = _make_service(solr_api_full_text)
+    service.max_retries = 1
+
+    for delivery_tag in (10, 11):
+        service.process_batch([{"title": "no id"}], [delivery_tag])
+
+    assert _retried_tags(channel) == [10]
+    assert _dead_lettered_tags(channel) == [11]
+
+
+def test_backoff_doubles_while_batches_keep_failing_and_resets_after_a_clean_one(
+    sleeps: list[float],
+) -> None:
+    solr_api_full_text = MagicMock()
+    solr_api_full_text.index_documents.side_effect = [
+        requests.exceptions.ConnectionError("refused"),
+        requests.exceptions.ConnectionError("refused"),
+        requests.exceptions.ConnectionError("refused"),
+        _ok_response(),  # Solr is back
+        requests.exceptions.ConnectionError("refused"),
+    ]
+    service, _ = _make_service(solr_api_full_text)
+
+    for delivery_tag in range(5):
+        service.process_batch([{"ht_id": str(delivery_tag)}], [delivery_tag])
+
+    assert sleeps == [1.0, 2.0, 4.0, 1.0]
+
+
+def test_backoff_is_capped(sleeps: list[float]) -> None:
+    solr_api_full_text = MagicMock()
+    solr_api_full_text.index_documents.side_effect = requests.exceptions.ConnectionError("refused")
+    service, _ = _make_service(solr_api_full_text)
+    # A very long outage: 2 ** 1000 would overflow a float if the exponent were not limited
+    service.consecutive_retry_batches = 1000
+
+    service.process_batch([{"ht_id": "1"}], [10])
+
+    assert sleeps == [60.0]
+
+
+def test_no_backoff_when_nothing_was_put_back(sleeps: list[float]) -> None:
+    solr_api_full_text = MagicMock()
+    solr_api_full_text.index_documents.side_effect = [
+        _error_response(400),  # batch with a bad document
+        _error_response(400),  # the bad document alone: dead-lettered, not put back
+    ]
+    service, _ = _make_service(solr_api_full_text)
+
+    service.process_batch([{"ht_id": "1"}], [10])
+
+    assert sleeps == []

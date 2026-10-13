@@ -2,6 +2,7 @@ import argparse
 import time
 from typing import Any
 
+import orjson
 import requests
 from ht_indexer_api.ht_indexer_api import HTSolrAPI
 from ht_queue_service.queue_config import QueueParams
@@ -17,6 +18,10 @@ logger = get_ht_logger(name=__name__)
 
 
 class DocumentIndexerQueueService(QueueMultipleConsumer):
+    # Wait after a batch that put messages back: 1s, 2s, 4s... up to the cap.
+    BACKOFF_BASE_SECONDS = 1.0
+    BACKOFF_MAX_SECONDS = 60.0
+
     def __init__(self, solr_api_full_text: HTSolrAPI, queue_params: QueueParams):
         """Initialize the Document Indexer Queue Service.
         :param solr_api_full_text: The Solr API client for full-text indexing
@@ -25,6 +30,51 @@ class DocumentIndexerQueueService(QueueMultipleConsumer):
         # Call the parent class constructor that initializes the connection to the queue
         super().__init__(queue_params)
         self.solr_api_full_text = solr_api_full_text
+        # How many times a message may be put back after Solr answered its own request with a 5xx
+        self.max_retries = queue_params.max_retries
+        # Failed attempts per message, kept in memory only: it starts again from zero on restart.
+        self.retry_attempts: dict[str, int] = {}
+        # Messages put back during the current batch, and consecutive batches that put some back
+        self.retried_in_batch = 0
+        self.consecutive_retry_batches = 0
+
+    @staticmethod
+    def _message_key(message: dict[str, Any]) -> str:
+        ht_id = message.get("ht_id")
+        return (
+            str(ht_id)
+            if ht_id is not None
+            else orjson.dumps(message, option=orjson.OPT_SORT_KEYS).decode()
+        )
+
+    def _exceeded_max_retries(self, message: dict[str, Any]) -> bool:
+        """Record one more failed attempt for the message; True once it has used up its retries."""
+        key = self._message_key(message)
+        self.retry_attempts[key] = self.retry_attempts.get(key, 0) + 1
+        return self.retry_attempts[key] > self.max_retries
+
+    def _ack(self, message: dict[str, Any], delivery_tag: int, channel: BlockingChannel) -> None:
+        self.retry_attempts.pop(self._message_key(message), None)
+        self.positive_acknowledge(channel, delivery_tag)
+
+    def _backoff(self) -> None:
+        """Wait before reading the next batch if this one put messages back, so a down Solr (or a
+        message that keeps failing) is not hit in a tight loop. A clean batch resets the wait.
+        """
+        if self.retried_in_batch == 0:
+            self.consecutive_retry_batches = 0
+            return
+        self.consecutive_retry_batches += 1
+        # The exponent is capped so a very long outage cannot overflow the float
+        delay = min(
+            self.BACKOFF_BASE_SECONDS * 2 ** min(self.consecutive_retry_batches - 1, 16),
+            self.BACKOFF_MAX_SECONDS,
+        )
+        logger.info(
+            f"Backoff process=indexing messages_put_back={self.retried_in_batch} "
+            f"consecutive_batches={self.consecutive_retry_batches} wait_seconds={delay}"
+        )
+        time.sleep(delay)
 
     def _index(self, documents: list[dict[str, Any]]) -> None:
         """Send documents to Solr in one request. Raises if the request or the response fails."""
@@ -41,12 +91,14 @@ class DocumentIndexerQueueService(QueueMultipleConsumer):
     ) -> None:
         """Leave a message on the original queue to be tried again; the message is not at fault."""
         logger.warning(f"Retry process=indexing ht_id={message.get('ht_id')} error={error}")
+        self.retried_in_batch += 1
         self.retry_message(channel, delivery_tag)
 
     def _dead_letter(
         self, message: dict[str, Any], delivery_tag: int, error: Exception, channel: BlockingChannel
     ) -> None:
         """Send a message that can never be indexed to the Dead Letter Queue."""
+        self.retry_attempts.pop(self._message_key(message), None)
         error_info = get_error_message_by_document("DocumentIndexerService", error, message)
         logger.error(
             f"Failed process=indexing sent to {self.queue_manager.dead_letter_queue_name} "
@@ -70,6 +122,7 @@ class DocumentIndexerQueueService(QueueMultipleConsumer):
         if self.channel is None:
             raise RuntimeError("Unable to establish a RabbitMQ channel")
         channel = self.channel
+        self.retried_in_batch = 0
 
         try:
             self._index(batch)
@@ -79,12 +132,13 @@ class DocumentIndexerQueueService(QueueMultipleConsumer):
             )
             all_acked = self._handle_failed_batch(batch, delivery_tags, e, channel)
         else:
-            for delivery_tag in delivery_tags:
-                self.positive_acknowledge(channel, delivery_tag)
+            for message, delivery_tag in zip(batch, delivery_tags, strict=True):
+                self._ack(message, delivery_tag, channel)
             all_acked = True
 
         batch.clear()
         delivery_tags.clear()
+        self._backoff()
         return all_acked
 
     def _handle_failed_batch(
@@ -117,12 +171,21 @@ class DocumentIndexerQueueService(QueueMultipleConsumer):
                 all_acked = False
                 if classify_failure(doc_error) is FailureKind.PERMANENT:
                     self._dead_letter(message, delivery_tag, doc_error, channel)
+                elif _solr_cannot_be_used(doc_error):
+                    # Not the message's fault, so this attempt is not counted against it.
+                    self._retry(message, delivery_tag, doc_error, channel)
+                    blocked_by = doc_error
+                elif self._exceeded_max_retries(message):
+                    # Solr keeps answering this one document with a 5xx: treat it as a poison message.
+                    logger.error(
+                        f"Retries exhausted process=indexing ht_id={message.get('ht_id')} "
+                        f"max_retries={self.max_retries}"
+                    )
+                    self._dead_letter(message, delivery_tag, doc_error, channel)
                 else:
                     self._retry(message, delivery_tag, doc_error, channel)
-                    if _solr_cannot_be_used(doc_error):
-                        blocked_by = doc_error
             else:
-                self.positive_acknowledge(channel, delivery_tag)
+                self._ack(message, delivery_tag, channel)
         return all_acked
 
 

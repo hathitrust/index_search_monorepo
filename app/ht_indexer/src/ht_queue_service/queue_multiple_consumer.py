@@ -55,13 +55,15 @@ class QueueMultipleConsumer(ABC):
         Steps to implement on the subclass:
         Method to process the batch of messages.
         If the processing is successful, acknowledge all the messages in the batch.
-        If the processing fails, requeue all the failed messages to the Dead Letter Queue.
+        If the processing fails, handle each failed message: put it back on the queue
+        (retry_message), send it to the Dead Letter Queue (dead_letter_message), or let
+        requeue_message decide (reject_message).
         Clear the batch and the delivery tags lists.
-        Return True if the batch was processed successfully, False if it was dead-lettered.
+        Return True if every message was acknowledged, False otherwise.
         consume_batch logs this but does not stop on False -- it moves on to the next batch.
         :param batch: List of messages to process.
         :param delivery_tag: List of delivery tags for acknowledging messages.
-        :return: True on success, False if the batch was dead-lettered.
+        :return: True if every message was acknowledged, False otherwise.
         """
         pass
 
@@ -124,9 +126,10 @@ class QueueMultipleConsumer(ABC):
             try:
                 batch_data = [orjson.loads(body) for body in batch]
                 # Process batch of messages and acknowledge them if successful. process_batch
-                # returns False when the whole batch failed and was dead-lettered; that's
-                # logged here for visibility, but the consumer keeps running and moves on to
-                # the next batch rather than stopping the service (ETT-1769).
+                # returns False when some message was not acknowledged (put back on the queue
+                # or dead-lettered); that's logged here for visibility, but the consumer keeps
+                # running and moves on to the next batch rather than stopping the service
+                # (ETT-1769). Subclasses are responsible for bounding their own retries.
                 if not self.process_batch(batch_data, delivery_tag):
                     logger.info("Batch processing failed; continuing to the next batch.")
 

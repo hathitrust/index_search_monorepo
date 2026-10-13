@@ -5,6 +5,9 @@ queue:
     queue_name: indexer_queue
     batch_size: 10
     requeue_message: false
+    # How many times a message may be put back on the queue after Solr answers its own request
+    # with a 5xx, before it is sent to the Dead Letter Queue
+    max_retries: 5
     shutdown_on_empty_queue: false
     # The queue type
     exchange_type: direct
