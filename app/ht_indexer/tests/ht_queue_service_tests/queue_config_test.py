@@ -123,3 +123,60 @@ def test_unprefixed_env_var_is_ignored_when_prefix_given(
 
     # The unprefixed QUEUE_HOST env var must not leak into a SRC_-prefixed config.
     assert params.host == "src-env-host"
+
+
+@pytest.mark.parametrize(
+    ("overrides", "expected"),
+    [
+        pytest.param({}, 16_777_216, id="missing-uses-default"),
+        pytest.param({"max_message_size": 1000}, 1000, id="from-app-config"),
+    ],
+)
+def test_max_message_size_resolves_from_app_config(
+    tmp_path: Path,
+    global_config_path: Path,
+    overrides: dict[str, Any],
+    expected: int,
+) -> None:
+    """Test that max_message_size resolves correctly from the app config or uses the default."""
+    app_path = _write_yaml(tmp_path / "app.yml", _base_app_config(**overrides))
+
+    params = QueueConfig(global_config_path, app_path).get_params()
+
+    assert params.max_message_size == expected
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        pytest.param(
+            "max_message_size",
+            0,
+            "max_message_size must be between 1 and 536870912 bytes, got 0",
+            id="max-message-size-zero",
+        ),
+        pytest.param(
+            "max_message_size",
+            536_870_913,
+            "max_message_size must be between 1 and 536870912 bytes, got 536870913",
+            id="max-message-size-above-rabbitmq-max",
+        ),
+        pytest.param(
+            "batch_size", 0, "batch_size must be between 1 and 65535, got 0", id="batch-size-zero"
+        ),
+        pytest.param(
+            "batch_size",
+            65_536,
+            "batch_size must be between 1 and 65535, got 65536",
+            id="batch-size-above-amqp-max",
+        ),
+    ],
+)
+def test_queue_params_out_of_range_raises_value_error(
+    tmp_path: Path, global_config_path: Path, field: str, value: int, message: str
+) -> None:
+    """Test that QueueConfig raises a ValueError when a parameter is out of the valid range."""
+    app_path = _write_yaml(tmp_path / "app.yml", _base_app_config(**{field: value}))
+
+    with pytest.raises(ValueError, match=message):
+        QueueConfig(global_config_path, app_path)
