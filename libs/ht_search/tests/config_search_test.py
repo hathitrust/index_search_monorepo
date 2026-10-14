@@ -1,4 +1,7 @@
+from dotenv import load_dotenv
 from ht_search.config_search import DEFAULT_SOLR_PARAMS, default_solr_params
+
+load_dotenv()
 
 
 class TestDefaultSolrParams:

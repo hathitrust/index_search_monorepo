@@ -1,23 +1,14 @@
-import os
 import threading
 from typing import Any
 
 from sqlalchemy import create_engine, exc, text
 from sqlalchemy.engine import Engine
 
+from ht_utils.ht_env_config import HtEnvConfig
 from ht_utils.ht_logger import get_ht_logger
 from ht_utils.ht_utils import get_general_error_message
 
 logger = get_ht_logger(name=__name__)
-
-
-class MissingMysqlConfigError(RuntimeError):
-    """Raised when a required MySQL credential env var is missing.
-
-    MYSQL_USER/MYSQL_PASS must be supplied explicitly rather than silently
-    defaulted. A missing credential should fail loudly at startup, not connect
-    as a guessed identity and surface as silent query failures later.
-    """
 
 
 class HtMysql:
@@ -122,38 +113,27 @@ class HtMysql:
             logger.error(f"Error updating status: {e}")
 
 
-def _require_env(name: str) -> str:
-    """Return the env var value, or raise MissingMysqlConfigError if unset/empty.
-
-    :param name: Name of the environment variable to retrieve
-    :return: Value of the environment variable
-    :raises MissingMysqlConfigError: If the environment variable is not set or empty
-    """
-    value = os.getenv(name)
-    if not value:
-        logger.error(f"Error: `{name}` environment variable required")
-        raise MissingMysqlConfigError(f"`{name}` environment variable required")
-    return value
-
-
 def get_mysql_conn(pool_size: int = 1) -> HtMysql:
-    """MYSQL_HOST/MYSQL_DATABASE are not secrets, so if they are not provides, it will initiallice to default.
+    """Connection info must be provided as environment variables:
 
-    MYSQL_USER/MYSQL_PASS are credentials: so, the application will fail fast if there are not provided. We don't want to silently
-    connect as default to a guessed identity.
+    MYSQL_HT_RO_HOST
+    MYSQL_HT_RO_USERNAME
+    MYSQL_HT_RO_PASSWORD
+    MYSQL_HT_RO_DATABASE
 
     :param pool_size: Number of connections in the pool
     :return: HtMysql instance
     """
-    mysql_host = os.getenv("MYSQL_HOST", "mysql-sdr")
-    mysql_database = os.getenv("MYSQL_DATABASE", "ht")
-    mysql_user = _require_env("MYSQL_USER")
-    mysql_pass = _require_env("MYSQL_PASS")
+    env_config = HtEnvConfig()
+    host = env_config.mysql_ht_ro_host
+    database = env_config.mysql_ht_ro_database
+    username = env_config.mysql_ht_ro_username
+    password = env_config.mysql_ht_ro_password
 
-    logger.info(f"Connecting to MySql_Host: {mysql_host} database: {mysql_database}")
+    logger.info(f"Connecting to MySql_Host: {host} database: {database}")
 
-    ht_mysql = HtMysql(mysql_host, mysql_user, mysql_pass, mysql_database, pool_size=pool_size)
+    ht_mysql = HtMysql(host, username, password, database, pool_size=pool_size)
 
-    logger.info(f"Connected to MySql database `{mysql_database}`")
+    logger.info(f"Connected to MySql database `{database}`")
 
     return ht_mysql

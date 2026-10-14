@@ -1,10 +1,10 @@
 import argparse
-import os
 import sys
 
 from config import config_queue_file_path
 from ht_indexer_api.ht_indexer_api import HTSolrAPI
 from ht_queue_service.queue_config import QueueConfig
+from ht_utils.ht_env_config import HtEnvConfig
 from ht_utils.ht_logger import get_ht_logger
 from ht_utils.ht_utils import get_general_error_message
 
@@ -37,8 +37,9 @@ class IndexerServiceArguments:
 
         self.args = parser.parse_args()
 
-        solr_user = os.getenv("SOLR_USER")
-        solr_password = os.getenv("SOLR_PASSWORD")
+        env_config = HtEnvConfig()
+        solr_user = env_config.solr_user
+        solr_password = env_config.solr_password
 
         self.solr_api_full_text = HTSolrAPI(
             url=self.args.solr_indexing_api, user=solr_user, password=solr_password

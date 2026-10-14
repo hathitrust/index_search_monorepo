@@ -16,10 +16,10 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
+from ht_utils.ht_env_config import HtEnvConfig
 from ht_utils.ht_logger import get_ht_logger
 from ht_utils.ht_mysql import HtMysql, get_mysql_conn
 from ht_utils.ht_utils import (
-    get_solr_url,
     normalize_catalog_id_pad_zeros,
     normalize_catalog_id_stripped_zeros,
     split_into_batches,
@@ -100,11 +100,6 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--env", default=os.environ.get("HT_ENVIRONMENT", "dev"), help="Lookup environment."
-    )
-    parser.add_argument(
-        "--solr-url",
-        default=os.environ.get("SOLR_URL"),
-        help="Override Solr base URL, e.g. http://localhost:8983/solr/catalog.",
     )
     return parser.parse_args()
 
@@ -218,7 +213,7 @@ def fetch_title_metadata_from_solr_batch(
     if not batch:
         return {}
 
-    query_url = f"{get_solr_url()}/query"
+    query_url = f"{HtEnvConfig().catalog_solr_ro_url}/query"
     params = {
         "q": "*:*",
         "fl": ",".join(SOLR_FIELDS),
@@ -226,9 +221,9 @@ def fetch_title_metadata_from_solr_batch(
         "wt": "json",
     }
     headers = {"Content-Type": "application/x-www-form-urlencoded"}
-    if os.getenv("SOLR_USER") and os.getenv("SOLR_PASSWORD"):
-        raw_auth = f"{os.environ['SOLR_USER']}:{os.environ['SOLR_PASSWORD']}".encode()
-        headers["Authorization"] = f"Basic {base64.b64encode(raw_auth).decode('ascii')}"
+    env_config = HtEnvConfig()
+    raw_auth = f"{env_config.solr_user}:{env_config.solr_password}".encode()
+    headers["Authorization"] = f"Basic {base64.b64encode(raw_auth).decode('ascii')}"
 
     normalized_batch = [normalize_catalog_id_pad_zeros(catalog_id) for catalog_id in batch]
 

@@ -5,8 +5,8 @@ from argparse import ArgumentParser
 from statistics import mean, median
 
 import requests
-from ht_search.config_search import CATALOG_SOLR_URL, FULL_TEXT_SOLR_URL
 from ht_search.export_all_results import SolrExporter
+from ht_utils.ht_env_config import HtEnvConfig
 from ht_utils.ht_logger import get_ht_logger
 from requests.auth import HTTPBasicAuth
 
@@ -91,7 +91,6 @@ def main():
 
     parser = ArgumentParser()
     parser.add_argument("--env", default=os.environ.get("HT_ENVIRONMENT", "dev"))
-    parser.add_argument("--solr_host", help="Solr url", default=None)
     parser.add_argument("--collection_name", help="Name of the collection", default=None)
     parser.add_argument("--cluster_name", help="It can be catalog or fulltext", required=True)
 
@@ -107,14 +106,15 @@ def main():
     logger.info("Starting Solr Query Performance Test...")
     start_time = time.time()
 
+    env_config = HtEnvConfig()
     # Default parameters are for full-text search
-    solr_host = FULL_TEXT_SOLR_URL[args.env]
+    solr_host = env_config.full_text_solr_ro_url
     config_files = "full_text_search"
     conf_query = "ocr"
 
     # Overwrite default parameter for Catalog search
     if args.cluster_name == "catalog":
-        solr_host = CATALOG_SOLR_URL[args.env]
+        solr_host = env_config.catalog_solr_ro_url
         config_files = "catalog_search"
         conf_query = "titleonly"
 
@@ -135,10 +135,7 @@ def main():
 
         query = "health"
         solr_exporter = SolrExporter(
-            solr_base_url,
-            args.env,
-            user=os.getenv("SOLR_USER"),
-            password=os.getenv("SOLR_PASSWORD"),
+            solr_base_url, args.env, user=env_config.solr_user, password=env_config.solr_password
         )
         # '"good"'
         for x in solr_exporter.run_cursor(query, query_config_file_path, conf_query=conf_query):
