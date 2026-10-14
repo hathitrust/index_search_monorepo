@@ -109,6 +109,9 @@ class QueueMultipleConsumer(ABC):
         while True:
             batch: list[Any] = []  # It stores messages for batch processing
             delivery_tag: list[int] = []  # It stores delivery tags for acknowledging messages
+            #TODO in ETT-1996 basic_get ignores prefetch (basic_qos); this loop is what limits in-flight messages to batch_size.
+            # If this moves to basic_consume, apply basic_qos(prefetch_count=batch_size) on every channel the
+            # consumer opens.
             for _ in range(self.queue_manager.batch_size):
                 # Use basic_get to retrieve a batch of messages and auto_ack=False to tell RabbitMQ to not wait for
                 # an acknowledgment of the message. We will manually acknowledge them

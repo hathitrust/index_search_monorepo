@@ -12,6 +12,7 @@ def string_preparation(doc_content: bytes) -> str:
     :return: Processed string
     """
 
+    # TODO: ETT-1993 - stops indexing XML-escaped text in OCR and allfields
     try:
         str_content = doc_content.decode("utf-8")
         # Remove line breaks and extra spaces

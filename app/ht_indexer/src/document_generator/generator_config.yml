@@ -44,3 +44,7 @@ tgt_queue:
     connection_timeout: 10
     # The queue retry interval
     retry_interval: 5
+    # Largest message body in bytes. Must not exceed the RabbitMQ broker's max_message_size.
+    # 16 MiB is the RabbitMQ 4.x default (https://www.rabbitmq.com/docs/limits#:~:text=unlimited-,max_message_size,-integer%20(bytes))
+    # and is also safe on rabbitmq:3.13-management, whose default is 128 MiB.
+    max_message_size: 16777216
