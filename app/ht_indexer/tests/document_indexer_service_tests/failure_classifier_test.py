@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 import orjson
 import pytest
 import requests
-from document_indexer_service.failure_classifier import FailureKind, classify_failure
+from document_indexer_service.failure_classifier import FailureKind, classify_failure, failure_type
 from pika.exceptions import AMQPConnectionError
 
 
@@ -41,3 +41,25 @@ def test_classify_failure(exc: Exception, expected: FailureKind) -> None:
 
 def test_http_error_without_a_response_is_permanent() -> None:
     assert classify_failure(requests.exceptions.HTTPError("no response")) is FailureKind.PERMANENT
+
+
+@pytest.mark.parametrize(
+    ("exc", "expected"),
+    [
+        # These labels appear in log lines that Loki alert rules match on: keep them stable.
+        (_http_error(503), "http_503"),
+        (_http_error(400), "http_400"),
+        (_http_error(401), "http_401"),
+        (requests.exceptions.HTTPError("no response"), "http_unknown"),
+        (requests.exceptions.Timeout("slow"), "timeout"),
+        (requests.exceptions.ReadTimeout("slow"), "timeout"),
+        # ConnectTimeout is both a Timeout and a ConnectionError; "timeout" is the more useful label
+        (requests.exceptions.ConnectTimeout("slow"), "timeout"),
+        (requests.exceptions.ConnectionError("refused"), "connection"),
+        (AMQPConnectionError("broker down"), "amqp"),
+        (orjson.JSONEncodeError("bad"), "serialization"),
+        (RuntimeError("???"), "unknown"),
+    ],
+)
+def test_failure_type(exc: Exception, expected: str) -> None:
+    assert failure_type(exc) == expected

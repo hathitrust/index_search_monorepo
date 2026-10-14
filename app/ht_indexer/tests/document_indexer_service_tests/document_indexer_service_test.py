@@ -310,3 +310,119 @@ def test_no_backoff_when_nothing_was_put_back(sleeps: list[float]) -> None:
     service.process_batch([{"ht_id": "1"}], [10])
 
     assert sleeps == []
+
+
+# --- Structured log lines (alert contract) ---------------------------------------------------
+# Loki alert rules match on these lines. If one of these tests has to change, the alert rules
+# need to change with it.
+
+
+def _log_lines(caplog: pytest.LogCaptureFixture) -> list[str]:
+    return [record.getMessage() for record in caplog.records]
+
+
+def test_success_is_logged_as_documents_indexed(caplog: pytest.LogCaptureFixture) -> None:
+    caplog.set_level("INFO")
+    solr_api_full_text = MagicMock()
+    solr_api_full_text.index_documents.return_value = _ok_response()
+    service, _ = _make_service(solr_api_full_text)
+
+    service.process_batch(_batch(), [10, 11])
+
+    (line,) = [line for line in _log_lines(caplog) if line.startswith("event=documents_indexed")]
+    assert line.startswith("event=documents_indexed docs=2 http_status=200 seconds=")
+
+
+def test_solr_outage_is_logged_as_a_transient_solr_request_failure(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level("INFO")
+    solr_api_full_text = MagicMock()
+    solr_api_full_text.index_documents.side_effect = requests.exceptions.ConnectionError("refused")
+    service, _ = _make_service(solr_api_full_text)
+
+    service.process_batch(_batch(), [10, 11])
+
+    lines = _log_lines(caplog)
+    assert (
+        "event=solr_request_failed scope=batch docs=2 failure_kind=transient "
+        "failure_type=connection error='refused'"
+    ) in lines
+    assert "event=message_retried ht_id=1 failure_kind=transient error='refused'" in lines
+    assert not any(line.startswith("event=message_dead_lettered") for line in lines)
+
+
+def test_bad_document_is_logged_as_permanent_and_dead_lettered(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level("INFO")
+    solr_api_full_text = MagicMock()
+    solr_api_full_text.index_documents.return_value = _error_response(400)
+    service, _ = _make_service(solr_api_full_text)
+
+    service.process_batch([{"ht_id": "1"}], [10])
+
+    lines = _log_lines(caplog)
+    failures = [line for line in lines if line.startswith("event=solr_request_failed")]
+    assert [line.split(" error=")[0] for line in failures] == [
+        "event=solr_request_failed scope=batch docs=1 failure_kind=permanent failure_type=http_400",
+        "event=solr_request_failed scope=document docs=1 failure_kind=permanent failure_type=http_400",
+    ]
+    (dead_lettered,) = [line for line in lines if line.startswith("event=message_dead_lettered")]
+    assert dead_lettered.startswith(
+        "event=message_dead_lettered ht_id=1 reason=bad_document queue=dlq_name "
+        "failure_kind=permanent error_detail="
+    )
+
+
+def test_bad_credentials_are_logged_as_config_error(caplog: pytest.LogCaptureFixture) -> None:
+    caplog.set_level("INFO")
+    solr_api_full_text = MagicMock()
+    solr_api_full_text.index_documents.return_value = _error_response(401)
+    service, _ = _make_service(solr_api_full_text)
+
+    service.process_batch(_batch(), [10, 11])
+
+    assert any(
+        line.startswith(
+            "event=solr_request_failed scope=batch docs=2 failure_kind=config_error "
+            "failure_type=http_401"
+        )
+        for line in _log_lines(caplog)
+    )
+
+
+def test_counted_retries_log_the_attempt_and_exhaustion_is_the_dead_letter_reason(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level("INFO")
+    solr_api_full_text = MagicMock()
+    solr_api_full_text.index_documents.return_value = _error_response(503)
+    service, _ = _make_service(solr_api_full_text)
+    service.max_retries = 1
+
+    for delivery_tag in (10, 11):
+        service.process_batch([{"ht_id": "1"}], [delivery_tag])
+
+    lines = _log_lines(caplog)
+    assert any(
+        line.startswith("event=message_retried ht_id=1 failure_kind=transient attempt=1/1 error=")
+        for line in lines
+    )
+    assert any(
+        line.startswith("event=message_dead_lettered ht_id=1 reason=retries_exhausted")
+        for line in lines
+    )
+
+
+def test_backoff_is_logged(caplog: pytest.LogCaptureFixture) -> None:
+    caplog.set_level("INFO")
+    solr_api_full_text = MagicMock()
+    solr_api_full_text.index_documents.side_effect = requests.exceptions.ConnectionError("refused")
+    service, _ = _make_service(solr_api_full_text)
+
+    service.process_batch(_batch(), [10, 11])
+
+    assert (
+        "event=indexing_backoff messages_put_back=2 consecutive_batches=1 wait_seconds=1.0"
+    ) in _log_lines(caplog)

@@ -48,3 +48,24 @@ def classify_failure(exc: Exception) -> FailureKind:
         return FailureKind.PERMANENT
 
     return FailureKind.PERMANENT
+
+
+def failure_type(exc: Exception) -> str:
+    """A short, stable label for the failure, used in log lines that alert rules match on.
+
+    One of: http_<status> (e.g. http_503), http_unknown, timeout, connection, amqp,
+    serialization, unknown. Do not rename these without checking the Loki alert rules.
+    """
+    if isinstance(exc, requests.exceptions.HTTPError):
+        status = exc.response.status_code if exc.response is not None else None
+        return f"http_{status}" if status is not None else "http_unknown"
+    # Checked before ConnectionError: ConnectTimeout is both, and "timeout" is the more useful label.
+    if isinstance(exc, requests.exceptions.Timeout):
+        return "timeout"
+    if isinstance(exc, requests.exceptions.ConnectionError):
+        return "connection"
+    if isinstance(exc, AMQPError):
+        return "amqp"
+    if isinstance(exc, orjson.JSONEncodeError):
+        return "serialization"
+    return "unknown"
