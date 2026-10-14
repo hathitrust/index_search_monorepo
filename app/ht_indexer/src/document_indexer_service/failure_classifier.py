@@ -19,6 +19,11 @@ class FailureKind(enum.Enum):
 
 _AUTH_STATUS_CODES = {401, 403}
 
+# Solr, or a proxy in front of it, says it cannot take requests right now: too many requests,
+# bad gateway, service unavailable, gateway timeout. This says nothing about the document, so
+# these answers never count against a message's retries (see the 5xx note in classify_failure).
+UNAVAILABLE_STATUS_CODES = {429, 502, 503, 504}
+
 
 def classify_failure(exc: Exception) -> FailureKind:
     """Decide whether a failure while indexing is transient, permanent or a config error.
@@ -30,8 +35,10 @@ def classify_failure(exc: Exception) -> FailureKind:
         status = exc.response.status_code if exc.response is not None else None
         if status in _AUTH_STATUS_CODES:
             return FailureKind.CONFIG_ERROR
-        # Solr sometimes answers 500 for a bad document (e.g. malformed JSON), so a 5xx is only
-        # "probably" transient; the per-message retry limit dead-letters it eventually.
+        if status in UNAVAILABLE_STATUS_CODES:
+            return FailureKind.TRANSIENT
+        # Solr sometimes answers 500 for a bad document (e.g. malformed JSON), so any other 5xx is
+        # only "probably" transient; the per-message retry limit dead-letters it eventually.
         if status is not None and status >= 500:
             return FailureKind.TRANSIENT
         return FailureKind.PERMANENT

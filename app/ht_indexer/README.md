@@ -247,16 +247,17 @@ dead-lettered (ETT-1894).
 | What happened                                                       | What the indexer does                                                                                           |
 |---------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------|
 | The whole batch is indexed                                          | Acknowledges every message                                                                                      |
-| Solr is unreachable, times out, or rejects our login (401/403)      | Puts the whole batch back on the queue. Nothing is dead-lettered, and a login problem is logged as `config_error` |
+| Solr is unreachable, times out, says it is unavailable (429, 502, 503, 504), or rejects our login (401/403) | Puts the whole batch back on the queue. Nothing is dead-lettered, and a login problem is logged as `config_error` |
 | Any other failure of the batch                                      | Retries each document on its own: acknowledges the ones that work, then handles each failure as below           |
 | A document alone fails with a 4xx, or with an unknown error          | Dead-letters it (`reason=bad_document`)                                                                         |
-| A document alone fails with a 5xx                                   | Puts it back on the queue. After `max_retries` (default 5, `indexer_config.yml`) it is dead-lettered (`reason=retries_exhausted`) |
+| A document alone fails with any other 5xx (e.g. 500)                | Puts it back on the queue. After `max_retries` (default 5, `indexer_config.yml`) it is dead-lettered (`reason=retries_exhausted`) |
 
 So a batch of 3 with 1 bad document gives 2 acknowledgements and 1 dead-lettered message.
 
 * After a batch that put messages back, the service waits before reading again: 1s, 2s, 4s... up to 60s. A clean batch
   resets the wait.
-* Only a 5xx answer to a single document counts towards `max_retries`. An outage never uses up a message's retries.
+* Only a 5xx answer to a single document, other than 502, 503 and 504, counts towards `max_retries` (Solr answers 500 for
+  some bad documents). An outage, including a proxy answering 502/503/504, never uses up a message's retries.
 * The retry count is kept in memory, so it starts again from zero when the service restarts.
 
 #### Logs and alerts

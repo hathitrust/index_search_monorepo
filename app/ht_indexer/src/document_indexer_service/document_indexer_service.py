@@ -11,7 +11,12 @@ from ht_utils.ht_logger import get_ht_logger
 from ht_utils.ht_utils import get_error_message_by_document
 from pika.adapters.blocking_connection import BlockingChannel
 
-from .failure_classifier import FailureKind, classify_failure, failure_type
+from .failure_classifier import (
+    UNAVAILABLE_STATUS_CODES,
+    FailureKind,
+    classify_failure,
+    failure_type,
+)
 from .indexer_arguments import IndexerServiceArguments
 
 logger = get_ht_logger(name=__name__)
@@ -261,13 +266,17 @@ class DocumentIndexerQueueService(QueueMultipleConsumer):
 
 def _solr_cannot_be_used(error: Exception) -> bool:
     """True when retrying a single document is pointless: Solr is unreachable (no HTTP answer at
-    all) or is refusing our credentials. A 5xx answer is not included, since one bad document
-    can cause it.
+    all), says it is unavailable (429/502/503/504), or is refusing our credentials. Any other 5xx
+    answer is not included, since one bad document can cause it.
     """
     kind = classify_failure(error)
     if kind is FailureKind.CONFIG_ERROR:
         return True
-    return kind is FailureKind.TRANSIENT and not isinstance(error, requests.exceptions.HTTPError)
+    if kind is not FailureKind.TRANSIENT:
+        return False
+    if not isinstance(error, requests.exceptions.HTTPError):
+        return True
+    return error.response is not None and error.response.status_code in UNAVAILABLE_STATUS_CODES
 
 
 def start_service(solr_api_full_text: HTSolrAPI, queue_params: QueueParams) -> None:

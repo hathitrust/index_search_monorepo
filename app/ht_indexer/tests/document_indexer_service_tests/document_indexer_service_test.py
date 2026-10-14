@@ -141,7 +141,7 @@ def test_process_batch_keeps_messages_on_queue_when_solr_rejects_credentials() -
 
 def test_process_batch_retries_documents_one_by_one_when_solr_answers_with_a_server_error() -> None:
     solr_api_full_text = MagicMock()
-    solr_api_full_text.index_documents.return_value = _error_response(503)
+    solr_api_full_text.index_documents.return_value = _error_response(500)
     service, channel = _make_service(solr_api_full_text)
 
     result = service.process_batch(_batch(), [10, 11])
@@ -156,7 +156,7 @@ def test_process_batch_retries_documents_one_by_one_when_solr_answers_with_a_ser
 def test_process_batch_acks_everything_when_the_server_error_was_momentary() -> None:
     solr_api_full_text = MagicMock()
     solr_api_full_text.index_documents.side_effect = [
-        _error_response(503),
+        _error_response(500),
         _ok_response(),
         _ok_response(),
     ]
@@ -209,7 +209,7 @@ def test_process_batch_dead_letters_a_document_that_fails_with_an_unknown_error(
 def test_message_that_keeps_getting_a_server_error_is_dead_lettered_after_max_retries() -> None:
     """A poison message cannot be put back forever (ETT-1894)."""
     solr_api_full_text = MagicMock()
-    solr_api_full_text.index_documents.return_value = _error_response(503)
+    solr_api_full_text.index_documents.return_value = _error_response(500)
     service, channel = _make_service(solr_api_full_text)
     service.max_retries = 2
 
@@ -241,8 +241,8 @@ def test_outage_never_uses_up_a_messages_retries() -> None:
 def test_retry_count_is_cleared_when_the_message_is_finally_indexed() -> None:
     solr_api_full_text = MagicMock()
     solr_api_full_text.index_documents.side_effect = [
-        _error_response(503),  # batch
-        _error_response(503),  # the document alone
+        _error_response(500),  # batch
+        _error_response(500),  # the document alone
         _ok_response(),  # next delivery
     ]
     service, channel = _make_service(solr_api_full_text)
@@ -257,7 +257,7 @@ def test_retry_count_is_cleared_when_the_message_is_finally_indexed() -> None:
 
 def test_retries_are_counted_per_message_even_without_an_ht_id() -> None:
     solr_api_full_text = MagicMock()
-    solr_api_full_text.index_documents.return_value = _error_response(503)
+    solr_api_full_text.index_documents.return_value = _error_response(500)
     service, channel = _make_service(solr_api_full_text)
     service.max_retries = 1
 
@@ -397,7 +397,7 @@ def test_counted_retries_log_the_attempt_and_exhaustion_is_the_dead_letter_reaso
 ) -> None:
     caplog.set_level("INFO")
     solr_api_full_text = MagicMock()
-    solr_api_full_text.index_documents.return_value = _error_response(503)
+    solr_api_full_text.index_documents.return_value = _error_response(500)
     service, _ = _make_service(solr_api_full_text)
     service.max_retries = 1
 
@@ -426,3 +426,23 @@ def test_backoff_is_logged(caplog: pytest.LogCaptureFixture) -> None:
     assert (
         "event=indexing_backoff messages_put_back=2 consecutive_batches=1 wait_seconds=1.0"
     ) in _log_lines(caplog)
+
+
+@pytest.mark.parametrize("status_code", [429, 502, 503, 504])
+def test_unavailable_answers_keep_messages_on_the_queue_and_never_use_up_retries(
+    status_code: int,
+) -> None:
+    """A proxy or Solr saying 'unavailable' during an outage must not dead-letter good messages."""
+    solr_api_full_text = MagicMock()
+    solr_api_full_text.index_documents.return_value = _error_response(status_code)
+    service, channel = _make_service(solr_api_full_text)
+    service.max_retries = 2
+
+    for delivery_tag in range(10, 20):
+        service.process_batch([{"ht_id": "1"}], [delivery_tag])
+
+    assert len(_retried_tags(channel)) == 10
+    assert channel.basic_reject.call_count == 0
+    assert service.retry_attempts == {}
+    # One request per batch: posting each document alone would get the same answer
+    assert solr_api_full_text.index_documents.call_count == 10

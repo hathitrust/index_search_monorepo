@@ -169,3 +169,12 @@ def test_replay_moves_a_dead_lettered_message_back_to_the_main_queue(
         channel.queue_purge(queue_manager.queue_name)
         channel.queue_purge(queue_manager.dead_letter_queue_name)
         close_channel_and_connection(consumer)
+
+
+def test_a_failing_nack_does_not_hide_the_original_publish_error() -> None:
+    channel, queue_manager = _fake_broker([_body("a")])
+    channel.basic_publish.side_effect = pika.exceptions.ChannelClosed(320, "gone")
+    channel.basic_nack.side_effect = pika.exceptions.ChannelWrongStateError("closed")
+
+    with pytest.raises(pika.exceptions.ChannelClosed):
+        replay_dead_letter_messages(channel, queue_manager)

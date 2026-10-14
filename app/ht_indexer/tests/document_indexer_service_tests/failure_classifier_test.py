@@ -23,6 +23,10 @@ def _http_error(status_code: int) -> requests.exceptions.HTTPError:
         # Solr answered with a server error
         (_http_error(500), FailureKind.TRANSIENT),
         (_http_error(503), FailureKind.TRANSIENT),
+        # Solr or a proxy says it is unavailable: never the document's fault
+        (_http_error(429), FailureKind.TRANSIENT),
+        (_http_error(502), FailureKind.TRANSIENT),
+        (_http_error(504), FailureKind.TRANSIENT),
         # Bad document: verified against local Solr (unknown field -> 400, missing id -> 400)
         (_http_error(400), FailureKind.PERMANENT),
         (_http_error(422), FailureKind.PERMANENT),

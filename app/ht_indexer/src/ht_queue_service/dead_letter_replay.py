@@ -98,11 +98,16 @@ def replay_dead_letter_messages(
                 mandatory=True,  # Raise UnroutableError instead of dropping it silently
             )
         except (UnroutableError, NackError, AMQPError) as error:
-            # Leave this message in the dead-letter queue and stop
-            channel.basic_nack(delivery_tag=delivery_tag, requeue=True)
+            # Leave this message in the dead-letter queue and stop. Log first, and do not let a
+            # failing nack (e.g. the channel closed) hide the original error.
             logger.error(
                 f"event=dlq_replay_failed ht_id={ht_id} replayed={replayed} error={str(error)!r}"
             )
+            try:
+                channel.basic_nack(delivery_tag=delivery_tag, requeue=True)
+            except AMQPError as nack_error:
+                # An unacknowledged message goes back to the queue when the channel closes anyway
+                logger.warning(f"event=dlq_replay_nack_failed error={str(nack_error)!r}")
             raise
         channel.basic_ack(delivery_tag=delivery_tag)
         replayed += 1
