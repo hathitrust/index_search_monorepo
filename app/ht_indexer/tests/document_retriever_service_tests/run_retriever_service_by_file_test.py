@@ -120,8 +120,9 @@ class TestRunRetrieverServiceByFile:
                 logger.info("The queue is empty: Test ended")
                 break
 
-        logger.info(f"Number of messages: {len(list_output_messages)}")
-        logger.info(list_output_messages)
+        logger.info(
+            f"Number of messages: {len(list_output_messages)}", messages=list_output_messages
+        )
 
         assert all(
             item in list_output_messages
