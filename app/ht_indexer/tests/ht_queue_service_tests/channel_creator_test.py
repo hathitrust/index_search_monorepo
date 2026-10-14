@@ -22,7 +22,7 @@ class TestChannelCreator:
             password=get_global_queue_config["queue"]["password"],
             host=get_global_queue_config["queue"]["host"],
             # TODO: global config for heartbeat if needed
-            heartbeat=600
+            heartbeat=600,
         )
 
         # Creating a channel
