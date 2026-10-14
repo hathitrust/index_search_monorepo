@@ -11,8 +11,6 @@ from ht_utils.ht_mysql import HtMysql
 from .document_generator_service import DocumentGeneratorService
 from .generator_arguments import GeneratorServiceArguments
 
-logger = get_ht_logger(name=__name__)
-
 
 class DocumentGeneratorServiceLocal(DocumentGeneratorService):
     def __init__(
@@ -49,6 +47,8 @@ class DocumentGeneratorServiceLocal(DocumentGeneratorService):
         # otherwise override this parameter's own default.
         self.document_local_path = document_local_path or DOCUMENT_LOCAL_PATH
 
+        self.logger = get_ht_logger(name=__name__)
+
         # Create the directory to load the JSON files if it does not exit
         try:
             os.makedirs(
@@ -70,7 +70,7 @@ class DocumentGeneratorServiceLocal(DocumentGeneratorService):
         )
         with open(file_path, "w") as f:
             json.dump(content, f)
-        logger.info(f"File {file_name} created in {file_path}")
+        self.logger.info("created file", filename=file_name, path=file_path)
 
 
 def main() -> None:

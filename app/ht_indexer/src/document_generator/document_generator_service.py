@@ -22,8 +22,6 @@ from ht_utils.ht_utils import (
 from .full_text_document_generator import FullTextDocumentGenerator
 from .generator_arguments import GeneratorServiceArguments
 
-logger = get_ht_logger(name=__name__)
-
 MYSQL_COLUMN_UPDATE = "generator_status"
 # Guard: generator_status is always written, but the shared status and error column never
 # overwrites 'completed'. The guard lives in SET, not WHERE, so the stage's own column is not
@@ -70,6 +68,8 @@ class DocumentGeneratorService(QueueMultipleConsumer):
         self.document_generator = FullTextDocumentGenerator(db_conn)
         self.db_conn = db_conn
 
+        self.logger = get_ht_logger(name=__name__)
+
         self.document_repository = document_repository
         # Always set, even when tgt_local -- previously this attribute was only assigned in
         # the `not tgt_local` branch, so a tgt_local instance would raise AttributeError the
@@ -81,7 +81,10 @@ class DocumentGeneratorService(QueueMultipleConsumer):
     ) -> dict[str, Any]:
 
         start_time = time.time()
-        logger.info(f"Generating document {item_id}")
+
+        logger = self.logger.bind(process="generate_full_text_entry",
+                                  ht_id=item_id)
+        logger.info("Generating document",ht_id=item_id)
 
         # Instantiate each document
         ht_document = HtDocument(document_id=item_id, document_repository=document_repository)
@@ -94,9 +97,7 @@ class DocumentGeneratorService(QueueMultipleConsumer):
             raise FileNotFoundError(
                 f"The file of the ht_id={ht_document.document_id} on the path={ht_document.source_path}.zip not found"
             )
-        logger.info(
-            f"Processing item {ht_document.document_id} using {ht_document.source_path}.zip"
-        )
+        logger.info("Generating from file", file=ht_document.source_path + ".zip")
         try:
             entry = self.document_generator.make_full_text_search_document(ht_document, record)
         except Exception as e:
@@ -107,10 +108,7 @@ class DocumentGeneratorService(QueueMultipleConsumer):
         # Use to get the size of the entry dictionary
         entry_data = json.dumps(entry)
         entry_size = len(entry_data.encode("utf-8"))  # Convert to bytes and get length
-        logger.info(
-            f"Time to generate process=full-text_document ht_id={ht_document.document_id} "
-            f"Time={time.time() - start_time:.10f} Size={entry_size} bytes"
-        )
+        logger.info("Finish",time=time.time() - start_time, size=entry_size)
 
         return entry
 
@@ -123,7 +121,7 @@ class DocumentGeneratorService(QueueMultipleConsumer):
         if self.tgt_queue_producer is None:
             raise RuntimeError("publish_document called on a tgt_local instance")
         message = content
-        logger.info(f"Sending message to queue {content.get('id')}")
+        self.logger.info("Sending message", queue=content.get('id'))
         self.tgt_queue_producer.publish_messages(message)
 
     def log_error_document_generator_service(
@@ -135,16 +133,16 @@ class DocumentGeneratorService(QueueMultipleConsumer):
         """
         error_info = get_error_message_by_document("DocumentGeneratorService", e, document)
 
-        logger.error(f"Document {document.get('ht_id')} failed {error_info}")
+        self.logger.error("document failed",ht_id = document.get('ht_id'),error=error_info)
         if self.channel is None:
             raise RuntimeError("Unable to establish a RabbitMQ channel")
         self.reject_message(self.channel, delivery_tag)
 
-    def process_batch(self, batch: list[Any], delivery_tag: list[int]) -> bool:
-        for message, tag in zip(batch, delivery_tag, strict=True):
+    def process_batch(self, batch: list[Any], delivery_tags: list[int]) -> bool:
+        for message, tag in zip(batch, delivery_tags, strict=True):
             self.generate_document(message, tag)
         batch.clear()
-        delivery_tag.clear()
+        delivery_tags.clear()
         return True
 
     def generate_document(self, message: dict[str, Any], delivery_tag: int) -> None:
@@ -155,7 +153,7 @@ class DocumentGeneratorService(QueueMultipleConsumer):
             self.log_error_document_generator_service(
                 ValueError("message is missing 'ht_id'"), message, delivery_tag
             )
-            logger.warning("Cannot update MySQL generator_status: message has no 'ht_id'")
+            self.logger.warning("Cannot update MySQL generator_status: message has no 'ht_id'")
             return
 
         # try to generate the full text entry dictionary, if it fails, the message is rejected
@@ -207,9 +205,8 @@ class DocumentGeneratorService(QueueMultipleConsumer):
         try:
             self.db_conn.update_status(query, [values])
         except Exception as e:
-            logger.error(
-                f"Failed to update generator_status ht_id={values.get('ht_id')} "
-                f"{get_general_error_message('DocumentGeneratorService', e)}"
+            self.logger.error("Failed to update generator_status", ht_id=values.get('ht_id'),
+                error=get_general_error_message('DocumentGeneratorService', e)
             )
 
 
