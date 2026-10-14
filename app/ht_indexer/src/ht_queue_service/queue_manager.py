@@ -111,7 +111,8 @@ class QueueManager:
             durable=self.durable,
             exclusive=False,
             auto_delete=self.auto_delete,
-            arguments=self.arguments,
+            #  pika-stubs 0.1.3 types queue_declare(arguments=) as DeclareOk; pika accepts a dict of queue arguments
+            arguments=self.arguments,  # type: ignore[arg-type]
         )
 
         # Bind the dead letter exchange to the dead letter queue
