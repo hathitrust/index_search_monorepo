@@ -1,7 +1,5 @@
 import csv
 import json
-import os
-import sys
 import tempfile
 from collections.abc import Iterable, Sequence
 from pathlib import Path
@@ -13,16 +11,6 @@ import yaml
 from ht_utils.ht_logger import get_ht_logger
 
 logger = get_ht_logger(name=__name__)
-
-
-def get_solr_url() -> str:
-    # Get Solr URL
-    solr_url = os.getenv("SOLR_URL")
-    if solr_url is None:
-        logger.error("Error: `SOLR_URL` environment variable required")
-        sys.exit(1)
-    # TODO Remove the line below once SolrExporter been updated self.solr_url = f"{solr_url}/query"
-    return solr_url.strip("/")
 
 
 def get_current_time(

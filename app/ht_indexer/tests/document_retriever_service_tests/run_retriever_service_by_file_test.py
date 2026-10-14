@@ -37,7 +37,6 @@ def get_status_file() -> str:
 @pytest.fixture
 def stub_retriever_external_services(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     """Isolate RetrieverServiceArguments from Solr/MySQL/queue config."""
-    monkeypatch.setenv("SOLR_URL", "http://fake-solr:8983/solr/core-x/")
     with (
         patch("document_retriever_service.retriever_arguments.QueueConfig"),
         patch(

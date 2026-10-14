@@ -5,8 +5,8 @@ from argparse import ArgumentParser
 
 import pandas as pd
 from ht_full_text_search.ht_full_text_searcher import HTFullTextSearcher
-from ht_search.config_search import FULL_TEXT_SOLR_URL
 from ht_search.ht_query.ht_full_text_query import HTFullTextQuery
+from ht_utils.ht_env_config import HtEnvConfig
 from ht_utils.ht_logger import get_ht_logger
 
 logger = get_ht_logger(name=__name__)
@@ -68,7 +68,6 @@ def get_list_phrases(file_path: str) -> list:
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("--env", default=os.environ.get("HT_ENVIRONMENT", "dev"))
-    parser.add_argument("--solr_url", help="Solr url", default=None)
     parser.add_argument("--fl", help="Fields to return", default=["author", "id", "title", "score"])
     parser.add_argument(
         "--filter_path", help="Path of a JSON file used to filter Solr results", default=None
@@ -85,14 +84,10 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    # Receive as a parameter an specific solr url
-    if args.solr_url:
-        solr_url = args.solr_url
-    else:  # Use the default solr url, depending on the environment. If prod environment, use shards
-        solr_url = FULL_TEXT_SOLR_URL[args.env]
-
-    solr_user = os.getenv("SOLR_USER")
-    solr_password = os.getenv("SOLR_PASSWORD")
+    env_config = HtEnvConfig()
+    solr_url = env_config.full_text_solr_ro_url
+    solr_user = env_config.solr_user
+    solr_password = env_config.solr_password
 
     fl = args.fl
     use_shards = False  # By default is False

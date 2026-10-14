@@ -4,8 +4,8 @@ from argparse import ArgumentParser
 from pathlib import Path
 
 from ht_search.config_files import config_files_path
-from ht_search.config_search import CATALOG_SOLR_URL, FULL_TEXT_SOLR_URL
 from ht_search.export_all_results import SolrExporter
+from ht_utils.ht_env_config import HtEnvConfig
 from ht_utils.ht_logger import get_ht_logger
 
 logger = get_ht_logger(name=__name__)
@@ -33,7 +33,6 @@ def main():
 
     parser = ArgumentParser()
     parser.add_argument("--env", default=os.environ.get("HT_ENVIRONMENT", "dev"))
-    parser.add_argument("--solr_host", help="Solr url", default=None)
     parser.add_argument("--collection_name", help="Name of the collection", default=None)
     parser.add_argument("--cluster_name", help="It can be catalog or fulltext", required=True)
     parser.add_argument(
@@ -42,14 +41,15 @@ def main():
 
     args = parser.parse_args()
 
+    env_config = HtEnvConfig()
     # Default parameters are for full-text search
-    solr_host = FULL_TEXT_SOLR_URL[args.env]
+    solr_host = env_config.full_text_solr_ro_url
     config_files = "full_text_search"
     conf_query = "ocr"
 
     # Overwrite default parameter for Catalog search
     if args.cluster_name == "catalog":
-        solr_host = CATALOG_SOLR_URL[args.env]
+        solr_host = env_config.catalog_solr_ro_url
         config_files = "catalog_search"
         conf_query = "all"
 
@@ -62,7 +62,7 @@ def main():
 
     query = "*:*"
     solr_exporter = SolrExporter(
-        solr_base_url, args.env, user=os.getenv("SOLR_USER"), password=os.getenv("SOLR_PASSWORD")
+        solr_base_url, args.env, user=env_config.solr_user, password=env_config.solr_password
     )
     # '"good"'
     list_documents = []

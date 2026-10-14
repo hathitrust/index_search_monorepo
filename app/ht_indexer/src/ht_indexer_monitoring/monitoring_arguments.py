@@ -4,8 +4,8 @@ from pathlib import Path
 
 from ht_search.config_files import config_files_path
 from ht_search.export_all_results import SolrExporter
+from ht_utils.ht_env_config import HtEnvConfig
 from ht_utils.ht_logger import get_ht_logger
-from ht_utils.ht_utils import get_solr_url
 
 logger = get_ht_logger(name=__name__)
 
@@ -23,7 +23,7 @@ class MonitoringServiceArguments:
         self.query = self.args.query
         self.output_fields = self.args.fl
 
-        self.solr_host = get_solr_url()
+        self.solr_url = HtEnvConfig().catalog_solr_ro_url
 
         self.conf_query = "all"
         # importlib.resources.files() is typed as Traversable, which typeshed doesn't declare
@@ -33,9 +33,4 @@ class MonitoringServiceArguments:
             "catalog_search/config_query.yaml",
         )
 
-        self.solr_exporter = SolrExporter(
-            self.solr_host,
-            self.args.env,
-            user=os.getenv("SOLR_USER"),
-            password=os.getenv("SOLR_PASSWORD"),
-        )
+        self.solr_exporter = SolrExporter(self.solr_url, self.args.env)

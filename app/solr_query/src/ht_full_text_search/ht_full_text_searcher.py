@@ -2,9 +2,9 @@ import json
 import os
 from argparse import ArgumentParser
 
-from ht_search.config_search import FULL_TEXT_SOLR_URL
 from ht_search.ht_query.ht_full_text_query import HTFullTextQuery
 from ht_search.ht_searcher.ht_searcher import HTSearcher
+from ht_utils.ht_env_config import HtEnvConfig
 from ht_utils.ht_logger import get_ht_logger
 
 logger = get_ht_logger(name=__name__)
@@ -97,7 +97,6 @@ if __name__ == "__main__":
     parser.add_argument("--env", default=os.environ.get("HT_ENVIRONMENT", "dev"))
     parser.add_argument("--query_string", help="Query string", default="*:*")
     parser.add_argument("--fl", help="Fields to return", default=["author", "id", "title", "score"])
-    parser.add_argument("--solr_url", help="Solr url", default=None)
     parser.add_argument("--operator", help="Operator", type=str)  # Default value is None
     parser.add_argument("--query_config", help="Type of query ocronly or all", default="all")
     parser.add_argument(
@@ -113,14 +112,10 @@ if __name__ == "__main__":
     # input:
     args = parser.parse_args()
 
-    # Receive as a parameter an specific solr url
-    if args.solr_url:
-        solr_url = args.solr_url
-    else:  # Use the default solr url, depending on the environment. If prod environment, use shards
-        solr_url = FULL_TEXT_SOLR_URL[args.env]
-
-    solr_user = os.getenv("SOLR_USER")
-    solr_password = os.getenv("SOLR_PASSWORD")
+    env_config = HtEnvConfig()
+    solr_url = env_config.full_text_solr_ro_url
+    solr_user = env_config.solr_user
+    solr_password = env_config.solr_password
 
     query_string = args.query_string
     fl = args.fl
