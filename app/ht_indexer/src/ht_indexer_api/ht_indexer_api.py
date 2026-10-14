@@ -73,6 +73,9 @@ class HTSolrAPI:
                     },
                 )
 
+        # FIXME only returns last response; will miss errors from earlier
+        # responses should consider checking for exceptions after the post
+        # rather than expecting the caller to check
         return response
 
     def send_solr_request(self, solr_host: str, solr_params: dict[str, Any]) -> requests.Response:

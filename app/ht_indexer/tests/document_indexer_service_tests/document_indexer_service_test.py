@@ -15,7 +15,6 @@ def caplog() -> LogCapture:
 
 @pytest.fixture(autouse=True)
 def fixture_configure_structlog(caplog: LogCapture) -> None:
-    print("CONFIGURING LOG CAPTURE")
     structlog.configure(processors=[caplog])
 
 

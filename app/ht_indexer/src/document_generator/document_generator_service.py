@@ -40,6 +40,8 @@ FAILURE_UPDATE_STATUS = (
     f"status = {_STATUS_GUARD} WHERE ht_id = :ht_id"
 )
 
+logger = get_ht_logger(name=__name__)
+
 
 class DocumentGeneratorService(QueueMultipleConsumer):
     def __init__(
@@ -68,8 +70,6 @@ class DocumentGeneratorService(QueueMultipleConsumer):
         self.document_generator = FullTextDocumentGenerator(db_conn)
         self.db_conn = db_conn
 
-        self.logger = get_ht_logger(name=__name__)
-
         self.document_repository = document_repository
         # Always set, even when tgt_local -- previously this attribute was only assigned in
         # the `not tgt_local` branch, so a tgt_local instance would raise AttributeError the
@@ -82,9 +82,8 @@ class DocumentGeneratorService(QueueMultipleConsumer):
 
         start_time = time.time()
 
-        logger = self.logger.bind(process="generate_full_text_entry",
-                                  ht_id=item_id)
-        logger.info("Generating document",ht_id=item_id)
+        htid_logger = logger.bind(process="generate_full_text_entry", ht_id=item_id)
+        htid_logger.info("Generating document")
 
         # Instantiate each document
         ht_document = HtDocument(document_id=item_id, document_repository=document_repository)
@@ -97,7 +96,7 @@ class DocumentGeneratorService(QueueMultipleConsumer):
             raise FileNotFoundError(
                 f"The file of the ht_id={ht_document.document_id} on the path={ht_document.source_path}.zip not found"
             )
-        logger.info("Generating from file", file=ht_document.source_path + ".zip")
+        htid_logger.info("Generating from file", file=ht_document.source_path + ".zip")
         try:
             entry = self.document_generator.make_full_text_search_document(ht_document, record)
         except Exception as e:
@@ -108,7 +107,7 @@ class DocumentGeneratorService(QueueMultipleConsumer):
         # Use to get the size of the entry dictionary
         entry_data = json.dumps(entry)
         entry_size = len(entry_data.encode("utf-8"))  # Convert to bytes and get length
-        logger.info("Finish",time=time.time() - start_time, size=entry_size)
+        htid_logger.info("Finish", time=time.time() - start_time, size=entry_size)
 
         return entry
 
@@ -121,7 +120,7 @@ class DocumentGeneratorService(QueueMultipleConsumer):
         if self.tgt_queue_producer is None:
             raise RuntimeError("publish_document called on a tgt_local instance")
         message = content
-        self.logger.info("Sending message", queue=content.get('id'))
+        logger.info("Sending message", queue=content.get("id"))
         self.tgt_queue_producer.publish_messages(message)
 
     def log_error_document_generator_service(
@@ -133,7 +132,7 @@ class DocumentGeneratorService(QueueMultipleConsumer):
         """
         error_info = get_error_message_by_document("DocumentGeneratorService", e, document)
 
-        self.logger.error("document failed",ht_id = document.get('ht_id'),error=error_info)
+        logger.error("document failed", ht_id=document.get("ht_id"), error=error_info)
         if self.channel is None:
             raise RuntimeError("Unable to establish a RabbitMQ channel")
         self.reject_message(self.channel, delivery_tag)
@@ -153,7 +152,7 @@ class DocumentGeneratorService(QueueMultipleConsumer):
             self.log_error_document_generator_service(
                 ValueError("message is missing 'ht_id'"), message, delivery_tag
             )
-            self.logger.warning("Cannot update MySQL generator_status: message has no 'ht_id'")
+            logger.warning("Cannot update MySQL generator_status: message has no 'ht_id'")
             return
 
         # try to generate the full text entry dictionary, if it fails, the message is rejected
@@ -205,8 +204,10 @@ class DocumentGeneratorService(QueueMultipleConsumer):
         try:
             self.db_conn.update_status(query, [values])
         except Exception as e:
-            self.logger.error("Failed to update generator_status", ht_id=values.get('ht_id'),
-                error=get_general_error_message('DocumentGeneratorService', e)
+            logger.error(
+                "Failed to update generator_status",
+                ht_id=values.get("ht_id"),
+                error=get_general_error_message("DocumentGeneratorService", e),
             )
 
 
