@@ -1,5 +1,6 @@
 import argparse
 import json
+import sys
 import time
 from pathlib import Path
 from typing import Any
@@ -223,7 +224,10 @@ def main() -> None:
         init_args_obj.document_repository,
         tgt_local=init_args_obj.tgt_local,
     )
-    document_generator_service.start_consuming()
+    if not document_generator_service.start_consuming():
+        # The error was already logged by start_consuming; exit non-zero so the orchestrator restarts us
+        logger.error("[!] Exiting")
+        sys.exit(1)
 
 
 if __name__ == "__main__":

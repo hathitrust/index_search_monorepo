@@ -28,7 +28,7 @@ class QueueMultipleConsumer(ABC):
         """
 
         self.channel_creator = ChannelCreator(
-            queue_params.user, queue_params.password, queue_params.host
+            queue_params.user, queue_params.password, queue_params.host, queue_params.heartbeat
         )  # Factory to create channels
         self.channel = self.channel_creator.get_channel()
 
@@ -171,12 +171,19 @@ class QueueMultipleConsumer(ABC):
             logger.error(f"Connection Interrupted: {e}")
             raise e
 
-    def start_consuming(self) -> None:
-        """Starts consuming messages from the queue."""
+    def start_consuming(self) -> bool:
+        """
+        Starts consuming messages from the queue.
+
+        :return: True if consumption stopped cleanly (empty queue with shutdown_on_empty_queue),
+                False if it stopped because of an error (already logged).
+        """
         try:
             self.consume_batch()
+            return True
         except Exception as e:
             logger.error(f"Something went wrong while consuming messages. {e}")
+            return False
 
     def reject_message(
         self, used_channel: pika.adapters.blocking_connection.BlockingChannel, basic_deliver: int

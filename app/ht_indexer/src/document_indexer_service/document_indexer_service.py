@@ -1,4 +1,5 @@
 import argparse
+import sys
 import time
 from typing import Any
 
@@ -92,11 +93,11 @@ class DocumentIndexerQueueService(QueueMultipleConsumer):
         return success
 
 
-def start_service(solr_api_full_text: HTSolrAPI, queue_params: QueueParams) -> None:
+def start_service(solr_api_full_text: HTSolrAPI, queue_params: QueueParams) -> bool:
     document_indexer_queue_service = DocumentIndexerQueueService(solr_api_full_text, queue_params)
     logger.info(f"Starting Document Indexer Service with queue: {queue_params.queue_name}")
     # Start consuming messages from the queue
-    document_indexer_queue_service.start_consuming()
+    return document_indexer_queue_service.start_consuming()
 
 
 def main() -> None:
@@ -104,7 +105,10 @@ def main() -> None:
 
     init_args_obj = IndexerServiceArguments(parser)
 
-    start_service(init_args_obj.solr_api_full_text, init_args_obj.queue_config.queue_params)
+    if not start_service(init_args_obj.solr_api_full_text, init_args_obj.queue_config.queue_params):
+        # The error was already logged by start_consuming; exit non-zero so the orchestrator restarts us
+        logger.error("[!] Consumer stopped because of an error. Exiting")
+        sys.exit(1)
 
 
 if __name__ == "__main__":
