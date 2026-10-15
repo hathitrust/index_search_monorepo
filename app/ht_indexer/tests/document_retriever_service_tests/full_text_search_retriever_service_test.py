@@ -7,7 +7,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 import requests
 from catalog_metadata.catalog_metadata import CatalogItemMetadata, CatalogRecordMetadata
-from catalog_metadata.ht_indexer_config import STATUS_FAILED
 from conftest import (
     ConcreteQueueConsumer,
     close_channel_and_connection,
@@ -568,6 +567,7 @@ class TestPublishingDocumentsMetadataFailures:
         counts, _ = TestPublishingDocumentsMetadataFailures._publish_one_metadata_failure()
 
         assert counts == PublishCounts(failed=1)
+
 
 # TODO: Remove this test class once the MySQL status been removed from the retriever service.
 class TestRetrieverStatusGuardInSQL:
