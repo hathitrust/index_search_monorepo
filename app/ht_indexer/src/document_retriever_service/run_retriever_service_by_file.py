@@ -42,7 +42,8 @@ class IdsFile:
 
 @dataclass
 class ByFileSummary:
-    """Counts logged at the end of a run. seeded = published to the queue, errors = failed publishes."""
+    """Counts logged at the end of a run. seeded = published to the queue, errors = catalog
+    metadata or publish failures, not_found = ht_ids Catalog did not return (item mode only)."""
 
     requested: int
     duplicates: int
@@ -50,6 +51,7 @@ class ByFileSummary:
     already_processed: int
     seeded: int
     errors: int
+    not_found: int
 
 
 def read_ids_from_file(input_documents_file: str | Path, query_field: str) -> IdsFile:
@@ -85,7 +87,7 @@ def log_summary(summary: ByFileSummary) -> None:
         f"Retriever by file summary: requested={summary.requested} "
         f"duplicates={summary.duplicates} invalid={len(summary.invalid)} "
         f"already_processed={summary.already_processed} "
-        f"seeded={summary.seeded} errors={summary.errors}"
+        f"seeded={summary.seeded} errors={summary.errors} not_found={summary.not_found}"
     )
 
 
@@ -178,6 +180,7 @@ def retrieve_documents_by_file(
             already_processed=already_processed,
             seeded=counts.published,
             errors=counts.failed,
+            not_found=counts.not_found,
         )
         log_summary(summary)
 

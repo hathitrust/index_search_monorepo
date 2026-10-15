@@ -1,3 +1,4 @@
+import contextlib
 import json
 import os
 from typing import Any
@@ -5,7 +6,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import requests
-from catalog_metadata.catalog_metadata import CatalogItemMetadata
+from catalog_metadata.catalog_metadata import CatalogItemMetadata, CatalogRecordMetadata
+from catalog_metadata.ht_indexer_config import STATUS_FAILED
 from conftest import (
     ConcreteQueueConsumer,
     close_channel_and_connection,
@@ -17,7 +19,9 @@ from document_retriever_service import (
     full_text_search_retriever_service as retriever_service_module,
 )
 from document_retriever_service.full_text_search_retriever_service import (
+    ChunkMetadata,
     FullTextSearchRetrieverQueueService,
+    PublishCounts,
 )
 from document_retriever_service.retriever_services_utils import RetrieverServicesUtils
 from ht_indexer_api.ht_indexer_api import HTSolrAPI
@@ -62,7 +66,29 @@ def _items_for(
     output = json.loads(service.retrieve_documents_from_solr(query, sorl).content.decode("utf-8"))
 
     # Generate the metadata for the documents
-    return FullTextSearchRetrieverQueueService.generate_chunk_metadata(ids, output, by_field)
+    return FullTextSearchRetrieverQueueService.generate_chunk_metadata(ids, output, by_field).items
+
+
+def _fail_metadata_of(fail_on: str) -> contextlib.AbstractContextManager[Any]:
+    """Force a metadata error: for the whole record, or for RECORD_HT_IDS[1] only."""
+    if fail_on == "record":
+        return patch.object(
+            retriever_service_module,
+            "CatalogRecordMetadata",
+            side_effect=ValueError("bad record"),
+        )
+    real_get_catalog_object = RetrieverServicesUtils.get_catalog_object
+
+    def _get_catalog_object(
+        item_id: str, record_metadata: CatalogRecordMetadata
+    ) -> CatalogItemMetadata:
+        if item_id == RECORD_HT_IDS[1]:
+            raise ValueError("bad item")
+        return real_get_catalog_object(item_id, record_metadata)
+
+    return patch.object(
+        RetrieverServicesUtils, "get_catalog_object", side_effect=_get_catalog_object
+    )
 
 
 @pytest.fixture
@@ -166,21 +192,77 @@ class TestFullTextRetrieverService:
         """
         requested_documents = ["nyp.33433082002258", "nyp.33433082046495"]
 
-        record_metadata_list = FullTextSearchRetrieverQueueService.generate_chunk_metadata(
+        chunk_metadata = FullTextSearchRetrieverQueueService.generate_chunk_metadata(
             requested_documents, _solr_output_one_record_five_items(), by_field
         )
 
-        assert sorted(item.ht_id for item in record_metadata_list) == sorted(requested_documents)
+        assert sorted(item.ht_id for item in chunk_metadata.items) == sorted(requested_documents)
+
+    def test_generate_chunk_metadata_catalog_record_builds_requested_item_metadata(
+        self, get_record_data: dict[str, Any]
+    ) -> None:
+        """Use case: a real Catalog record builds the metadata of the requested item only."""
+        chunk_metadata = FullTextSearchRetrieverQueueService.generate_chunk_metadata(
+            ["mdp.39015078560292"], {"response": {"docs": [get_record_data]}}, "item"
+        )
+
+        assert [item.metadata.get("vol_id") for item in chunk_metadata.items] == [
+            "mdp.39015078560292"
+        ]
 
     def test_generate_chunk_metadata_by_record_returns_all_items(self) -> None:
         """Use case: the query was by record id, so every item of the record is returned."""
         requested_documents = [RECORD_ID]
 
-        record_metadata_list = FullTextSearchRetrieverQueueService.generate_chunk_metadata(
+        chunk_metadata = FullTextSearchRetrieverQueueService.generate_chunk_metadata(
             requested_documents, _solr_output_one_record_five_items(), "record"
         )
 
-        assert sorted(item.ht_id for item in record_metadata_list) == sorted(RECORD_HT_IDS)
+        assert sorted(item.ht_id for item in chunk_metadata.items) == sorted(RECORD_HT_IDS)
+
+    @pytest.mark.parametrize(
+        ("by_field", "requested", "fail_on", "expected"),
+        [
+            pytest.param(
+                "item",
+                RECORD_HT_IDS[:2],
+                "item",
+                ([RECORD_HT_IDS[0]], [RECORD_HT_IDS[1]]),
+                id="bad-item-fails-only-itself",
+            ),
+            pytest.param(
+                "item",
+                RECORD_HT_IDS[:2],
+                "record",
+                ([], RECORD_HT_IDS[:2]),
+                id="bad-record-fails-its-requested-ht-ids",
+            ),
+            pytest.param(
+                "record",
+                [RECORD_ID],
+                "record",
+                ([], RECORD_HT_IDS),
+                id="bad-record-in-record-mode-fails-all-its-items",
+            ),
+        ],
+    )
+    def test_generate_chunk_metadata_metadata_error_reports_failed_ht_ids(
+        self,
+        by_field: str,
+        requested: list[str],
+        fail_on: str,
+        expected: tuple[list[str], list[str]],
+    ) -> None:
+        """Use case: a metadata error drops only the affected ht_ids, and reports them as failed."""
+        with _fail_metadata_of(fail_on):
+            chunk_metadata = FullTextSearchRetrieverQueueService.generate_chunk_metadata(
+                requested, _solr_output_one_record_five_items(), by_field
+            )
+
+        assert (
+            sorted(item.ht_id for item in chunk_metadata.items),
+            sorted(chunk_metadata.failed),
+        ) == expected
 
     @pytest.mark.integration
     def test_full_text_search_retriever_service(
@@ -377,6 +459,13 @@ class TestLogHtIdsNotInCatalog:
         assert missing == set()
         mock_logger.error.assert_not_called()
 
+    def test_ht_id_with_metadata_error_is_not_reported_missing(self) -> None:
+        missing = FullTextSearchRetrieverQueueService.log_ht_ids_not_in_catalog(
+            ["mdp.1", "mdp.2"], self._items("mdp.1"), {"mdp.2"}
+        )
+
+        assert missing == set()
+
 
 class TestRetrieverLoopMissingHtIdsCheck:
     # Infrastructure-free: Solr, the queue and the publishing step are mocked, so the test only
@@ -393,7 +482,9 @@ class TestRetrieverLoopMissingHtIdsCheck:
             patch.object(retriever_service_module, "HTSolrAPI"),
             patch.object(service, "retrieve_documents_from_solr", return_value=response),
             patch.object(
-                FullTextSearchRetrieverQueueService, "generate_chunk_metadata", return_value=[]
+                FullTextSearchRetrieverQueueService,
+                "generate_chunk_metadata",
+                return_value=ChunkMetadata(),
             ),
             patch.object(FullTextSearchRetrieverQueueService, "publishing_documents"),
             patch.object(
@@ -406,13 +497,13 @@ class TestRetrieverLoopMissingHtIdsCheck:
     def test_item_mode_checks_for_ht_ids_not_in_catalog(self) -> None:
         mock_check = self._run_loop("item")
 
-        mock_check.assert_called_once_with(["mdp.1", "mdp.2"], [])
+        mock_check.assert_called_once_with(["mdp.1", "mdp.2"], [], {})
 
     def test_ht_id_query_field_checks_for_ht_ids_not_in_catalog(self) -> None:
         # --query_field defaults to "ht_id" (see retriever_arguments.py), so the check must run for it
         mock_check = self._run_loop("ht_id")
 
-        mock_check.assert_called_once_with(["mdp.1", "mdp.2"], [])
+        mock_check.assert_called_once_with(["mdp.1", "mdp.2"], [], {})
 
     def test_record_mode_skips_the_check_because_chunk_holds_record_ids(self) -> None:
         mock_check = self._run_loop("record")
@@ -462,6 +553,22 @@ class TestPublishingDocumentsStatusWriteErrors:
         assert mysql_db.update_status.call_count == 2
 
 
+class TestPublishingDocumentsMetadataFailures:
+    # Ids whose catalog metadata failed are never published, but they still get a failed status
+    # in MySQL and are counted, so the run summary accounts for them.
+    @staticmethod
+    def _publish_one_metadata_failure() -> tuple[PublishCounts, MagicMock]:
+        mysql_db = MagicMock()
+        counts = FullTextSearchRetrieverQueueService.publishing_documents(
+            MagicMock(), [], mysql_db, {"mdp.bad": "bad item"}
+        )
+        return counts, mysql_db
+
+    def test_publishing_documents_metadata_failure_counted_as_failed(self) -> None:
+        counts, _ = TestPublishingDocumentsMetadataFailures._publish_one_metadata_failure()
+
+        assert counts == PublishCounts(failed=1)
+
 # TODO: Remove this test class once the MySQL status been removed from the retriever service.
 class TestRetrieverStatusGuardInSQL:
     # These tests do not run queries or access MySQL. They pin the shape of the guard. Only the
@@ -504,7 +611,12 @@ class TestRetrieverPublishCounts:
             patch.object(retriever_service_module, "HTSolrAPI"),
             patch.object(service, "retrieve_documents_from_solr", return_value=response),
             patch.object(
-                FullTextSearchRetrieverQueueService, "generate_chunk_metadata", return_value=[]
+                FullTextSearchRetrieverQueueService,
+                "generate_chunk_metadata",
+                return_value=ChunkMetadata(),
+            ),
+            patch.object(
+                FullTextSearchRetrieverQueueService, "log_ht_ids_not_in_catalog", return_value=set()
             ),
             patch.object(
                 FullTextSearchRetrieverQueueService,
@@ -520,6 +632,31 @@ class TestRetrieverPublishCounts:
             )
 
         assert counts == retriever_service_module.PublishCounts(published=1, failed=1)
+
+    def test_full_text_search_retriever_service_item_mode_counts_failed_and_not_found(
+        self,
+    ) -> None:
+        # mdp.2's metadata failed and mdp.3 is not in Catalog: neither is published, both counted.
+        service = FullTextSearchRetrieverQueueService(
+            MagicMock(), "http://solr", "solr_user", "solr_password", {}
+        )
+        response = MagicMock()
+        response.content = json.dumps({"response": {"docs": []}}).encode("utf-8")
+        with (
+            patch.object(FullTextSearchRetrieverQueueService, "get_queue_producer"),
+            patch.object(retriever_service_module, "HTSolrAPI"),
+            patch.object(service, "retrieve_documents_from_solr", return_value=response),
+            patch.object(
+                FullTextSearchRetrieverQueueService,
+                "generate_chunk_metadata",
+                return_value=ChunkMetadata(failed={"mdp.2": "bad item"}),
+            ),
+        ):
+            counts = service.full_text_search_retriever_service(
+                MagicMock(), ["mdp.2", "mdp.3"], "item"
+            )
+
+        assert counts == PublishCounts(failed=1, not_found=1)
 
     def test_run_retriever_service_threads_failed_batch_counts_its_ids_as_failed(self) -> None:
         service = MagicMock()

@@ -506,7 +506,7 @@ Item order is not guaranteed: IDs are de-duplicated against the status file with
 At the end of the run, including when a Solr error stops it partway, the script logs one line:
 
 ```
-Retriever by file summary: requested=1000 duplicates=3 invalid=2 already_processed=0 seeded=990 errors=1
+Retriever by file summary: requested=1000 duplicates=3 invalid=2 already_processed=0 seeded=990 errors=1 not_found=4
 ```
 
 | Field | Meaning |
@@ -516,7 +516,11 @@ Retriever by file summary: requested=1000 duplicates=3 invalid=2 already_process
 | `invalid` | IDs that failed format validation (each one is also logged as an error) |
 | `already_processed` | Valid IDs skipped because they are in the status file |
 | `seeded` | Items published to the queue |
-| `errors` | Items whose publish failed. With `--parallelize`, a thread that fails counts all its IDs as errors |
+| `errors` | Items whose catalog metadata could not be built, or whose publish failed. Both are written to MySQL as `retriever_status=failed`. With `--parallelize`, a thread that fails counts all its IDs as errors |
+| `not_found` | Requested ht_ids that Catalog did not return (each one is also logged as an error). Always 0 with `--query_field record` |
+
+With `--query_field item`, the fields add up: `requested = duplicates + invalid + already_processed + seeded + errors + not_found`.
+With `--query_field record` they don't: `requested` counts record IDs, while `seeded` and `errors` count the items of those records.
 
 The numbers don't always add up to `requested`:
 - In item mode, an ht_id that Catalog doesn't return is neither `seeded` nor an `error`.

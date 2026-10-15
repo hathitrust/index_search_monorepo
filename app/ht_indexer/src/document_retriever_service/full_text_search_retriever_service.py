@@ -3,8 +3,9 @@ import copy
 import json
 import sys
 import time
+from collections.abc import Collection
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 import requests
@@ -72,13 +73,27 @@ SOLR_ID_EXTRACTION_STRATEGIES = {
 
 @dataclass(frozen=True)
 class PublishCounts:
-    """How many items were published to the queue and how many failed."""
+    """How many items were published to the queue, how many failed (catalog metadata error or
+    publish error) and how many requested ht_ids Catalog did not return (item mode only)."""
 
     published: int = 0
     failed: int = 0
+    not_found: int = 0
 
     def __add__(self, other: PublishCounts) -> PublishCounts:
-        return PublishCounts(self.published + other.published, self.failed + other.failed)
+        return PublishCounts(
+            self.published + other.published,
+            self.failed + other.failed,
+            self.not_found + other.not_found,
+        )
+
+
+@dataclass
+class ChunkMetadata:
+    """Items built from one Solr response, and the ht_ids whose catalog metadata failed."""
+
+    items: list[CatalogItemMetadata] = field(default_factory=list)
+    failed: dict[str, str] = field(default_factory=dict)  # ht_id -> error message
 
 
 class FullTextSearchRetrieverQueueService:
@@ -141,9 +156,20 @@ class FullTextSearchRetrieverQueueService:
         queue_producer_conn: QueueProducer | None,
         result: list[CatalogItemMetadata],
         mysql_db: HtMysql,
+        metadata_failures: dict[str, str] | None = None,
     ) -> PublishCounts:
         processed_items: list[dict[str, Any]] = []
-        failed_items: list[dict[str, Any]] = []
+        # Items whose catalog metadata failed are never published, but get the same failed status
+        failed_items: list[dict[str, Any]] = [
+            {
+                "status": STATUS_FAILED,
+                "retriever_status": STATUS_FAILED,
+                "processed_at": get_current_time(),
+                "error": f"FullTextSearchRetrieverQueueService_{error}",
+                "ht_id": item_id,
+            }
+            for item_id, error in (metadata_failures or {}).items()
+        ]
 
         for record in result:
             item_metadata, item_id = FullTextSearchRetrieverQueueService.generate_metadata(record)
@@ -237,51 +263,69 @@ class FullTextSearchRetrieverQueueService:
     @staticmethod
     def generate_chunk_metadata(
         chunk: list[str], solr_output: dict[str, Any], by_field: str = "item"
-    ) -> list[CatalogItemMetadata]:
+    ) -> ChunkMetadata:
         """Generate the metadata for the documents
+
+        A metadata error fails only the affected ht_ids: one item if building that item fails,
+        or every item of the record (only the requested ones in item mode) if the record fails.
 
         :param chunk: list of documents to process
         :param solr_output: response from Solr
         :param by_field: field to search by (item=ht_id or record=id)
-        :return: list of metadata for the documents
+        :return: the items built, and the ht_ids whose metadata failed
         """
 
-        record_metadata_list: list[CatalogItemMetadata] = []
+        chunk_metadata = ChunkMetadata()
+        requested = set(chunk)
         for record in (solr_output.get("response") or {}).get("docs", []):
-            # Create the object to create items and metadata.
-            catalog_record_metadata = CatalogRecordMetadata(record)
+            item_ids: list[str] = record.get("ht_id") or []
+            if by_field != "record":
+                # Query was by ht_id: keep only the requested items, not every item of the record
+                item_ids = [item_id for item_id in item_ids if item_id in requested]
 
-            # If there is something with Solr retrieving a chunk of documents will try to retrieve the next chunk
             try:
-                if by_field == "record":
-                    # Process all the items of a record. Query was by {!terms f=id}
-                    results = RetrieverServicesUtils.create_catalog_object_by_record_id(
-                        record, catalog_record_metadata
-                    )
-                else:
-                    # Query was by ht_id: keep only the requested items, not every item of the record
-                    results = RetrieverServicesUtils.create_catalog_object_by_item_id(
-                        chunk, record, catalog_record_metadata
-                    )
-
-                record_metadata_list.extend(results)
+                # Object that maps the record with their Catalog metadata
+                catalog_record_metadata = CatalogRecordMetadata(record)
             except Exception as e:
-                error_info = get_general_error_message("FullTextSearchRetrieverQueueService", e)
-                logger.error(f"Error in getting documents from Solr {error_info}")
-        return record_metadata_list
+                FullTextSearchRetrieverQueueService._fail_metadata(chunk_metadata, item_ids, e)
+                continue
+
+            for item_id in item_ids:
+                try:
+                    chunk_metadata.items.append(
+                        RetrieverServicesUtils.get_catalog_object(item_id, catalog_record_metadata)
+                    )
+                except Exception as e:
+                    FullTextSearchRetrieverQueueService._fail_metadata(chunk_metadata, [item_id], e)
+        return chunk_metadata
+
+    @staticmethod
+    def _fail_metadata(chunk_metadata: ChunkMetadata, item_ids: list[str], e: Exception) -> None:
+        """Record and log the ht_ids whose catalog metadata could not be built."""
+        for item_id in item_ids:
+            chunk_metadata.failed[item_id] = str(e)
+            logger.error(
+                f"Error in building catalog metadata for document {item_id} "
+                f"{get_general_error_message('FullTextSearchRetrieverQueueService', e)}"
+            )
 
     @staticmethod
     def log_ht_ids_not_in_catalog(
-        chunk: list[str], record_metadata_list: list[CatalogItemMetadata]
+        chunk: list[str],
+        record_metadata_list: list[CatalogItemMetadata],
+        failed_ht_ids: Collection[str] = (),
     ) -> set[str]:
         """Log the ht_ids requested in the chunk that Catalog did not return.
         Only valid when the chunk holds ht_ids (by_field != "record").
 
         :param chunk: list of ht_ids sent to Solr
         :param record_metadata_list: items returned by Catalog
+        :param failed_ht_ids: ht_ids Catalog returned but whose metadata failed; not missing
         :return: set of ht_ids not found in Catalog
         """
-        missing = set(chunk) - {record.ht_id for record in record_metadata_list}
+        missing = (
+            set(chunk) - {record.ht_id for record in record_metadata_list} - set(failed_ht_ids)
+        )
         for item_id in sorted(missing):
             logger.error(
                 f"Error in retrieving document {item_id} "
@@ -300,7 +344,7 @@ class FullTextSearchRetrieverQueueService:
         Each batch will retrieve 200 documents because Solr will fail with the status code 414
         if the URI is too Long.
 
-        :return: total of items published to the queue and failed, across all chunks
+        :return: total of items published, failed and not found in Catalog, across all chunks
         """
 
         if self.queue_params is None:
@@ -331,22 +375,23 @@ class FullTextSearchRetrieverQueueService:
 
             # Generate the metadata for the documents
             start_time = time.time()
-            record_metadata_list = FullTextSearchRetrieverQueueService.generate_chunk_metadata(
+            chunk_metadata = FullTextSearchRetrieverQueueService.generate_chunk_metadata(
                 chunk, output, by_field
             )
 
             # In record mode the chunk holds record ids, so it can't be compared with ht_ids
             if by_field != "record":
-                FullTextSearchRetrieverQueueService.log_ht_ids_not_in_catalog(
-                    chunk, record_metadata_list
+                not_found = FullTextSearchRetrieverQueueService.log_ht_ids_not_in_catalog(
+                    chunk, chunk_metadata.items, chunk_metadata.failed
                 )
+                counts += PublishCounts(not_found=len(not_found))
 
-            logger.info(f"Metadata generator: Total items = {len(record_metadata_list)}.")
+            logger.info(f"Metadata generator: Total items = {len(chunk_metadata.items)}.")
             logger.info(f"Metadata generator: Total time = {time.time() - start_time}")
 
-            # Publish the documents in the queue
+            # Publish the documents in the queue; metadata failures are recorded as failed
             counts += FullTextSearchRetrieverQueueService.publishing_documents(
-                queue_producer, record_metadata_list, mysql_db
+                queue_producer, chunk_metadata.items, mysql_db, chunk_metadata.failed
             )
 
         return counts
@@ -370,8 +415,8 @@ def run_retriever_service_threads(
     :param by_field:
     :param document_retriever_service:
     :param max_workers: Number of threads to use
-    :return: total of items published and failed. A batch whose thread failed counts all its
-        ids as failed.
+    :return: total of items published, failed and not found in Catalog. A batch whose thread
+        failed counts all its ids as failed.
     """
 
     total_documents = len(list_documents)

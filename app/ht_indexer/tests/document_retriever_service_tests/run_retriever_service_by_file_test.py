@@ -32,7 +32,7 @@ def run(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> SimpleNamespace:
     """Run retrieve_documents_by_file on a messy file with the retriever service mocked.
 
     The file has 5 non-blank lines: 1 duplicate (mdp.1), 1 invalid ("bad id") and
-    3 valid unique ids. The mocked service reports 2 published and 1 failed.
+    3 valid unique ids. The mocked service reports 1 published, 1 failed and 1 not in Catalog.
 
     :param tmp_path: pytest fixture for a temporary directory
     :param caplog: pytest fixture for capturing log records
@@ -48,7 +48,7 @@ def run(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> SimpleNamespace:
     with patch.object(by_file_module, "FullTextSearchRetrieverQueueService") as service_cls:
         service = service_cls.return_value
         service.full_text_search_retriever_service.return_value = PublishCounts(
-            published=2, failed=1
+            published=1, failed=1, not_found=1
         )
         with caplog.at_level(logging.INFO):
             summary = retrieve_documents_by_file(
@@ -301,7 +301,13 @@ class TestRetrieveDocumentsByFileSummary:
 
     def test_returns_summary(self, run: SimpleNamespace) -> None:
         assert run.summary == by_file_module.ByFileSummary(
-            requested=5, duplicates=1, invalid=["bad id"], already_processed=0, seeded=2, errors=1
+            requested=5,
+            duplicates=1,
+            invalid=["bad id"],
+            already_processed=0,
+            seeded=1,
+            errors=1,
+            not_found=1,
         )
 
     def test_logs_summary_line(
@@ -309,7 +315,7 @@ class TestRetrieveDocumentsByFileSummary:
     ) -> None:
         assert (
             "Retriever by file summary: requested=5 duplicates=1 invalid=1 "
-            "already_processed=0 seeded=2 errors=1"
+            "already_processed=0 seeded=1 errors=1 not_found=1"
         ) in TestRetrieveDocumentsByFileSummary._messages(caplog, level=logging.INFO)
 
     def test_logs_error_for_invalid_id(
