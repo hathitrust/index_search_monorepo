@@ -3,7 +3,7 @@ from typing import Any
 
 import pytest
 import yaml
-from ht_queue_service.queue_config import QueueConfig
+from ht_queue_service.queue_config import DEFAULT_MAX_MESSAGE_SIZE_BYTES, QueueConfig
 
 
 def _write_yaml(path: Path, data: dict[str, Any]) -> Path:
@@ -128,7 +128,7 @@ def test_unprefixed_env_var_is_ignored_when_prefix_given(
 @pytest.mark.parametrize(
     ("overrides", "expected"),
     [
-        pytest.param({}, 16_777_216, id="missing-uses-default"),
+        pytest.param({}, DEFAULT_MAX_MESSAGE_SIZE_BYTES, id="missing-uses-default"),
         pytest.param({"max_message_size": 1000}, 1000, id="from-app-config"),
     ],
 )

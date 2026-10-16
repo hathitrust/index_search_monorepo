@@ -6,8 +6,9 @@ from typing import Any
 import yaml
 from ht_utils.ht_env_config import HtEnvConfig
 
-# If we don't specify a max_message_size, we will use the default value of 16 MiB (16,777,216 bytes).
-DEFAULT_MAX_MESSAGE_SIZE_BYTES = 16_777_216  # RabbitMQ 4.x default max_message_size (16 MiB)
+# Used when the app config has no max_message_size: 64 MiB (67,108,864 bytes). It must not exceed the
+# broker's limit (128 MiB default on RabbitMQ 3.13, 16 MiB on 4.x, which must be raised in rabbitmq.conf).
+DEFAULT_MAX_MESSAGE_SIZE_BYTES = 67_108_864  # 64 MiB
 RABBITMQ_MAX_MESSAGE_SIZE_BYTES = 536_870_912  # RabbitMQ hard maximum (512 MiB)
 # batch_size is also passed to basic_qos as prefetch_count, a 16-bit AMQP field (0 would mean unlimited).
 MAX_BATCH_SIZE = 65_535
