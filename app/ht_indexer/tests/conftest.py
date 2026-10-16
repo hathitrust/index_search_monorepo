@@ -78,6 +78,7 @@ def create_test_queue_config(
     batch_size: int = 1,
     requeue_message: bool = False,
     shutdown_on_empty_queue: bool = False,
+    **queue_overrides: Any,  # Any: forwards arbitrary QueueParams keys into the config dict
 ) -> tuple[QueueConfig, str, str]:
 
     global_config_file_path = create_temporary_yaml_file(global_config)
@@ -90,6 +91,7 @@ def create_test_queue_config(
             "shutdown_on_empty_queue": shutdown_on_empty_queue,
         }
     )
+    config["queue"].update(queue_overrides)
     app_config_file_path = create_temporary_yaml_file(config)
     queue_config = QueueConfig(Path(global_config_file_path), Path(app_config_file_path))
     return queue_config, global_config_file_path, app_config_file_path

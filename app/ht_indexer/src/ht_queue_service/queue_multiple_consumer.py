@@ -100,6 +100,9 @@ class QueueMultipleConsumer(ABC):
         while True:
             batch: list[Any] = []  # It stores messages for batch processing
             delivery_tag: list[int] = []  # It stores delivery tags for acknowledging messages
+            # TODO in ETT-1996 basic_get ignores prefetch (basic_qos); this loop is what limits in-flight messages to batch_size.
+            # If this moves to basic_consume, apply basic_qos(prefetch_count=batch_size) on every channel the
+            # consumer opens.
             for _ in range(self.queue_manager.batch_size):
                 # Use basic_get to retrieve a batch of messages and auto_ack=False to tell RabbitMQ to not wait for
                 # an acknowledgment of the message. We will manually acknowledge them
@@ -159,7 +162,8 @@ class QueueMultipleConsumer(ABC):
                 self.channel = self.channel_creator.get_channel()
                 self.queue_reconnect()
 
-            for method_frame, properties, body in channel.consume(
+            # pika-stubs 0.1.3 types consume() as -> None; pika 1.3.2 actually yields (method, properties, body)
+            for method_frame, properties, body in channel.consume(  # type: ignore[func-returns-value, attr-defined]
                 queue_name, auto_ack=False, inactivity_timeout=inactivity_timeout
             ):
                 if method_frame:

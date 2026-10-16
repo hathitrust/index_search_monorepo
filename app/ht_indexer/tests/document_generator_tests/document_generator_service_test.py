@@ -1,11 +1,13 @@
 from typing import Any, cast
 from unittest.mock import MagicMock, Mock, patch
 
+import pytest
 from document_generator.document_generator_service import (
     FAILURE_UPDATE_STATUS,
     SUCCESS_UPDATE_STATUS,
     DocumentGeneratorService,
 )
+from ht_queue_service.queue_producer import MessageTooLargeError
 
 
 def _make_service_with_mocks(db_conn: Mock) -> DocumentGeneratorService:
@@ -53,8 +55,30 @@ class TestDocumentGeneratorServiceMysqlUpdate:
         assert update_dict["generator_status"] == "completed"
         assert update_dict["ht_id"] == "mdp.39015078560292"
 
+    @pytest.mark.parametrize(
+        ("failing_method", "error", "error_text"),
+        [
+            pytest.param(
+                "generate_full_text_entry",
+                FileNotFoundError("zip not found"),
+                "zip not found",
+                id="generation-fails",
+            ),
+            pytest.param(
+                "publish_document",
+                MessageTooLargeError(
+                    "Message mdp.1 size 20 bytes exceeds max_message_size 10 bytes; not published"
+                ),
+                "exceeds max_message_size",
+                id="message-too-large",
+            ),
+        ],
+    )
     def test_generate_document_failure_calls_update_status_with_failed_and_failed(
         self,
+        failing_method: str,
+        error: Exception,
+        error_text: str,
     ) -> None:
         # Test that when generate_document is called and fails, it calls update_status to update MySQL with
         # status=failed and generator_status=failed, and includes an error message.
@@ -62,11 +86,10 @@ class TestDocumentGeneratorServiceMysqlUpdate:
         message = {"ht_id": "mdp.39015078560292"}
 
         with patch.object(
-            service,
-            "generate_full_text_entry",
-            side_effect=FileNotFoundError("zip not found"),
+            service, "generate_full_text_entry", return_value={"id": "mdp.39015078560292"}
         ):
-            service.generate_document(message, delivery_tag=1)
+            with patch.object(service, failing_method, side_effect=error):
+                service.generate_document(message, delivery_tag=1)
 
         db_conn.update_status.assert_called_once()
         query_arg, values_arg = db_conn.update_status.call_args.args
@@ -77,6 +100,7 @@ class TestDocumentGeneratorServiceMysqlUpdate:
         assert update_dict["ht_id"] == "mdp.39015078560292"
         assert "error" in update_dict
         assert update_dict["error"]
+        assert error_text in update_dict["error"]
 
     def test_generate_document_missing_ht_id_skips_update_status(self) -> None:
         service, db_conn = self._make_service()

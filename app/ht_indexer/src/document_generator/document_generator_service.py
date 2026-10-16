@@ -1,5 +1,4 @@
 import argparse
-import json
 import sys
 import time
 from pathlib import Path
@@ -104,12 +103,9 @@ class DocumentGeneratorService(QueueMultipleConsumer):
                 f"Document {ht_document.document_id} could not be generated: Error - {e}"
             ) from e
 
-        # Use to get the size of the entry dictionary
-        entry_data = json.dumps(entry)
-        entry_size = len(entry_data.encode("utf-8"))  # Convert to bytes and get length
         logger.info(
             f"Time to generate process=full-text_document ht_id={ht_document.document_id} "
-            f"Time={time.time() - start_time:.10f} Size={entry_size} bytes"
+            f"Time={time.time() - start_time:.10f}"
         )
 
         return entry
