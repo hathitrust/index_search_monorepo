@@ -24,7 +24,7 @@ jobs:
         run: uv sync --all-packages
 
       - name: Run unit tests
-        run: uv run pytest -m "not integration" libs app/data_operations/tests --cov=libs --cov-report=term-missing --cov-report=xml
+        run: uv run pytest -m "not integration" libs --cov=libs --cov-report=term-missing --cov-report=xml
 
       # Coveralls matches files by the XML filename attribute relative to the repo
       # root, but coverage writes them relative to the --cov source (libs/).
@@ -37,6 +37,21 @@ jobs:
           github-token: ${{ secrets.github_token }}
           file: coverage.xml
           flag-name: unit
+          parallel: true
+
+      # Separate run so each XML has a single --cov source and one path prefix.
+      - name: Run data_operations tests
+        run: uv run pytest -m "not integration" app/data_operations/tests --cov=app/data_operations/src --cov-report=term-missing --cov-report=xml:data_operations.xml
+
+      - name: Rewrite data_operations coverage paths
+        run: sed -i 's#filename="#filename="app/data_operations/src/#' data_operations.xml
+
+      - name: Report data_operations to Coveralls
+        uses: coverallsapp/github-action@648a8eb78e6d50909eff900e4ec85cab4524a45b # v2.3.7
+        with:
+          github-token: ${{ secrets.github_token }}
+          file: data_operations.xml
+          flag-name: data_operations
           parallel: true
 
   lint:
