@@ -38,6 +38,10 @@ markers = [
     "integration: requires a live service (Solr, MySQL or RabbitMQ)",
 ]
 
+[tool.coverage.run]
+# Don't count test files toward coverage; they run by definition and inflate the number.
+omit = ["*/tests/*"]
+
 
 [tool.ruff]
 # Target Python version. Must match requires-python above, or pyupgrade (UP) rules
