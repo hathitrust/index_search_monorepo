@@ -24,7 +24,7 @@ jobs:
         run: uv sync --all-packages
 
       - name: Run unit tests
-        run: uv run pytest -m "not integration" libs app/data_operations/tests --cov=libs --cov-report=term-missing --cov-report=xml
+        run: uv run pytest -m "not integration" libs --cov=libs --cov-report=term-missing --cov-report=xml
 
       # Coveralls matches files by the XML filename attribute relative to the repo
       # root, but coverage writes them relative to the --cov source (libs/).
@@ -37,6 +37,21 @@ jobs:
           github-token: ${{ secrets.github_token }}
           file: coverage.xml
           flag-name: unit
+          parallel: true
+
+      # Separate run so each XML has a single --cov source and one path prefix.
+      - name: Run data_operations tests
+        run: uv run pytest -m "not integration" app/data_operations/tests --cov=app/data_operations/src --cov-report=term-missing --cov-report=xml:data_operations.xml
+
+      - name: Rewrite data_operations coverage paths
+        run: sed -i 's#filename="#filename="app/data_operations/src/#' data_operations.xml
+
+      - name: Report data_operations to Coveralls
+        uses: coverallsapp/github-action@648a8eb78e6d50909eff900e4ec85cab4524a45b # v2.3.7
+        with:
+          github-token: ${{ secrets.github_token }}
+          file: data_operations.xml
+          flag-name: data_operations
           parallel: true
 
   lint:
@@ -103,13 +118,29 @@ jobs:
 
         - name: Run tests
           run: |
+            # Bind-mounted into the solr-query-tests container as /workspace/coverage;
+            # create it writable first so Docker doesn't make it root-owned.
+            mkdir -p coverage
+            chmod 777 coverage
             docker compose run --rm solr-query-tests
 
+        # --cov=src makes filenames relative to app/solr_query/src.
+        - name: Rewrite coverage paths
+          run: sed -i 's#filename="#filename="app/solr_query/src/#' coverage/coverage.xml
+
+        - name: Report to Coveralls
+          uses: coverallsapp/github-action@648a8eb78e6d50909eff900e4ec85cab4524a45b # v2.3.7
+          with:
+            github-token: ${{ secrets.github_token }}
+            file: coverage/coverage.xml
+            flag-name: solr_query
+            parallel: true
+
   # Merge the parallel unit/indexer reports into one Coveralls build per commit.
-  # Coverage scope is libs (unit) and app/ht_indexer (indexer) only, so
-  # test_solr_query and the other apps are intentionally not reported.
+  # Coverage scope: libs and app/data_operations (unit_tests), app/ht_indexer
+  # (test_indexer), app/solr_query (test_solr_query). app/ht_mcp has no CI job yet.
   coveralls_finished:
-    needs: [unit_tests, test_indexer]
+    needs: [unit_tests, test_indexer, test_solr_query]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     steps:
