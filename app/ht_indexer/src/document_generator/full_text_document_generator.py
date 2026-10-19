@@ -134,6 +134,10 @@ class FullTextDocumentGenerator:
         ):
             if element.tag.find("datafield") > -1:
                 tag_att = element.attrib.get("tag")
+                # Ignore "CID" value. It is likely to be a restatement of the data in the
+                # 001 and it is nonstandard.
+                if tag_att == "CID":
+                    continue
                 try:
                     if int(tag_att) > 99 and event == "start":
                         # Looks for subfields
