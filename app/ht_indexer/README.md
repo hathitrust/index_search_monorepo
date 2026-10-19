@@ -507,12 +507,75 @@ not from the queue.
 
 ### Processing documents reading the list of ids from a file
 
-Provide a plain-text file containing one HathiTrust item ID per line. This file is not included in the
-repository — operators must supply their own file (for example, generated from a Catalog Solr query).
+Provide a plain-text file with one ID per line. This file is not included in the repository: operators
+must supply their own file (for example, generated from a Catalog Solr query).
 
 If any of these items already ran, reset their rows in `fulltext_item_processing_status` first; see [Reprocessing items that are not `pending`](#reprocessing-items-that-are-not-pending).
 
-```docker compose exec document_retriever python document_retriever_service/run_retriever_service_by_file.py --input_document_file /path/to/your/htids.txt```
+```docker compose exec document_retriever python document_retriever_service/run_retriever_service_by_file.py --query_field item --input_document_file /path/to/your/htids.txt```
+
+#### Item mode and record mode
+
+`--query_field` decides what the IDs in the file are and what gets indexed:
+
+| `--query_field` | IDs in the file | Solr query | What is published to the queue |
+|---|---|---|---|
+| `item` (default) | ht_ids, e.g. `mdp.39015078560292` | `{!terms f=ht_id}` | Only the listed items, even when their record has more items |
+| `record` | Catalog record ids, e.g. `008394936` | `{!terms f=id}` | Every item (`ht_id`) of each listed record |
+
+Any other value is rejected when the script starts.
+
+#### How the file is read and validated
+
+`read_ids_from_file` (`run_retriever_service_by_file.py`) handles each line in this order:
+
+1. **Strip** spaces, tabs and Windows line endings (`\r`) around the ID.
+2. **Skip blank lines.** They don't count as requested IDs.
+3. **De-duplicate.** The first occurrence is kept; later repeats are counted as `duplicates` and dropped.
+4. **Validate** the ID against the format for `--query_field`. Invalid IDs are logged one per line
+   (`Invalid item id 'bad id' in htids.txt: skipped`) and are not sent to Solr.
+
+| Mode | Valid format | Valid examples | Invalid examples |
+|---|---|---|---|
+| `item` | lowercase namespace, a dot, then an ID with no spaces or commas (`^[a-z0-9]+\.[^\s,]+$`) | `mdp.39015078560292`, `umn.31951001997704p`, `uc2.ark:/13960/t0dv1g69b` | `008394936` (record id), `mdp 123`, `mdp.1,mdp.2`, `MDP.1`, `no_namespace` |
+| `record` | exactly 9 digits (`^\d{9}$`) | `008394936`, `100393743` | `mdp.1`, `12345` |
+
+Commas are rejected because Solr's `{!terms}` parser uses them to separate IDs, so one ID with a comma would be
+read as two.
+
+#### Processing
+
+The remaining IDs are sent to the retriever in groups of 200. That is the most Solr accepts before it rejects the
+request URL as too long (HTTP 414). With `--parallelize`, each group is split across threads. For each group, the
+retriever queries Catalog, builds the metadata of each item and publishes one message per item to the
+`retriever_queue`. The generator and indexer then process those messages.
+
+Item order is not guaranteed: IDs are de-duplicated against the status file with a set.
+
+#### Run summary
+
+At the end of the run, including when a Solr error stops it partway, the script logs one line:
+
+```
+Retriever by file summary: requested=1000 duplicates=3 invalid=2 already_processed=0 seeded=990 errors=1 not_found=4
+```
+
+| Field | Meaning |
+|---|---|
+| `requested` | Non-blank lines in the file |
+| `duplicates` | Repeated IDs that were dropped |
+| `invalid` | IDs that failed format validation (each one is also logged as an error) |
+| `already_processed` | Valid IDs skipped because they are in the status file |
+| `seeded` | Items published to the queue |
+| `errors` | Items whose catalog metadata could not be built, or whose publish failed. Both are written to MySQL as `retriever_status=failed`. With `--parallelize`, a thread that fails counts all its IDs as errors |
+| `not_found` | Requested ht_ids that Catalog did not return (each one is also logged as an error). Always 0 with `--query_field record` |
+
+With `--query_field item`, the fields add up: `requested = duplicates + invalid + already_processed + seeded + errors + not_found`.
+With `--query_field record` they don't: `requested` counts record IDs, while `seeded` and `errors` count the items of those records.
+
+The numbers don't always add up to `requested`:
+- In item mode, an ht_id that Catalog doesn't return is neither `seeded` nor an `error`.
+- In record mode, `seeded` counts items, and one record can have many items.
 
 ## Tests
 

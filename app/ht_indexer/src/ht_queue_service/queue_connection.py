@@ -22,7 +22,7 @@ MAX_DOCUMENT_IN_QUEUE = 200000  # 200000 is the maximum number of messages in th
 
 
 class QueueConnection:
-    def __init__(self, user: str, password: str, host: str):
+    def __init__(self, user: str, password: str, host: str, heartbeat: int):
         # Define credentials (user/password) as environment variables
         # Declaring the credentials needed for connection, such as host, port, username, password, and exchange.
 
@@ -31,13 +31,19 @@ class QueueConnection:
         self.user = user
         self.password = password
         self.host = host
+        self.heartbeat = heartbeat
         self.queue_connection: pika.BlockingConnection | None = self._connect()
 
     def _connect(self) -> pika.BlockingConnection:
         """Establish a connection to the RabbitMQ server"""
         try:
             return pika.BlockingConnection(
-                pika.ConnectionParameters(host=self.host, credentials=self.credentials, heartbeat=0)
+                pika.ConnectionParameters(
+                    host=self.host,
+                    credentials=self.credentials,
+                    heartbeat=self.heartbeat,
+                    blocked_connection_timeout=300,
+                )
             )
         # pika.exceptions.AMQPConnectionError - Catch all the issue related to the AMQP
         # protocol (Advanced Message Queuing Protocol)

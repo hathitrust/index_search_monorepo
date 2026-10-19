@@ -71,6 +71,20 @@ class HTMultipleConsumerServiceConcrete(QueueMultipleConsumer):
         return True
 
 
+class TestStartConsumingFail(QueueMultipleConsumer):
+    """Test class that raises on `consume_batch`"""
+
+    # pytest should ignore this class
+    __test__ = False
+
+    def consume_batch(self) -> None:
+        print(1 / 0)
+
+    def process_batch(self, batch: list[Any], delivery_tag: list[int]) -> None | Any:
+        """Required of concrete subclasses, should not be called"""
+        raise NotImplementedError()
+
+
 @pytest.fixture
 def one_message() -> dict[str, Any]:
     """
@@ -95,6 +109,34 @@ def list_messages() -> list[dict[str, Any]]:
 
 
 class TestHTMultipleQueueConsumer:
+    def test_start_consuming_false_on_failure(
+        self, one_message: dict[str, Any], make_queue_config: Callable[..., QueueConfig]
+    ) -> None:
+        """Verify that `start_consuming` returns False on error"""
+        queue_config = make_queue_config(
+            batch_size=1, requeue_message=False, shutdown_on_empty_queue=True
+        )
+
+        # Boilerplate setup: create producer and publish one message
+        producer_instance = QueueProducer(queue_config.queue_params)
+        ensure_queue_ready_and_purged(producer_instance)
+        producer_instance.publish_messages(one_message)
+        close_channel_and_connection(producer_instance)
+
+        # Create our failing consumer instance
+        multiple_consumer_instance = TestStartConsumingFail(queue_config.queue_params)
+
+        # This subclass deliberately raises in `consume_batch` and we expect
+        # the exception to be caught, "something went wrong" log message and `False` return
+        assert not multiple_consumer_instance.start_consuming()
+
+        # Boilerplate teardown
+        if multiple_consumer_instance.channel is not None:
+            multiple_consumer_instance.channel.queue_purge(
+                multiple_consumer_instance.queue_manager.queue_name
+            )
+        close_channel_and_connection(multiple_consumer_instance)
+
     def test_queue_consume_message(
         self, one_message: dict[str, Any], make_queue_config: Callable[..., QueueConfig]
     ) -> None:
@@ -124,7 +166,7 @@ class TestHTMultipleQueueConsumer:
             f"Starting to consume messages from the queue: "
             f"{multiple_consumer_instance.queue_manager.queue_name}"
         )
-        multiple_consumer_instance.start_consuming()
+        assert multiple_consumer_instance.start_consuming()
 
         output_message = multiple_consumer_instance.consume_one_message
         assert output_message[0] == one_message
@@ -150,7 +192,7 @@ class TestHTMultipleQueueConsumer:
             queue_config.queue_params, max_redelivery=1
         )
 
-        multiple_consumer_instance.start_consuming()
+        assert multiple_consumer_instance.start_consuming()
 
         # The queue is empty, so consume 0 messages
         count_messages = 0
@@ -202,7 +244,7 @@ class TestHTMultipleQueueConsumer:
             f"Starting to consume messages from the queue: "
             f"{multiple_consumer_instance.queue_manager.queue_name}"
         )
-        multiple_consumer_instance.start_consuming()
+        assert multiple_consumer_instance.start_consuming()
 
         logger.info(f"DLQ NAME: {multiple_consumer_instance.queue_manager.queue_name}_dlq")
 
@@ -289,7 +331,7 @@ class TestHTMultipleQueueConsumer:
         logger.info(
             f"Starting to consume messages from the queue: {multiple_consumer_instance.queue_manager.queue_name}"
         )
-        multiple_consumer_instance.start_consuming()
+        assert multiple_consumer_instance.start_consuming()
 
         assert (
             multiple_consumer_instance.redelivery_count >= multiple_consumer_instance.max_redelivery

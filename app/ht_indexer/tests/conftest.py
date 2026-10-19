@@ -205,3 +205,21 @@ def close_channel_and_connection(service: QueueServiceLike) -> None:
     service.channel.close()
     assert service.channel_creator.connection.queue_connection is not None
     service.channel_creator.connection.queue_connection.close()
+
+
+def drain_ht_ids(consumer: QueueMultipleConsumer, timeout: int = 5) -> list[str]:
+    """Consume all messages from the queue and return their ht_ids."""
+    channel = consumer.channel
+    assert channel is not None
+    ht_ids: list[str] = []
+    for method_frame, _properties, body in consumer.consume_dead_letter_messages(
+        channel,
+        inactivity_timeout=timeout,
+        queue_name=consumer.queue_manager.queue_name,
+    ):
+        if method_frame:
+            ht_ids.append(json.loads(body.decode("utf-8"))["ht_id"])
+            consumer.positive_acknowledge(channel, method_frame.delivery_tag)
+        else:
+            break
+    return ht_ids

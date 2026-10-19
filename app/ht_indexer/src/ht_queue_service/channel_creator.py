@@ -24,9 +24,11 @@ class ChannelCreator:
         - It uses a threading.lock to synchronize access to the connection when creating channels.
     """
 
-    def __init__(self, user: str, password: str, host: str):
+    def __init__(self, user: str, password: str, host: str, heartbeat: int):
         # TODO: Implement retry logic with exponential backoff for establishing the connection
-        self.connection = QueueConnection(user, password, host)  # The connection to RabbitMQ
+        self.connection = QueueConnection(
+            user, password, host, heartbeat
+        )  # The connection to RabbitMQ
 
         # Thread-safe channel creation for multi-threaded environments
         self._channel_lock = threading.Lock()
