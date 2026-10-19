@@ -33,6 +33,8 @@ def _http_error(status_code: int) -> requests.exceptions.HTTPError:
         # Bad Solr credentials: verified against local Solr (no login -> 401)
         (_http_error(401), FailureKind.CONFIG_ERROR),
         (_http_error(403), FailureKind.CONFIG_ERROR),
+        # Wrong Solr URL or missing core: needs a person to fix the configuration
+        (_http_error(404), FailureKind.CONFIG_ERROR),
         # Document that cannot be serialized
         (orjson.JSONEncodeError("bad"), FailureKind.PERMANENT),
         # Unknown errors go to the (replayable) dead-letter queue

@@ -36,7 +36,7 @@ def _make_service(solr_api_full_text: MagicMock) -> tuple[DocumentIndexerQueueSe
 
 
 def _batch() -> list[dict[str, Any]]:
-    return [{"ht_id": "1"}, {"ht_id": "2"}]
+    return [{"id": "1"}, {"id": "2"}]
 
 
 def _http_error(status_code: int) -> requests.exceptions.HTTPError:
@@ -93,7 +93,7 @@ def test_process_batch_acks_good_documents_and_dead_letters_only_the_bad_one() -
     solr_api_full_text = MagicMock()
     solr_api_full_text.index_documents.side_effect = index_documents
     service, channel = _make_service(solr_api_full_text)
-    batch: list[dict[str, Any]] = [{"ht_id": "1"}, {"ht_id": "2", "bad": True}, {"ht_id": "3"}]
+    batch: list[dict[str, Any]] = [{"id": "1"}, {"id": "2", "bad": True}, {"id": "3"}]
     delivery_tags = [10, 11, 12]
 
     result = service.process_batch(batch, delivery_tags)
@@ -178,7 +178,7 @@ def test_process_batch_stops_posting_when_solr_goes_down_during_the_one_by_one_r
         requests.exceptions.ConnectionError("refused"),  # document 2
     ]
     service, channel = _make_service(solr_api_full_text)
-    batch = [{"ht_id": "1"}, {"ht_id": "2"}, {"ht_id": "3"}]
+    batch = [{"id": "1"}, {"id": "2"}, {"id": "3"}]
 
     result = service.process_batch(batch, [10, 11, 12])
 
@@ -215,7 +215,7 @@ def test_message_that_keeps_getting_a_server_error_is_dead_lettered_after_max_re
 
     # The queue hands the same message back each time, with a new delivery tag.
     for delivery_tag in (10, 11, 12):
-        service.process_batch([{"ht_id": "1"}], [delivery_tag])
+        service.process_batch([{"id": "1"}], [delivery_tag])
 
     assert _retried_tags(channel) == [10, 11]
     assert _dead_lettered_tags(channel) == [12]
@@ -231,7 +231,7 @@ def test_outage_never_uses_up_a_messages_retries() -> None:
     service.max_retries = 2
 
     for delivery_tag in range(10, 20):
-        service.process_batch([{"ht_id": "1"}], [delivery_tag])
+        service.process_batch([{"id": "1"}], [delivery_tag])
 
     assert len(_retried_tags(channel)) == 10
     assert channel.basic_reject.call_count == 0
@@ -247,15 +247,15 @@ def test_retry_count_is_cleared_when_the_message_is_finally_indexed() -> None:
     ]
     service, channel = _make_service(solr_api_full_text)
 
-    service.process_batch([{"ht_id": "1"}], [10])
+    service.process_batch([{"id": "1"}], [10])
     assert service.retry_attempts == {"1": 1}
-    service.process_batch([{"ht_id": "1"}], [11])
+    service.process_batch([{"id": "1"}], [11])
 
     assert service.retry_attempts == {}
     assert _acked_tags(channel) == [11]
 
 
-def test_retries_are_counted_per_message_even_without_an_ht_id() -> None:
+def test_retries_are_counted_per_message_even_without_an_id() -> None:
     solr_api_full_text = MagicMock()
     solr_api_full_text.index_documents.return_value = _error_response(500)
     service, channel = _make_service(solr_api_full_text)
@@ -282,7 +282,7 @@ def test_backoff_doubles_while_batches_keep_failing_and_resets_after_a_clean_one
     service, _ = _make_service(solr_api_full_text)
 
     for delivery_tag in range(5):
-        service.process_batch([{"ht_id": str(delivery_tag)}], [delivery_tag])
+        service.process_batch([{"id": str(delivery_tag)}], [delivery_tag])
 
     assert sleeps == [1.0, 2.0, 4.0, 1.0]
 
@@ -294,7 +294,7 @@ def test_backoff_is_capped(sleeps: list[float]) -> None:
     # A very long outage: 2 ** 1000 would overflow a float if the exponent were not limited
     service.consecutive_retry_batches = 1000
 
-    service.process_batch([{"ht_id": "1"}], [10])
+    service.process_batch([{"id": "1"}], [10])
 
     assert sleeps == [60.0]
 
@@ -307,7 +307,7 @@ def test_no_backoff_when_nothing_was_put_back(sleeps: list[float]) -> None:
     ]
     service, _ = _make_service(solr_api_full_text)
 
-    service.process_batch([{"ht_id": "1"}], [10])
+    service.process_batch([{"id": "1"}], [10])
 
     assert sleeps == []
 
@@ -360,7 +360,7 @@ def test_bad_document_is_logged_as_permanent_and_dead_lettered(
     solr_api_full_text.index_documents.return_value = _error_response(400)
     service, _ = _make_service(solr_api_full_text)
 
-    service.process_batch([{"ht_id": "1"}], [10])
+    service.process_batch([{"id": "1"}], [10])
 
     lines = _log_lines(caplog)
     failures = [line for line in lines if line.startswith("event=solr_request_failed")]
@@ -402,7 +402,7 @@ def test_counted_retries_log_the_attempt_and_exhaustion_is_the_dead_letter_reaso
     service.max_retries = 1
 
     for delivery_tag in (10, 11):
-        service.process_batch([{"ht_id": "1"}], [delivery_tag])
+        service.process_batch([{"id": "1"}], [delivery_tag])
 
     lines = _log_lines(caplog)
     assert any(
@@ -439,10 +439,65 @@ def test_unavailable_answers_keep_messages_on_the_queue_and_never_use_up_retries
     service.max_retries = 2
 
     for delivery_tag in range(10, 20):
-        service.process_batch([{"ht_id": "1"}], [delivery_tag])
+        service.process_batch([{"id": "1"}], [delivery_tag])
 
     assert len(_retried_tags(channel)) == 10
     assert channel.basic_reject.call_count == 0
     assert service.retry_attempts == {}
     # One request per batch: posting each document alone would get the same answer
     assert solr_api_full_text.index_documents.call_count == 10
+
+
+def test_wrong_solr_url_or_missing_core_keeps_messages_on_the_queue(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level("INFO")
+    solr_api_full_text = MagicMock()
+    solr_api_full_text.index_documents.return_value = _error_response(404)
+    service, channel = _make_service(solr_api_full_text)
+
+    service.process_batch(_batch(), [10, 11])
+
+    assert _retried_tags(channel) == [10, 11]
+    assert channel.basic_reject.call_count == 0
+    assert solr_api_full_text.index_documents.call_count == 1
+    assert any(
+        "failure_kind=config_error failure_type=http_404" in line for line in _log_lines(caplog)
+    )
+
+
+def test_retries_are_keyed_by_the_document_id_not_by_the_whole_document() -> None:
+    """Messages are Solr documents carrying the whole OCR text; it must not become a dict key."""
+    solr_api_full_text = MagicMock()
+    solr_api_full_text.index_documents.return_value = _error_response(500)
+    service, _ = _make_service(solr_api_full_text)
+    document = {"id": "mdp.39015078560292", "ocr": "x" * 1_000_000}
+
+    service.process_batch([document], [10])
+
+    assert service.retry_attempts == {"mdp.39015078560292": 1}
+
+
+def test_a_document_without_an_id_is_keyed_by_a_short_hash() -> None:
+    solr_api_full_text = MagicMock()
+    solr_api_full_text.index_documents.return_value = _error_response(500)
+    service, _ = _make_service(solr_api_full_text)
+
+    service.process_batch([{"title": "no id", "ocr": "x" * 1_000_000}], [10])
+
+    (key,) = service.retry_attempts
+    assert key.startswith("hash:")
+    assert len(key) < 30
+
+
+def test_retry_log_shows_the_document_id_as_ht_id(caplog: pytest.LogCaptureFixture) -> None:
+    caplog.set_level("INFO")
+    solr_api_full_text = MagicMock()
+    solr_api_full_text.index_documents.return_value = _error_response(500)
+    service, _ = _make_service(solr_api_full_text)
+
+    service.process_batch([{"id": "mdp.123", "ocr": "text"}], [10])
+
+    assert any(
+        line.startswith("event=message_retried ht_id=mdp.123 ") for line in _log_lines(caplog)
+    )

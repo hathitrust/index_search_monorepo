@@ -1,4 +1,5 @@
 import argparse
+import hashlib
 import time
 from typing import Any
 
@@ -8,7 +9,7 @@ from ht_indexer_api.ht_indexer_api import HTSolrAPI
 from ht_queue_service.queue_config import QueueParams
 from ht_queue_service.queue_multiple_consumer import QueueMultipleConsumer
 from ht_utils.ht_logger import get_ht_logger
-from ht_utils.ht_utils import get_error_message_by_document
+from ht_utils.ht_utils import get_error_message_by_document, get_queue_message_id
 from pika.adapters.blocking_connection import BlockingChannel
 
 from .failure_classifier import (
@@ -68,12 +69,15 @@ class DocumentIndexerQueueService(QueueMultipleConsumer):
 
     @staticmethod
     def _message_key(message: dict[str, Any]) -> str:
-        ht_id = message.get("ht_id")
-        return (
-            str(ht_id)
-            if ht_id is not None
-            else orjson.dumps(message, option=orjson.OPT_SORT_KEYS).decode()
-        )
+        """Identify a message across redeliveries. Messages are Solr documents, so the id is in
+        `id` (get_queue_message_id also checks `ht_id`). Without one, use a short hash: the
+        document holds the whole OCR text and must not be used as a dictionary key.
+        """
+        message_id = get_queue_message_id(message)
+        if message_id != "unknown_id":
+            return message_id
+        digest = hashlib.sha256(orjson.dumps(message, option=orjson.OPT_SORT_KEYS))
+        return f"hash:{digest.hexdigest()[:16]}"
 
     def _exceeded_max_retries(self, message: dict[str, Any]) -> bool:
         """Record one more failed attempt for the message; True once it has used up its retries."""
@@ -150,7 +154,7 @@ class DocumentIndexerQueueService(QueueMultipleConsumer):
         :param counted: True if this attempt counts towards max_retries (see _exceeded_max_retries)
         """
         fields: dict[str, object] = {
-            "ht_id": message.get("ht_id"),
+            "ht_id": get_queue_message_id(message),
             "failure_kind": classify_failure(error).value,
         }
         if counted:
@@ -175,7 +179,7 @@ class DocumentIndexerQueueService(QueueMultipleConsumer):
         logger.error(
             _log_line(
                 "message_dead_lettered",
-                ht_id=message.get("ht_id"),
+                ht_id=get_queue_message_id(message),
                 reason=reason,
                 queue=self.queue_manager.dead_letter_queue_name,
                 failure_kind=classify_failure(error).value,

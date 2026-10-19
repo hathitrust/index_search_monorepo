@@ -3,6 +3,7 @@ import json
 
 import pika
 from ht_utils.ht_logger import get_ht_logger
+from ht_utils.ht_utils import get_queue_message_id
 from pika.adapters.blocking_connection import BlockingChannel
 from pika.exceptions import AMQPError, NackError, UnroutableError
 
@@ -20,12 +21,13 @@ class ReplaySummary:
     inspected: int  # Messages looked at (a dry run only looks)
 
 
-def _ht_id(body: bytes) -> str | None:
+def _ht_id(body: bytes) -> str:
+    """The id of the message, for the logs. Messages are Solr documents, so it is in `id`."""
     try:
-        ht_id = json.loads(body).get("ht_id")
-    except ValueError, AttributeError:
-        return None
-    return None if ht_id is None else str(ht_id)
+        message = json.loads(body)
+    except ValueError:
+        return "unknown_id"
+    return get_queue_message_id(message) if isinstance(message, dict) else "unknown_id"
 
 
 def replay_dead_letter_messages(

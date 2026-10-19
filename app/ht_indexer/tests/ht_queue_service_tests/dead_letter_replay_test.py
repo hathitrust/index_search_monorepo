@@ -13,7 +13,7 @@ from pika.exceptions import NackError, UnroutableError
 
 
 def _body(ht_id: str) -> bytes:
-    return json.dumps({"ht_id": ht_id}).encode()
+    return json.dumps({"id": ht_id}).encode()
 
 
 def _fake_broker(bodies: list[bytes]) -> tuple[MagicMock, MagicMock]:
@@ -125,7 +125,7 @@ def test_replay_moves_a_dead_lettered_message_back_to_the_main_queue(
     assert consumer.channel is not None
     channel = consumer.channel
     queue_manager = consumer.queue_manager
-    message: dict[str, Any] = {"ht_id": "mdp.123", "ht_title": "Hello"}
+    message: dict[str, Any] = {"id": "mdp.123", "ht_title": "Hello"}
 
     try:
         consumer.queue_manager.set_up_queue(channel)

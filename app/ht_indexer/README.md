@@ -247,7 +247,7 @@ dead-lettered (ETT-1894).
 | What happened                                                       | What the indexer does                                                                                           |
 |---------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------|
 | The whole batch is indexed                                          | Acknowledges every message                                                                                      |
-| Solr is unreachable, times out, says it is unavailable (429, 502, 503, 504), or rejects our login (401/403) | Puts the whole batch back on the queue. Nothing is dead-lettered, and a login problem is logged as `config_error` |
+| Solr is unreachable, times out, says it is unavailable (429, 502, 503, 504), rejects our login (401/403), or the URL or core is wrong (404) | Puts the whole batch back on the queue. Nothing is dead-lettered, and a login problem is logged as `config_error` |
 | Any other failure of the batch                                      | Retries each document on its own: acknowledges the ones that work, then handles each failure as below           |
 | A document alone fails with a 4xx, or with an unknown error          | Dead-letters it (`reason=bad_document`)                                                                         |
 | A document alone fails with any other 5xx (e.g. 500)                | Puts it back on the queue. After `max_retries` (default 5, `indexer_config.yml`) it is dead-lettered (`reason=retries_exhausted`) |

@@ -12,12 +12,14 @@ class FailureKind(enum.Enum):
     TRANSIENT = "transient"
     # The document itself is bad. Send it to the dead-letter queue.
     PERMANENT = "permanent"
-    # Solr rejected our credentials. Retrying won't help and it is not the message's fault,
-    # so keep the message on the queue and make noise.
+    # Solr rejected our credentials, or the URL or core is wrong. Retrying won't help and it is
+    # not the message's fault, so keep the message on the queue and make noise.
     CONFIG_ERROR = "config_error"
 
 
-_AUTH_STATUS_CODES = {401, 403}
+# 401/403: our login is refused. 404: wrong Solr URL or the core is missing. None of these go
+# away without someone fixing the configuration, and none are the document's fault.
+_CONFIG_ERROR_STATUS_CODES = {401, 403, 404}
 
 # Solr, or a proxy in front of it, says it cannot take requests right now: too many requests,
 # bad gateway, service unavailable, gateway timeout. This says nothing about the document, so
@@ -33,7 +35,7 @@ def classify_failure(exc: Exception) -> FailureKind:
     """
     if isinstance(exc, requests.exceptions.HTTPError):
         status = exc.response.status_code if exc.response is not None else None
-        if status in _AUTH_STATUS_CODES:
+        if status in _CONFIG_ERROR_STATUS_CODES:
             return FailureKind.CONFIG_ERROR
         if status in UNAVAILABLE_STATUS_CODES:
             return FailureKind.TRANSIENT
