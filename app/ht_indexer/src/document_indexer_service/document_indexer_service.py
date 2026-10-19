@@ -110,6 +110,10 @@ class DocumentIndexerQueueService(QueueMultipleConsumer):
                 wait_seconds=delay,
             )
         )
+        # ASSUMPTION: heartbeat is 0 for the indexer (heartbeat in indexer_config.yml), so this long
+        # blocking sleep cannot make the broker drop the connection. pika only answers heartbeats
+        # while it is doing I/O. If the heartbeat is ever enabled (> 0), revisit this: sleep in
+        # shorter steps, or with the connection's own sleep() so heartbeats keep being processed.
         time.sleep(delay)
 
     def _index(self, documents: list[dict[str, Any]]) -> None:
