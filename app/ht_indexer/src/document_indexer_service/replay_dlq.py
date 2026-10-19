@@ -55,7 +55,9 @@ def main() -> None:
         config_key="queue",
     ).get_params()
 
-    channel_creator = ChannelCreator(queue_params.user, queue_params.password, queue_params.host)
+    channel_creator = ChannelCreator(
+        queue_params.user, queue_params.password, queue_params.host, queue_params.heartbeat
+    )
     channel = channel_creator.get_channel()
     if channel is None:
         logger.error("Unable to establish a RabbitMQ channel")
