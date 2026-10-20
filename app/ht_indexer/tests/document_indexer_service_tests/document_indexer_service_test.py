@@ -255,19 +255,6 @@ def test_retry_count_is_cleared_when_the_message_is_finally_indexed() -> None:
     assert _acked_tags(channel) == [11]
 
 
-def test_retries_are_counted_per_message_even_without_an_id() -> None:
-    solr_api_full_text = MagicMock()
-    solr_api_full_text.index_documents.return_value = _error_response(500)
-    service, channel = _make_service(solr_api_full_text)
-    service.max_retries = 1
-
-    for delivery_tag in (10, 11):
-        service.process_batch([{"title": "no id"}], [delivery_tag])
-
-    assert _retried_tags(channel) == [10]
-    assert _dead_lettered_tags(channel) == [11]
-
-
 def test_backoff_doubles_while_batches_keep_failing_and_resets_after_a_clean_one(
     sleeps: list[float],
 ) -> None:
@@ -478,16 +465,18 @@ def test_retries_are_keyed_by_the_document_id_not_by_the_whole_document() -> Non
     assert service.retry_attempts == {"mdp.39015078560292": 1}
 
 
-def test_a_document_without_an_id_is_keyed_by_a_short_hash() -> None:
+def test_a_message_without_an_id_is_dead_lettered_once_and_never_retried() -> None:
+    """Solr rejects a document without an id (400), so it goes to the DLQ for examination."""
     solr_api_full_text = MagicMock()
-    solr_api_full_text.index_documents.return_value = _error_response(500)
-    service, _ = _make_service(solr_api_full_text)
+    solr_api_full_text.index_documents.return_value = _error_response(400)
+    service, channel = _make_service(solr_api_full_text)
 
-    service.process_batch([{"title": "no id", "ocr": "x" * 1_000_000}], [10])
+    result = service.process_batch([{"title": "no id", "ocr": "x" * 1_000_000}], [10])
 
-    (key,) = service.retry_attempts
-    assert key.startswith("hash:")
-    assert len(key) < 30
+    assert result is False
+    assert _dead_lettered_tags(channel) == [10]
+    assert channel.basic_nack.call_count == 0
+    assert service.retry_attempts == {}
 
 
 def test_retry_log_shows_the_document_id_as_ht_id(caplog: pytest.LogCaptureFixture) -> None:

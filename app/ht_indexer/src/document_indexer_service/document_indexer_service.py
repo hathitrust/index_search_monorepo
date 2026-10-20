@@ -1,10 +1,8 @@
 import argparse
-import hashlib
 import sys
 import time
 from typing import Any
 
-import orjson
 import requests
 from ht_indexer_api.ht_indexer_api import HTSolrAPI
 from ht_queue_service.queue_config import QueueParams
@@ -71,14 +69,10 @@ class DocumentIndexerQueueService(QueueMultipleConsumer):
     @staticmethod
     def _message_key(message: dict[str, Any]) -> str:
         """Identify a message across redeliveries. Messages are Solr documents, so the id is in
-        `id` (get_queue_message_id also checks `ht_id`). Without one, use a short hash: the
-        document holds the whole OCR text and must not be used as a dictionary key.
+        `id` (get_queue_message_id also checks `ht_id`). A message without an id is never retried:
+        Solr rejects it with a 400, so it goes straight to the dead-letter queue.
         """
-        message_id = get_queue_message_id(message)
-        if message_id != "unknown_id":
-            return message_id
-        digest = hashlib.sha256(orjson.dumps(message, option=orjson.OPT_SORT_KEYS))
-        return f"hash:{digest.hexdigest()[:16]}"
+        return get_queue_message_id(message)
 
     def _exceeded_max_retries(self, message: dict[str, Any]) -> bool:
         """Record one more failed attempt for the message; True once it has used up its retries."""
