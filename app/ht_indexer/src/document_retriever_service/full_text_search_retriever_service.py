@@ -144,7 +144,7 @@ class FullTextSearchRetrieverQueueService:
         """Generate the metadata and the ht_id of the document to be published in the queue"""
 
         item_id = record.ht_id
-        logger.info(f"Processing document {item_id}")
+        logger.info(f"Processing document htid={item_id}")
 
         item_metadata = record.metadata
         item_metadata["ht_id"] = item_id
@@ -173,7 +173,7 @@ class FullTextSearchRetrieverQueueService:
 
         for record in result:
             item_metadata, item_id = FullTextSearchRetrieverQueueService.generate_metadata(record)
-            logger.info(f"Publishing document {item_id}")
+            logger.info(f"Publishing document htid={item_id}")
 
             # Try to publish the document in the queue, if an error occurs, log the error and continue to the next
             try:
@@ -205,7 +205,7 @@ class FullTextSearchRetrieverQueueService:
                     }
                 )
 
-                logger.error(f"Error in publishing document {item_id} {error_info}")
+                logger.error(f"Error in publishing document htid={item_id} {error_info}")
                 continue
 
         # Update the status of the items in MySQL table. The two writes are independent: a failure
@@ -305,7 +305,7 @@ class FullTextSearchRetrieverQueueService:
         for item_id in item_ids:
             chunk_metadata.failed[item_id] = str(e)
             logger.error(
-                f"Error in building catalog metadata for document {item_id} "
+                f"Error in building catalog metadata for document htid={item_id} "
                 f"{get_general_error_message('FullTextSearchRetrieverQueueService', e)}"
             )
 
@@ -328,7 +328,7 @@ class FullTextSearchRetrieverQueueService:
         )
         for item_id in sorted(missing):
             logger.error(
-                f"Error in retrieving document {item_id} "
+                f"Error in retrieving document htid={item_id} "
                 f"FullTextSearchRetrieverQueueService_not found in Catalog"
             )
         return missing

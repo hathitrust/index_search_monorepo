@@ -47,7 +47,9 @@ class DocumentIndexerQueueService(QueueMultipleConsumer):
 
         for message, delivery_tag in zip(messages, delivery_tags, strict=False):
             error_info = get_error_message_by_document("DocumentIndexerService", error, message)
-            logger.error(f"Failed process=indexing error_detail={error_info}")
+            logger.error(
+                f"Failed process=indexing ht_id={message.get('ht_id')} error_detail={error_info}"
+            )
             self.reject_message(channel, delivery_tag)
 
     def process_batch(self, batch: list[dict[str, Any]], delivery_tags: list[int]) -> bool:
