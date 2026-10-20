@@ -2,6 +2,7 @@ import json
 from collections import defaultdict
 from collections.abc import Callable
 from typing import Any
+from unittest.mock import patch
 
 import pytest
 from conftest import close_channel_and_connection, ensure_queue_ready_and_purged
@@ -345,3 +346,20 @@ class TestHTMultipleQueueConsumer:
         )
         logger.info("Closing the channel and connection for the main queue")
         close_channel_and_connection(multiple_consumer_instance)
+
+    def test_batch_sleep_calls_logger_once(
+        self, make_queue_config: Callable[..., QueueConfig]
+    ) -> None:
+        queue_config = make_queue_config(
+            batch_size=1, requeue_message=False, shutdown_on_empty_queue=True
+        )
+
+        # Create a consumer instance to consume the message
+        multiple_consumer_instance = HTMultipleConsumerServiceConcrete(
+            queue_config.queue_params, max_redelivery=1
+        )
+
+        with patch("ht_queue_service.queue_multiple_consumer.logger") as mock_logger:
+            multiple_consumer_instance.batch_sleep()
+            multiple_consumer_instance.batch_sleep()
+        assert mock_logger.info.call_count == 1
