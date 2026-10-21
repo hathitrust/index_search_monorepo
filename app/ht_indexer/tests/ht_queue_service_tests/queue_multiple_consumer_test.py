@@ -2,7 +2,6 @@ import json
 from collections import defaultdict
 from collections.abc import Callable
 from typing import Any
-from unittest.mock import patch
 
 import pytest
 from conftest import close_channel_and_connection, ensure_queue_ready_and_purged
@@ -348,7 +347,7 @@ class TestHTMultipleQueueConsumer:
         close_channel_and_connection(multiple_consumer_instance)
 
     def test_batch_sleep_calls_logger_once(
-        self, make_queue_config: Callable[..., QueueConfig]
+        self, make_queue_config: Callable[..., QueueConfig], caplog: pytest.LogCaptureFixture
     ) -> None:
         queue_config = make_queue_config(
             batch_size=1, requeue_message=False, shutdown_on_empty_queue=True
@@ -359,7 +358,14 @@ class TestHTMultipleQueueConsumer:
             queue_config.queue_params, max_redelivery=1
         )
 
-        with patch("ht_queue_service.queue_multiple_consumer.logger") as mock_logger:
+        with caplog.at_level("INFO", logger="ht_queue_service.queue_multiple_consumer"):
             multiple_consumer_instance.batch_sleep()
             multiple_consumer_instance.batch_sleep()
-        assert mock_logger.info.call_count == 1
+
+        waiting_logs = [
+            r
+            for r in caplog.records
+            if r.name == "ht_queue_service.queue_multiple_consumer"
+            and r.getMessage() == HTMultipleConsumerServiceConcrete.BATCH_SLEEP_LOG_MESSAGE
+        ]
+        assert len(waiting_logs) == 1

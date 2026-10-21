@@ -16,6 +16,9 @@ logger = get_ht_logger(name=__name__)
 
 
 class QueueMultipleConsumer(ABC):
+    # This is used in at least one test. If it changes, let it change in one place.
+    BATCH_SLEEP_LOG_MESSAGE = "No messages in the queue. Waiting for more messages..."
+
     def __init__(self, queue_params: QueueParams) -> None:
         """
         This class is used to consume a batch of messages from the queue
@@ -146,7 +149,7 @@ class QueueMultipleConsumer(ABC):
         and sleeps when there is nothing in the queue.
         """
         if not self.batch_sleep_flag:
-            logger.info("No messages in the queue. Waiting for more messages...")
+            logger.info(QueueMultipleConsumer.BATCH_SLEEP_LOG_MESSAGE)
             self.batch_sleep_flag = True
         time.sleep(0.5)  # Wait before checking for more messages
 
