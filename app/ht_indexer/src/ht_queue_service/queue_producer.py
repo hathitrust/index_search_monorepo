@@ -5,7 +5,6 @@ from typing import Any, cast
 
 import pika.exceptions
 from ht_utils.ht_logger import get_ht_logger
-from ht_utils.ht_utils import get_queue_message_id
 from pika.adapters.blocking_connection import BlockingChannel
 
 from ht_queue_service.channel_creator import ChannelCreator
@@ -164,7 +163,6 @@ class QueueProducer:
         Notes:
             - Consider adding bounded retries with exponential backoff to avoid unbounded recursion.
         """
-        message_id = get_queue_message_id(queue_message)
 
         # Get the appropriate channel for this thread
         channel = self._get_thread_channel()
@@ -183,7 +181,7 @@ class QueueProducer:
                 body = json.dumps(queue_message).encode("utf-8")
             except (TypeError, ValueError) as json_err:
                 logger.error(
-                    f"Failed to serialize message {queue_message.get('ht_id')}: {json_err}",
+                    f"Failed to serialize message htid={queue_message.get('ht_id')}: {json_err}",
                     exc_info=True,
                 )
                 raise
@@ -198,7 +196,7 @@ class QueueProducer:
             )
 
             logger.info(
-                f"Published message to {self.queue_manager.queue_name}. Message ID: {message_id}"
+                f"Published message htid={queue_message.get('ht_id')} to {self.queue_manager.queue_name}"
             )
 
         except (
@@ -208,14 +206,14 @@ class QueueProducer:
             pika.exceptions.StreamLostError,
         ) as err:
             logger.warning(
-                f"RabbitMQ connection/channel closed while publishing: {err}. Reconnecting and retrying..."
+                f"RabbitMQ connection/channel closed while publishing htid={queue_message.get('ht_id')}: {err}. Reconnecting and retrying..."
             )
             self._thread_reconnect()
             self.publish_messages(queue_message)  # Retry
 
         except Exception as err:
             logger.error(
-                f"Unexpected error publishing message {queue_message.get('ht_id')}: {err}",
+                f"Unexpected error publishing message htid={queue_message.get('ht_id')}: {err}",
                 exc_info=True,
             )
             raise

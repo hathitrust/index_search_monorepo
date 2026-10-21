@@ -16,6 +16,9 @@ logger = get_ht_logger(name=__name__)
 
 
 class QueueMultipleConsumer(ABC):
+    # This is used in at least one test. If it changes, let it change in one place.
+    BATCH_SLEEP_LOG_MESSAGE = "No messages in the queue. Waiting for more messages..."
+
     def __init__(self, queue_params: QueueParams) -> None:
         """
         This class is used to consume a batch of messages from the queue
@@ -24,7 +27,7 @@ class QueueMultipleConsumer(ABC):
         Consumer class handles additional attributes like:
         - requeue_message: If True, messages will be requeued to the queue if processing fails, otherwise they
         will be sent to the Dead Letter Queue.
-        - shutdown_on_empty_queue: If True, the consumer will stop consuming messages when the queue
+        - shutdown_on_empty_queue: If True, the consumer will stop consuming messages when the queue is empty
         """
 
         self.channel_creator = ChannelCreator(
@@ -47,6 +50,10 @@ class QueueMultipleConsumer(ABC):
             # The channel will be closed if the queue doesn't exist or is declared with different options.
             # We need to set up the queue again.
             self.queue_reconnect()
+
+        # Suppresses repeated "waiting..." log messages each time `time.sleep()` is called
+        # inside `consume_batch`.
+        self.batch_sleep_flag = False
 
     @abstractmethod
     def process_batch(self, batch: list[Any], delivery_tag: list[int]) -> None | Any:
@@ -120,9 +127,11 @@ class QueueMultipleConsumer(ABC):
                     logger.info("Queue is empty. Stopping consumer...")
                     return
                 else:
-                    time.sleep(0.5)  # Wait before checking for more messages
-                    logger.info("No messages in the queue. Waiting for more messages...")
+                    self.batch_sleep()
                     continue
+            # Something has been retrieved from the queue, so go back to allowing
+            # log messages when about to sleep again.
+            self.batch_sleep_flag = False
             try:
                 batch_data = [orjson.loads(body) for body in batch]
                 # Process batch of messages and acknowledge them if successful. process_batch
@@ -136,6 +145,16 @@ class QueueMultipleConsumer(ABC):
             except Exception as e:
                 logger.error(f"[!] Error processing batch: {e}")
                 raise e
+
+    def batch_sleep(self) -> None:
+        """
+        Logs a "waiting..." line (unless it would be a repeat)
+        and sleeps when there is nothing in the queue.
+        """
+        if not self.batch_sleep_flag:
+            logger.info(QueueMultipleConsumer.BATCH_SLEEP_LOG_MESSAGE)
+            self.batch_sleep_flag = True
+        time.sleep(0.5)  # Wait before checking for more messages
 
     def consume_dead_letter_messages(
         self,
