@@ -1,6 +1,7 @@
 import contextlib
 import json
 import logging
+import time
 from collections.abc import Callable, Generator
 from typing import Any
 from unittest.mock import patch
@@ -140,7 +141,13 @@ def test_publish_messages_max_message_size_limits_what_is_published(
     # over-limit-not-published │ 1 byte below the message size │ must raise MessageTooLargeError │ 0 messages in the queue
     # at-limit-published       │ exactly the message size      │ must not raise                  │ 1 message in the queue
     assert producer.channel is not None
-    assert producer.queue_manager.get_total_messages(producer.channel) == published
+
+    for _ in range(20):
+        total = producer.queue_manager.get_total_messages(producer.channel)
+        if total == published:
+            break
+        time.sleep(0.1)
+    assert total == published
 
 
 @pytest.mark.integration

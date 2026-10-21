@@ -108,8 +108,6 @@ class FullTextDocumentGenerator:
         parts: list[str] = []
         for name in txt_files:
             page = FullTextDocumentGenerator.prepare_page(zip_doc.read(name))
-            if page == EMPTY_OCR_TOKEN:
-                logger.info(f"Empty OCR page {name}: replaced with {EMPTY_OCR_TOKEN}")
             parts.append(page)
         return " ".join(parts)
 
