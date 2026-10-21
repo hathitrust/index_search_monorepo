@@ -47,6 +47,7 @@ class QueueParams:
         DEFAULT_MAX_MESSAGE_SIZE_BYTES  # bytes; must not exceed the broker's max_message_size
     )
 
+
 def _load_config(config_path: Path) -> dict[str, Any]:
     with open(config_path) as file:
         return yaml.safe_load(file) or {}
