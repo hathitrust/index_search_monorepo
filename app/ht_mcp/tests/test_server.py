@@ -3,6 +3,7 @@ from pathlib import Path
 
 import httpx
 import pytest
+import pytest_asyncio
 import respx
 from ht_mcp import server
 from ht_mcp.catalog_client import VALID_FIELDS, CatalogClient
@@ -18,7 +19,7 @@ BATCH_FIXTURE = json.loads(
 BASE_URL = "http://catalog-test"
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def catalog(monkeypatch):
     """Point the server's module-level catalog at a test URL; closed again after the test."""
     client = CatalogClient(base_url=BASE_URL)
