@@ -35,7 +35,7 @@ class CatalogClient:
         )
 
     async def _get(self, url: str) -> httpx.Response:
-        """GET url, turning timeouts and connection failures into CatalogError."""
+        """GET url, turning timeouts and other transport failures into CatalogError."""
         logger.debug("GET %s%s", self.base_url, url)
         try:
             return await self._client.get(url)
@@ -45,6 +45,10 @@ class CatalogClient:
         except httpx.ConnectError as e:
             logger.error("Catalog unreachable: %s (%r)", self.base_url, e)
             raise CatalogError(f"Catalog unreachable: {e!r}") from e
+        except httpx.TransportError as e:
+            # Anything else at the transport level, e.g. a connection dropped mid-response.
+            logger.error("Catalog connection failed: %s%s (%r)", self.base_url, url, e)
+            raise CatalogError(f"Catalog connection failed: {e!r}") from e
 
     @staticmethod
     def _raise_for_error_status(response: httpx.Response) -> None:

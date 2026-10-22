@@ -172,14 +172,19 @@ async def test_lookup_single_catalog_http_error_returns_error(catalog, response,
 
 
 @pytest.mark.asyncio
-async def test_lookup_single_network_error_returns_error(catalog):
+@pytest.mark.parametrize(
+    "error, message",
+    [
+        (httpx.ConnectTimeout("slow"), "timed out"),
+        (httpx.ReadError("dropped"), "connection failed"),
+    ],
+)
+async def test_lookup_single_network_error_returns_error(catalog, error, message):
     with respx.mock(base_url=BASE_URL) as mock:
-        mock.get("/api/volumes/brief/oclc/00000001.json").mock(
-            side_effect=httpx.ConnectTimeout("slow")
-        )
+        mock.get("/api/volumes/brief/oclc/00000001.json").mock(side_effect=error)
         result = await server.lookup_single("oclc", "00000001")
 
-    assert "timed out" in result["error"]
+    assert message in result["error"]
 
 
 # --- lookup_volumes ---
@@ -232,11 +237,16 @@ async def test_lookup_volumes_catalog_http_error_returns_error(catalog, response
 
 
 @pytest.mark.asyncio
-async def test_lookup_volumes_network_error_returns_error(catalog):
+@pytest.mark.parametrize(
+    "error, message",
+    [
+        (httpx.ConnectError("refused"), "unreachable"),
+        (httpx.RemoteProtocolError("closed mid-response"), "connection failed"),
+    ],
+)
+async def test_lookup_volumes_network_error_returns_error(catalog, error, message):
     with respx.mock(base_url=BASE_URL) as mock:
-        mock.get("/api/volumes/brief/json/oclc:00000001").mock(
-            side_effect=httpx.ConnectError("refused")
-        )
+        mock.get("/api/volumes/brief/json/oclc:00000001").mock(side_effect=error)
         result = await server.lookup_volumes(["oclc:00000001"])
 
-    assert "unreachable" in result["error"]
+    assert message in result["error"]

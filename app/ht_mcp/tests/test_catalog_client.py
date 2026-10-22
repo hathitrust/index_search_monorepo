@@ -75,6 +75,8 @@ async def test_lookup_single_http_500(client):
         (httpx.ConnectTimeout("slow"), "timed out"),
         (httpx.ReadTimeout("slow"), "timed out"),
         (httpx.ConnectError("refused"), "unreachable"),
+        (httpx.ReadError("dropped"), "connection failed"),
+        (httpx.RemoteProtocolError("closed mid-response"), "connection failed"),
     ],
 )
 async def test_lookup_single_network_error(client, error, message):
@@ -151,6 +153,7 @@ async def test_lookup_volumes_empty_entry(client):
     [
         (httpx.ConnectTimeout("slow"), "timed out"),
         (httpx.ConnectError("refused"), "unreachable"),
+        (httpx.ReadError("dropped"), "connection failed"),
     ],
 )
 async def test_lookup_volumes_network_error(client, error, message):
