@@ -1,4 +1,5 @@
 import zipfile
+from collections.abc import Callable
 from pathlib import Path
 from xml.sax.saxutils import quoteattr
 
@@ -6,6 +7,18 @@ import pytest
 from document_generator.full_text_document_generator import FullTextDocumentGenerator
 from document_generator.mysql_data_extractor import extract_namespace_and_id
 from ht_utils.text_processor import string_preparation
+
+
+@pytest.fixture
+def make_ocr_zip(tmp_path: Path) -> Callable[[dict[str, bytes]], str]:
+    def _make(pages: dict[str, bytes]) -> str:
+        path = tmp_path / "item.zip"
+        with zipfile.ZipFile(path, "w") as zip_doc:
+            for name, data in pages.items():
+                zip_doc.writestr(name, data)
+        return str(path)
+
+    return _make
 
 
 @pytest.fixture()
@@ -100,3 +113,39 @@ class TestDocumentGenerator:
         namespace, ht_id = extract_namespace_and_id(document_id)
         assert namespace == "uiug"
         assert ht_id == "30112056400960"
+
+    @pytest.mark.parametrize(
+        ("pages", "expected"),
+        [
+            pytest.param(
+                {
+                    "00000001.txt": b"hello",
+                    "00000002.txt": b"  \n ",
+                    "00000003.txt": b"world",
+                },
+                '"hello" __EMPTYOCR__ "world"',
+                id="blank-page-replaced",
+            ),
+            pytest.param(
+                {"00000001.txt": b"", "00000002.txt": b"\r\n"},
+                "__EMPTYOCR__ __EMPTYOCR__",
+                id="all-pages-empty",
+            ),
+            pytest.param({"item.xml": b"<x/>"}, "__EMPTYOCR__", id="no-txt-pages"),
+            pytest.param(
+                {"00000001.txt": b"a", "00000002.txt": b"b"},
+                '"a" "b"',
+                id="text-pages-unchanged",
+            ),
+        ],
+    )
+    def test_get_full_text_field_returns_expected_ocr(
+        self,
+        make_ocr_zip: Callable[[dict[str, bytes]], str],
+        pages: dict[str, bytes],
+        expected: str,
+    ) -> None:
+        """
+        Test that get_full_text_field returns the expected OCR text.
+        """
+        assert FullTextDocumentGenerator.get_full_text_field(make_ocr_zip(pages)) == expected

@@ -50,6 +50,11 @@ jobs:
           python-version: "3.14"
           enable-cache: true
 
+      # Without this, uv run installs only the root project, so pika/pymarc and their stubs are
+      # missing and mypy (ignore_missing_imports) silently treats them as Any.
+      - name: Install workspace
+        run: uv sync --all-packages
+
       - name: Ruff
         run: |
           uv run ruff check --no-fix app libs

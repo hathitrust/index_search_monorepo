@@ -6,6 +6,13 @@ from typing import Any
 import yaml
 from ht_utils.ht_env_config import HtEnvConfig
 
+# Used when the app config has no max_message_size: 64 MiB (67,108,864 bytes). It must not exceed the
+# broker's limit (128 MiB default on RabbitMQ 3.13, 16 MiB on 4.x, which must be raised in rabbitmq.conf).
+DEFAULT_MAX_MESSAGE_SIZE_BYTES = 67_108_864  # 64 MiB
+RABBITMQ_MAX_MESSAGE_SIZE_BYTES = 536_870_912  # RabbitMQ hard maximum (512 MiB)
+# batch_size is also passed to basic_qos as prefetch_count, a 16-bit AMQP field (0 would mean unlimited).
+MAX_BATCH_SIZE = 65_535
+
 
 @dataclasses.dataclass
 class QueueParams:
@@ -36,6 +43,9 @@ class QueueParams:
     # Used by the document indexer: how many times a message may be put back on the queue after
     # Solr answers its own request with a 5xx, before it is sent to the Dead Letter Queue.
     max_retries: int = 5
+    max_message_size: int = (
+        DEFAULT_MAX_MESSAGE_SIZE_BYTES  # bytes; must not exceed the broker's max_message_size
+    )
 
 
 def _load_config(config_path: Path) -> dict[str, Any]:
@@ -83,6 +93,16 @@ class QueueConfig:
         self.merged_config = self._load_env_vars(app_cfg)
 
         self.queue_params = QueueParams(**self._create_queue_params())
+
+        size = self.queue_params.max_message_size
+        if not 1 <= size <= RABBITMQ_MAX_MESSAGE_SIZE_BYTES:
+            raise ValueError(
+                f"max_message_size must be between 1 and {RABBITMQ_MAX_MESSAGE_SIZE_BYTES} bytes, got {size}"
+            )
+
+        batch_size = self.queue_params.batch_size
+        if not 1 <= batch_size <= MAX_BATCH_SIZE:
+            raise ValueError(f"batch_size must be between 1 and {MAX_BATCH_SIZE}, got {batch_size}")
 
     def _load_env_vars(self, config: dict[str, Any]) -> dict[str, Any]:
         queue_cfg = copy.deepcopy(config)
