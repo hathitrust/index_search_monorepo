@@ -28,12 +28,21 @@ class CatalogClient:
             timeout=settings.http_timeout_seconds,
         )
 
+    async def _get(self, url: str) -> httpx.Response:
+        """GET url, turning timeouts and connection failures into CatalogError."""
+        try:
+            return await self._client.get(url)
+        except httpx.TimeoutException as e:
+            raise CatalogError(f"Catalog request timed out: {e!r}") from e
+        except httpx.ConnectError as e:
+            raise CatalogError(f"Catalog unreachable: {e!r}") from e
+
     async def lookup_single(self, field: str, value: str) -> VolumeResult:
         if field not in VALID_FIELDS:
             raise ValueError(f"Unknown field '{field}'. Valid fields: {sorted(VALID_FIELDS)}")
 
         url = f"/api/volumes/brief/{field}/{value}.json"
-        response = await self._client.get(url)
+        response = await self._get(url)
 
         if response.status_code == 400:
             raise CatalogError(f"Bad request for {field}:{value}")
@@ -51,7 +60,7 @@ class CatalogClient:
 
         query = "|".join(identifiers)
         url = f"/api/volumes/brief/json/{query}"
-        response = await self._client.get(url)
+        response = await self._get(url)
 
         if response.status_code == 400:
             raise CatalogError(f"Bad request for identifiers: {identifiers}")
