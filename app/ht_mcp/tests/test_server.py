@@ -83,7 +83,7 @@ async def test_health_degraded_when_unreachable(catalog):
 
 
 @pytest.mark.asyncio
-async def test_health_degraded_on_unexpected_error(catalog):
+async def test_health_degraded_on_unreadable_response(catalog):
     with respx.mock(base_url=BASE_URL) as mock:
         mock.get("/api/volumes/brief/htid/probe.json").mock(
             return_value=httpx.Response(200, text="not json")
@@ -91,7 +91,16 @@ async def test_health_degraded_on_unexpected_error(catalog):
         result = await server.health()
 
     assert result["status"] == "degraded"
-    assert result["catalog"].startswith("unexpected error:")
+    assert "invalid response" in result["catalog"]
+
+
+@pytest.mark.asyncio
+async def test_health_degraded_on_unexpected_error(catalog):
+    with respx.mock(base_url=BASE_URL) as mock:
+        mock.get("/api/volumes/brief/htid/probe.json").mock(side_effect=RuntimeError("boom"))
+        result = await server.health()
+
+    assert result == {"status": "degraded", "catalog": "unexpected error: boom"}
 
 
 # --- describe_catalog ---
@@ -149,6 +158,9 @@ async def test_lookup_single_invalid_field_returns_error(catalog):
     [
         (httpx.Response(400, json={"message": "bad"}), "Bad request"),
         (httpx.Response(500), "HTTP 500"),
+        (httpx.Response(403), "HTTP 403"),
+        (httpx.Response(429), "HTTP 429"),
+        (httpx.Response(200, text="<html>maintenance</html>"), "invalid response"),
     ],
 )
 async def test_lookup_single_catalog_http_error_returns_error(catalog, response, message):
@@ -206,6 +218,9 @@ async def test_lookup_volumes_invalid_identifier_returns_error(catalog, identifi
     [
         (httpx.Response(400, json={"message": "bad"}), "Bad request"),
         (httpx.Response(500), "HTTP 500"),
+        (httpx.Response(403), "HTTP 403"),
+        (httpx.Response(429), "HTTP 429"),
+        (httpx.Response(200, text="<html>maintenance</html>"), "invalid response"),
     ],
 )
 async def test_lookup_volumes_catalog_http_error_returns_error(catalog, response, message):

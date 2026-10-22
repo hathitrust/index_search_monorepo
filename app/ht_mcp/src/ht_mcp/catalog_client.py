@@ -1,3 +1,6 @@
+from collections.abc import Callable
+from typing import Any
+
 import httpx
 from ht_utils.ht_logger import get_ht_logger
 
@@ -43,6 +46,26 @@ class CatalogClient:
             logger.error("Catalog unreachable: %s (%r)", self.base_url, e)
             raise CatalogError(f"Catalog unreachable: {e!r}") from e
 
+    @staticmethod
+    def _raise_for_error_status(response: httpx.Response) -> None:
+        """Turn any remaining HTTP error (e.g. 403, 429) into CatalogError."""
+        if response.is_error:
+            logger.error("Catalog returned HTTP %s for %s", response.status_code, response.url)
+            raise CatalogError(f"Catalog request failed (HTTP {response.status_code})")
+
+    @staticmethod
+    def _parse[T](response: httpx.Response, parse: Callable[[Any], T]) -> T:
+        """Parse the JSON body, turning unreadable or unexpected replies into CatalogError.
+
+        JSONDecodeError and pydantic's ValidationError are ValueErrors, which the server
+        reports as rejected input, so they must not escape as-is.
+        """
+        try:
+            return parse(response.json())
+        except (ValueError, AttributeError) as e:
+            logger.error("Catalog returned an unreadable response for %s: %r", response.url, e)
+            raise CatalogError("Catalog returned an invalid response") from e
+
     async def lookup_single(self, field: str, value: str) -> VolumeResult:
         if field not in VALID_FIELDS:
             raise ValueError(f"Unknown field '{field}'. Valid fields: {sorted(VALID_FIELDS)}")
@@ -59,8 +82,8 @@ class CatalogClient:
             logger.error("Catalog returned HTTP %s for %s:%s", response.status_code, field, value)
             raise CatalogError(f"Catalog unavailable (HTTP {response.status_code})")
 
-        response.raise_for_status()
-        return VolumeResult.model_validate(response.json())
+        self._raise_for_error_status(response)
+        return self._parse(response, VolumeResult.model_validate)
 
     async def lookup_volumes(self, identifiers: list[str]) -> BatchVolumeResult:
         for ident in identifiers:
@@ -77,8 +100,11 @@ class CatalogClient:
             logger.error("Catalog returned HTTP %s for batch %s", response.status_code, identifiers)
             raise CatalogError(f"Catalog unavailable (HTTP {response.status_code})")
 
-        response.raise_for_status()
-        return {key: VolumeResult.model_validate(val) for key, val in response.json().items()}
+        self._raise_for_error_status(response)
+        return self._parse(
+            response,
+            lambda data: {key: VolumeResult.model_validate(val) for key, val in data.items()},
+        )
 
     async def close(self):
         await self._client.aclose()

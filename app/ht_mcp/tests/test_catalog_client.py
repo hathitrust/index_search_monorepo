@@ -87,6 +87,31 @@ async def test_lookup_single_network_error(client, error, message):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("status", [403, 429])
+async def test_lookup_single_other_http_error(client, status):
+    with respx.mock(base_url=BASE_URL) as mock:
+        mock.get("/api/volumes/brief/oclc/00000001.json").mock(return_value=Response(status))
+        with pytest.raises(CatalogError, match=f"HTTP {status}"):
+            await client.lookup_single("oclc", "00000001")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "body",
+    [
+        Response(200, text="<html>maintenance</html>"),
+        Response(200, json={"unexpected": "shape"}),
+        Response(200, json=["not", "an", "object"]),
+    ],
+)
+async def test_lookup_single_unreadable_response(client, body):
+    with respx.mock(base_url=BASE_URL) as mock:
+        mock.get("/api/volumes/brief/oclc/00000001.json").mock(return_value=body)
+        with pytest.raises(CatalogError, match="invalid response"):
+            await client.lookup_single("oclc", "00000001")
+
+
+@pytest.mark.asyncio
 async def test_lookup_single_invalid_field(client):
     with pytest.raises(ValueError, match="Unknown field"):
         await client.lookup_single("badfield", "123")
@@ -135,6 +160,31 @@ async def test_lookup_volumes_network_error(client, error, message):
             await client.lookup_volumes(["oclc:00000001"])
 
     assert exc_info.value.__cause__ is error
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("status", [403, 404, 429])
+async def test_lookup_volumes_other_http_error(client, status):
+    with respx.mock(base_url=BASE_URL) as mock:
+        mock.get("/api/volumes/brief/json/oclc:00000001").mock(return_value=Response(status))
+        with pytest.raises(CatalogError, match=f"HTTP {status}"):
+            await client.lookup_volumes(["oclc:00000001"])
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "body",
+    [
+        Response(200, text="<html>maintenance</html>"),
+        Response(200, json={"oclc:00000001": {"unexpected": "shape"}}),
+        Response(200, json=["not", "an", "object"]),
+    ],
+)
+async def test_lookup_volumes_unreadable_response(client, body):
+    with respx.mock(base_url=BASE_URL) as mock:
+        mock.get("/api/volumes/brief/json/oclc:00000001").mock(return_value=body)
+        with pytest.raises(CatalogError, match="invalid response"):
+            await client.lookup_volumes(["oclc:00000001"])
 
 
 @pytest.mark.asyncio
