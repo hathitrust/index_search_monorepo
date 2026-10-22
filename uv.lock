@@ -444,6 +444,7 @@ name = "ht-mcp"
 version = "0.1.0"
 source = { editable = "app/ht_mcp" }
 dependencies = [
+    { name = "ht-utils" },
     { name = "httpx" },
     { name = "mcp", extra = ["cli"] },
     { name = "pydantic-settings" },
@@ -458,6 +459,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "ht-utils", editable = "libs/common_lib" },
     { name = "httpx", specifier = ">=0.28,<0.29" },
     { name = "mcp", extras = ["cli"], specifier = ">=1.30,<2" },
     { name = "pydantic-settings", specifier = ">=2.15,<3" },
