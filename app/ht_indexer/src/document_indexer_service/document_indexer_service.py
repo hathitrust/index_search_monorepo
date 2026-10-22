@@ -113,7 +113,7 @@ class DocumentIndexerQueueService(QueueMultipleConsumer):
             docs=docs,
             failure_kind=classify_failure(error).value,
             failure_type=failure_type(error),
-            error=error,
+            error=str(error),
         )
 
     def _attempt_label(self, message: dict[str, Any]) -> str:
@@ -136,7 +136,7 @@ class DocumentIndexerQueueService(QueueMultipleConsumer):
         }
         if counted:
             fields["attempt"] = self._attempt_label(message)
-        logger.warning("message_retried", **fields, error=error)
+        logger.warning("message_retried", **fields, error=str(error))
         self.retried_in_batch += 1
         self.retry_message(channel, delivery_tag)
 

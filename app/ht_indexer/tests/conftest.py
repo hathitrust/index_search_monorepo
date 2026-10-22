@@ -2,11 +2,12 @@ import copy
 import json
 import os
 import uuid
-from collections.abc import Callable, Generator
+from collections.abc import Callable, Generator, MutableMapping
 from pathlib import Path
 from typing import Any, Protocol
 
 import pytest
+import structlog
 from catalog_metadata.catalog_metadata import CatalogItemMetadata, CatalogRecordMetadata
 from dotenv import load_dotenv
 from ht_queue_service.channel_creator import ChannelCreator
@@ -16,10 +17,41 @@ from ht_queue_service.queue_multiple_consumer import QueueMultipleConsumer
 from ht_utils.ht_env_config import HtEnvConfig
 from ht_utils.ht_utils import create_temporary_yaml_file
 from pika.adapters.blocking_connection import BlockingChannel
+from structlog.testing import LogCapture
 
 load_dotenv()
 
 current = os.path.dirname(__file__)
+
+
+@pytest.fixture
+def caplog() -> LogCapture:
+    caplog = LogCapture()
+    structlog.configure(
+        processors=[
+            structlog.contextvars.merge_contextvars,
+            structlog.stdlib.add_log_level,
+            structlog.stdlib.add_logger_name,
+            structlog.processors.StackInfoRenderer(),
+            structlog.dev.set_exc_info,
+            caplog,
+        ]
+    )
+    return caplog
+
+
+def assert_log_entry(entries: list[MutableMapping[str, Any]], **kwargs: Any) -> None:
+    """Asserts that the fields in the keyword arguments are included in at least one of
+    the log entries in entries."""
+
+    assert find_log_entry(entries, **kwargs) is not None
+
+
+def find_log_entry(
+    entries: list[MutableMapping[str, Any]], **kwargs: Any
+) -> MutableMapping[str, Any]:
+    """Returns the first log entry matching the fields from the given keyword arguments"""
+    return next(e for e in entries if kwargs.items() <= e.items())
 
 
 class ConcreteQueueConsumer(QueueMultipleConsumer):

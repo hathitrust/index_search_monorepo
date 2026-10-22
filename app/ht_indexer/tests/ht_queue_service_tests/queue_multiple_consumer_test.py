@@ -9,6 +9,7 @@ from ht_queue_service.queue_config import QueueConfig, QueueParams
 from ht_queue_service.queue_multiple_consumer import QueueMultipleConsumer
 from ht_queue_service.queue_producer import QueueProducer
 from ht_utils.ht_logger import get_ht_logger
+from structlog.testing import LogCapture
 
 logger = get_ht_logger(name=__name__)
 
@@ -347,7 +348,7 @@ class TestHTMultipleQueueConsumer:
         close_channel_and_connection(multiple_consumer_instance)
 
     def test_batch_sleep_calls_logger_once(
-        self, make_queue_config: Callable[..., QueueConfig], caplog: pytest.LogCaptureFixture
+        self, make_queue_config: Callable[..., QueueConfig], caplog: LogCapture
     ) -> None:
         queue_config = make_queue_config(
             batch_size=1, requeue_message=False, shutdown_on_empty_queue=True
@@ -358,14 +359,13 @@ class TestHTMultipleQueueConsumer:
             queue_config.queue_params, max_redelivery=1
         )
 
-        with caplog.at_level("INFO", logger="ht_queue_service.queue_multiple_consumer"):
-            multiple_consumer_instance.batch_sleep()
-            multiple_consumer_instance.batch_sleep()
+        multiple_consumer_instance.batch_sleep()
+        multiple_consumer_instance.batch_sleep()
 
         waiting_logs = [
-            r
-            for r in caplog.records
-            if r.name == "ht_queue_service.queue_multiple_consumer"
-            and r.getMessage() == HTMultipleConsumerServiceConcrete.BATCH_SLEEP_LOG_MESSAGE
+            e
+            for e in caplog.entries
+            if e["logger"] == "ht_queue_service.queue_multiple_consumer"
+            and e["event"] == HTMultipleConsumerServiceConcrete.BATCH_SLEEP_LOG_MESSAGE
         ]
         assert len(waiting_logs) == 1
