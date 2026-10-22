@@ -1,7 +1,16 @@
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
+import uvicorn
+from ht_utils.ht_logger import get_ht_logger
 from mcp.server.fastmcp import FastMCP
+from starlette.applications import Starlette
+from starlette.routing import Mount
 
 from ht_mcp.catalog_client import CatalogClient, CatalogError
 from ht_mcp.config import settings
+
+logger = get_ht_logger(__name__, settings.log_level)
 
 mcp = FastMCP("HathiTrust Catalog", host=settings.mcp_host, port=settings.mcp_port)
 catalog = CatalogClient()
@@ -58,6 +67,7 @@ async def health() -> dict:
     except CatalogError as e:
         return {"status": "degraded", "catalog": str(e)}
     except Exception as e:
+        logger.exception("health check failed unexpectedly")
         return {"status": "degraded", "catalog": f"unexpected error: {e}"}
 
 
@@ -96,9 +106,11 @@ async def lookup_single(field: str, value: str) -> dict:
 
     Returns catalog record metadata and associated digitized items.
     """
+    logger.info("lookup_single %s:%s", field, value)
     try:
         result = await catalog.lookup_single(field, value)
     except ValueError as e:
+        logger.warning("lookup_single rejected input: %s", e)
         return {"error": str(e)}
     except CatalogError as e:
         return {"error": str(e)}
@@ -123,9 +135,11 @@ async def lookup_volumes(identifiers: list[str]) -> dict:
 
     Returns results keyed by each input identifier.
     """
+    logger.info("lookup_volumes %d identifiers", len(identifiers))
     try:
         batch = await catalog.lookup_volumes(identifiers)
     except ValueError as e:
+        logger.warning("lookup_volumes rejected input: %s", e)
         return {"error": str(e)}
     except CatalogError as e:
         return {"error": str(e)}
@@ -140,5 +154,28 @@ async def lookup_volumes(identifiers: list[str]) -> dict:
     }
 
 
+@asynccontextmanager
+async def lifespan(_app: Starlette) -> AsyncIterator[None]:
+    """Process-level lifespan: close the shared catalog client when the server stops.
+
+    FastMCP's own lifespan runs once per client connection under SSE, so it cannot
+    own a client that is shared by every connection.
+    """
+    try:
+        yield
+    finally:
+        logger.info("Shutting down; closing catalog client")
+        await catalog.close()
+
+
+def create_app() -> Starlette:
+    return Starlette(routes=[Mount("/", app=mcp.sse_app())], lifespan=lifespan)
+
+
 if __name__ == "__main__":
-    mcp.run(transport="sse")
+    uvicorn.run(
+        create_app(),
+        host=settings.mcp_host,
+        port=settings.mcp_port,
+        log_level=settings.log_level.lower(),
+    )

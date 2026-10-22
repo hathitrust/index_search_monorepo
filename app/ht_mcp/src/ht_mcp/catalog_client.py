@@ -1,7 +1,10 @@
 import httpx
+from ht_utils.ht_logger import get_ht_logger
 
 from ht_mcp.config import settings
 from ht_mcp.models import BatchVolumeResult, VolumeResult
+
+logger = get_ht_logger(__name__, settings.log_level)
 
 VALID_FIELDS = {"htid", "oclc", "isbn", "lccn", "issn", "recordid"}
 
@@ -30,11 +33,14 @@ class CatalogClient:
 
     async def _get(self, url: str) -> httpx.Response:
         """GET url, turning timeouts and connection failures into CatalogError."""
+        logger.debug("GET %s%s", self.base_url, url)
         try:
             return await self._client.get(url)
         except httpx.TimeoutException as e:
+            logger.error("Catalog request timed out: %s%s", self.base_url, url)
             raise CatalogError(f"Catalog request timed out: {e!r}") from e
         except httpx.ConnectError as e:
+            logger.error("Catalog unreachable: %s (%r)", self.base_url, e)
             raise CatalogError(f"Catalog unreachable: {e!r}") from e
 
     async def lookup_single(self, field: str, value: str) -> VolumeResult:
@@ -45,10 +51,12 @@ class CatalogClient:
         response = await self._get(url)
 
         if response.status_code == 400:
+            logger.warning("Catalog rejected %s:%s (HTTP 400)", field, value)
             raise CatalogError(f"Bad request for {field}:{value}")
         if response.status_code == 404 or response.status_code == 200 and not response.text.strip():
             return VolumeResult(records={}, items=[])
         if response.status_code >= 500:
+            logger.error("Catalog returned HTTP %s for %s:%s", response.status_code, field, value)
             raise CatalogError(f"Catalog unavailable (HTTP {response.status_code})")
 
         response.raise_for_status()
@@ -63,8 +71,10 @@ class CatalogClient:
         response = await self._get(url)
 
         if response.status_code == 400:
+            logger.warning("Catalog rejected batch %s (HTTP 400)", identifiers)
             raise CatalogError(f"Bad request for identifiers: {identifiers}")
         if response.status_code >= 500:
+            logger.error("Catalog returned HTTP %s for batch %s", response.status_code, identifiers)
             raise CatalogError(f"Catalog unavailable (HTTP {response.status_code})")
 
         response.raise_for_status()

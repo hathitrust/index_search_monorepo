@@ -33,4 +33,4 @@ claude mcp add --transport sse --scope user hathitrust-catalog http://localhost:
 
 ## Configuration
 
-See `env.example`. Set `CATALOG_URL`, `MCP_HOST`, `MCP_PORT` and `HTTP_TIMEOUT_SECONDS` as environment variables or in a `.env` file. `LOG_LEVEL` is defined but not used yet.
+See `env.example`. Set `CATALOG_URL`, `MCP_HOST`, `MCP_PORT` and `HTTP_TIMEOUT_SECONDS` as environment variables or in a `.env` file. `LOG_LEVEL` (default `INFO`) sets the level for the server and catalog client loggers.

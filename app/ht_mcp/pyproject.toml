@@ -16,6 +16,7 @@ dependencies = [
     "mcp[cli]>=1.30,<2",
     "httpx>=0.28,<0.29",
     "pydantic-settings>=2.15,<3",
+    "ht-utils",
 ]
 
 [dependency-groups]
@@ -36,3 +37,7 @@ markers = ["integration: requires running catalog service"]
 [tool.uv]
 default-groups = "all"
 package = true # This is an application package, so we set this to true to allow building/installing it.
+
+# Link the shared library from the monorepo workspace.
+[tool.uv.sources]
+ht-utils = {workspace = true, editable = true}
