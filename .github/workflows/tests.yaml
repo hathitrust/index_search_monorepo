@@ -129,14 +129,13 @@ jobs:
         - name: Run tests
           run: |
             # Bind-mounted into the solr-query-tests container as /workspace/coverage;
-            # create it writable first so Docker doesn't make it root-owned.
+            # create it first so Docker doesn't make it root-owned. It must be world-writable:
+            # the container runs as uid 1000 (app) but the runner owns the dir as uid 1001,
+            # so group-writable wouldn't let the container in, and the runner later needs to
+            # rewrite the XML with sed -i. Safe enough on an ephemeral, single-use runner.
             mkdir -p coverage
             chmod 777 coverage
-            # TEMPORARY (ETT-2009 review): show who owns what, to decide if 777 can be tighter.
-            echo "runner:"; id; ls -ld coverage
-            echo "container:"; docker compose run --rm --no-deps solr-query-tests id
             docker compose run --rm solr-query-tests
-            echo "after run:"; ls -ln coverage
 
         # Same fix as unit_tests. --cov=src makes filenames relative to app/solr_query/src, e.g.
         #   filename="ht_full_text_search/main.py"
