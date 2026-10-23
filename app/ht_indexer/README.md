@@ -78,7 +78,6 @@ that instantiates a config object with all the variables needed for each service
 * **Phase 6**: Decoupling queue architecture by refactoring the RabbitMQ queue service components 
 to separate connection management, channel creation, and queue management responsibilities.
 * **Next steps**:
-    * The process to retrieve the message from the dead-letter-exchange is not implemented yet.
     * Implement the query to reprocess all the documents in Catalog index.
         * If the list of documents is empty, so do a `--query *:*` and the query_field will be id to retrieve
           all the documents in the Catalog index.
@@ -215,10 +214,10 @@ A message can fail for different reasons:
 * The Solr server is down.
 
 We use a **dead-letter-exchange** to handle messages that are not processed successfully. The dead-letter-exchange is
-an exchange to which messages will be re-routed if they are rejected by the queue. In the current logic, all the service
-using the queue system has a dead-letter-exchange associated with itve One of our future steps is to figure out what we
-will do
-with the messages in the dead-letter-exchange.
+an exchange to which messages will be re-routed if they are rejected by the queue. All the services using the queue
+system have a dead-letter-exchange associated with them. For the document indexer, see
+[Failures, retries and the dead-letter queue](#failures-retries-and-the-dead-letter-queue) below to learn which messages
+end up there and how to replay them.
 
 Find [here](https://www.rabbitmq.com/docs/dlx#overview) more details about dead letter exchanges.
 
@@ -238,6 +237,58 @@ When a consumer client receives a message from the queue, it will try to process
 * If the message is not processed, the message is re-queued in the dead-letter-exchange.
   As an example of this logic, you can see the code in the file
     `document_generator/document_generator_service.py` in the function `test_queue_requeue_message_requeue_false()`.
+
+### Failures, retries and the dead-letter queue
+
+The document indexer (`document_indexer_service`) sends each batch of messages to Solr. It does not treat every failure
+the same way: a Solr or RabbitMQ outage is not the message's fault, so only a message that can never be indexed is
+dead-lettered (ETT-1894).
+
+| What happened                                                       | What the indexer does                                                                                           |
+|---------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------|
+| The whole batch is indexed                                          | Acknowledges every message                                                                                      |
+| Solr is unreachable, times out, says it is unavailable (429, 502, 503, 504), rejects our login (401/403), or the URL or core is wrong (404) | Puts the whole batch back on the queue. Nothing is dead-lettered, and a login problem is logged as `config_error` |
+| Any other failure of the batch                                      | Retries each document on its own: acknowledges the ones that work, then handles each failure as below           |
+| A document alone fails with a 4xx, or with an unknown error          | Dead-letters it (`reason=bad_document`)                                                                         |
+| A document alone fails with any other 5xx (e.g. 500)                | Puts it back on the queue. After `max_retries` (default 5, `indexer_config.yml`) it is dead-lettered (`reason=retries_exhausted`) |
+
+So a batch of 3 with 1 bad document gives 2 acknowledgements and 1 dead-lettered message.
+
+* After a batch that put messages back, the service waits before reading again: 1s, 2s, 4s... up to 60s. A clean batch
+  resets the wait.
+* Only a 5xx answer to a single document, other than 502, 503 and 504, counts towards `max_retries` (Solr answers 500 for
+  some bad documents). An outage, including a proxy answering 502/503/504, never uses up a message's retries.
+* The retry count is kept in memory, so it starts again from zero when the service restarts.
+
+#### Logs and alerts
+
+Every failure is logged as a structured line, `event=<name> key=value ... error='...'`. Alert rules (Loki) match on these
+lines, so do not rename the events or fields without updating the rules. The events and fields are listed in the
+`_log_line` docstring in `document_indexer_service/document_indexer_service.py`. To alert on Solr trouble, count the
+`event=solr_request_failed` lines where `failure_kind` is not `permanent` (a bad document is not Solr's fault).
+
+#### Replaying the dead-letter queue
+
+Once the cause is fixed (Solr is back, the document is corrected), move the messages back to the indexer queue:
+
+```sh
+python -m document_indexer_service.replay_dlq --dry-run   # list what would be replayed, change nothing
+python -m document_indexer_service.replay_dlq --max 100   # replay at most 100 messages
+python -m document_indexer_service.replay_dlq             # replay everything
+```
+
+Run it from the `ht_indexer` virtual environment or container. The queue name comes from `indexer_config.yml`. The
+RabbitMQ host, port, username and password come from the `RABBITMQ_INDEXER_RW_*` environment variables, like for the
+indexer service. They are already set inside the containers; on your machine, load the repository's `.env` file:
+`uv run --env-file .env python -m document_indexer_service.replay_dlq --dry-run`.
+
+* Each message is published to the indexer queue first and removed from the dead-letter queue only after RabbitMQ
+  confirms it. If a publish fails, that message stays in the dead-letter queue and the command stops with an error.
+* It handles only the messages that were in the dead-letter queue when it started, so a message that fails again
+  cannot make it run forever.
+* A crash at the wrong moment can leave a message in both queues. That is harmless: Solr overwrites a document that has
+  the same `id`.
+* If a message fails again, it is dead-lettered again. Check the `event=message_dead_lettered` log lines for the reason.
 
 ## Functionality
 

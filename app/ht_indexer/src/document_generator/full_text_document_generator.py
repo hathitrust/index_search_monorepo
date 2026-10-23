@@ -21,9 +21,12 @@ from .mysql_data_extractor import MysqlMetadataExtractor
 
 logger = get_ht_logger(name=__name__)
 
+EMPTY_OCR_TOKEN = "__EMPTYOCR__"  # written for each OCR page with no text
 
-def extract_fields_from_mets_file(doc_source_path: str) -> dict[str, Any]:
+
+def extract_fields_from_mets_file(ht_id: str, doc_source_path: str) -> dict[str, Any]:
     """Read the METS file and extract the fields to be used in the full-text search entry
+    :param ht_id: HTID of the document
     :param doc_source_path: Path to the document source
     :return: a dictionary with the METS fields
     """
@@ -32,7 +35,7 @@ def extract_fields_from_mets_file(doc_source_path: str) -> dict[str, Any]:
         if not Path(f"{doc_source_path}.mets.xml").is_file():
             raise FileNotFoundError(f"File {doc_source_path}.mets.xml not found")
         mets_obj = MetsAttributeExtractor(f"{doc_source_path}.mets.xml")
-        mets_entry = mets_obj.create_mets_entry()
+        mets_entry = mets_obj.create_mets_entry(ht_id)
 
         mets_maps = mets_entry.get("METS_maps", {})
         mets_fields["ht_page_feature"] = mets_maps.get("features")
@@ -40,7 +43,7 @@ def extract_fields_from_mets_file(doc_source_path: str) -> dict[str, Any]:
 
         return mets_fields
     except Exception as e:
-        logger.error(f"Error generating METS fields {e}")
+        logger.error(f"Error generating METS fields for htid={ht_id}: {e}")
         raise e
 
 
@@ -72,10 +75,21 @@ class FullTextDocumentGenerator:
             raise e
 
     @staticmethod
+    def prepare_page(raw: bytes) -> str:
+        """Prepare one OCR page; an empty or whitespace-only page becomes EMPTY_OCR_TOKEN."""
+        # string_preparation first keeps today's UTF-8 error handling and logging.
+        page = string_preparation(raw)
+        # Decide from the text, not from string_preparation's quoted output, we will remove the quotes.
+        if not raw.decode("utf-8").strip():
+            return EMPTY_OCR_TOKEN
+        return page
+
+    @staticmethod
     def txt_files_2_full_text(zip_doc: zipfile.ZipFile) -> str:
         """
         Read all .TXT files in a zip and concatenate their contents.
-        :return: Single string with all text files concatenated.
+        :return: Single string with all text files concatenated. If no OCR pages are present,
+                 returns the bare EMPTY_OCR_TOKEN.
         """
 
         # Get only .txt files and sort them by name
@@ -87,9 +101,15 @@ class FullTextDocumentGenerator:
             ]
         )
 
-        full_text_parts = [string_preparation(zip_doc.read(f)) for f in txt_files]
+        if not txt_files:
+            logger.info(f"No OCR .txt pages found; ocr set to {EMPTY_OCR_TOKEN}")
+            return EMPTY_OCR_TOKEN
 
-        return " ".join(full_text_parts)
+        parts: list[str] = []
+        for name in txt_files:
+            page = FullTextDocumentGenerator.prepare_page(zip_doc.read(name))
+            parts.append(page)
+        return " ".join(parts)
 
     @staticmethod
     def get_full_text_field(zip_doc_path: str) -> str:
@@ -107,14 +127,7 @@ class FullTextDocumentGenerator:
             raise FileNotFoundError(f"File {zip_doc_path} not found")
 
         with zipfile.ZipFile(zip_doc_path, mode="r") as zip_doc:
-            file_contents = {
-                name: string_preparation(zip_doc.read(name))
-                for name in zip_doc.namelist()
-                if name.endswith(".txt") and not name.startswith("__MACOSX/")
-            }
-            full_text = " ".join([file_contents[key] for key in sorted(file_contents)])
-
-        return full_text
+            return FullTextDocumentGenerator.txt_files_2_full_text(zip_doc)
 
     @staticmethod
     def get_all_fields_field(catalog_xml: str) -> str:
@@ -134,6 +147,10 @@ class FullTextDocumentGenerator:
         ):
             if element.tag.find("datafield") > -1:
                 tag_att = element.attrib.get("tag")
+                # Ignore "CID" value. It is likely to be a restatement of the data in the
+                # 001 and it is nonstandard.
+                if tag_att == "CID":
+                    continue
                 try:
                     if int(tag_att) > 99 and event == "start":
                         # Looks for subfields
@@ -190,7 +207,7 @@ class FullTextDocumentGenerator:
 
         start = time.time()
         # Extract fields from METS file
-        entry.update(extract_fields_from_mets_file(doc.source_path))
+        entry.update(extract_fields_from_mets_file(doc.document_id, doc.source_path))
         logger.info(
             f"Time to generate process=METS_fields ht_id={doc.document_id} Time={time.time() - start}"
         )

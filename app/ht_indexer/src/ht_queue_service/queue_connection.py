@@ -42,7 +42,9 @@ class QueueConnection:
                     host=self.host,
                     credentials=self.credentials,
                     heartbeat=self.heartbeat,
-                    blocked_connection_timeout=300,
+                    # pika-stubs 0.1.3 types this as numbers.Real, which mypy never matches to int/float;
+                    # pika accepts a number of seconds
+                    blocked_connection_timeout=300,  # type: ignore[arg-type]
                 )
             )
         # pika.exceptions.AMQPConnectionError - Catch all the issue related to the AMQP

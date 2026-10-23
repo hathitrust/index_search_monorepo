@@ -16,6 +16,9 @@ logger = get_ht_logger(name=__name__)
 
 
 class QueueMultipleConsumer(ABC):
+    # This is used in at least one test. If it changes, let it change in one place.
+    BATCH_SLEEP_LOG_MESSAGE = "No messages in the queue. Waiting for more messages..."
+
     def __init__(self, queue_params: QueueParams) -> None:
         """
         This class is used to consume a batch of messages from the queue
@@ -24,7 +27,7 @@ class QueueMultipleConsumer(ABC):
         Consumer class handles additional attributes like:
         - requeue_message: If True, messages will be requeued to the queue if processing fails, otherwise they
         will be sent to the Dead Letter Queue.
-        - shutdown_on_empty_queue: If True, the consumer will stop consuming messages when the queue
+        - shutdown_on_empty_queue: If True, the consumer will stop consuming messages when the queue is empty
         """
 
         self.channel_creator = ChannelCreator(
@@ -48,6 +51,10 @@ class QueueMultipleConsumer(ABC):
             # We need to set up the queue again.
             self.queue_reconnect()
 
+        # Suppresses repeated "waiting..." log messages each time `time.sleep()` is called
+        # inside `consume_batch`.
+        self.batch_sleep_flag = False
+
     @abstractmethod
     def process_batch(self, batch: list[Any], delivery_tag: list[int]) -> None | Any:
         """Abstract method for processing a batch of messages. Must be implemented by subclasses.
@@ -55,13 +62,15 @@ class QueueMultipleConsumer(ABC):
         Steps to implement on the subclass:
         Method to process the batch of messages.
         If the processing is successful, acknowledge all the messages in the batch.
-        If the processing fails, requeue all the failed messages to the Dead Letter Queue.
+        If the processing fails, handle each failed message: put it back on the queue
+        (retry_message), send it to the Dead Letter Queue (dead_letter_message), or let
+        requeue_message decide (reject_message).
         Clear the batch and the delivery tags lists.
-        Return True if the batch was processed successfully, False if it was dead-lettered.
+        Return True if every message was acknowledged, False otherwise.
         consume_batch logs this but does not stop on False -- it moves on to the next batch.
         :param batch: List of messages to process.
         :param delivery_tag: List of delivery tags for acknowledging messages.
-        :return: True on success, False if the batch was dead-lettered.
+        :return: True if every message was acknowledged, False otherwise.
         """
         pass
 
@@ -100,6 +109,9 @@ class QueueMultipleConsumer(ABC):
         while True:
             batch: list[Any] = []  # It stores messages for batch processing
             delivery_tag: list[int] = []  # It stores delivery tags for acknowledging messages
+            # TODO in ETT-1996 basic_get ignores prefetch (basic_qos); this loop is what limits in-flight messages to batch_size.
+            # If this moves to basic_consume, apply basic_qos(prefetch_count=batch_size) on every channel the
+            # consumer opens.
             for _ in range(self.queue_manager.batch_size):
                 # Use basic_get to retrieve a batch of messages and auto_ack=False to tell RabbitMQ to not wait for
                 # an acknowledgment of the message. We will manually acknowledge them
@@ -118,21 +130,34 @@ class QueueMultipleConsumer(ABC):
                     logger.info("Queue is empty. Stopping consumer...")
                     return
                 else:
-                    time.sleep(0.5)  # Wait before checking for more messages
-                    logger.info("No messages in the queue. Waiting for more messages...")
+                    self.batch_sleep()
                     continue
+            # Something has been retrieved from the queue, so go back to allowing
+            # log messages when about to sleep again.
+            self.batch_sleep_flag = False
             try:
                 batch_data = [orjson.loads(body) for body in batch]
                 # Process batch of messages and acknowledge them if successful. process_batch
-                # returns False when the whole batch failed and was dead-lettered; that's
-                # logged here for visibility, but the consumer keeps running and moves on to
-                # the next batch rather than stopping the service (ETT-1769).
+                # returns False when some message was not acknowledged (put back on the queue
+                # or dead-lettered); that's logged here for visibility, but the consumer keeps
+                # running and moves on to the next batch rather than stopping the service
+                # (ETT-1769). Subclasses are responsible for bounding their own retries.
                 if not self.process_batch(batch_data, delivery_tag):
                     logger.info("Batch processing failed; continuing to the next batch.")
 
             except Exception as e:
                 logger.error(f"[!] Error processing batch: {e}")
                 raise e
+
+    def batch_sleep(self) -> None:
+        """
+        Logs a "waiting..." line (unless it would be a repeat)
+        and sleeps when there is nothing in the queue.
+        """
+        if not self.batch_sleep_flag:
+            logger.info(QueueMultipleConsumer.BATCH_SLEEP_LOG_MESSAGE)
+            self.batch_sleep_flag = True
+        time.sleep(0.5)  # Wait before checking for more messages
 
     def consume_dead_letter_messages(
         self,
@@ -159,7 +184,8 @@ class QueueMultipleConsumer(ABC):
                 self.channel = self.channel_creator.get_channel()
                 self.queue_reconnect()
 
-            for method_frame, properties, body in channel.consume(
+            # pika-stubs 0.1.3 types consume() as -> None; pika 1.3.2 actually yields (method, properties, body)
+            for method_frame, properties, body in channel.consume(  # type: ignore[func-returns-value, attr-defined]
                 queue_name, auto_ack=False, inactivity_timeout=inactivity_timeout
             ):
                 if method_frame:
@@ -195,6 +221,32 @@ class QueueMultipleConsumer(ABC):
         :return: None
         """
         used_channel.basic_reject(delivery_tag=basic_deliver, requeue=self.requeue_message)
+
+    def retry_message(
+        self, used_channel: pika.adapters.blocking_connection.BlockingChannel, delivery_tag: int
+    ) -> None:
+        """Put a message back on its queue to be tried again, regardless of requeue_message.
+
+        Use it when the failure is not the message's fault (e.g. Solr or RabbitMQ is down).
+
+        :param used_channel: The RabbitMQ channel to nack the message on
+        :param delivery_tag: The delivery tag of the message to retry
+        :return: None
+        """
+        used_channel.basic_nack(delivery_tag=delivery_tag, requeue=True)
+
+    def dead_letter_message(
+        self, used_channel: pika.adapters.blocking_connection.BlockingChannel, delivery_tag: int
+    ) -> None:
+        """Send a message to the Dead Letter Queue, regardless of requeue_message.
+
+        Use it when the message itself can never be processed (e.g. a bad document).
+
+        :param used_channel: The RabbitMQ channel to reject the message on
+        :param delivery_tag: The delivery tag of the message to dead-letter
+        :return: None
+        """
+        used_channel.basic_reject(delivery_tag=delivery_tag, requeue=False)
 
     def positive_acknowledge(
         self, used_channel: pika.adapters.blocking_connection.BlockingChannel, delivery_tag: int

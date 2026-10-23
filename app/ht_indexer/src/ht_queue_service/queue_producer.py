@@ -4,8 +4,8 @@ import threading
 from typing import Any, cast
 
 import pika.exceptions
+from ht_utils.ht_errors import HTError
 from ht_utils.ht_logger import get_ht_logger
-from ht_utils.ht_utils import get_queue_message_id
 from pika.adapters.blocking_connection import BlockingChannel
 
 from ht_queue_service.channel_creator import ChannelCreator
@@ -15,6 +15,11 @@ from ht_queue_service.queue_manager import QueueManager
 logger = get_ht_logger(name=__name__)
 
 DELIVERY_MODE_PERSISTENT = 2  # Make message persistent
+MAX_PUBLISH_ATTEMPTS = 3
+
+
+class MessageTooLargeError(HTError):
+    """The serialized message is larger than QueueParams.max_message_size; it is not published."""
 
 
 class QueueProducer:
@@ -27,7 +32,8 @@ class QueueProducer:
     - Uses a thread-local channel for each non-main thread to avoid sharing non-thread-safe
       Pika channels across threads.
     - Makes published messages persistent (delivery mode = 2) and JSON-encodes payloads.
-    - Detects closed channels/connections, reconnects, and retries the publish once.
+    - Detects closed channels/connections, reconnects, and retries at most
+      `MAX_PUBLISH_ATTEMPTS` times.
 
     Attributes:
         channel_creator: Factory that manages the underlying connection and creates channels.
@@ -37,8 +43,9 @@ class QueueProducer:
 
     Notes:
         - Channels are not thread-safe. Each non-main thread gets its own channel.
-        - Publishing retries on `pika` channel/connection errors by reconnecting and re-attempting
-          the same message. Consider adding bounded retries with backoff for robustness.
+        - Publishing retries at most `MAX_PUBLISH_ATTEMPTS` times on `pika`
+          channel/connection errors; after that the last exception is re-raised.
+          Oversized messages raise `MessageTooLargeError` before any publish attempt.
     """
 
     def __init__(self, queue_params: QueueParams) -> None:
@@ -141,81 +148,92 @@ class QueueProducer:
 
     def publish_messages(self, queue_message: dict[str, Any]) -> None:
         # TODO: Define a dataclass for the queue message to ensure type safety and validation
-        # TODO: Define a retry mechanism with exponential backoff for publishing messages
 
         """
         Serialize and publish the message using thread-safe channel management.
 
         Behaviour:
-         - If the channel is closed during publishing, it will attempt to reconnect and retry
-        publishing.
-         - The message is serialized to JSON format before publishing.
+         - Serializes the message to JSON before any channel work. A serialization error is
+           raised without a retry.
+         - If the serialized message is larger than `queue_manager.max_message_size`, raises
+           `MessageTooLargeError` before contacting the broker.
+         - If the channel/connection closes during publishing, reconnects and retries up to
+           `MAX_PUBLISH_ATTEMPTS` times. On the last attempt, the original exception is
+           re-raised so the broker's reason is preserved for logging.
 
         :param queue_message: The message to be published should be a dictionary.
         :return: None
 
-        :raises: Exception if the message cannot be serialized or published.
-        :raises: pika.exceptions.ChannelClosed and pika.exceptions.ConnectionClosed if the channel is closed during publishing.
-        :raises: pika.exceptions.ConnectionClosed if the connection is closed during publishing.
-        :raises: pika.exceptions.StreamLostError if the stream is lost during publishing.
-        :raises: pika.exceptions.ChannelWrongStateError if the channel is in the wrong state during publishing.
-        :raises: Other exceptions that may occur during publishing.
-
-        Notes:
-            - Consider adding bounded retries with exponential backoff to avoid unbounded recursion.
+        :raises TypeError, ValueError: when the message cannot be serialized to JSON.
+        :raises MessageTooLargeError: when the serialized body exceeds `max_message_size`.
+        :raises pika.exceptions.ChannelClosed, ConnectionClosed, ChannelWrongStateError,
+            StreamLostError: when a transient publish error exhausts `MAX_PUBLISH_ATTEMPTS`.
         """
-        message_id = get_queue_message_id(queue_message)
-
-        # Get the appropriate channel for this thread
-        channel = self._get_thread_channel()
 
         try:
-            if not channel or channel.is_closed:
-                logger.warning(
-                    f"Channel closed before publish (queue: {self.queue_manager.queue_name}). Reconnecting."
-                )
-                self._thread_reconnect()
-                channel = self._get_thread_channel()
-            if channel is None:
-                raise RuntimeError("Unable to establish a RabbitMQ channel")
-
-            try:
-                body = json.dumps(queue_message).encode("utf-8")
-            except (TypeError, ValueError) as json_err:
-                logger.error(
-                    f"Failed to serialize message {queue_message.get('ht_id')}: {json_err}",
-                    exc_info=True,
-                )
-                raise
-
-            channel.basic_publish(
-                exchange=self.queue_manager.main_exchange_name,
-                routing_key=self.queue_manager.queue_name,
-                body=body,
-                properties=pika.BasicProperties(
-                    delivery_mode=DELIVERY_MODE_PERSISTENT, content_type="application/json"
-                ),  # make a message persistent
-            )
-
-            logger.info(
-                f"Published message to {self.queue_manager.queue_name}. Message ID: {message_id}"
-            )
-
-        except (
-            pika.exceptions.ChannelClosed,
-            pika.exceptions.ConnectionClosed,
-            pika.exceptions.ChannelWrongStateError,
-            pika.exceptions.StreamLostError,
-        ) as err:
-            logger.warning(
-                f"RabbitMQ connection/channel closed while publishing: {err}. Reconnecting and retrying..."
-            )
-            self._thread_reconnect()
-            self.publish_messages(queue_message)  # Retry
-
-        except Exception as err:
+            body = json.dumps(queue_message).encode("utf-8")
+        except (TypeError, ValueError) as json_err:
             logger.error(
-                f"Unexpected error publishing message {queue_message.get('ht_id')}: {err}",
+                f"Failed to serialize message htid={queue_message.get('ht_id')}: {json_err}",
                 exc_info=True,
             )
             raise
+
+        size = len(body)
+        limit = self.queue_manager.max_message_size
+        if size > limit:
+            raise MessageTooLargeError(
+                f"Message htid={queue_message.get('ht_id')} size {size} bytes exceeds max_message_size {limit} bytes; not published"
+            )
+
+        for attempt in range(1, MAX_PUBLISH_ATTEMPTS + 1):
+            channel = self._get_thread_channel()
+            try:
+                if not channel or channel.is_closed:
+                    logger.warning(
+                        f"Channel closed before publish (queue: {self.queue_manager.queue_name}). Reconnecting."
+                    )
+                    self._thread_reconnect()
+                    channel = self._get_thread_channel()
+                if channel is None:
+                    raise RuntimeError("Unable to establish a RabbitMQ channel")
+
+                channel.basic_publish(
+                    exchange=self.queue_manager.main_exchange_name,
+                    routing_key=self.queue_manager.queue_name,
+                    body=body,
+                    properties=pika.BasicProperties(
+                        delivery_mode=DELIVERY_MODE_PERSISTENT, content_type="application/json"
+                    ),  # make a message persistent
+                )
+
+                logger.info(
+                    f"Published message htid={queue_message.get('ht_id')} to {self.queue_manager.queue_name}. "
+                    f"Size={size} bytes"
+                )
+                return
+
+            except (
+                pika.exceptions.ChannelClosed,
+                pika.exceptions.ConnectionClosed,
+                pika.exceptions.ChannelWrongStateError,
+                pika.exceptions.StreamLostError,
+            ) as err:
+                if attempt == MAX_PUBLISH_ATTEMPTS:
+                    logger.error(
+                        f"Giving up publishing message htid={queue_message.get('ht_id')} to {self.queue_manager.queue_name} "
+                        f"after {MAX_PUBLISH_ATTEMPTS} attempts: {err}"
+                    )
+                    raise
+                logger.warning(
+                    f"RabbitMQ connection/channel closed while publishing message htid={queue_message.get('ht_id')} "
+                    f"(attempt {attempt}/{MAX_PUBLISH_ATTEMPTS}): {err}. Reconnecting and retrying..."
+                )
+                self._thread_reconnect()
+
+            except Exception as err:
+                logger.error(
+                    f"Unexpected error publishing message htid={queue_message.get('ht_id')}: {err}",
+                    exc_info=True,
+                )
+                raise

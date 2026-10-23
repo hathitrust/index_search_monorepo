@@ -47,7 +47,8 @@ def dict_to_pymarc_record(data: dict[str, Any]) -> Record:
 
         # Control fields (no indicators or subfields)
         if isinstance(value, str):
-            record.add_field(Field(tag=tag, data=value))
+            # pymarc's Record.add_field is unannotated, so mypy --strict flags the call
+            record.add_field(Field(tag=tag, data=value))  # type: ignore[no-untyped-call]
             continue
 
         # Data fields
@@ -73,7 +74,8 @@ def dict_to_pymarc_record(data: dict[str, Any]) -> Record:
 
         field = Field(tag, indicators=indicators, subfields=subfields)
 
-        record.add_field(field)
+        # pymarc's Record.add_field is unannotated, so mypy --strict flags the call
+        record.add_field(field)  # type: ignore[no-untyped-call]
 
     return record
 

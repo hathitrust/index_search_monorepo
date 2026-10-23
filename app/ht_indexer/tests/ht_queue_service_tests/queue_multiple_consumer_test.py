@@ -345,3 +345,27 @@ class TestHTMultipleQueueConsumer:
         )
         logger.info("Closing the channel and connection for the main queue")
         close_channel_and_connection(multiple_consumer_instance)
+
+    def test_batch_sleep_calls_logger_once(
+        self, make_queue_config: Callable[..., QueueConfig], caplog: pytest.LogCaptureFixture
+    ) -> None:
+        queue_config = make_queue_config(
+            batch_size=1, requeue_message=False, shutdown_on_empty_queue=True
+        )
+
+        # Create a consumer instance to consume the message
+        multiple_consumer_instance = HTMultipleConsumerServiceConcrete(
+            queue_config.queue_params, max_redelivery=1
+        )
+
+        with caplog.at_level("INFO", logger="ht_queue_service.queue_multiple_consumer"):
+            multiple_consumer_instance.batch_sleep()
+            multiple_consumer_instance.batch_sleep()
+
+        waiting_logs = [
+            r
+            for r in caplog.records
+            if r.name == "ht_queue_service.queue_multiple_consumer"
+            and r.getMessage() == HTMultipleConsumerServiceConcrete.BATCH_SLEEP_LOG_MESSAGE
+        ]
+        assert len(waiting_logs) == 1

@@ -1,4 +1,3 @@
-import json
 from typing import Any
 
 from catalog_metadata.catalog_metadata import CatalogItemMetadata, CatalogRecordMetadata
@@ -20,14 +19,11 @@ class RetrieverServicesUtils:
         :param queue_producer_conn: QueueProducer object
         :param content: dict with the content of the message
         """
-        message = content
-        entry_data = json.dumps(message)
-        entry_size = len(entry_data.encode("utf-8"))  # Convert to bytes and get length
         logger.info(
-            f"Sending message with id {content.get('ht_id')} and Size={entry_size} "
-            f"bytes to queue {queue_producer_conn.queue_manager.queue_name}"
+            f"Sending message with htid={content.get('ht_id')} "
+            f"to queue {queue_producer_conn.queue_manager.queue_name}"
         )
-        queue_producer_conn.publish_messages(message)
+        queue_producer_conn.publish_messages(content)
 
     @staticmethod
     def get_catalog_object(

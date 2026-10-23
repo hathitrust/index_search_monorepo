@@ -1,5 +1,4 @@
 import argparse
-import json
 import sys
 import time
 from pathlib import Path
@@ -81,7 +80,7 @@ class DocumentGeneratorService(QueueMultipleConsumer):
     ) -> dict[str, Any]:
 
         start_time = time.time()
-        logger.info(f"Generating document {item_id}")
+        logger.info(f"Generating document htid={item_id}")
 
         # Instantiate each document
         ht_document = HtDocument(document_id=item_id, document_repository=document_repository)
@@ -95,21 +94,18 @@ class DocumentGeneratorService(QueueMultipleConsumer):
                 f"The file of the ht_id={ht_document.document_id} on the path={ht_document.source_path}.zip not found"
             )
         logger.info(
-            f"Processing item {ht_document.document_id} using {ht_document.source_path}.zip"
+            f"Processing item htid={ht_document.document_id} using {ht_document.source_path}.zip"
         )
         try:
             entry = self.document_generator.make_full_text_search_document(ht_document, record)
         except Exception as e:
             raise Exception(
-                f"Document {ht_document.document_id} could not be generated: Error - {e}"
+                f"Document htid={ht_document.document_id} could not be generated: Error - {e}"
             ) from e
 
-        # Use to get the size of the entry dictionary
-        entry_data = json.dumps(entry)
-        entry_size = len(entry_data.encode("utf-8"))  # Convert to bytes and get length
         logger.info(
             f"Time to generate process=full-text_document ht_id={ht_document.document_id} "
-            f"Time={time.time() - start_time:.10f} Size={entry_size} bytes"
+            f"Time={time.time() - start_time:.10f}"
         )
 
         return entry
@@ -123,7 +119,7 @@ class DocumentGeneratorService(QueueMultipleConsumer):
         if self.tgt_queue_producer is None:
             raise RuntimeError("publish_document called on a tgt_local instance")
         message = content
-        logger.info(f"Sending message to queue {content.get('id')}")
+        logger.info(f"Sending message to queue htid={content.get('id')}")
         self.tgt_queue_producer.publish_messages(message)
 
     def log_error_document_generator_service(
@@ -135,7 +131,7 @@ class DocumentGeneratorService(QueueMultipleConsumer):
         """
         error_info = get_error_message_by_document("DocumentGeneratorService", e, document)
 
-        logger.error(f"Document {document.get('ht_id')} failed {error_info}")
+        logger.error(f"Document htid={document.get('ht_id')} failed {error_info}")
         if self.channel is None:
             raise RuntimeError("Unable to establish a RabbitMQ channel")
         self.reject_message(self.channel, delivery_tag)

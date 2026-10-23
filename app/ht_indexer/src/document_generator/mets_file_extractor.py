@@ -61,14 +61,14 @@ class MetsAttributeExtractor:
                 all_features.append(value.get("features").strip(""))
         return list(set(all_features))
 
-    def create_mets_entry(self) -> dict[str, Any]:
-        logger.info("Creating METS map")
+    def create_mets_entry(self, ht_id: str) -> dict[str, Any]:
+        logger.info(f"Creating METS map htid={ht_id}")
         mets_map = self.create_mets_map()
 
-        logger.info("Creating METS entry")
+        logger.info(f"Creating METS entry htid={ht_id}")
         features = MetsAttributeExtractor.get_unique_features(mets_map)
 
-        logger.info("Retrieving document orders")
+        logger.info(f"Retrieving document orders htid={ht_id}")
         reading_order = self.get_reading_order()
 
         return {
@@ -100,7 +100,7 @@ def main() -> None:
 
     mets_obj = MetsAttributeExtractor(f"{target_path}/{obj_id}.mets.xml")
 
-    mets_entry = mets_obj.create_mets_entry()
+    mets_entry = mets_obj.create_mets_entry(args.doc_id)
 
     logger.info(mets_entry.get("METS_maps", {}).get("ht_page_feature"))
 
