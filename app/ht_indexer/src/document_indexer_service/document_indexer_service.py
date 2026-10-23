@@ -45,6 +45,7 @@ class DocumentIndexerQueueService(QueueMultipleConsumer):
         # Messages put back during the current batch, and consecutive batches that put some back
         self.retried_in_batch = 0
         self.consecutive_retry_batches = 0
+        self.logger = logger.bind()
 
     @staticmethod
     def _message_key(message: dict[str, Any]) -> str:
@@ -77,7 +78,7 @@ class DocumentIndexerQueueService(QueueMultipleConsumer):
             self.BACKOFF_BASE_SECONDS * 2 ** min(self.consecutive_retry_batches - 1, 16),
             self.BACKOFF_MAX_SECONDS,
         )
-        logger.info(
+        self.logger.info(
             "indexing_backoff",
             messages_put_back=self.retried_in_batch,
             consecutive_batches=self.consecutive_retry_batches,
@@ -96,18 +97,17 @@ class DocumentIndexerQueueService(QueueMultipleConsumer):
         response.raise_for_status()
 
         for i in documents:
-            logger.info("document_indexed", ht_id=get_queue_message_id(i))
+            self.logger.info("document_indexed", ht_id=get_queue_message_id(i))
 
-        logger.info(
+        self.logger.info(
             "batch_indexed",
             item_count=len(documents),
             http_status=response.status_code,
             seconds=time.time() - start_time,
         )
 
-    @staticmethod
-    def _log_solr_failure(scope: str, docs: int, error: Exception) -> None:
-        logger.error(
+    def _log_solr_failure(self, scope: str, docs: int, error: Exception) -> None:
+        self.logger.error(
             "solr_request_failed",
             scope=scope,
             docs=docs,
@@ -136,7 +136,7 @@ class DocumentIndexerQueueService(QueueMultipleConsumer):
         }
         if counted:
             fields["attempt"] = self._attempt_label(message)
-        logger.warning("message_retried", **fields, error=str(error))
+        self.logger.warning("message_retried", **fields, error=str(error))
         self.retried_in_batch += 1
         self.retry_message(channel, delivery_tag)
 
@@ -153,7 +153,7 @@ class DocumentIndexerQueueService(QueueMultipleConsumer):
         """
         self.retry_attempts.pop(self._message_key(message), None)
         error_info = get_error_message_by_document("DocumentIndexerService", error, message)
-        logger.error(
+        self.logger.error(
             "message_dead_lettered",
             ht_id=get_queue_message_id(message),
             reason=reason,

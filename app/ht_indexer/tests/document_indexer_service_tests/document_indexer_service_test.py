@@ -5,6 +5,7 @@ from unittest.mock import MagicMock
 import pytest
 import requests
 from document_indexer_service.document_indexer_service import DocumentIndexerQueueService
+from ht_utils.ht_logger import get_ht_logger
 from ht_utils.testing import assert_log_entry, capture_logs, find_log_entry
 
 
@@ -33,6 +34,7 @@ def _make_service(solr_api_full_text: MagicMock) -> tuple[DocumentIndexerQueueSe
     service.retry_attempts = {}
     service.retried_in_batch = 0
     service.consecutive_retry_batches = 0
+    service.logger = get_ht_logger("indexer_test").bind()
     return service, channel
 
 
