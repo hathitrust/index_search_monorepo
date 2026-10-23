@@ -22,6 +22,11 @@ class HtEnvConfig:
     instance = None
 
     @property
+    def log_level(self) -> str:
+        """Application log level. Defaults to INFO"""
+        return os.getenv("LOG_LEVEL", "INFO")
+
+    @property
     def rabbitmq_indexer_rw_host(self) -> str:
         return self._env("RABBITMQ_INDEXER_RW_HOST")
 

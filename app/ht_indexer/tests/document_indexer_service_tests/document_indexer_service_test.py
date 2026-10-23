@@ -4,9 +4,8 @@ from unittest.mock import MagicMock
 
 import pytest
 import requests
-from conftest import assert_log_entry, find_log_entry
 from document_indexer_service.document_indexer_service import DocumentIndexerQueueService
-from structlog.testing import LogCapture
+from ht_utils.testing import assert_log_entry, capture_logs, find_log_entry
 
 
 @pytest.fixture(autouse=True)
@@ -82,19 +81,6 @@ def test_process_batch_returns_true_and_acks_on_success() -> None:
     assert channel.basic_ack.call_count == 2
     assert batch == []
     assert delivery_tags == []
-
-
-def test_process_batch_logs_document_ids(caplog: LogCapture) -> None:
-    solr_api_full_text = MagicMock()
-    solr_api_full_text.index_documents.return_value = MagicMock(status_code=200)
-    service, channel = _make_service(solr_api_full_text)
-    batch = _batch()
-    delivery_tags = [10, 11]
-
-    service.process_batch(batch, delivery_tags)
-
-    assert any(log.get("ht_id") == "test.item1" for log in caplog.entries)
-    assert any(log.get("ht_id") == "test.item2" for log in caplog.entries)
 
 
 def test_process_batch_acks_good_documents_and_dead_letters_only_the_bad_one() -> None:
@@ -320,139 +306,166 @@ def test_no_backoff_when_nothing_was_put_back(sleeps: list[float]) -> None:
 # need to change with it.
 
 
-def test_success_is_logged_as_documents_indexed(caplog: LogCapture) -> None:
+def test_process_batch_logs_indexed_document_ids() -> None:
+    solr_api_full_text = MagicMock()
+    solr_api_full_text.index_documents.return_value = MagicMock(status_code=200)
+    service, channel = _make_service(solr_api_full_text)
+    batch = _batch()
+    delivery_tags = [10, 11]
+
+    with capture_logs() as entries:
+        service.process_batch(batch, delivery_tags)
+
+        assert_log_entry(entries, ht_id="test.item1", event="document_indexed")
+        assert_log_entry(entries, ht_id="test.item2", event="document_indexed")
+
+
+def test_rejected_batch_does_not_log_document_indexed() -> None:
+    solr_api_full_text = MagicMock()
+    solr_api_full_text.index_documents.side_effect = requests.exceptions.ConnectionError("refused")
+    service, _ = _make_service(solr_api_full_text)
+    batch = _batch()
+    delivery_tags = [10, 11]
+
+    with capture_logs() as entries:
+        service.process_batch(batch, delivery_tags)
+
+        assert not any(entry["event"] == "document_indexed" for entry in entries)
+
+
+def test_success_is_logged_as_documents_indexed() -> None:
     solr_api_full_text = MagicMock()
     solr_api_full_text.index_documents.return_value = _ok_response()
     service, _ = _make_service(solr_api_full_text)
 
-    service.process_batch(_batch(), [10, 11])
+    with capture_logs() as entries:
+        service.process_batch(_batch(), [10, 11])
 
-    entry = find_log_entry(caplog.entries, event="batch_indexed", item_count=2, http_status=200)
+        entry = find_log_entry(entries, event="batch_indexed", item_count=2, http_status=200)
 
-    assert entry is not None
-    assert entry["seconds"] is not None
+        assert entry is not None
+        assert entry["seconds"] is not None
 
 
-def test_solr_outage_is_logged_as_a_transient_solr_request_failure(
-    caplog: LogCapture,
-) -> None:
+def test_solr_outage_is_logged_as_a_transient_solr_request_failure() -> None:
     solr_api_full_text = MagicMock()
     solr_api_full_text.index_documents.side_effect = requests.exceptions.ConnectionError("refused")
     service, _ = _make_service(solr_api_full_text)
 
-    service.process_batch(_batch(), [10, 11])
+    with capture_logs() as entries:
+        service.process_batch(_batch(), [10, 11])
 
-    assert_log_entry(
-        caplog.entries,
-        event="message_retried",
-        ht_id="test.item1",
-        failure_kind="transient",
-        error="refused",
-    )
-    assert not any(entry["event"] == "message_dead_lettered" for entry in caplog.entries)
+        assert_log_entry(
+            entries,
+            event="message_retried",
+            ht_id="test.item1",
+            failure_kind="transient",
+            error="refused",
+        )
+        assert not any(entry["event"] == "message_dead_lettered" for entry in entries)
 
 
-def test_bad_document_is_logged_as_permanent_and_dead_lettered(
-    caplog: LogCapture,
-) -> None:
+def test_bad_document_is_logged_as_permanent_and_dead_lettered() -> None:
     solr_api_full_text = MagicMock()
     solr_api_full_text.index_documents.return_value = _error_response(400)
     service, _ = _make_service(solr_api_full_text)
 
-    service.process_batch([{"id": "test.always_bad"}], [10])
+    with capture_logs() as entries:
+        service.process_batch([{"id": "test.always_bad"}], [10])
 
-    failures = [e for e in caplog.entries if e["event"] == "solr_request_failed"]
+        failures = [e for e in entries if e["event"] == "solr_request_failed"]
 
-    assert len(failures) == 2
-    assert_log_entry(
-        failures,
-        event="solr_request_failed",
-        scope="batch",
-        docs=1,
-        failure_kind="permanent",
-        failure_type="http_400",
-    )
+        assert len(failures) == 2
+        assert_log_entry(
+            failures,
+            event="solr_request_failed",
+            scope="batch",
+            docs=1,
+            failure_kind="permanent",
+            failure_type="http_400",
+        )
 
-    assert_log_entry(
-        failures,
-        event="solr_request_failed",
-        scope="document",
-        docs=1,
-        failure_kind="permanent",
-        failure_type="http_400",
-    )
+        assert_log_entry(
+            failures,
+            event="solr_request_failed",
+            scope="document",
+            docs=1,
+            failure_kind="permanent",
+            failure_type="http_400",
+        )
 
-    specific_error = find_log_entry(
-        caplog.entries,
-        event="message_dead_lettered",
-        ht_id="test.always_bad",
-        reason="bad_document",
-        queue="dlq_name",
-        failure_kind="permanent",
-    )
-    assert specific_error is not None
-    assert specific_error["error_detail"] != ""
+        specific_error = find_log_entry(
+            entries,
+            event="message_dead_lettered",
+            ht_id="test.always_bad",
+            reason="bad_document",
+            queue="dlq_name",
+            failure_kind="permanent",
+        )
+        assert specific_error is not None
+        assert specific_error["error_detail"] != ""
 
 
-def test_bad_credentials_are_logged_as_config_error(caplog: LogCapture) -> None:
+def test_bad_credentials_are_logged_as_config_error() -> None:
     solr_api_full_text = MagicMock()
     solr_api_full_text.index_documents.return_value = _error_response(401)
     service, _ = _make_service(solr_api_full_text)
 
-    service.process_batch(_batch(), [10, 11])
+    with capture_logs() as entries:
+        service.process_batch(_batch(), [10, 11])
 
-    assert_log_entry(
-        caplog.entries,
-        event="solr_request_failed",
-        scope="batch",
-        docs=2,
-        failure_kind="config_error",
-        failure_type="http_401",
-    )
+        assert_log_entry(
+            entries,
+            event="solr_request_failed",
+            scope="batch",
+            docs=2,
+            failure_kind="config_error",
+            failure_type="http_401",
+        )
 
 
-def test_counted_retries_log_the_attempt_and_exhaustion_is_the_dead_letter_reason(
-    caplog: LogCapture,
-) -> None:
+def test_counted_retries_log_the_attempt_and_exhaustion_is_the_dead_letter_reason() -> None:
     solr_api_full_text = MagicMock()
     solr_api_full_text.index_documents.return_value = _error_response(500)
     service, _ = _make_service(solr_api_full_text)
     service.max_retries = 1
 
-    for delivery_tag in (10, 11):
-        service.process_batch([{"id": "test.retryable"}], [delivery_tag])
+    with capture_logs() as entries:
+        for delivery_tag in (10, 11):
+            service.process_batch([{"id": "test.retryable"}], [delivery_tag])
 
-    assert_log_entry(
-        caplog.entries,
-        event="message_retried",
-        ht_id="test.retryable",
-        failure_kind="transient",
-        attempt="1/1",
-        error="",
-    )
+        assert_log_entry(
+            entries,
+            event="message_retried",
+            ht_id="test.retryable",
+            failure_kind="transient",
+            attempt="1/1",
+            error="",
+        )
 
-    assert_log_entry(
-        caplog.entries,
-        event="message_dead_lettered",
-        ht_id="test.retryable",
-        reason="retries_exhausted",
-    )
+        assert_log_entry(
+            entries,
+            event="message_dead_lettered",
+            ht_id="test.retryable",
+            reason="retries_exhausted",
+        )
 
 
-def test_backoff_is_logged(caplog: LogCapture) -> None:
+def test_backoff_is_logged() -> None:
     solr_api_full_text = MagicMock()
     solr_api_full_text.index_documents.side_effect = requests.exceptions.ConnectionError("refused")
     service, _ = _make_service(solr_api_full_text)
 
-    service.process_batch(_batch(), [10, 11])
+    with capture_logs() as entries:
+        service.process_batch(_batch(), [10, 11])
 
-    assert_log_entry(
-        caplog.entries,
-        event="indexing_backoff",
-        messages_put_back=2,
-        consecutive_batches=1,
-        wait_seconds=1.0,
-    )
+        assert_log_entry(
+            entries,
+            event="indexing_backoff",
+            messages_put_back=2,
+            consecutive_batches=1,
+            wait_seconds=1.0,
+        )
 
 
 @pytest.mark.parametrize("status_code", [429, 502, 503, 504])
@@ -475,19 +488,18 @@ def test_unavailable_answers_keep_messages_on_the_queue_and_never_use_up_retries
     assert solr_api_full_text.index_documents.call_count == 10
 
 
-def test_wrong_solr_url_or_missing_core_keeps_messages_on_the_queue(
-    caplog: LogCapture,
-) -> None:
+def test_wrong_solr_url_or_missing_core_keeps_messages_on_the_queue() -> None:
     solr_api_full_text = MagicMock()
     solr_api_full_text.index_documents.return_value = _error_response(404)
     service, channel = _make_service(solr_api_full_text)
 
-    service.process_batch(_batch(), [10, 11])
+    with capture_logs() as entries:
+        service.process_batch(_batch(), [10, 11])
 
-    assert _retried_tags(channel) == [10, 11]
-    assert channel.basic_reject.call_count == 0
-    assert solr_api_full_text.index_documents.call_count == 1
-    assert_log_entry(caplog.entries, failure_kind="config_error", failure_type="http_404")
+        assert _retried_tags(channel) == [10, 11]
+        assert channel.basic_reject.call_count == 0
+        assert solr_api_full_text.index_documents.call_count == 1
+        assert_log_entry(entries, failure_kind="config_error", failure_type="http_404")
 
 
 def test_retries_are_keyed_by_the_document_id_not_by_the_whole_document() -> None:
@@ -516,11 +528,12 @@ def test_a_message_without_an_id_is_dead_lettered_once_and_never_retried() -> No
     assert service.retry_attempts == {}
 
 
-def test_retry_log_shows_the_document_id_as_ht_id(caplog: LogCapture) -> None:
+def test_retry_log_shows_the_document_id_as_ht_id() -> None:
     solr_api_full_text = MagicMock()
     solr_api_full_text.index_documents.return_value = _error_response(500)
     service, _ = _make_service(solr_api_full_text)
 
-    service.process_batch([{"id": "mdp.123", "ocr": "text"}], [10])
+    with capture_logs() as entries:
+        service.process_batch([{"id": "mdp.123", "ocr": "text"}], [10])
 
-    assert_log_entry(caplog.entries, event="message_retried", ht_id="mdp.123")
+        assert_log_entry(entries, event="message_retried", ht_id="mdp.123")

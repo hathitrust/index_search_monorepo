@@ -8,7 +8,6 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
-import structlog
 from conftest import (
     ConcreteQueueConsumer,
     close_channel_and_connection,
@@ -21,7 +20,7 @@ from document_retriever_service.ht_status_retriever_service import get_non_proce
 from document_retriever_service.retriever_arguments import RetrieverServiceByFileArguments
 from document_retriever_service.run_retriever_service_by_file import retrieve_documents_by_file
 from ht_utils.ht_logger import get_ht_logger
-from structlog.testing import LogCapture
+from ht_utils.testing import assert_log_entry, capture_logs
 
 logger = get_ht_logger(name=__name__)
 
@@ -44,25 +43,29 @@ def run(tmp_path: Path) -> SimpleNamespace:
 
     input_file = tmp_path / "ids.txt"
     input_file.write_text(" mdp.1 \n\nmdp.2\nmdp.1\nbad id\nmdp.3\n")
+
     with patch.object(by_file_module, "FullTextSearchRetrieverQueueService") as service_cls:
-        service = service_cls.return_value
-        service.full_text_search_retriever_service.return_value = PublishCounts(
-            published=1, failed=1, not_found=1
-        )
-        summary = retrieve_documents_by_file(
-            MagicMock(),
-            "item",
-            "http://solr",
-            "solr_user",
-            "solr_password",
-            {},
-            input_file,
-            tmp_path / "status.txt",
-            False,
-            MagicMock(),
-            1,
-        )
-    return SimpleNamespace(summary=summary, service=service)
+        with capture_logs() as captured_logs:
+            service = service_cls.return_value
+            service.full_text_search_retriever_service.return_value = PublishCounts(
+                published=1, failed=1, not_found=1
+            )
+            summary = retrieve_documents_by_file(
+                MagicMock(),
+                "item",
+                "http://solr",
+                "solr_user",
+                "solr_password",
+                {},
+                input_file,
+                tmp_path / "status.txt",
+                False,
+                MagicMock(),
+                1,
+            )
+            log_entries = captured_logs
+
+    return SimpleNamespace(summary=summary, service=service, log_entries=log_entries)
 
 
 @pytest.fixture
@@ -284,14 +287,6 @@ class TestReadIdsFromFile:
 
 
 class TestRetrieveDocumentsByFileSummary:
-    @pytest.fixture
-    def caplog(self) -> LogCapture:
-        return LogCapture()
-
-    @pytest.fixture(autouse=True)
-    def fixture_configure_structlog(self, caplog: LogCapture) -> None:
-        structlog.configure(processors=[caplog])
-
     def test_sends_only_valid_unique_ids(self, run: SimpleNamespace) -> None:
         _, sent_ids, _ = run.service.full_text_search_retriever_service.call_args.args
         assert sorted(sent_ids) == ["mdp.1", "mdp.2", "mdp.3"]
@@ -307,20 +302,22 @@ class TestRetrieveDocumentsByFileSummary:
             not_found=1,
         )
 
-    def test_logs_summary_line(self, run: SimpleNamespace, caplog: LogCapture) -> None:
-        assert {
-            "event": "Retriever by file summary",
-            "requested": 5,
-            "duplicates": 1,
-            "invalid": 1,
-            "already_processed": 0,
-            "seeded": 1,
-            "errors": 1,
-            "not_found": 1,
-            "log_level": "info",
-        } in caplog.entries
+    def test_logs_summary_line(self, run: SimpleNamespace) -> None:
+        assert_log_entry(
+            run.log_entries,
+            event="Retriever by file summary",
+            requested=5,
+            duplicates=1,
+            invalid=1,
+            already_processed=0,
+            seeded=1,
+            errors=1,
+            not_found=1,
+            log_level="info",
+        )
 
-    def test_logs_error_for_invalid_id(self, run: SimpleNamespace, caplog: LogCapture) -> None:
+    def test_logs_error_for_invalid_id(self, run: SimpleNamespace) -> None:
         assert any(
-            "'bad id'" in log["event"] and log.get("log_level") == "error" for log in caplog.entries
+            "'bad id'" in log["event"] and log.get("log_level") == "error"
+            for log in run.log_entries
         )

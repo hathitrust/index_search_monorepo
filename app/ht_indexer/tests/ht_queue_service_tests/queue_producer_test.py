@@ -7,12 +7,12 @@ from unittest.mock import patch
 
 import pika.exceptions
 import pytest
-from conftest import ConcreteQueueConsumer, assert_log_entry, close_channel_and_connection
+from conftest import ConcreteQueueConsumer, close_channel_and_connection
 from ht_queue_service.queue_config import QueueConfig
 from ht_queue_service.queue_producer import MessageTooLargeError, QueueProducer
 from ht_utils.ht_logger import get_ht_logger
+from ht_utils.testing import assert_log_entry, capture_logs
 from pika.adapters.blocking_connection import BlockingChannel
-from structlog.testing import LogCapture
 
 logger = get_ht_logger(name=__name__)
 
@@ -152,13 +152,14 @@ def test_publish_messages_max_message_size_limits_what_is_published(
 
 @pytest.mark.integration
 def test_publish_messages_published_logs_message_size(
-    make_producer: Callable[..., QueueProducer], caplog: LogCapture
+    make_producer: Callable[..., QueueProducer],
 ) -> None:
     producer = make_producer()
 
-    producer.publish_messages(message)
+    with capture_logs() as entries:
+        producer.publish_messages(message)
 
-    assert_log_entry(caplog.entries, size=MESSAGE_SIZE)
+        assert_log_entry(entries, size=MESSAGE_SIZE)
 
 
 @pytest.mark.integration
