@@ -1,20 +1,45 @@
 import logging
-import sys
+import os
+
+import structlog
+
+from ht_utils.ht_env_config import HtEnvConfig
 
 
-def get_ht_logger(name: str = __name__, log_level: int | str = logging.INFO) -> logging.Logger:
-    # set the logging format
-    log_format = "%(asctime)s  :: %(name)s :: %(levelname)s :: %(message)s"
+class HtLogger(structlog.PrintLogger):
+    def __init__(self, name: str) -> None:
+        self.name = name
+        super().__init__()
 
-    # Create the root logger using stdout output
-    logging.basicConfig(
-        stream=sys.stdout,
-        format=log_format,
-    )
 
-    # Instantiate the logger for each class of using it
-    logger = logging.getLogger(name)
+class HtLoggerFactory(structlog.PrintLoggerFactory):
+    def __call__(self, name: str) -> HtLogger:
+        return HtLogger(name)
 
-    # set the logging level based on the user selection
-    logger.setLevel(log_level)
+
+_LOG_LEVEL = logging.getLevelNamesMapping()[HtEnvConfig().log_level.upper()]
+
+if os.environ.get("PYTEST_VERSION") is None:
+    # only configure logger caching when not under test -- would break log
+    # capture in testing & test isolation
+    structlog.configure(cache_logger_on_first_use=True)
+
+structlog.configure(
+    processors=[
+        structlog.contextvars.merge_contextvars,
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
+        structlog.processors.StackInfoRenderer(),
+        structlog.dev.set_exc_info,
+        structlog.processors.dict_tracebacks,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ],
+    logger_factory=HtLoggerFactory(),
+    wrapper_class=structlog.make_filtering_bound_logger(_LOG_LEVEL),
+)
+
+
+def get_ht_logger(name: str = __name__) -> structlog.stdlib.BoundLogger:
+    logger = structlog.stdlib.get_logger(name)
     return logger

@@ -56,7 +56,7 @@ class QueueMultipleConsumer(ABC):
         self.batch_sleep_flag = False
 
     @abstractmethod
-    def process_batch(self, batch: list[Any], delivery_tag: list[int]) -> None | Any:
+    def process_batch(self, batch: list[Any], delivery_tags: list[int]) -> None | Any:
         """Abstract method for processing a batch of messages. Must be implemented by subclasses.
 
         Steps to implement on the subclass:
@@ -69,7 +69,7 @@ class QueueMultipleConsumer(ABC):
         Return True if every message was acknowledged, False otherwise.
         consume_batch logs this but does not stop on False -- it moves on to the next batch.
         :param batch: List of messages to process.
-        :param delivery_tag: List of delivery tags for acknowledging messages.
+        :param delivery_tags: List of delivery tags for acknowledging messages.
         :return: True if every message was acknowledged, False otherwise.
         """
         pass

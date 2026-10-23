@@ -70,7 +70,7 @@ class DocumentGeneratorServiceLocal(DocumentGeneratorService):
         )
         with open(file_path, "w") as f:
             json.dump(content, f)
-        logger.info(f"File {file_name} created in {file_path}")
+        logger.info("created file", filename=file_name, path=file_path)
 
 
 def main() -> None:

@@ -60,4 +60,4 @@ if __name__ == "__main__":
 
     solr_query = Q.make_solr_query(q_string=query_string, operator="OR")
 
-    logger.info(solr_query)
+    logger.info("solr query", query=solr_query)

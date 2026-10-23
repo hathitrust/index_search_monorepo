@@ -1,5 +1,4 @@
 import argparse
-import logging
 import os
 import tempfile
 from collections.abc import Callable, Iterator
@@ -21,6 +20,7 @@ from document_retriever_service.ht_status_retriever_service import get_non_proce
 from document_retriever_service.retriever_arguments import RetrieverServiceByFileArguments
 from document_retriever_service.run_retriever_service_by_file import retrieve_documents_by_file
 from ht_utils.ht_logger import get_ht_logger
+from ht_utils.testing import assert_log_entry, capture_logs
 
 logger = get_ht_logger(name=__name__)
 
@@ -28,29 +28,28 @@ current_dir = Path(__file__).parent
 
 
 @pytest.fixture()
-def run(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> SimpleNamespace:
+def run(tmp_path: Path) -> SimpleNamespace:
     """Run retrieve_documents_by_file on a messy file with the retriever service mocked.
 
     The file has 5 non-blank lines: 1 duplicate (mdp.1), 1 invalid ("bad id") and
     3 valid unique ids. The mocked service reports 1 published, 1 failed and 1 not in Catalog.
 
     :param tmp_path: pytest fixture for a temporary directory
-    :param caplog: pytest fixture for capturing log records
 
     :return: SimpleNamespace with attributes:
         summary: ByFileSummary returned by retrieve_documents_by_file
         service: the mocked FullTextSearchRetrieverQueueService instance
-        logs: list of log records captured during the run
     """
 
     input_file = tmp_path / "ids.txt"
     input_file.write_text(" mdp.1 \n\nmdp.2\nmdp.1\nbad id\nmdp.3\n")
+
     with patch.object(by_file_module, "FullTextSearchRetrieverQueueService") as service_cls:
-        service = service_cls.return_value
-        service.full_text_search_retriever_service.return_value = PublishCounts(
-            published=1, failed=1, not_found=1
-        )
-        with caplog.at_level(logging.INFO):
+        with capture_logs() as captured_logs:
+            service = service_cls.return_value
+            service.full_text_search_retriever_service.return_value = PublishCounts(
+                published=1, failed=1, not_found=1
+            )
             summary = retrieve_documents_by_file(
                 MagicMock(),
                 "item",
@@ -64,7 +63,9 @@ def run(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> SimpleNamespace:
                 MagicMock(),
                 1,
             )
-    return SimpleNamespace(summary=summary, service=service, logs=list(caplog.records))
+            log_entries = captured_logs
+
+    return SimpleNamespace(summary=summary, service=service, log_entries=log_entries)
 
 
 @pytest.fixture
@@ -286,15 +287,6 @@ class TestReadIdsFromFile:
 
 
 class TestRetrieveDocumentsByFileSummary:
-    @staticmethod
-    def _messages(caplog: pytest.LogCaptureFixture, level: int | None = None) -> list[str]:
-        """Return log messages at the given level, or all levels if level is None."""
-        return [
-            r.getMessage()
-            for r in caplog.get_records("setup")
-            if level is None or r.levelno == level
-        ]
-
     def test_sends_only_valid_unique_ids(self, run: SimpleNamespace) -> None:
         _, sent_ids, _ = run.service.full_text_search_retriever_service.call_args.args
         assert sorted(sent_ids) == ["mdp.1", "mdp.2", "mdp.3"]
@@ -310,17 +302,22 @@ class TestRetrieveDocumentsByFileSummary:
             not_found=1,
         )
 
-    def test_logs_summary_line(
-        self, run: SimpleNamespace, caplog: pytest.LogCaptureFixture
-    ) -> None:
-        assert (
-            "Retriever by file summary: requested=5 duplicates=1 invalid=1 "
-            "already_processed=0 seeded=1 errors=1 not_found=1"
-        ) in TestRetrieveDocumentsByFileSummary._messages(caplog, level=logging.INFO)
+    def test_logs_summary_line(self, run: SimpleNamespace) -> None:
+        assert_log_entry(
+            run.log_entries,
+            event="Retriever by file summary",
+            requested=5,
+            duplicates=1,
+            invalid=1,
+            already_processed=0,
+            seeded=1,
+            errors=1,
+            not_found=1,
+            log_level="info",
+        )
 
-    def test_logs_error_for_invalid_id(
-        self, run: SimpleNamespace, caplog: pytest.LogCaptureFixture
-    ) -> None:
-        errors = TestRetrieveDocumentsByFileSummary._messages(caplog, level=logging.ERROR)
-
-        assert any("'bad id'" in message for message in errors)
+    def test_logs_error_for_invalid_id(self, run: SimpleNamespace) -> None:
+        assert any(
+            "'bad id'" in log["event"] and log.get("log_level") == "error"
+            for log in run.log_entries
+        )

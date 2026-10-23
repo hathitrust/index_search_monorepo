@@ -84,10 +84,14 @@ def read_ids_from_file(input_documents_file: str | Path, query_field: str) -> Id
 
 def log_summary(summary: ByFileSummary) -> None:
     logger.info(
-        f"Retriever by file summary: requested={summary.requested} "
-        f"duplicates={summary.duplicates} invalid={len(summary.invalid)} "
-        f"already_processed={summary.already_processed} "
-        f"seeded={summary.seeded} errors={summary.errors} not_found={summary.not_found}"
+        "Retriever by file summary",
+        requested=summary.requested,
+        duplicates=summary.duplicates,
+        invalid=len(summary.invalid),
+        already_processed=summary.already_processed,
+        seeded=summary.seeded,
+        errors=summary.errors,
+        not_found=summary.not_found,
     )
 
 
