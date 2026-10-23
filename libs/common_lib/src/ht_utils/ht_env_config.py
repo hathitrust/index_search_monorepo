@@ -98,6 +98,18 @@ class HtEnvConfig:
         return self._env("CATALOG_SOLR_RO_URL")
 
     @property
+    def solr_catalog_ro_username(self) -> str | None:
+        return self._optional_env(
+            "SOLR_CATALOG_RO_USERNAME", paired_with="SOLR_CATALOG_RO_PASSWORD"
+        )
+
+    @property
+    def solr_catalog_ro_password(self) -> str | None:
+        return self._optional_env(
+            "SOLR_CATALOG_RO_PASSWORD", paired_with="SOLR_CATALOG_RO_USERNAME"
+        )
+
+    @property
     def solr_user(self) -> str:
         return self._env("SOLR_USER")
 
@@ -119,3 +131,16 @@ class HtEnvConfig:
         if not val:
             raise HtEnvConfigMissingError(f"{var} env var required")
         return val
+
+    def _optional_env(self, var: str, paired_with: str) -> str | None:
+        """Return the env var, or None when it and its pair are both unset or empty.
+
+        :param var: The name of the env var to fetch
+        :param paired_with: The name of the env var that must be set if this one is set
+        :return: The value of the env var, or None if both it and its pair are unset or empty
+        :raises HtEnvConfigMissingError: If this env var is set but its pair is not, or vice versa
+        """
+        val = os.getenv(var)
+        if not val and os.getenv(paired_with):
+            raise HtEnvConfigMissingError(f"{var} env var required when {paired_with} is set")
+        return val or None
