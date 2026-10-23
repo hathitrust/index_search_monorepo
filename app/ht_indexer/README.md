@@ -605,9 +605,14 @@ In the working directory,
 
 * Run document_indexer_service container and test it
 
-The document retriever access to the Catalog index, using the variables CATALOG_SOLR_RO_URL, SOLR_CATALOG_RO_USERNAME 
-and SOLR_CATALOG_RO_PASSWORD. It queries the catalog Solr (CATALOG_SOLR_RO_URL) with the optional 
-SOLR_CATALOG_RO_USERNAME / SOLR_CATALOG_RO_PASSWORD. Both variables are unset while the catalog Solr does
+Solr server required authentication, so you should set up the environment variables SOLR_USER and SOLR_PASSWORD before
+starting the container. All the users (solr, admin and fulltext) use the same solr password (solrRocks)
+
+export SOLR_USER=admin
+export SOLR_PASSWORD=solrRocks
+
+The document retriever does not use SOLR_USER / SOLR_PASSWORD. It accesses the Catalog Solr (CATALOG_SOLR_RO_URL)
+with the optional SOLR_CATALOG_RO_USERNAME / SOLR_CATALOG_RO_PASSWORD. Leave both unset while the Catalog Solr does
 not require authentication; if you set one, you must set the other, or the retriever exits at startup.
 
 ```docker compose up document_indexer -d```
