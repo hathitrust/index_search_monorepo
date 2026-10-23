@@ -2,7 +2,7 @@ import argparse
 import logging
 import os
 import tempfile
-from collections.abc import Callable, Iterator
+from collections.abc import Callable
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -90,19 +90,6 @@ def status_file(tmp_path: Path) -> str:
     """Creates and returns a temporary TXT file to store the status of items to process"""
 
     return str(tmp_path / "status.txt")
-
-
-@pytest.fixture
-def stub_retriever_external_services(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
-    """Isolate RetrieverServiceArguments from Solr/MySQL/queue config."""
-    with (
-        patch("document_retriever_service.retriever_arguments.QueueConfig"),
-        patch(
-            "document_retriever_service.retriever_arguments.get_mysql_conn",
-            return_value=MagicMock(),
-        ),
-    ):
-        yield
 
 
 @pytest.fixture

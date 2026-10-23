@@ -1,3 +1,4 @@
+import argparse
 import contextlib
 import json
 import os
@@ -22,6 +23,7 @@ from document_retriever_service.full_text_search_retriever_service import (
     FullTextSearchRetrieverQueueService,
     PublishCounts,
 )
+from document_retriever_service.retriever_arguments import RetrieverServiceArguments
 from document_retriever_service.retriever_services_utils import RetrieverServicesUtils
 from ht_indexer_api.ht_indexer_api import HTSolrAPI
 from ht_utils.ht_logger import get_ht_logger
@@ -37,6 +39,9 @@ RECORD_HT_IDS = [
     "nyp.33433082046529",
     "nyp.33433082046537",
 ]
+
+CATALOG_USER = "catalog-user"
+CATALOG_PASSWORD = "catalog-pass"
 
 
 def _solr_output_one_record_five_items() -> dict[str, Any]:
@@ -262,6 +267,21 @@ class TestFullTextRetrieverService:
             sorted(item.ht_id for item in chunk_metadata.items),
             sorted(chunk_metadata.failed),
         ) == expected
+
+    def test_retriever_arguments_catalog_credentials_set_used_for_solr(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        stub_retriever_external_services: None,
+    ) -> None:
+        # Arrange
+        monkeypatch.setenv("SOLR_CATALOG_RO_USERNAME", CATALOG_USER)
+        monkeypatch.setenv("SOLR_CATALOG_RO_PASSWORD", CATALOG_PASSWORD)
+
+        # Act
+        args = RetrieverServiceArguments(argparse.ArgumentParser(), argv=[])
+
+        # Assert
+        assert (args.solr_user, args.solr_password) == (CATALOG_USER, CATALOG_PASSWORD)
 
     @pytest.mark.integration
     def test_full_text_search_retriever_service(
