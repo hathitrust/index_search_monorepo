@@ -26,8 +26,10 @@ jobs:
       - name: Run unit tests
         run: uv run pytest -m "not integration" libs --cov=libs --cov-report=term-missing --cov-report=xml
 
-      # Coveralls matches files by the XML filename attribute relative to the repo
-      # root, but coverage writes them relative to the --cov source (libs/).
+      # Coveralls resolves files from the XML filename attribute, relative to the repo
+      # root. pytest-cov writes them relative to the --cov source (libs/), e.g.
+      #   filename="common_lib/src/ht_utils/ht_logger.py"
+      # so prefix the source's repo path to get libs/common_lib/src/ht_utils/ht_logger.py.
       - name: Rewrite coverage paths
         run: sed -i 's#filename="#filename="libs/#' coverage.xml
 
@@ -43,6 +45,8 @@ jobs:
       - name: Run data_operations tests
         run: uv run pytest -m "not integration" app/data_operations/tests --cov=app/data_operations/src --cov-report=term-missing --cov-report=xml:data_operations.xml
 
+      # Original: filename="kbart_file_generator/kbart_file_generator.py" (relative to the
+      # --cov source). Prefixed so Coveralls finds app/data_operations/src/kbart_file_generator/...
       - name: Rewrite data_operations coverage paths
         run: sed -i 's#filename="#filename="app/data_operations/src/#' data_operations.xml
 
@@ -95,8 +99,9 @@ jobs:
           chmod 777 coverage
           docker compose run --rm ht-indexer-tests
 
-      # Same fix as unit_tests: make filenames repo-relative (--cov=src makes them
-      # relative to app/ht_indexer/src).
+      # Same fix as unit_tests. --cov=src makes filenames relative to app/ht_indexer/src, e.g.
+      #   filename="catalog_metadata/catalog_metadata.py"
+      # so prefix it to get app/ht_indexer/src/catalog_metadata/catalog_metadata.py.
       - name: Rewrite coverage paths
         run: sed -i 's#filename="#filename="app/ht_indexer/src/#' coverage/coverage.xml
 
@@ -127,9 +132,15 @@ jobs:
             # create it writable first so Docker doesn't make it root-owned.
             mkdir -p coverage
             chmod 777 coverage
+            # TEMPORARY (ETT-2009 review): show who owns what, to decide if 777 can be tighter.
+            echo "runner:"; id; ls -ld coverage
+            echo "container:"; docker compose run --rm --no-deps solr-query-tests id
             docker compose run --rm solr-query-tests
+            echo "after run:"; ls -ln coverage
 
-        # --cov=src makes filenames relative to app/solr_query/src.
+        # Same fix as unit_tests. --cov=src makes filenames relative to app/solr_query/src, e.g.
+        #   filename="ht_full_text_search/main.py"
+        # so prefix it to get app/solr_query/src/ht_full_text_search/main.py.
         - name: Rewrite coverage paths
           run: sed -i 's#filename="#filename="app/solr_query/src/#' coverage/coverage.xml
 
