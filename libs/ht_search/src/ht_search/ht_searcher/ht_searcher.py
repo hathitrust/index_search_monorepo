@@ -102,7 +102,7 @@ class HTSearcher:
         if self.environment == "prod":
             add_shards(query_dict)
             query_dict["shards.info"] = "true"
-        logger.info(query_dict)
+        logger.info("solr query", query=query_dict)
 
         # Counting total records
         response = self.send_query(query_dict)

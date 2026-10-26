@@ -1,6 +1,5 @@
 import contextlib
 import json
-import logging
 import time
 from collections.abc import Callable, Generator
 from typing import Any
@@ -12,6 +11,7 @@ from conftest import ConcreteQueueConsumer, close_channel_and_connection
 from ht_queue_service.queue_config import QueueConfig
 from ht_queue_service.queue_producer import MessageTooLargeError, QueueProducer
 from ht_utils.ht_logger import get_ht_logger
+from ht_utils.testing import assert_log_entry, capture_logs
 from pika.adapters.blocking_connection import BlockingChannel
 
 logger = get_ht_logger(name=__name__)
@@ -152,14 +152,14 @@ def test_publish_messages_max_message_size_limits_what_is_published(
 
 @pytest.mark.integration
 def test_publish_messages_published_logs_message_size(
-    make_producer: Callable[..., QueueProducer], caplog: pytest.LogCaptureFixture
+    make_producer: Callable[..., QueueProducer],
 ) -> None:
     producer = make_producer()
 
-    with caplog.at_level(logging.INFO):
+    with capture_logs() as entries:
         producer.publish_messages(message)
 
-    assert f"Size={MESSAGE_SIZE} bytes" in caplog.text
+        assert_log_entry(entries, size=MESSAGE_SIZE)
 
 
 @pytest.mark.integration

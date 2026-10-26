@@ -80,7 +80,8 @@ class DocumentGeneratorService(QueueMultipleConsumer):
     ) -> dict[str, Any]:
 
         start_time = time.time()
-        logger.info(f"Generating document htid={item_id}")
+        htid_logger = logger.bind(process="generate_full_text_entry", ht_id=item_id)
+        htid_logger.info("Generating document")
 
         # Instantiate each document
         ht_document = HtDocument(document_id=item_id, document_repository=document_repository)
@@ -93,9 +94,7 @@ class DocumentGeneratorService(QueueMultipleConsumer):
             raise FileNotFoundError(
                 f"The file of the ht_id={ht_document.document_id} on the path={ht_document.source_path}.zip not found"
             )
-        logger.info(
-            f"Processing item htid={ht_document.document_id} using {ht_document.source_path}.zip"
-        )
+        htid_logger.info("Generating from file", file=ht_document.source_path + ".zip")
         try:
             entry = self.document_generator.make_full_text_search_document(ht_document, record)
         except Exception as e:
@@ -103,10 +102,7 @@ class DocumentGeneratorService(QueueMultipleConsumer):
                 f"Document htid={ht_document.document_id} could not be generated: Error - {e}"
             ) from e
 
-        logger.info(
-            f"Time to generate process=full-text_document ht_id={ht_document.document_id} "
-            f"Time={time.time() - start_time:.10f}"
-        )
+        htid_logger.info("Finish", time=time.time() - start_time)
 
         return entry
 
@@ -119,7 +115,7 @@ class DocumentGeneratorService(QueueMultipleConsumer):
         if self.tgt_queue_producer is None:
             raise RuntimeError("publish_document called on a tgt_local instance")
         message = content
-        logger.info(f"Sending message to queue htid={content.get('id')}")
+        logger.info("Sending message to queue", ht_id=content.get("id"))
         self.tgt_queue_producer.publish_messages(message)
 
     def log_error_document_generator_service(
@@ -131,16 +127,16 @@ class DocumentGeneratorService(QueueMultipleConsumer):
         """
         error_info = get_error_message_by_document("DocumentGeneratorService", e, document)
 
-        logger.error(f"Document htid={document.get('ht_id')} failed {error_info}")
+        logger.error("document failed", ht_id=document.get("ht_id"), error=error_info)
         if self.channel is None:
             raise RuntimeError("Unable to establish a RabbitMQ channel")
         self.reject_message(self.channel, delivery_tag)
 
-    def process_batch(self, batch: list[Any], delivery_tag: list[int]) -> bool:
-        for message, tag in zip(batch, delivery_tag, strict=True):
+    def process_batch(self, batch: list[Any], delivery_tags: list[int]) -> bool:
+        for message, tag in zip(batch, delivery_tags, strict=True):
             self.generate_document(message, tag)
         batch.clear()
-        delivery_tag.clear()
+        delivery_tags.clear()
         return True
 
     def generate_document(self, message: dict[str, Any], delivery_tag: int) -> None:
@@ -204,8 +200,9 @@ class DocumentGeneratorService(QueueMultipleConsumer):
             self.db_conn.update_status(query, [values])
         except Exception as e:
             logger.error(
-                f"Failed to update generator_status ht_id={values.get('ht_id')} "
-                f"{get_general_error_message('DocumentGeneratorService', e)}"
+                "Failed to update generator_status",
+                ht_id=values.get("ht_id"),
+                error=get_general_error_message("DocumentGeneratorService", e),
             )
 
 

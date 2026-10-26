@@ -208,8 +208,10 @@ class QueueProducer:
                 )
 
                 logger.info(
-                    f"Published message htid={queue_message.get('ht_id')} to {self.queue_manager.queue_name}. "
-                    f"Size={size} bytes"
+                    "published_message",
+                    ht_id=queue_message.get("ht_id"),
+                    queue=self.queue_manager.queue_name,
+                    size=size,
                 )
                 return
 
