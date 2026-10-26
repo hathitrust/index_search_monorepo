@@ -28,6 +28,7 @@ exclude = []  # Exclude the individual packages to avoid trying to build/install
 [tool.uv]
 # default-groups = "all"
 package = false # This is the monorepo root, not a package itself. So we set this to false to avoid trying to build/install it as a package.
+exclude-newer = "7 days"
 
 [tool.pytest.ini_options]
 minversion = "6.0"

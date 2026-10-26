@@ -32,6 +32,7 @@ addopts = "-ra -q -p no:cacheprovider"
 
 [tool.uv]
 default-groups = "all"
+exclude-newer = "7 days"
 
 
 # Adding local sources to link the application to the shared libraries in the monorepo.
