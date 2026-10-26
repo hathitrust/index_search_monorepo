@@ -95,8 +95,9 @@ class RetrieverServiceArguments:
 
         env_config = HtEnvConfig()
         self.solr_host = env_config.catalog_solr_ro_url
-        self.solr_user = env_config.solr_user
-        self.solr_password = env_config.solr_password
+        # The catalog Solr has its own optional credentials; the full-text SOLR_USER/SOLR_PASSWORD don't apply here
+        self.solr_user = env_config.solr_catalog_ro_username
+        self.solr_password = env_config.solr_catalog_ro_password
 
         self.solr_retriever_query_params = {"q": "*:*", "rows": SOLR_TOTAL_ROWS, "wt": "json"}
 

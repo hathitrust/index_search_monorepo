@@ -2,9 +2,10 @@ import copy
 import json
 import os
 import uuid
-from collections.abc import Callable, Generator
+from collections.abc import Callable, Generator, Iterator
 from pathlib import Path
 from typing import Any, Protocol
+from unittest.mock import MagicMock, patch
 
 import pytest
 from catalog_metadata.catalog_metadata import CatalogItemMetadata, CatalogRecordMetadata
@@ -20,6 +21,11 @@ from pika.adapters.blocking_connection import BlockingChannel
 load_dotenv()
 
 current = os.path.dirname(__file__)
+
+SOLR_CATALOG_CREDENTIAL_VARS = (
+    "SOLR_CATALOG_RO_USERNAME",
+    "SOLR_CATALOG_RO_PASSWORD",
+)
 
 
 class ConcreteQueueConsumer(QueueMultipleConsumer):
@@ -225,3 +231,18 @@ def drain_ht_ids(consumer: QueueMultipleConsumer, timeout: int = 5) -> list[str]
         else:
             break
     return ht_ids
+
+
+@pytest.fixture
+def stub_retriever_external_services(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """Isolate RetrieverServiceArguments from Solr/MySQL/queue config (production-like env: no Solr credentials)."""
+    for var in SOLR_CATALOG_CREDENTIAL_VARS:
+        monkeypatch.delenv(var, raising=False)
+    with (
+        patch("document_retriever_service.retriever_arguments.QueueConfig"),
+        patch(
+            "document_retriever_service.retriever_arguments.get_mysql_conn",
+            return_value=MagicMock(),
+        ),
+    ):
+        yield

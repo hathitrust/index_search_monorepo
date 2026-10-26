@@ -611,6 +611,10 @@ starting the container. All the users (solr, admin and fulltext) use the same so
 export SOLR_USER=admin
 export SOLR_PASSWORD=solrRocks
 
+The document retriever does not use SOLR_USER / SOLR_PASSWORD. It accesses the Catalog Solr (CATALOG_SOLR_RO_URL)
+with the optional SOLR_CATALOG_RO_USERNAME / SOLR_CATALOG_RO_PASSWORD. Leave both unset while the Catalog Solr does
+not require authentication.
+
 ```docker compose up document_indexer -d```
 
 ```docker compose exec document_indexer python -m pytest document_indexer_service ht_indexer_api ht_queue_service```
