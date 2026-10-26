@@ -22,9 +22,7 @@ load_dotenv()
 
 current = os.path.dirname(__file__)
 
-SOLR_CREDENTIAL_VARS = (
-    "SOLR_USER",
-    "SOLR_PASSWORD",
+SOLR_CATALOG_CREDENTIAL_VARS = (
     "SOLR_CATALOG_RO_USERNAME",
     "SOLR_CATALOG_RO_PASSWORD",
 )
@@ -238,7 +236,7 @@ def drain_ht_ids(consumer: QueueMultipleConsumer, timeout: int = 5) -> list[str]
 @pytest.fixture
 def stub_retriever_external_services(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     """Isolate RetrieverServiceArguments from Solr/MySQL/queue config (production-like env: no Solr credentials)."""
-    for var in SOLR_CREDENTIAL_VARS:
+    for var in SOLR_CATALOG_CREDENTIAL_VARS:
         monkeypatch.delenv(var, raising=False)
     with (
         patch("document_retriever_service.retriever_arguments.QueueConfig"),

@@ -40,9 +40,6 @@ RECORD_HT_IDS = [
     "nyp.33433082046537",
 ]
 
-CATALOG_USER = "catalog-user"
-CATALOG_PASSWORD = "catalog-pass"
-
 
 def _solr_output_one_record_five_items() -> dict[str, Any]:
     """Solr response with one record holding more items than any test requests."""
@@ -274,14 +271,14 @@ class TestFullTextRetrieverService:
         stub_retriever_external_services: None,
     ) -> None:
         # Arrange
-        monkeypatch.setenv("SOLR_CATALOG_RO_USERNAME", CATALOG_USER)
-        monkeypatch.setenv("SOLR_CATALOG_RO_PASSWORD", CATALOG_PASSWORD)
+        monkeypatch.setenv("SOLR_CATALOG_RO_USERNAME", "catalog-user")
+        monkeypatch.setenv("SOLR_CATALOG_RO_PASSWORD", "catalog-pass")
 
         # Act
         args = RetrieverServiceArguments(argparse.ArgumentParser(), argv=[])
 
         # Assert
-        assert (args.solr_user, args.solr_password) == (CATALOG_USER, CATALOG_PASSWORD)
+        assert (args.solr_user, args.solr_password) == ("catalog-user", "catalog-pass")
 
     @pytest.mark.integration
     def test_full_text_search_retriever_service(

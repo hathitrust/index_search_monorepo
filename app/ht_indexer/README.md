@@ -613,7 +613,7 @@ export SOLR_PASSWORD=solrRocks
 
 The document retriever does not use SOLR_USER / SOLR_PASSWORD. It accesses the Catalog Solr (CATALOG_SOLR_RO_URL)
 with the optional SOLR_CATALOG_RO_USERNAME / SOLR_CATALOG_RO_PASSWORD. Leave both unset while the Catalog Solr does
-not require authentication; if you set one, you must set the other, or the retriever exits at startup.
+not require authentication.
 
 ```docker compose up document_indexer -d```
 
