@@ -24,7 +24,7 @@ def ht_full_text_search_fixture(ht_full_text_search_query_fixture):
     """
 
     return HTFullTextSearcher(
-        solr_url="http://solr-lss-dev:8983/solr/#/core-x/",
+        solr_url="http://solr-lss-dev:8983/solr/core-x/",
         ht_search_query=ht_full_text_search_query_fixture,
     )
 

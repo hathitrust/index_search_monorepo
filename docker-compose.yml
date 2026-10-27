@@ -142,7 +142,7 @@ services:
     image: ghcr.io/hathitrust/catalog-solr-sample-standalone:solr-standalone
     healthcheck:
       <<: *healthcheck-defaults
-      test: [ "CMD", "/usr/bin/curl", "-s", "-f", "http://localhost:9033/solr/catalog/admin/ping/" ]
+      test: [ "CMD", "/usr/bin/curl", "-s", "-f", "http://localhost:9033/solr/catalog/admin/ping" ]
       interval: 5s
     ports:
       - "9033:9033"
