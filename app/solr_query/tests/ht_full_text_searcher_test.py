@@ -12,7 +12,7 @@ class TestRetrieveDocumentsFromFile:
     @staticmethod
     def _searcher():
         return HTFullTextSearcher(
-            solr_url="http://fake-solr", ht_search_query=None, environment="dev"
+            solr_url="http://fake-solr/", ht_search_query=None, environment="dev"
         )
 
     def test_yields_a_batch_for_100_or_fewer_ids(self):
