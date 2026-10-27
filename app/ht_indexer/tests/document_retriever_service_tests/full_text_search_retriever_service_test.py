@@ -403,8 +403,8 @@ class TestFullTextRetrieverService:
     @pytest.mark.parametrize(
         "solr_host",
         [
-            pytest.param(FAKE_CATALOG_URL, id="with-trailing-slash"),
-            pytest.param(f"{FAKE_CATALOG_URL}/", id="without-trailing-slash"),
+            pytest.param(FAKE_CATALOG_URL, id="without-trailing-slash"),
+            pytest.param(f"{FAKE_CATALOG_URL}/", id="with-trailing-slash"),
         ],
     )
     def test_retrieve_documents_from_solr_request_url_has_single_slash_before_query(
