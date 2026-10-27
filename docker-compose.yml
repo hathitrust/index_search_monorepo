@@ -9,8 +9,8 @@ x-healthcheck-defaults: &healthcheck-defaults
 
 # Common environment variables for all services
 x-env-common: &env_common
-    CATALOG_SOLR_RO_URL: http://solr-sdr-catalog:9033/solr/catalog
-    FULL_TEXT_SOLR_RO_URL: http://admin:solrRocks@solr-lss-dev:8983/solr/core-x
+    CATALOG_SOLR_RO_URL: http://solr-sdr-catalog:9033/solr/catalog/
+    FULL_TEXT_SOLR_RO_URL: http://admin:solrRocks@solr-lss-dev:8983/solr/core-x/
     SOLR_USER: admin
     SOLR_PASSWORD: solrRocks
 

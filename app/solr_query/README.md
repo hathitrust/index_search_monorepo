@@ -92,7 +92,7 @@ When the container is running, some services will be started, including:
   * To access to prod Solr server, you need it, 
     * to have a VPN connection to the HathiTrust network
     * to set up an ssh tunnel `ssh -L8081:macc-ht-solr-lss-1.umdl.umich.edu:8081 test.babel.hathitrust.org`.
-    * set the environment variable `FULL_TEXT_SOLR_RO_URL` to http://localhost:8081/solr/core-1x/query
+    * set the environment variable `FULL_TEXT_SOLR_RO_URL` to http://localhost:8081/solr/core-1x
 
 In your workdir,
   
@@ -153,10 +153,10 @@ The main classes are:
 ## Usage
 
 Set the `FULL_TEXT_SOLR_RO_URL` environment variable to the full URL to the
-query endpoint, including basic auth; see `.env` for an example:
+query endpoint (trailing slash optional), including basic auth; see `.env` for an example:
 
 ```
-export FULL_TEXT_SOLR_RO_URL=http://user:pass@localhost:8983/solr/collname/query
+export FULL_TEXT_SOLR_RO_URL=http://user:pass@localhost:8983/solr/collname/
 ```
 
 **Phase 1**

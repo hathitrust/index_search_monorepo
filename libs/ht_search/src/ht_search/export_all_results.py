@@ -104,7 +104,7 @@ class SolrExporter:
         # SolrExporter should be re-implemented following the design of ht_query/ht_query.py, ht_search/ht_search.py
         # We should create an exporter as part of this structure and we should create separate classes to manage the
         # Catalog and FullText Solr clusters.
-        self.solr_url = f"{solr_url}/query"
+        self.solr_url = f"{solr_url.rstrip('/')}/query"
         self.environment = env
         self.headers = {"Content-Type": "application/json"}
         self.auth = HTTPBasicAuth(user, password) if user and password else None
