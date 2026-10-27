@@ -36,3 +36,4 @@ markers = ["integration: requires running catalog service"]
 [tool.uv]
 default-groups = "all"
 package = true # This is an application package, so we set this to true to allow building/installing it.
+exclude-newer = "7 days"

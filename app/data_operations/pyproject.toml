@@ -32,6 +32,7 @@ addopts = "-ra -q -p no:cacheprovider"
 [tool.uv]
 default-groups = "all"
 package = true # This is the main application package, so we set this to true to allow building/installing it as a package.
+exclude-newer = "7 days"
 
 # Adding local sources to link the application to the shared libraries in the monorepo.
 [tool.uv.sources]
