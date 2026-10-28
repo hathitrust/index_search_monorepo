@@ -32,7 +32,10 @@ class IndexerServiceArguments:
 
         parser.add_argument(
             "--batch_size",
-            help="Integer that represents the number of documents to process in a batch.",
+            type=int,
+            default=None,
+            help="Number of documents to process in a batch (1 to 65535). "
+            "Overrides batch_size in indexer_config.yml; without it, the config value is used.",
         )
 
         self.args = parser.parse_args()
@@ -67,7 +70,13 @@ class IndexerServiceArguments:
                 global_config,  # type: ignore[arg-type]
                 app_config,  # type: ignore[arg-type]
                 config_key="queue",
+                batch_size=self.args.batch_size,
             )
+
+        except ValueError as e:
+            # For example, a --batch_size outside the allowed range
+            logger.error(f"Invalid queue configuration: {e}")
+            sys.exit(1)
 
         except KeyError as e:
             logger.error(

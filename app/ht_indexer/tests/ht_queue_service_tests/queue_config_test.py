@@ -180,3 +180,27 @@ def test_queue_params_out_of_range_raises_value_error(
 
     with pytest.raises(ValueError, match=message):
         QueueConfig(global_config_path, app_path)
+
+
+def test_batch_size_override_wins_over_the_config_file(
+    global_config_path: Path, app_config_path: Path
+) -> None:
+    params = QueueConfig(global_config_path, app_config_path, batch_size=25).get_params()
+
+    assert params.batch_size == 25
+
+
+def test_without_a_batch_size_override_the_config_file_value_is_used(
+    global_config_path: Path, app_config_path: Path
+) -> None:
+    params = QueueConfig(global_config_path, app_config_path, batch_size=None).get_params()
+
+    assert params.batch_size == 10
+
+
+@pytest.mark.parametrize("value", [0, 65_536])
+def test_batch_size_override_is_validated_like_the_configured_value(
+    global_config_path: Path, app_config_path: Path, value: int
+) -> None:
+    with pytest.raises(ValueError, match="batch_size must be between 1 and 65535"):
+        QueueConfig(global_config_path, app_config_path, batch_size=value)
