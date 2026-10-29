@@ -2,7 +2,7 @@ import argparse
 import sys
 
 from config import config_queue_file_path
-from ht_indexer_api.ht_indexer_api import HTSolrAPI
+from ht_indexer_api.ht_indexer_api import DEFAULT_READ_TIMEOUT_SECONDS, HTSolrAPI
 from ht_queue_service.queue_config import QueueConfig
 from ht_utils.ht_env_config import HtEnvConfig
 from ht_utils.ht_logger import get_ht_logger
@@ -11,6 +11,13 @@ from ht_utils.ht_utils import get_general_error_message
 from . import indexer_config_file_path
 
 logger = get_ht_logger(name=__name__)
+
+
+def _positive_seconds(value: str) -> float:
+    seconds = float(value)
+    if not seconds > 0:
+        raise argparse.ArgumentTypeError("must be greater than 0 seconds")
+    return seconds
 
 
 class IndexerServiceArguments:
@@ -38,6 +45,16 @@ class IndexerServiceArguments:
             "Overrides batch_size in indexer_config.yml; without it, the config value is used.",
         )
 
+        parser.add_argument(
+            "--solr_timeout",
+            type=_positive_seconds,
+            default=DEFAULT_READ_TIMEOUT_SECONDS,
+            help="Seconds to wait for Solr to send data before a request fails (default: "
+            f"{DEFAULT_READ_TIMEOUT_SECONDS:g}). It is the longest silence allowed between bytes "
+            "from Solr, not a limit on the whole request. A timeout is treated as a temporary "
+            "failure: the messages stay on the queue.",
+        )
+
         self.args = parser.parse_args()
 
         env_config = HtEnvConfig()
@@ -45,7 +62,10 @@ class IndexerServiceArguments:
         solr_password = env_config.solr_password
 
         self.solr_api_full_text = HTSolrAPI(
-            url=self.args.solr_indexing_api, user=solr_user, password=solr_password
+            url=self.args.solr_indexing_api,
+            user=solr_user,
+            password=solr_password,
+            read_timeout=self.args.solr_timeout,
         )
 
         self.document_local_path = self.args.document_local_path
