@@ -71,7 +71,7 @@ def test_solr_timeout_on_the_command_line_sets_the_read_timeout(
     assert arguments.solr_api_full_text.timeout == (10.0, 30.0)
 
 
-@pytest.mark.parametrize("value", ["0", "-5", "soon"])
+@pytest.mark.parametrize("value", ["0", "-5", "soon", "inf", "nan"])
 def test_solr_timeout_must_be_a_positive_number(
     monkeypatch: pytest.MonkeyPatch, value: str
 ) -> None:

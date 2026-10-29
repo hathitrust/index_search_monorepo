@@ -605,3 +605,17 @@ def test_every_failure_log_line_lists_the_ids_in_the_request() -> None:
 
     failures = [e for e in entries if e["event"] == "solr_request_failed"]
     assert [e["ht_ids"] for e in failures] == [["mdp.1"], ["mdp.1"]]
+
+
+def test_the_failure_log_lists_at_most_the_first_100_ids_and_the_full_count() -> None:
+    solr_api_full_text = MagicMock()
+    solr_api_full_text.index_documents.side_effect = requests.exceptions.ReadTimeout("slow")
+    service, _ = _make_service(solr_api_full_text)
+    batch: list[dict[str, Any]] = [{"id": f"mdp.{n}"} for n in range(150)]
+
+    with capture_logs() as entries:
+        service.process_batch(batch, list(range(150)))
+
+    (failure,) = [e for e in entries if e["event"] == "solr_request_failed"]
+    assert failure["docs"] == 150
+    assert failure["ht_ids"] == [f"mdp.{n}" for n in range(100)]

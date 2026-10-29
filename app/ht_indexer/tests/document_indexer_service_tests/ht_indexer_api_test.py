@@ -115,10 +115,10 @@ def test_every_solr_request_uses_the_configured_timeout(
     assert mock_request.call_args.kwargs["timeout"] == (2, 30)
 
 
-@pytest.mark.parametrize("value", [0, -1])
+@pytest.mark.parametrize("value", [0, -1, float("inf"), float("nan")])
 @pytest.mark.parametrize("name", ["read_timeout", "connect_timeout"])
 def test_a_timeout_that_is_not_positive_is_rejected(name: str, value: float) -> None:
-    with pytest.raises(ValueError, match=f"{name} must be greater than 0"):
+    with pytest.raises(ValueError, match=f"{name} must be a finite number greater than 0"):
         if name == "read_timeout":
             HTSolrAPI("http://solr/", read_timeout=value)
         else:
@@ -140,7 +140,7 @@ def test_a_hung_solr_raises_a_timeout_that_the_indexer_treats_as_temporary(
     """The setting really stops the wait, and the error is the one ETT-1894 keeps on the queue."""
     api = HTSolrAPI(silent_server, read_timeout=0.3)
 
-    with pytest.raises(requests.exceptions.Timeout) as error:
+    with pytest.raises(requests.exceptions.ReadTimeout) as error:
         api.index_documents([{"id": "mdp.1"}])
 
     assert classify_failure(error.value) is FailureKind.TRANSIENT

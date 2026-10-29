@@ -1,3 +1,4 @@
+import math
 from pathlib import Path
 from typing import Any
 
@@ -13,6 +14,15 @@ DEFAULT_CONNECT_TIMEOUT_SECONDS = 10.0
 # Seconds to wait for Solr to send data. It is the longest silence allowed between bytes, not a limit
 # on the whole request, so a slow batch that keeps sending data does not hit it.
 DEFAULT_READ_TIMEOUT_SECONDS = 120.0
+
+
+def validate_timeout_seconds(name: str, value: float) -> float:
+    """Return the timeout if it is a finite number greater than 0, otherwise raise ValueError.
+    requests waits forever for None, rejects 0, and an infinite value would also never time out.
+    """
+    if not math.isfinite(value) or value <= 0:
+        raise ValueError(f"{name} must be a finite number greater than 0 seconds, got {value}")
+    return value
 
 
 class HTSolrAPI:
@@ -31,12 +41,10 @@ class HTSolrAPI:
         :param read_timeout: Seconds to wait for Solr to send data before the request fails
         with a requests.exceptions.Timeout. Applies to every request to Solr.
         :param connect_timeout: Seconds to wait for Solr to accept the connection
-        :raises ValueError: If a timeout is not greater than zero (requests would wait forever
-        for None and rejects 0)
+        :raises ValueError: If a timeout is not a finite number greater than 0
         """
-        for name, value in (("read_timeout", read_timeout), ("connect_timeout", connect_timeout)):
-            if not value > 0:
-                raise ValueError(f"{name} must be greater than 0 seconds, got {value}")
+        validate_timeout_seconds("read_timeout", read_timeout)
+        validate_timeout_seconds("connect_timeout", connect_timeout)
         self.url = url
         self.auth = HTTPBasicAuth(user, password) if user and password else None
         self.timeout = (connect_timeout, read_timeout)

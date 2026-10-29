@@ -282,7 +282,7 @@ python -m document_indexer_service.document_indexer_service \
 * A timeout is a temporary failure, like an outage: the messages stay on the queue and nothing is dead-lettered. The
   request may have reached Solr and succeeded anyway; sending it again is safe, because Solr overwrites a document that
   has the same `id`.
-* An out-of-range `--batch_size` or a `--solr_timeout` that is not a positive number stops the service with an error.
+* An out-of-range `--batch_size` or a `--solr_timeout` that is not a finite positive number stops the service with an error.
 
 #### Logs and alerts
 
@@ -301,7 +301,7 @@ whatever the message field is called (ETT-2018).
 
 `failure_kind` is `transient`, `permanent` or `config_error`. `failure_type` is `timeout`, `connection`, `http_<status>`
 (for example `http_503`), `amqp`, `serialization` or `unknown`. `ht_ids` lists the messages that were in the failed
-request, so a timeout can be traced to the items it affected. To alert on Solr trouble, count the `solr_request_failed`
+request (the first 100; `docs` is the full count), so a timeout can be traced to the items it affected. To alert on Solr trouble, count the `solr_request_failed`
 events where `failure_kind` is not `permanent` (a bad document is not Solr's fault).
 
 #### Replaying the dead-letter queue

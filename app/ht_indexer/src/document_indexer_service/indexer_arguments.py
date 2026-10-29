@@ -2,7 +2,11 @@ import argparse
 import sys
 
 from config import config_queue_file_path
-from ht_indexer_api.ht_indexer_api import DEFAULT_READ_TIMEOUT_SECONDS, HTSolrAPI
+from ht_indexer_api.ht_indexer_api import (
+    DEFAULT_READ_TIMEOUT_SECONDS,
+    HTSolrAPI,
+    validate_timeout_seconds,
+)
 from ht_queue_service.queue_config import QueueConfig
 from ht_utils.ht_env_config import HtEnvConfig
 from ht_utils.ht_logger import get_ht_logger
@@ -14,10 +18,10 @@ logger = get_ht_logger(name=__name__)
 
 
 def _positive_seconds(value: str) -> float:
-    seconds = float(value)
-    if not seconds > 0:
-        raise argparse.ArgumentTypeError("must be greater than 0 seconds")
-    return seconds
+    try:
+        return validate_timeout_seconds("--solr_timeout", float(value))
+    except ValueError as error:
+        raise argparse.ArgumentTypeError(str(error)) from error
 
 
 class IndexerServiceArguments:
