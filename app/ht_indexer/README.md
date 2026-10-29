@@ -260,12 +260,49 @@ So a batch of 3 with 1 bad document gives 2 acknowledgements and 1 dead-lettered
   some bad documents). An outage, including a proxy answering 502/503/504, never uses up a message's retries.
 * The retry count is kept in memory, so it starts again from zero when the service restarts.
 
+#### Batch size and Solr timeout
+
+Two settings of the indexer service can be set on the command line (ETT-1944):
+
+| Setting | Command line | Default | What it does |
+|---|---|---|---|
+| Batch size | `--batch_size N` (1 to 65535) | `batch_size` in `indexer_config.yml` (10) | How many messages are read from the queue and sent to Solr in one request. The command-line value overrides the config file; without the option, the config value is used. |
+| Solr read timeout | `--solr_timeout SECONDS` (greater than 0) | 120 | How long to wait for Solr to send data before a request fails. |
+
+```sh
+python -m document_indexer_service.document_indexer_service \
+  --solr_indexing_api http://solr-lss-dev:8983/solr/#/core-x/ --batch_size 50 --solr_timeout 60
+```
+
+* The timeout applies to **every** request that `HTSolrAPI` sends to Solr, including the Catalog queries of the
+  retriever service, which uses the default. Waiting for Solr to accept the connection has its own limit of 10 seconds.
+  It is not an option; it is `DEFAULT_CONNECT_TIMEOUT_SECONDS` in `ht_indexer_api.py`.
+* The read timeout is the longest silence allowed between bytes from Solr, not a limit on the whole request. A big batch
+  that Solr is slowly answering does not hit it, and a Solr that sends nothing does. Raise it if large batches time out.
+* A timeout is a temporary failure, like an outage: the messages stay on the queue and nothing is dead-lettered. The
+  request may have reached Solr and succeeded anyway; sending it again is safe, because Solr overwrites a document that
+  has the same `id`.
+* An out-of-range `--batch_size` or a `--solr_timeout` that is not a positive number stops the service with an error.
+
 #### Logs and alerts
 
-Every failure is logged as a structured line, `event=<name> key=value ... error='...'`. Alert rules (Loki) match on these
-lines, so do not rename the events or fields without updating the rules. The events and fields are listed in the
-`_log_line` docstring in `document_indexer_service/document_indexer_service.py`. To alert on Solr trouble, count the
-`event=solr_request_failed` lines where `failure_kind` is not `permanent` (a bad document is not Solr's fault).
+Logs are JSON lines (`structlog`), one object per event, with the event name in `event`. Alert rules (Loki) match on
+these events and fields, so do not rename them without updating the rules. The item id is always logged as `ht_id`,
+whatever the message field is called (ETT-2018).
+
+| `event` | Fields |
+|---|---|
+| `solr_request_failed` | `scope` (`batch` or `document`), `docs`, `ht_ids`, `failure_kind`, `failure_type`, `error` |
+| `message_retried` | `ht_id`, `failure_kind`, `attempt` (only when it counts towards `max_retries`), `error` |
+| `message_dead_lettered` | `ht_id`, `reason`, `queue`, `failure_kind`, `error_detail` |
+| `indexing_backoff` | `messages_put_back`, `consecutive_batches`, `wait_seconds` |
+| `batch_indexed` | `item_count`, `http_status`, `seconds` |
+| `document_indexed` | `ht_id` |
+
+`failure_kind` is `transient`, `permanent` or `config_error`. `failure_type` is `timeout`, `connection`, `http_<status>`
+(for example `http_503`), `amqp`, `serialization` or `unknown`. `ht_ids` lists the messages that were in the failed
+request, so a timeout can be traced to the items it affected. To alert on Solr trouble, count the `solr_request_failed`
+events where `failure_kind` is not `permanent` (a bad document is not Solr's fault).
 
 #### Replaying the dead-letter queue
 
@@ -288,7 +325,7 @@ indexer service. They are already set inside the containers; on your machine, lo
   cannot make it run forever.
 * A crash at the wrong moment can leave a message in both queues. That is harmless: Solr overwrites a document that has
   the same `id`.
-* If a message fails again, it is dead-lettered again. Check the `event=message_dead_lettered` log lines for the reason.
+* If a message fails again, it is dead-lettered again. Check the `message_dead_lettered` log events for the reason.
 
 ## Functionality
 
