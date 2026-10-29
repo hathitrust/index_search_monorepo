@@ -6,7 +6,11 @@ import os
 from time import sleep
 
 import requests
-from ht_indexer_api.ht_indexer_api import HTSolrAPI
+from ht_indexer_api.ht_indexer_api import (
+    DEFAULT_READ_TIMEOUT_SECONDS,
+    HTSolrAPI,
+    positive_seconds,
+)
 from ht_utils.ht_logger import get_ht_logger
 
 logger = get_ht_logger(name=__name__)
@@ -93,9 +97,18 @@ def main() -> None:
         default=None,
     )
 
+    parser.add_argument(
+        "--solr_timeout",
+        type=positive_seconds,
+        default=DEFAULT_READ_TIMEOUT_SECONDS,
+        help="Seconds to wait for Solr to send data before a request fails (default: "
+        f"{DEFAULT_READ_TIMEOUT_SECONDS:g}). Requests with commit=true can stay silent while Solr "
+        "commits, so raise it for big files.",
+    )
+
     args = parser.parse_args()
 
-    solr_api_full_text = HTSolrAPI(url=args.solr_indexing_api)
+    solr_api_full_text = HTSolrAPI(url=args.solr_indexing_api, read_timeout=args.solr_timeout)
 
     document_indexer_service = DocumentIndexerLocalService(solr_api_full_text)
 

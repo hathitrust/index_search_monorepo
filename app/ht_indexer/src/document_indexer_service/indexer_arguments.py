@@ -2,7 +2,11 @@ import argparse
 import sys
 
 from config import config_queue_file_path
-from ht_indexer_api.ht_indexer_api import HTSolrAPI
+from ht_indexer_api.ht_indexer_api import (
+    DEFAULT_READ_TIMEOUT_SECONDS,
+    HTSolrAPI,
+    positive_seconds,
+)
 from ht_queue_service.queue_config import QueueConfig
 from ht_utils.ht_env_config import HtEnvConfig
 from ht_utils.ht_logger import get_ht_logger
@@ -32,7 +36,20 @@ class IndexerServiceArguments:
 
         parser.add_argument(
             "--batch_size",
-            help="Integer that represents the number of documents to process in a batch.",
+            type=int,
+            default=None,
+            help="Number of documents to process in a batch (1 to 65535). "
+            "Overrides batch_size in indexer_config.yml; without it, the config value is used.",
+        )
+
+        parser.add_argument(
+            "--solr_timeout",
+            type=positive_seconds,
+            default=DEFAULT_READ_TIMEOUT_SECONDS,
+            help="Seconds to wait for Solr to send data before a request fails (default: "
+            f"{DEFAULT_READ_TIMEOUT_SECONDS:g}). It is the longest silence allowed between bytes "
+            "from Solr, not a limit on the whole request. A timeout is treated as a temporary "
+            "failure: the messages stay on the queue.",
         )
 
         self.args = parser.parse_args()
@@ -42,7 +59,10 @@ class IndexerServiceArguments:
         solr_password = env_config.solr_password
 
         self.solr_api_full_text = HTSolrAPI(
-            url=self.args.solr_indexing_api, user=solr_user, password=solr_password
+            url=self.args.solr_indexing_api,
+            user=solr_user,
+            password=solr_password,
+            read_timeout=self.args.solr_timeout,
         )
 
         self.document_local_path = self.args.document_local_path
@@ -67,7 +87,13 @@ class IndexerServiceArguments:
                 global_config,  # type: ignore[arg-type]
                 app_config,  # type: ignore[arg-type]
                 config_key="queue",
+                batch_size=self.args.batch_size,
             )
+
+        except ValueError as e:
+            # For example, a --batch_size outside the allowed range
+            logger.error(f"Invalid queue configuration: {e}")
+            sys.exit(1)
 
         except KeyError as e:
             logger.error(
