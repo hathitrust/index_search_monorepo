@@ -1,3 +1,4 @@
+import argparse
 import math
 from pathlib import Path
 from typing import Any
@@ -23,6 +24,14 @@ def validate_timeout_seconds(name: str, value: float) -> float:
     if not math.isfinite(value) or value <= 0:
         raise ValueError(f"{name} must be a finite number greater than 0 seconds, got {value}")
     return value
+
+
+def positive_seconds(value: str) -> float:
+    """argparse type for a timeout option, in seconds."""
+    try:
+        return validate_timeout_seconds("--solr_timeout", float(value))
+    except ValueError as error:
+        raise argparse.ArgumentTypeError(str(error)) from error
 
 
 class HTSolrAPI:

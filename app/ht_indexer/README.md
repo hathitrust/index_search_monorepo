@@ -283,6 +283,8 @@ python -m document_indexer_service.document_indexer_service \
   request may have reached Solr and succeeded anyway; sending it again is safe, because Solr overwrites a document that
   has the same `id`.
 * An out-of-range `--batch_size` or a `--solr_timeout` that is not a finite positive number stops the service with an error.
+* The local indexing script (`document_indexer_local_service.py`) also accepts `--solr_timeout`. Its requests use
+  `commit=true`, which can stay silent while Solr commits, so raise the value for big files.
 
 #### Logs and alerts
 
