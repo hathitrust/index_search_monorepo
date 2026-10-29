@@ -539,3 +539,69 @@ def test_retry_log_shows_the_document_id_as_ht_id() -> None:
         service.process_batch([{"id": "mdp.123", "ocr": "text"}], [10])
 
         assert_log_entry(entries, event="message_retried", ht_id="mdp.123")
+
+
+# --- Timeouts (ETT-1944) ---------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "timeout_error",
+    [
+        requests.exceptions.ReadTimeout("Solr did not answer"),
+        requests.exceptions.ConnectTimeout("Solr did not accept the connection"),
+    ],
+    ids=["read", "connect"],
+)
+def test_a_timeout_is_logged_with_the_batch_ids_and_the_messages_stay_on_the_queue(
+    timeout_error: Exception,
+) -> None:
+    solr_api_full_text = MagicMock()
+    solr_api_full_text.index_documents.side_effect = timeout_error
+    service, channel = _make_service(solr_api_full_text)
+    batch: list[dict[str, Any]] = [{"id": "mdp.1"}, {"id": "mdp.2"}, {"id": "mdp.3"}]
+
+    with capture_logs() as entries:
+        result = service.process_batch(batch, [10, 11, 12])
+
+    assert result is False
+    # Logged once, with the ids of every message in the batch
+    (failure,) = [e for e in entries if e["event"] == "solr_request_failed"]
+    assert failure["scope"] == "batch"
+    assert failure["failure_kind"] == "transient"
+    assert failure["failure_type"] == "timeout"
+    assert failure["ht_ids"] == ["mdp.1", "mdp.2", "mdp.3"]
+    # A temporary failure: nothing is dead-lettered, nothing uses up a retry
+    assert _retried_tags(channel) == [10, 11, 12]
+    assert channel.basic_reject.call_count == 0
+    assert service.retry_attempts == {}
+    assert solr_api_full_text.index_documents.call_count == 1
+
+
+def test_a_timeout_during_the_one_by_one_retry_is_logged_with_that_document_id() -> None:
+    solr_api_full_text = MagicMock()
+    solr_api_full_text.index_documents.side_effect = [
+        _error_response(400),  # the batch
+        requests.exceptions.ReadTimeout("Solr did not answer"),  # document mdp.1
+    ]
+    service, channel = _make_service(solr_api_full_text)
+
+    with capture_logs() as entries:
+        service.process_batch([{"id": "mdp.1"}, {"id": "mdp.2"}], [10, 11])
+
+    timeouts = [e for e in entries if e.get("failure_type") == "timeout"]
+    assert [(e["scope"], e["ht_ids"]) for e in timeouts] == [("document", ["mdp.1"])]
+    # Solr stopped answering: both messages go back, and mdp.2 is not even tried
+    assert _retried_tags(channel) == [10, 11]
+    assert solr_api_full_text.index_documents.call_count == 2
+
+
+def test_every_failure_log_line_lists_the_ids_in_the_request() -> None:
+    solr_api_full_text = MagicMock()
+    solr_api_full_text.index_documents.return_value = _error_response(400)
+    service, _ = _make_service(solr_api_full_text)
+
+    with capture_logs() as entries:
+        service.process_batch([{"id": "mdp.1"}], [10])
+
+    failures = [e for e in entries if e["event"] == "solr_request_failed"]
+    assert [e["ht_ids"] for e in failures] == [["mdp.1"], ["mdp.1"]]
