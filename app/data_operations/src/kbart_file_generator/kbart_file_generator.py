@@ -213,7 +213,7 @@ def fetch_title_metadata_from_solr_batch(
     if not batch:
         return {}
 
-    query_url = f"{HtEnvConfig().catalog_solr_ro_url}/query"
+    query_url = f"{HtEnvConfig().catalog_solr_ro_url.rstrip('/')}/query"
     params = {
         "q": "*:*",
         "fl": ",".join(SOLR_FIELDS),

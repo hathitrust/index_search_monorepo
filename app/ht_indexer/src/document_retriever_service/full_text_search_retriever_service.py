@@ -246,12 +246,15 @@ class FullTextSearchRetrieverQueueService:
 
         if self.solr_retriever_query_params is None:
             raise RuntimeError("solr_retriever_query_params is required")
+
+        if self.solr_host is None:
+            raise RuntimeError("solr_host is required")
         chunk_solr_params = copy.deepcopy(self.solr_retriever_query_params)
 
         chunk_solr_params["fq"] = solr_query
 
         response = solr_retriever.send_solr_request(
-            solr_host=f"{self.solr_host}/query", solr_params=chunk_solr_params
+            solr_host=f"{self.solr_host.rstrip('/')}/query", solr_params=chunk_solr_params
         )
         if response.status_code != 200:
             logger.error(f"Error {response.status_code} in query: {solr_query}")

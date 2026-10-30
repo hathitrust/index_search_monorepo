@@ -59,8 +59,11 @@ class HTSearcher:
         # Use stream=True to avoid loading all the data in memory at once (useful for large responses)
         # In chunked transfer, the data stream is divided into a series of non-overlapping "chunks".
 
+        if self.solr_url is None:
+            raise RuntimeError("solr_url is required")
+
         response = requests.post(
-            url=f"{self.solr_url}/query",
+            url=f"{self.solr_url.rstrip('/')}/query",
             params=params,
             headers=self.headers,
             stream=True,
@@ -102,7 +105,7 @@ class HTSearcher:
         if self.environment == "prod":
             add_shards(query_dict)
             query_dict["shards.info"] = "true"
-        logger.info(query_dict)
+        logger.info("solr query", query=query_dict)
 
         # Counting total records
         response = self.send_query(query_dict)

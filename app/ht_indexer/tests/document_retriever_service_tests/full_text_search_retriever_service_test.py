@@ -1,3 +1,4 @@
+import argparse
 import contextlib
 import json
 import os
@@ -22,6 +23,7 @@ from document_retriever_service.full_text_search_retriever_service import (
     FullTextSearchRetrieverQueueService,
     PublishCounts,
 )
+from document_retriever_service.retriever_arguments import RetrieverServiceArguments
 from document_retriever_service.retriever_services_utils import RetrieverServicesUtils
 from ht_indexer_api.ht_indexer_api import HTSolrAPI
 from ht_utils.ht_logger import get_ht_logger
@@ -37,6 +39,7 @@ RECORD_HT_IDS = [
     "nyp.33433082046529",
     "nyp.33433082046537",
 ]
+FAKE_CATALOG_URL = "http://solr-sdr-catalog:9033/solr/catalogFake"
 
 
 def _solr_output_one_record_five_items() -> dict[str, Any]:
@@ -118,7 +121,7 @@ def queue_config(
 
 @pytest.fixture
 def get_catalog_retriever_service_solr_fake_solr_url() -> HTSolrAPI:
-    return HTSolrAPI("http://solr-sdr-catalog:9033/solr/catalogFake/", "solr_user", "solr_password")
+    return HTSolrAPI(FAKE_CATALOG_URL, "solr_user", "solr_password")
 
 
 @pytest.fixture
@@ -263,6 +266,21 @@ class TestFullTextRetrieverService:
             sorted(chunk_metadata.failed),
         ) == expected
 
+    def test_retriever_arguments_catalog_credentials_set_used_for_solr(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        stub_retriever_external_services: None,
+    ) -> None:
+        # Arrange
+        monkeypatch.setenv("SOLR_CATALOG_RO_USERNAME", "catalog-user")
+        monkeypatch.setenv("SOLR_CATALOG_RO_PASSWORD", "catalog-pass")
+
+        # Act
+        args = RetrieverServiceArguments(argparse.ArgumentParser(), argv=[])
+
+        # Assert
+        assert (args.solr_user, args.solr_password) == ("catalog-user", "catalog-pass")
+
     @pytest.mark.integration
     def test_full_text_search_retriever_service(
         self,
@@ -373,7 +391,7 @@ class TestFullTextRetrieverService:
         query = make_solr_term_query(list_documents, by_field="item")
 
         broken_solr_service = FullTextSearchRetrieverQueueService(
-            solr_host="http://solr-sdr-catalog:9033/solr/catalogFake",
+            solr_host=FAKE_CATALOG_URL,
             solr_retriever_query_params=get_retriever_service_solr_parameters,
         )
 
@@ -381,6 +399,31 @@ class TestFullTextRetrieverService:
             broken_solr_service.retrieve_documents_from_solr(
                 query, get_catalog_retriever_service_solr_fake_solr_url
             )
+
+    @pytest.mark.parametrize(
+        "solr_host",
+        [
+            pytest.param(FAKE_CATALOG_URL, id="without-trailing-slash"),
+            pytest.param(f"{FAKE_CATALOG_URL}/", id="with-trailing-slash"),
+        ],
+    )
+    def test_retrieve_documents_from_solr_request_url_has_single_slash_before_query(
+        self, solr_host: str
+    ) -> None:
+        """Use case: solr_host with trailing and without slash is handled correctly"""
+        service = FullTextSearchRetrieverQueueService(
+            solr_host=solr_host,
+            solr_retriever_query_params={},
+        )
+        solr_retriever = MagicMock()
+        solr_retriever.send_solr_request.return_value.status_code = 200
+
+        service.retrieve_documents_from_solr("id:1", solr_retriever)
+
+        assert (
+            solr_retriever.send_solr_request.call_args.kwargs["solr_host"]
+            == f"{FAKE_CATALOG_URL}/query"
+        )
 
 
 class _StopPollLoopError(Exception):

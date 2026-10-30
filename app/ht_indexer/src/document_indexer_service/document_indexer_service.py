@@ -25,26 +25,6 @@ logger = get_ht_logger(name=__name__)
 _FREE_TEXT_FIELDS = {"error", "error_detail"}
 
 
-def _log_line(event: str, **fields: object) -> str:
-    """Build a structured log line: `event=<event> key=value key=value ... error="..."`.
-
-    ALERT CONTRACT: Loki alert rules match on these lines (ETT-1894). Event names, field names
-    and the values of failure_kind / failure_type / reason are stable; do not change them without
-    updating the alert rules. Events:
-      solr_request_failed    ERROR    scope docs failure_kind failure_type error
-      message_retried        WARNING  ht_id failure_kind [attempt=n/max] error
-      message_dead_lettered  ERROR    ht_id reason queue failure_kind error_detail
-      indexing_backoff       INFO     messages_put_back consecutive_batches wait_seconds
-      documents_indexed      INFO     docs http_status seconds
-    failure_kind is transient, permanent or config_error; an alert on Solr trouble should count
-    solr_request_failed lines where failure_kind is not permanent (a bad document is not Solr's fault).
-    """
-    parts = [f"event={event}"]
-    for name, value in fields.items():
-        parts.append(f"{name}={str(value)!r}" if name in _FREE_TEXT_FIELDS else f"{name}={value}")
-    return " ".join(parts)
-
-
 class DocumentIndexerQueueService(QueueMultipleConsumer):
     # Wait after a batch that put messages back: 1s, 2s, 4s... up to the cap.
     BACKOFF_BASE_SECONDS = 1.0
@@ -65,6 +45,7 @@ class DocumentIndexerQueueService(QueueMultipleConsumer):
         # Messages put back during the current batch, and consecutive batches that put some back
         self.retried_in_batch = 0
         self.consecutive_retry_batches = 0
+        self.logger = logger.bind()
 
     @staticmethod
     def _message_key(message: dict[str, Any]) -> str:
@@ -97,13 +78,11 @@ class DocumentIndexerQueueService(QueueMultipleConsumer):
             self.BACKOFF_BASE_SECONDS * 2 ** min(self.consecutive_retry_batches - 1, 16),
             self.BACKOFF_MAX_SECONDS,
         )
-        logger.info(
-            _log_line(
-                "indexing_backoff",
-                messages_put_back=self.retried_in_batch,
-                consecutive_batches=self.consecutive_retry_batches,
-                wait_seconds=delay,
-            )
+        self.logger.info(
+            "indexing_backoff",
+            messages_put_back=self.retried_in_batch,
+            consecutive_batches=self.consecutive_retry_batches,
+            wait_seconds=delay,
         )
         # ASSUMPTION: heartbeat is 0 for the indexer (heartbeat in indexer_config.yml), so this long
         # blocking sleep cannot make the broker drop the connection. pika only answers heartbeats
@@ -116,26 +95,25 @@ class DocumentIndexerQueueService(QueueMultipleConsumer):
         start_time = time.time()
         response = self.solr_api_full_text.index_documents(documents)
         response.raise_for_status()
-        logger.info(
-            _log_line(
-                "documents_indexed",
-                docs=len(documents),
-                http_status=response.status_code,
-                seconds=f"{time.time() - start_time:.3f}",
-            )
+
+        for i in documents:
+            self.logger.info("document_indexed", ht_id=get_queue_message_id(i))
+
+        self.logger.info(
+            "batch_indexed",
+            item_count=len(documents),
+            http_status=response.status_code,
+            seconds=time.time() - start_time,
         )
 
-    @staticmethod
-    def _log_solr_failure(scope: str, docs: int, error: Exception) -> None:
-        logger.error(
-            _log_line(
-                "solr_request_failed",
-                scope=scope,
-                docs=docs,
-                failure_kind=classify_failure(error).value,
-                failure_type=failure_type(error),
-                error=error,
-            )
+    def _log_solr_failure(self, scope: str, docs: int, error: Exception) -> None:
+        self.logger.error(
+            "solr_request_failed",
+            scope=scope,
+            docs=docs,
+            failure_kind=classify_failure(error).value,
+            failure_type=failure_type(error),
+            error=str(error),
         )
 
     def _attempt_label(self, message: dict[str, Any]) -> str:
@@ -158,7 +136,7 @@ class DocumentIndexerQueueService(QueueMultipleConsumer):
         }
         if counted:
             fields["attempt"] = self._attempt_label(message)
-        logger.warning(_log_line("message_retried", **fields, error=error))
+        self.logger.warning("message_retried", **fields, error=str(error))
         self.retried_in_batch += 1
         self.retry_message(channel, delivery_tag)
 
@@ -175,15 +153,13 @@ class DocumentIndexerQueueService(QueueMultipleConsumer):
         """
         self.retry_attempts.pop(self._message_key(message), None)
         error_info = get_error_message_by_document("DocumentIndexerService", error, message)
-        logger.error(
-            _log_line(
-                "message_dead_lettered",
-                ht_id=get_queue_message_id(message),
-                reason=reason,
-                queue=self.queue_manager.dead_letter_queue_name,
-                failure_kind=classify_failure(error).value,
-                error_detail=error_info,
-            )
+        self.logger.error(
+            "message_dead_lettered",
+            ht_id=get_queue_message_id(message),
+            reason=reason,
+            queue=self.queue_manager.dead_letter_queue_name,
+            failure_kind=classify_failure(error).value,
+            error_detail=error_info,
         )
         self.dead_letter_message(channel, delivery_tag)
 

@@ -9,8 +9,8 @@ x-healthcheck-defaults: &healthcheck-defaults
 
 # Common environment variables for all services
 x-env-common: &env_common
-    CATALOG_SOLR_RO_URL: http://solr-sdr-catalog:9033/solr/catalog
-    FULL_TEXT_SOLR_RO_URL: http://admin:solrRocks@solr-lss-dev:8983/solr/core-x
+    CATALOG_SOLR_RO_URL: http://solr-sdr-catalog:9033/solr/catalog/
+    FULL_TEXT_SOLR_RO_URL: http://admin:solrRocks@solr-lss-dev:8983/solr/core-x/
     SOLR_USER: admin
     SOLR_PASSWORD: solrRocks
 
@@ -289,9 +289,16 @@ services:
       args:
         APP_NAME: solr-query
         APP_DIR: solr_query
-    volumes: *solr_query_vols
-    environment: *env_common
-    command: [ "/workspace/.venv/bin/python", "-m", "pytest"]
+    volumes:
+      - ./app/solr_query:/workspace/app/solr_query
+      - ./libs:/workspace/libs
+      # Coverage data lands here so CI can upload it; the host ./coverage dir must exist
+      # and be writable (see the test_solr_query job), same as for ht-indexer-tests.
+      - ./coverage:/workspace/coverage
+    environment:
+      <<: *env_common
+      COVERAGE_FILE: /workspace/coverage/.coverage
+    command: [ "/workspace/.venv/bin/python", "-m", "pytest", "--cov=src", "--cov-report=term-missing", "--cov-report=xml:/workspace/coverage/coverage.xml" ]
     depends_on:
       solr-lss-dev: *healthy
       data-loader:
