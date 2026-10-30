@@ -24,7 +24,7 @@ jobs:
         run: uv sync --all-packages
 
       - name: Run unit tests
-        run: uv run pytest -m "not integration" libs --cov=libs --cov-report=term-missing --cov-report=xml
+        run: uv run pytest -m "not integration" libs app/ht_mcp/tests --cov=libs --cov-report=term-missing --cov-report=xml
 
       # Coveralls resolves files from the XML filename attribute, relative to the repo
       # root. pytest-cov writes them relative to the --cov source (libs/), e.g.
