@@ -15,6 +15,20 @@ BATCH_FIXTURE = json.loads(
 )
 BASE_URL = "http://catalog-test"
 
+# Cases shared by the lookup_single and lookup_volumes tests.
+NETWORK_ERRORS = [
+    (httpx.ConnectTimeout("slow"), "timed out"),
+    (httpx.ReadTimeout("slow"), "timed out"),
+    (httpx.ConnectError("refused"), "unreachable"),
+    (httpx.ReadError("dropped"), "connection failed"),
+    (httpx.RemoteProtocolError("closed mid-response"), "connection failed"),
+]
+OTHER_HTTP_ERRORS = [403, 429]
+UNREADABLE_BODIES = [
+    Response(200, text="<html>maintenance</html>"),
+    Response(200, json=["not", "an", "object"]),
+]
+
 
 @pytest.fixture
 def client():
@@ -69,16 +83,7 @@ async def test_lookup_single_http_500(client):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize(
-    "error, message",
-    [
-        (httpx.ConnectTimeout("slow"), "timed out"),
-        (httpx.ReadTimeout("slow"), "timed out"),
-        (httpx.ConnectError("refused"), "unreachable"),
-        (httpx.ReadError("dropped"), "connection failed"),
-        (httpx.RemoteProtocolError("closed mid-response"), "connection failed"),
-    ],
-)
+@pytest.mark.parametrize("error, message", NETWORK_ERRORS)
 async def test_lookup_single_network_error(client, error, message):
     with respx.mock(base_url=BASE_URL) as mock:
         mock.get("/api/volumes/brief/oclc/00000001.json").mock(side_effect=error)
@@ -89,7 +94,7 @@ async def test_lookup_single_network_error(client, error, message):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("status", [403, 429])
+@pytest.mark.parametrize("status", OTHER_HTTP_ERRORS)
 async def test_lookup_single_other_http_error(client, status):
     with respx.mock(base_url=BASE_URL) as mock:
         mock.get("/api/volumes/brief/oclc/00000001.json").mock(return_value=Response(status))
@@ -100,11 +105,7 @@ async def test_lookup_single_other_http_error(client, status):
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "body",
-    [
-        Response(200, text="<html>maintenance</html>"),
-        Response(200, json={"unexpected": "shape"}),
-        Response(200, json=["not", "an", "object"]),
-    ],
+    [*UNREADABLE_BODIES, Response(200, json={"unexpected": "shape"})],
 )
 async def test_lookup_single_unreadable_response(client, body):
     with respx.mock(base_url=BASE_URL) as mock:
@@ -148,14 +149,7 @@ async def test_lookup_volumes_empty_entry(client):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize(
-    "error, message",
-    [
-        (httpx.ConnectTimeout("slow"), "timed out"),
-        (httpx.ConnectError("refused"), "unreachable"),
-        (httpx.ReadError("dropped"), "connection failed"),
-    ],
-)
+@pytest.mark.parametrize("error, message", NETWORK_ERRORS)
 async def test_lookup_volumes_network_error(client, error, message):
     with respx.mock(base_url=BASE_URL) as mock:
         mock.get("/api/volumes/brief/json/oclc:00000001").mock(side_effect=error)
@@ -166,7 +160,7 @@ async def test_lookup_volumes_network_error(client, error, message):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("status", [403, 404, 429])
+@pytest.mark.parametrize("status", [*OTHER_HTTP_ERRORS, 404])
 async def test_lookup_volumes_other_http_error(client, status):
     with respx.mock(base_url=BASE_URL) as mock:
         mock.get("/api/volumes/brief/json/oclc:00000001").mock(return_value=Response(status))
@@ -177,11 +171,7 @@ async def test_lookup_volumes_other_http_error(client, status):
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "body",
-    [
-        Response(200, text="<html>maintenance</html>"),
-        Response(200, json={"oclc:00000001": {"unexpected": "shape"}}),
-        Response(200, json=["not", "an", "object"]),
-    ],
+    [*UNREADABLE_BODIES, Response(200, json={"oclc:00000001": {"unexpected": "shape"}})],
 )
 async def test_lookup_volumes_unreadable_response(client, body):
     with respx.mock(base_url=BASE_URL) as mock:
