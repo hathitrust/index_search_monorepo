@@ -7,7 +7,7 @@ from ht_utils.ht_logger import get_ht_logger
 from ht_mcp.config import settings
 from ht_mcp.models import BatchVolumeResult, VolumeResult
 
-logger = get_ht_logger(__name__, settings.log_level)
+logger = get_ht_logger(__name__)
 
 VALID_FIELDS = {"htid", "oclc", "isbn", "lccn", "issn", "recordid"}
 
@@ -40,18 +40,18 @@ class CatalogClient:
         The messages are deliberately generic: the details (host, exception text) go to
         the log, not to the MCP client.
         """
-        logger.debug("GET %s%s", self.base_url, url)
+        logger.debug("catalog GET", base_url=self.base_url, url=url)
         try:
             return await self._client.get(url)
         except httpx.TimeoutException as e:
-            logger.exception("Catalog request timed out: %s%s", self.base_url, url)
+            logger.exception("catalog request timed out", base_url=self.base_url, url=url)
             raise CatalogError("Catalog request timed out") from e
         except httpx.ConnectError as e:
-            logger.exception("Catalog unreachable: %s", self.base_url)
+            logger.exception("catalog unreachable", base_url=self.base_url)
             raise CatalogError("Catalog unreachable") from e
         except httpx.TransportError as e:
             # Anything else at the transport level, e.g. a connection dropped mid-response.
-            logger.exception("Catalog connection failed: %s%s", self.base_url, url)
+            logger.exception("catalog connection failed", base_url=self.base_url, url=url)
             raise CatalogError("Catalog connection failed") from e
 
     @staticmethod
@@ -61,10 +61,12 @@ class CatalogClient:
         `subject` names what was looked up, for the log only.
         """
         if response.status_code == 400:
-            logger.warning("Catalog rejected %s (HTTP 400)", subject)
+            logger.warning("catalog rejected request", subject=subject, status=400)
             raise CatalogError("Bad request to catalog (HTTP 400)")
         if response.is_error:
-            logger.error("Catalog returned HTTP %s for %s", response.status_code, subject)
+            logger.error(
+                "catalog returned error status", subject=subject, status=response.status_code
+            )
             raise CatalogError(f"Catalog request failed (HTTP {response.status_code})")
 
     @staticmethod
@@ -77,7 +79,7 @@ class CatalogClient:
         try:
             return parse(response.json())
         except (ValueError, AttributeError) as e:
-            logger.exception("Catalog returned an unreadable response for %s", response.url)
+            logger.exception("catalog returned an unreadable response", url=str(response.url))
             raise CatalogError("Catalog returned an invalid response") from e
 
     async def lookup_single(self, field: str, value: str) -> VolumeResult:

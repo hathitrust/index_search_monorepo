@@ -10,7 +10,7 @@ from starlette.routing import Mount
 from ht_mcp.catalog_client import CatalogClient, CatalogError
 from ht_mcp.config import settings
 
-logger = get_ht_logger(__name__, settings.log_level)
+logger = get_ht_logger(__name__)
 
 mcp = FastMCP("HathiTrust Catalog", host=settings.mcp_host, port=settings.mcp_port)
 catalog = CatalogClient()
@@ -106,11 +106,11 @@ async def lookup_single(field: str, value: str) -> dict:
 
     Returns catalog record metadata and associated digitized items.
     """
-    logger.info("lookup_single %s:%s", field, value)
+    logger.info("lookup_single", field=field, value=value)
     try:
         result = await catalog.lookup_single(field, value)
     except ValueError as e:
-        logger.warning("lookup_single rejected input: %s", e)
+        logger.warning("lookup_single rejected input", error=str(e))
         return {"error": str(e)}
     except CatalogError as e:
         return {"error": str(e)}
@@ -135,11 +135,11 @@ async def lookup_volumes(identifiers: list[str]) -> dict:
 
     Returns results keyed by each input identifier.
     """
-    logger.info("lookup_volumes %d identifiers", len(identifiers))
+    logger.info("lookup_volumes", identifier_count=len(identifiers))
     try:
         batch = await catalog.lookup_volumes(identifiers)
     except ValueError as e:
-        logger.warning("lookup_volumes rejected input: %s", e)
+        logger.warning("lookup_volumes rejected input", error=str(e))
         return {"error": str(e)}
     except CatalogError as e:
         return {"error": str(e)}
