@@ -2,6 +2,8 @@ import argparse
 import contextlib
 import json
 import os
+import sys
+from collections.abc import Callable
 from typing import Any
 from unittest.mock import MagicMock, patch
 
@@ -28,6 +30,7 @@ from document_retriever_service.retriever_services_utils import RetrieverService
 from ht_indexer_api.ht_indexer_api import HTSolrAPI
 from ht_utils.ht_logger import get_ht_logger
 from ht_utils.query_maker import make_solr_term_query
+from ht_utils.testing import assert_log_entry, capture_logs
 
 logger = get_ht_logger(name=__name__)
 
@@ -308,12 +311,9 @@ class TestFullTextRetrieverService:
             "solr_password",
             get_retriever_service_solr_parameters,
         )
-        mysql_db = MagicMock()  # Mock MySQL connection
 
         # Service to push a message
-        document_retriever_service_obj.full_text_search_retriever_service(
-            mysql_db, list_documents, "item"
-        )
+        document_retriever_service_obj.full_text_search_retriever_service(list_documents, "item")
 
         # Service to consume the message
         ht_ids = drain_ht_ids(consumer_instance)
@@ -426,48 +426,49 @@ class TestFullTextRetrieverService:
         )
 
 
-class _StopPollLoopError(Exception):
-    """Raised to break out of main()'s `while True` once the call under test has happened."""
+class TestMainListDocumentsRequired:
+    """main() must exit 1 with `--list_documents is required` when the list is missing
+    or empty, before constructing FullTextSearchRetrieverQueueService (no Solr or queue
+    connection should be opened)."""
 
+    @pytest.fixture
+    def run_main(
+        self, stub_retriever_external_services: None, monkeypatch: pytest.MonkeyPatch
+    ) -> Callable[[list[str]], tuple[SystemExit, list[Any], MagicMock]]:
+        def _run(argv: list[str]) -> tuple[SystemExit, list[Any], MagicMock]:
+            monkeypatch.setattr(sys, "argv", ["retriever", "--query_field", "item", *argv])
+            with (
+                # Red-phase safety: today's code enters the `while True` polling loop
+                # and sleeps forever; fail fast instead of hanging.
+                patch("time.sleep", side_effect=AssertionError("entered polling mode")),
+                patch.object(
+                    retriever_service_module, "FullTextSearchRetrieverQueueService"
+                ) as service_cls,
+                capture_logs() as entries,
+                pytest.raises(SystemExit) as exc_info,
+            ):
+                retriever_service_module.main()
+            return exc_info.value, entries, service_cls
 
-class TestMainSerialBranch:
-    """main()'s polling loop passes MySQL rows straight to the single-thread branch instead of
-    the extracted id strings the parallel branch uses. make_solr_term_query() joins its input
-    with a comma, so a list of dicts blows up with a TypeError."""
+        return _run
 
-    def test_serial_branch_passes_extracted_ids_not_raw_mysql_rows(self) -> None:
-        mock_args = MagicMock()
-        mock_args.list_documents = []
-        mock_args.query_field = "item"
-        mock_args.parallelize = False
-        mock_args.db_conn.table_exists.return_value = True
-        mock_args.db_conn.query_mysql.return_value = [
-            {"ht_id": "nyp.001", "record_id": "1"},
-            {"ht_id": "nyp.002", "record_id": "2"},
-        ]
+    @pytest.mark.parametrize(
+        "argv",
+        [
+            pytest.param([], id="list-documents-omitted"),
+            pytest.param(["--list_documents", ""], id="list-documents-empty"),
+        ],
+    )
+    def test_main_without_list_documents_exits_1(
+        self,
+        run_main: Callable[[list[str]], tuple[SystemExit, list[Any], MagicMock]],
+        argv: list[str],
+    ) -> None:
+        exit_exc, entries, service_cls = run_main(argv)
 
-        mock_service_instance = MagicMock()
-        mock_service_instance.get_queue_producer.side_effect = _StopPollLoopError
-
-        with (
-            patch.object(
-                retriever_service_module, "RetrieverServiceArguments", return_value=mock_args
-            ),
-            patch.object(
-                retriever_service_module,
-                "FullTextSearchRetrieverQueueService",
-                return_value=mock_service_instance,
-            ),
-            pytest.raises(_StopPollLoopError),
-        ):
-            retriever_service_module.main()
-
-        mock_service_instance.full_text_search_retriever_service.assert_called_once()
-        _, documents_arg, by_field_arg = (
-            mock_service_instance.full_text_search_retriever_service.call_args.args
-        )
-        assert documents_arg == ["nyp.001", "nyp.002"]
-        assert by_field_arg == "item"
+        assert exit_exc.code == 1
+        assert_log_entry(entries, event="--list_documents is required", log_level="error")
+        service_cls.assert_not_called()
 
 
 class TestLogHtIdsNotInCatalog:
@@ -533,7 +534,7 @@ class TestRetrieverLoopMissingHtIdsCheck:
                 FullTextSearchRetrieverQueueService, "log_ht_ids_not_in_catalog"
             ) as mock_check,
         ):
-            service.full_text_search_retriever_service(MagicMock(), ["mdp.1", "mdp.2"], by_field)
+            service.full_text_search_retriever_service(["mdp.1", "mdp.2"], by_field)
         return mock_check
 
     def test_item_mode_checks_for_ht_ids_not_in_catalog(self) -> None:
@@ -553,11 +554,18 @@ class TestRetrieverLoopMissingHtIdsCheck:
         mock_check.assert_not_called()
 
 
-class TestPublishingDocumentsStatusWriteErrors:
-    # The FAILURE and SUCCESS status writes are independent: one failing must not skip the other,
-    # or the successfully published items stay retriever_status='pending' and are re-published.
+class TestPublishingDocuments:
+    # Ids whose catalog metadata failed are never published, but they still get a failed status
+    # and are counted, so the run summary accounts for them. Publish failures are logged at
+    # ERROR with the ht_id (the only per-item failure record after MySQL tracking is removed).
     @staticmethod
-    def _publish_one_failed_and_one_succeeded(mysql_db: MagicMock) -> None:
+    def _publish_one_metadata_failure() -> PublishCounts:
+        return FullTextSearchRetrieverQueueService.publishing_documents(
+            MagicMock(), [], {"mdp.bad": "bad item"}
+        )
+
+    @staticmethod
+    def _publish_one_failed_and_one_succeeded() -> PublishCounts:
         records: list[CatalogItemMetadata] = [MagicMock(), MagicMock()]
         with (
             patch.object(
@@ -571,70 +579,25 @@ class TestPublishingDocumentsStatusWriteErrors:
                 side_effect=[RuntimeError("queue down"), None],
             ),
         ):
-            FullTextSearchRetrieverQueueService.publishing_documents(MagicMock(), records, mysql_db)
-
-    def test_publishing_documents_failure_status_write_error_still_writes_success_status(
-        self,
-    ) -> None:
-        mysql_db = MagicMock()
-        mysql_db.update_status.side_effect = [RuntimeError("MySQL unavailable"), None]
-
-        TestPublishingDocumentsStatusWriteErrors._publish_one_failed_and_one_succeeded(mysql_db)
-
-        assert (
-            mysql_db.update_status.call_args.args[0]
-            == retriever_service_module.SUCCESS_UPDATE_STATUS
-        )
-
-    def test_publishing_documents_success_status_write_error_does_not_raise(self) -> None:
-        mysql_db = MagicMock()
-        mysql_db.update_status.side_effect = RuntimeError("MySQL unavailable")
-
-        TestPublishingDocumentsStatusWriteErrors._publish_one_failed_and_one_succeeded(mysql_db)
-
-        assert mysql_db.update_status.call_count == 2
-
-
-class TestPublishingDocumentsMetadataFailures:
-    # Ids whose catalog metadata failed are never published, but they still get a failed status
-    # in MySQL and are counted, so the run summary accounts for them.
-    @staticmethod
-    def _publish_one_metadata_failure() -> tuple[PublishCounts, MagicMock]:
-        mysql_db = MagicMock()
-        counts = FullTextSearchRetrieverQueueService.publishing_documents(
-            MagicMock(), [], mysql_db, {"mdp.bad": "bad item"}
-        )
-        return counts, mysql_db
+            return FullTextSearchRetrieverQueueService.publishing_documents(MagicMock(), records)
 
     def test_publishing_documents_metadata_failure_counted_as_failed(self) -> None:
-        counts, _ = TestPublishingDocumentsMetadataFailures._publish_one_metadata_failure()
+        counts = TestPublishingDocuments._publish_one_metadata_failure()
 
         assert counts == PublishCounts(failed=1)
 
+    def test_publishing_documents_publish_failure_logs_error_with_ht_id(self) -> None:
+        with capture_logs() as entries:
+            TestPublishingDocuments._publish_one_failed_and_one_succeeded()
 
-# TODO: Remove this test class once the MySQL status been removed from the retriever service.
-class TestRetrieverStatusGuardInSQL:
-    # These tests do not run queries or access MySQL. They pin the shape of the guard. Only the
-    # shared status and error column is guarded, inside SET, so retriever_status is always
-    # written. A guard in WHERE would leave retriever_status='pending' and the item would be
-    # re-published forever. status must be assigned last: MySQL evaluates SET left to right.
-    def test_success_update_status_sql_guards_status_last_and_where_has_no_guard(self) -> None:
-        assert retriever_service_module.SUCCESS_UPDATE_STATUS.endswith(
-            "status = CASE WHEN status = 'pending' THEN :status ELSE status END "
-            "WHERE ht_id = :ht_id"
+        assert any(e["log_level"] == "error" and "htid=mdp.fail" in e["event"] for e in entries), (
+            entries
         )
 
-    def test_failure_update_status_sql_guards_status_last_and_where_has_no_guard(self) -> None:
-        assert retriever_service_module.FAILURE_UPDATE_STATUS.endswith(
-            "status = CASE WHEN status = 'pending' THEN :status ELSE status END "
-            "WHERE ht_id = :ht_id"
-        )
+    def test_publishing_documents_publish_failure_returns_counts(self) -> None:
+        counts = TestPublishingDocuments._publish_one_failed_and_one_succeeded()
 
-    def test_failure_update_status_sql_guards_error_when_row_is_not_pending(self) -> None:
-        assert (
-            "error = CASE WHEN status = 'pending' THEN :error ELSE error END"
-            in retriever_service_module.FAILURE_UPDATE_STATUS
-        )
+        assert counts == PublishCounts(published=1, failed=1)
 
 
 class TestRetrieverPublishCounts:
@@ -670,9 +633,7 @@ class TestRetrieverPublishCounts:
                 ],
             ),
         ):
-            counts = service.full_text_search_retriever_service(
-                MagicMock(), ["mdp.1", "mdp.2"], "item"
-            )
+            counts = service.full_text_search_retriever_service(["mdp.1", "mdp.2"], "item")
 
         assert counts == retriever_service_module.PublishCounts(published=1, failed=1)
 
@@ -695,9 +656,7 @@ class TestRetrieverPublishCounts:
                 return_value=ChunkMetadata(failed={"mdp.2": "bad item"}),
             ),
         ):
-            counts = service.full_text_search_retriever_service(
-                MagicMock(), ["mdp.2", "mdp.3"], "item"
-            )
+            counts = service.full_text_search_retriever_service(["mdp.2", "mdp.3"], "item")
 
         assert counts == PublishCounts(failed=1, not_found=1)
 
@@ -711,7 +670,7 @@ class TestRetrieverPublishCounts:
         # max_workers=2 splits the 4 ids into two batches of 2. Whichever batch gets the error,
         # the totals are the same.
         counts = retriever_service_module.run_retriever_service_threads(
-            MagicMock(), ["mdp.1", "mdp.2", "mdp.3", "mdp.4"], "item", service, 2
+            ["mdp.1", "mdp.2", "mdp.3", "mdp.4"], "item", service, 2
         )
 
         assert counts == retriever_service_module.PublishCounts(published=2, failed=2)

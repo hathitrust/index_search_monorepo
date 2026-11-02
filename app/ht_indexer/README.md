@@ -72,8 +72,8 @@ that instantiates a config object with all the variables needed for each service
 * **Phase 3**: Integrate a queue system to manage the flow of documents to be indexed in Full-text search index
     * **Phase 3.1**: Split the architecture in three services: document_retriever_service, document_generator, and
       document_indexer_service and use a queue system to manage the flow of documents to be indexed in Full-text search.
-* **Phase 4**: Create the MySQL table fulltext_item_processing_status to store the status of the documents
-  being processed by the pipeline.
+* **Phase 4**: (Historical) Introduced MySQL item-status tracking via `fulltext_item_processing_status`.
+  Removed in favor of RabbitMQ queue depth, the dead-letter queue, and structured service logs.
 * **Phase 5**: Integrate ht_indexer inside the monorepo repository.
 * **Phase 6**: Decoupling queue architecture by refactoring the RabbitMQ queue service components 
 to separate connection management, channel creation, and queue management responsibilities.
@@ -81,7 +81,6 @@ to separate connection management, channel creation, and queue management respon
     * Implement the query to reprocess all the documents in Catalog index.
         * If the list of documents is empty, so do a `--query *:*` and the query_field will be id to retrieve
           all the documents in the Catalog index.
-    * Storage the different status of the documents that are being processed by ht_indexer pipeline.
 * Phase 7: Use threading instead of multiprocessing in document_retriever_service to improve performance.
   * Decoupling QueueConnection from QueueChannelCreator to create a single TCP connection and multiple channels.
 * Phase 8: Propagate the use of config.yml to all the services in the application.
@@ -111,21 +110,21 @@ In your workdir:
 
 3. Run the services
 
-    1. Populate the database with the table fulltext_item_processing_status
+    1. Retriever service
 
-       `docker compose up ht_indexer_tracker -d`
+       `docker compose up document-retriever -d`
 
-    2. Retriever service
+       The container starts idle (it runs the image's default `tail -f /dev/null`) and does not
+       retrieve anything until you start the retriever by hand with `docker compose exec`
+       (see [Usage](#usage)). The retriever requires `--list_documents` or `--input_document_file`.
 
-       `docker compose up document_retriever -d`
+    2. Generator service
 
-    3. Generator service
+       `docker compose up document-generator -d`
 
-       `docker compose up document_generator -d`
+    3. Indexer service
 
-    4. Indexer service
-
-       `docker compose up document_indexer -d`
+       `docker compose up document-indexer -d`
 
 If you want to run the application in your local environment and outside the docker container, you should
 follow the steps mentioned in the section [How to set up your python environment](#project-set-up-local-environment)
@@ -148,12 +147,12 @@ See the Intallation session on the README.md file on the root directory of this 
 
 ## Content Structure
 
-Four services are available in the application:
+Three services are available in the application:
 
-* **ht_indexer_monitoring**: Retrieve documents from Catalog to populate the table fulltext_item_processing_status.This
-  table is
-  used to store the status of the documents being processed by the pipeline.
-* **document_retriever_service**: Retrieve documents from Catalog index using.
+* **document_retriever_service**: Retrieve documents from Catalog index. Requires `--list_documents`
+  (comma-separated ht_ids) or `--input_document_file` (file with one id per line). Progress and
+  failures are reported through RabbitMQ queue depth, the dead-letter queue (DLQ), and the service
+  logs (`ERROR` lines include the `ht_id` and the error).
 * **document_generator**: Use the Catalog metadata and the file storage on pairtree-based repository to generate the
   the document to index in Solr.
 * **document_indexer_service**: Index the documents in Full-text search index.
@@ -292,11 +291,18 @@ indexer service. They are already set inside the containers; on your machine, lo
 
 ## Functionality
 
-In all the use cases, a list of documents is received as input. The list of documents could be provided as an input or
-retrieved from the MySql table fulltext_item_processing_status.
+In all the use cases, a list of documents is received as input. The list of documents is provided by the
+caller — either as a comma-separated argument (`--list_documents`) or as a text file passed to
+`run_retriever_service_by_file` (`--input_document_file`). The retriever exits 1 with
+`--list_documents is required` when no list is supplied.
+
 The list of documents is used to query the Catalog index. The retriever_service retrieves the metadata of each
 document from the Catalog index. The user must also provide a parameter indicating the catalog Solr field
 used into the query. The Solr query is based on the field `id` or `ht_id`.
+
+Pipeline progress and failures are observable through RabbitMQ queue depth, the dead-letter queue (DLQ)
+and the service logs: every publish or generate failure is logged at `ERROR` with the `ht_id` and the
+error message.
 
 The field `id` is used if you want to process all the items on a record. The `ht_id` is used when a specific
 item of a Catalog record will be processed.
@@ -345,103 +351,21 @@ This use case is implemented by a python script that retrieves the id to populat
 use case is used to process in Kubernetes a batch of documents selected from production. See the section
 ``Run retriever service by file`` to find the command to run this use case.
 
-### Use case 4: Populate the table fulltext_item_processing_status with the status of the documents being processed by the pipeline:
-
-The script will query the Catalog index and populate the table with the status of the documents being processed by
-the pipeline. See below the sql statement used to create the table fulltext_item_processing_status.
-
-Every time a document is processed, the status of the document is updated in the table. The status of the document can
-be one of the following: pending, processing, failed, completed.
-
-* If the document is indexed in Solr status=completed, retriever_status=completed,
-  generator_status=completed, indexer_status=completed.
-* If the document is not indexed in Solr status=failed, retriever_status=completed,
-  generator_status=completed, indexer_status=failed.
-
-```
-
-        CREATE TABLE IF NOT EXISTS fulltext_item_processing_status (
-            ht_id VARCHAR(255) UNIQUE NOT NULL,
-            record_id VARCHAR(255) NOT NULL,
-            status ENUM('pending', 'processing', 'failed', 'completed', 'requeued') NOT NULL DEFAULT 'Pending',
-            retriever_status ENUM('pending', 'processing', 'failed', 'completed') NOT NULL DEFAULT 'Pending',
-            generator_status ENUM('pending','processing' ,'failed', 'completed') NOT NULL DEFAULT 'Pending',
-            indexer_status ENUM('pending', 'processing', 'failed', 'completed') NOT NULL DEFAULT 'Pending',
-            error TEXT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            processed_at TIMESTAMP NULL DEFAULT NULL
-        );
-
-```
-
-#### Status guard: services writing out-of-order
-
-The retriever and the generator both write the shared `status` column. They run as separate processes, and
-the retriever writes to MySQL only after publishing a whole batch (up to 200 items). So the generator can
-finish an item before the retriever records it. Without protection, the later write wins: a retriever
-success could turn a generator `failed` back into `processing`.
-
-To prevent this, each stage always writes its own column (`retriever_status`, `generator_status`), but it
-only changes the shared `status` column (and `error`) when the row's current `status` allows it:
-
-| Stage     | Always written                        | `status` / `error` only changed when |
-|-----------|---------------------------------------|--------------------------------------|
-| Retriever | `retriever_status`, `processed_at`    | `status = 'pending'`                 |
-| Generator | `generator_status`, `processed_at`    | `status <> 'completed'`              |
-
-The guard is a `CASE` expression inside `SET`, not a condition in `WHERE`:
-
-```sql
-UPDATE fulltext_item_processing_status
-SET retriever_status = :retriever_status, processed_at = :processed_at,
-    status = CASE WHEN status = 'pending' THEN :status ELSE status END
-WHERE ht_id = :ht_id
-```
-
-A `WHERE` guard would skip the whole row, leaving `retriever_status = 'pending'`. The retriever selects
-rows by `retriever_status = 'pending'`, so it would publish the same item again on every polling cycle.
-`status` is assigned last in `SET` because MySQL evaluates assignments left to right, and the `error` guard
-has to read the original `status`.
-
-#### Reprocessing items that are not `pending`
-
-When you reprocess items that already ran (for example, with `run_retriever_service_by_file.py`), the
-retriever records `retriever_status` but leaves `status` and `error` unchanged until the generator writes.
-Reset the rows first so they start clean:
-
-```sql
-UPDATE fulltext_item_processing_status
-SET status = 'pending', retriever_status = 'pending', generator_status = 'pending',
-    indexer_status = 'pending', error = NULL
-WHERE ht_id IN ('mdp.39015026143126', 'hvd.32044106262314');
-```
-
-Also clear `error`: success writes don't reset it, so an old error message would otherwise stay on the row.
-
 ## Usage
 
 ### All services (Retriever, Generator and Indexer) using the queue message system
 
-* **Run retriever service**
-
-``` 
-docker compose exec ht_indexer_tracker python -m ht_indexer_monitoring.ht_indexer_tracktable --env dev --query "*:*" --num_found 100
-
-```
-
-* --query "*:*" It retrieves all the documents on Solr server
-* --num_found = 100. It is the number of records to be retrieved. As each record could be 1 or more items and each row
-  of
-  the table is an item, we will recover more items than the number of records.
+The `document-retriever` container starts idle, so the retriever only runs when you start it with one of
+the commands below. Without `--list_documents` (or with an empty list) it exits 1 with
+`--list_documents is required`.
 
 * **Run retriever service**
 
 ```
 
-docker compose exec document_retriever python -m document_retriever_service.full_text_search_retriever_service
---list_documents
-chi.096189208,iau.31858049957305,hvd.32044106262314,chi.096415811,hvd.32044020307005,hvd.32044092647320,iau.31858042938971
+docker compose exec document-retriever python -m document_retriever_service.full_text_search_retriever_service \
+--list_documents \
+chi.096189208,iau.31858049957305,hvd.32044106262314,chi.096415811,hvd.32044020307005,hvd.32044092647320,iau.31858042938971 \
 --query_field item
 
 ```
@@ -450,7 +374,7 @@ chi.096189208,iau.31858049957305,hvd.32044106262314,chi.096415811,hvd.3204402030
 
 ```
 
-docker compose exec document_retriever python -m document_retriever_service.run_retriever_service_by_file
+docker compose exec document-retriever python -m document_retriever_service.run_retriever_service_by_file \
 --query_field item --input_document_file document_retriever_service/list_htids_indexer_test.txt
 
 ```
@@ -459,22 +383,22 @@ docker compose exec document_retriever python -m document_retriever_service.run_
 
 ```
 
-docker compose up document_generator -d
+docker compose up document-generator -d
 
 ```
 
-This container will automatically start the script `python document_generator/document_generator_service.py` that will
+This container will automatically start the script `python -m document_generator.document_generator_service` that will
 be retrieving the documents from the retriever_queue and will publish a new message in indexer_queue
 
 * **Indexer service**
 
 ```
 
-docker compose up document_indexer -d
+docker compose up document-indexer -d
 
 ```
 
-This container will automatically start the script `python document_indexer_service/document_indexer_service.py` that
+This container will automatically start the script `python -m document_indexer_service.document_indexer_service` that
 will be retrieving the documents from the indexer_queue and will be indexing the documents in the Full-text search
 index.
 
@@ -484,9 +408,9 @@ index.
 
 ```
 
-docker compose exec document_retriever python document_retriever_service/full_text_search_retriever_service.py
---list_documents
-chi.096189208,iau.31858049957305,hvd.32044106262314,chi.096415811,hvd.32044020307005,hvd.32044092647320,iau.31858042938971
+docker compose exec document-retriever python -m document_retriever_service.full_text_search_retriever_service \
+--list_documents \
+chi.096189208,iau.31858049957305,hvd.32044106262314,chi.096415811,hvd.32044020307005,hvd.32044092647320,iau.31858042938971 \
 --query_field item
 
 ```
@@ -496,23 +420,21 @@ chi.096189208,iau.31858049957305,hvd.32044106262314,chi.096415811,hvd.3204402030
 The script ```document_generator_service_local.py``` is used to generate the document to index in full-text search
 and to storage the file in a local folder (/tmp) in JSON format.
 
-```docker compose exec document_generator python document_generator/document_generator_service_local.py --document_local_path /tmp --document_repository local```
+```docker compose exec document-generator python -m document_generator.document_generator_service_local --document_local_path /tmp --document_repository local```
 
 * **Indexer service running locally**
 
 ```document_indexer_local_service.py``` The script should retrieve documents from the /tmp folder for indexing in Solr,
 not from the queue.
 
-```docker compose exec document_indexer python document_indexer_service/document_indexer_local_service.py --solr_indexing_api http://solr-lss-dev:8983/solr/#/core-x/ --document_local_path /tmp/indexing_data```
+```docker compose exec document-indexer python -m document_indexer_service.document_indexer_local_service --solr_indexing_api http://solr-lss-dev:8983/solr/#/core-x/ --document_local_path /tmp/indexing_data```
 
 ### Processing documents reading the list of ids from a file
 
 Provide a plain-text file with one ID per line. This file is not included in the repository: operators
 must supply their own file (for example, generated from a Catalog Solr query).
 
-If any of these items already ran, reset their rows in `fulltext_item_processing_status` first; see [Reprocessing items that are not `pending`](#reprocessing-items-that-are-not-pending).
-
-```docker compose exec document_retriever python document_retriever_service/run_retriever_service_by_file.py --query_field item --input_document_file /path/to/your/htids.txt```
+```docker compose exec document-retriever python -m document_retriever_service.run_retriever_service_by_file --query_field item --input_document_file /path/to/your/htids.txt```
 
 #### Item mode and record mode
 
@@ -567,7 +489,7 @@ Retriever by file summary: requested=1000 duplicates=3 invalid=2 already_process
 | `invalid` | IDs that failed format validation (each one is also logged as an error) |
 | `already_processed` | Valid IDs skipped because they are in the status file |
 | `seeded` | Items published to the queue |
-| `errors` | Items whose catalog metadata could not be built, or whose publish failed. Both are written to MySQL as `retriever_status=failed`. With `--parallelize`, a thread that fails counts all its IDs as errors |
+| `errors` | Items whose catalog metadata could not be built, or whose publish failed. Each one is logged at `ERROR` with the `ht_id`. With `--parallelize`, a thread that fails counts all its IDs as errors |
 | `not_found` | Requested ht_ids that Catalog did not return (each one is also logged as an error). Always 0 with `--query_field record` |
 
 With `--query_field item`, the fields add up: `requested = duplicates + invalid + already_processed + seeded + errors + not_found`.
@@ -585,23 +507,17 @@ In the working directory,
 
 ```docker build -t document_generator .```
 
-* Run ht_indexer_tracker
-
-```docker compose up ht_indexer_tracker -d```
-
-```docker compose exec ht_indexer_tracker python -m pytest ht_indexer_monitoring ```
-
 * Run document_retriever_service container and test it
 
-```docker compose up document_retriever -d```
+```docker compose up document-retriever -d```
 
-```docker compose exec document_retriever python -m pytest document_retriever_service catalog_metadata ht_utils ```
+```docker compose exec document-retriever python -m pytest document_retriever_service catalog_metadata ht_utils ```
 
 * Run document_generator_service container and test it
 
-```docker compose up document_generator -d```
+```docker compose up document-generator -d```
 
-```docker compose exec document_generator python -m pytest document_generator ht_document ht_queue_service ht_utils```
+```docker compose exec document-generator python -m pytest document_generator ht_document ht_queue_service ht_utils```
 
 * Run document_indexer_service container and test it
 
@@ -615,9 +531,9 @@ The document retriever does not use SOLR_USER / SOLR_PASSWORD. It accesses the C
 with the optional SOLR_CATALOG_RO_USERNAME / SOLR_CATALOG_RO_PASSWORD. Leave both unset while the Catalog Solr does
 not require authentication.
 
-```docker compose up document_indexer -d```
+```docker compose up document-indexer -d```
 
-```docker compose exec document_indexer python -m pytest document_indexer_service ht_indexer_api ht_queue_service```
+```docker compose exec document-indexer python -m pytest document_indexer_service ht_indexer_api ht_queue_service```
 
 ## Hosting
 
@@ -625,7 +541,11 @@ Kubernetes is used to host the application. The application is deployed in MACC 
 namespace `fulltext-workshop`. The application is deployed in the following pods:
 
 * **document-generator**: Service to generate the document to index in Solr.
-* **document-retriever**: Service to retrieve documents from Catalog index.
+* **document-retriever**: Service to retrieve documents from Catalog index. The pod runs idle (the image's
+  default `tail -f /dev/null`); start a run by hand inside it, for example:
+  `kubectl exec -it deploy/document-retriever -- /workspace/.venv/bin/python -m document_retriever_service.full_text_search_retriever_service --query_field item --list_documents <ids>`.
+  The run is tied to your `kubectl exec` session; for long runs use `nohup ... > /tmp/retriever.log 2>&1 &`.
+  This is a temporary setup until there is a new way to start the retriever (follow-up to ETT-1971).
 * **ht-indexer-indexer**: Service to index the documents in Full-text search index
 * **rabbitmq**: Queue system to manage the flow of documents to be indexed in Full-text search index.
 * **solr-embedded-zookeeper**: Full-text search Solr index.
@@ -644,13 +564,13 @@ In the image below, you can see the main kubernetes parts running in this workfl
       ```
     * Run the python script to retrieve documents from Catalog given a list of ht_ids
          ```
-          python src/document_retriever_service/full_text_search_retriever_service.py --list_documents
+          python -m document_retriever_service.full_text_search_retriever_service --list_documents
               chi.096189208,iau.31858049957305,hvd.32044106262314,chi.096415811,hvd.32044020307005,hvd.32044092647320,iau.31858042938971
               --query_field item
         ```
     * Run the python script to retrieve documents from Catalog given a list of ht_ids stored in a file
       ```
-      python src/document_retriever_service/run_retriever_service_by_file.py --query_field item
+      python -m document_retriever_service.run_retriever_service_by_file --query_field item
             --input_document_file /path/to/your/htids.txt
       ```
       Provide a plain-text file containing one HathiTrust item ID per line. This file is not included
@@ -663,7 +583,7 @@ In the image below, you can see the main kubernetes parts running in this workfl
     * Document generator
 
          ```
-           python src/document_generator/document_generator_service.py --document_repository pairtree
+           python -m document_generator.document_generator_service --document_repository pairtree
         ```
     * Run the command below to get a shell on the document_indexer service
 
@@ -672,7 +592,7 @@ In the image below, you can see the main kubernetes parts running in this workfl
         ```
     * Document indexer
       ```
-      python src/document_indexer_service/document_indexer_service.py
+      python -m document_indexer_service.document_indexer_service
               --solr_indexing_api http://fulltext-workshop-solrcloud-headless:8983/solr/core-x/
       ```
 
@@ -685,7 +605,7 @@ In the image below, you can see the main kubernetes parts running in this workfl
     * Example of how to retrieve only 1 document from Catalog index
 
       ```
-      python src/document_retriever_service/full_text_search_retriever_service.py --query ht_id:"pur1.32754063106516"
+      python -m document_retriever_service.full_text_search_retriever_service --query ht_id:"pur1.32754063106516"
       --document_repository pairtree
       ```
 
@@ -715,7 +635,8 @@ supply their own.
 
 The command used to retrieve the documents from Catalog index is:
 
-```python document_retriever_service/run_retriever_service_by_file.py --query_field item --input_document_file /path/to/your/htids.txt
+```
+python -m document_retriever_service.run_retriever_service_by_file --query_field item --input_document_file /path/to/your/htids.txt
 ```
 
 This experiment will do in the Kubernetes cluster.
@@ -825,4 +746,4 @@ Use this curl command to query Sorl
 
 ``curl http://localhost:9033/solr/catalog/query -d 'json={"query":"ht_id:umn.31951000662660j"}'``
 
-``poetry run python main.py --host 0.0.0.0 --port 8081 --solr_host localhost --solr_port 8983``
+``python main.py --host 0.0.0.0 --port 8081 --solr_host localhost --solr_port 8983``

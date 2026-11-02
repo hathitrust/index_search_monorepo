@@ -43,24 +43,6 @@ x-env-common-indexer: &env_common_indexer
     <<: [*env_common, *env_indexer]
 
 services:
-  ht-indexer-tracker:
-    profiles: [ ht-indexer ]
-    # image: ht-indexer
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: runtime
-      args:
-        APP_NAME: ht-indexer
-        APP_DIR: ht_indexer
-    environment:
-      << : *env_common_indexer
-      PACKAGE: ht_indexer
-    depends_on:
-      solr-sdr-catalog: *healthy
-      mysql-sdr: *healthy
-    tty: true
-    stdin_open: true
   document-retriever:
     profiles: [ ht-indexer ]
     # image: ht-indexer
@@ -80,11 +62,10 @@ services:
     depends_on:
       solr-sdr-catalog: *healthy
       rabbitmq: *healthy
-      mysql-sdr: *healthy
     tty: true
     stdin_open: true
-    command: [ "/workspace/.venv/bin/python", "-m" ,"document_retriever_service.full_text_search_retriever_service", "--query_field", "item",
-               "--parallelize" ]
+    # No command: the image's default CMD (tail -f /dev/null) keeps the container idle.
+    # Start the retriever by hand with `docker compose exec` (see app/ht_indexer/README.md).
   mysql-sdr:
     image: ghcr.io/hathitrust/db-image:latest
     volumes:
@@ -345,4 +326,3 @@ volumes:
   mysql_sdr_data:
   solr1_data: null
   zoo1_data: null
-  mysql_retriever_data:
