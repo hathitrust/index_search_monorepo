@@ -319,6 +319,27 @@ services:
         - ./app/data_operations/src/metadata_extractor/output:/app/src/metadata_extractor/output
       tty: true
       stdin_open: true
+###############################ht_mcp###############################
+  ht-mcp:
+    profiles: [ ht-mcp ]
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+      args:
+        APP_NAME: ht-mcp
+        APP_DIR: ht_mcp
+    volumes:
+      - ./app/ht_mcp:/workspace/app/ht_mcp
+      - ./libs:/workspace/libs
+    ports:
+      - "${MCP_PORT:-8000}:8000"
+    environment:
+      # The catalog API the MCP server calls; override to point at a running catalog.
+      CATALOG_URL: ${CATALOG_URL:-http://apache:8080}
+    tty: true
+    stdin_open: true
+    command: [ "/workspace/.venv/bin/python", "-m", "ht_mcp.server" ]
 ############ Volumes ## ############################
 volumes:
   mysql_sdr_data:

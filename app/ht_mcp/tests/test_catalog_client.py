@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 
+import httpx
 import pytest
 import respx
 from ht_mcp.catalog_client import CatalogClient, CatalogError
@@ -13,6 +14,20 @@ BATCH_FIXTURE = json.loads(
     (Path(__file__).parent / "fixtures" / "volumes_brief_batch.json").read_text()
 )
 BASE_URL = "http://catalog-test"
+
+# Cases shared by the lookup_single and lookup_volumes tests.
+NETWORK_ERRORS = [
+    (httpx.ConnectTimeout("slow"), "timed out"),
+    (httpx.ReadTimeout("slow"), "timed out"),
+    (httpx.ConnectError("refused"), "unreachable"),
+    (httpx.ReadError("dropped"), "connection failed"),
+    (httpx.RemoteProtocolError("closed mid-response"), "connection failed"),
+]
+OTHER_HTTP_ERRORS = [403, 429]
+UNREADABLE_BODIES = [
+    Response(200, text="<html>maintenance</html>"),
+    Response(200, json=["not", "an", "object"]),
+]
 
 
 @pytest.fixture
@@ -68,6 +83,38 @@ async def test_lookup_single_http_500(client):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("error, message", NETWORK_ERRORS)
+async def test_lookup_single_network_error(client, error, message):
+    with respx.mock(base_url=BASE_URL) as mock:
+        mock.get("/api/volumes/brief/oclc/00000001.json").mock(side_effect=error)
+        with pytest.raises(CatalogError, match=message) as exc_info:
+            await client.lookup_single("oclc", "00000001")
+
+    assert exc_info.value.__cause__ is error
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("status", OTHER_HTTP_ERRORS)
+async def test_lookup_single_other_http_error(client, status):
+    with respx.mock(base_url=BASE_URL) as mock:
+        mock.get("/api/volumes/brief/oclc/00000001.json").mock(return_value=Response(status))
+        with pytest.raises(CatalogError, match=f"HTTP {status}"):
+            await client.lookup_single("oclc", "00000001")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "body",
+    [*UNREADABLE_BODIES, Response(200, json={"unexpected": "shape"})],
+)
+async def test_lookup_single_unreadable_response(client, body):
+    with respx.mock(base_url=BASE_URL) as mock:
+        mock.get("/api/volumes/brief/oclc/00000001.json").mock(return_value=body)
+        with pytest.raises(CatalogError, match="invalid response"):
+            await client.lookup_single("oclc", "00000001")
+
+
+@pytest.mark.asyncio
 async def test_lookup_single_invalid_field(client):
     with pytest.raises(ValueError, match="Unknown field"):
         await client.lookup_single("badfield", "123")
@@ -99,6 +146,38 @@ async def test_lookup_volumes_empty_entry(client):
 
     assert result["oclc:00000002"].records == {}
     assert result["oclc:00000002"].items == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("error, message", NETWORK_ERRORS)
+async def test_lookup_volumes_network_error(client, error, message):
+    with respx.mock(base_url=BASE_URL) as mock:
+        mock.get("/api/volumes/brief/json/oclc:00000001").mock(side_effect=error)
+        with pytest.raises(CatalogError, match=message) as exc_info:
+            await client.lookup_volumes(["oclc:00000001"])
+
+    assert exc_info.value.__cause__ is error
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("status", [*OTHER_HTTP_ERRORS, 404])
+async def test_lookup_volumes_other_http_error(client, status):
+    with respx.mock(base_url=BASE_URL) as mock:
+        mock.get("/api/volumes/brief/json/oclc:00000001").mock(return_value=Response(status))
+        with pytest.raises(CatalogError, match=f"HTTP {status}"):
+            await client.lookup_volumes(["oclc:00000001"])
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "body",
+    [*UNREADABLE_BODIES, Response(200, json={"oclc:00000001": {"unexpected": "shape"}})],
+)
+async def test_lookup_volumes_unreadable_response(client, body):
+    with respx.mock(base_url=BASE_URL) as mock:
+        mock.get("/api/volumes/brief/json/oclc:00000001").mock(return_value=body)
+        with pytest.raises(CatalogError, match="invalid response"):
+            await client.lookup_volumes(["oclc:00000001"])
 
 
 @pytest.mark.asyncio
