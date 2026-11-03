@@ -57,25 +57,26 @@ def test_batch_size_must_be_a_number(monkeypatch: pytest.MonkeyPatch) -> None:
     assert exit_info.value.code == 2  # argparse's own exit code for a bad value
 
 
-def test_solr_timeout_defaults_to_the_documented_values(monkeypatch: pytest.MonkeyPatch) -> None:
-    arguments = _arguments(monkeypatch)
-
-    assert arguments.solr_api_full_text.timeout == (10.0, 120.0)
-
-
-def test_solr_timeout_on_the_command_line_sets_the_read_timeout(
-    monkeypatch: pytest.MonkeyPatch,
+@pytest.mark.parametrize(
+    ("options", "expected"),
+    [
+        pytest.param([], (10.0, 120.0), id="default"),
+        pytest.param(
+            ["--solr_timeout", "30"], (10.0, 30.0), id="read-timeout-from-the-command-line"
+        ),
+    ],
+)
+def test_solr_timeout_reaches_the_solr_client(
+    monkeypatch: pytest.MonkeyPatch, options: list[str], expected: tuple[float, float]
 ) -> None:
-    arguments = _arguments(monkeypatch, "--solr_timeout", "30")
+    arguments = _arguments(monkeypatch, *options)
 
-    assert arguments.solr_api_full_text.timeout == (10.0, 30.0)
+    assert arguments.solr_api_full_text.timeout == expected
 
 
-@pytest.mark.parametrize("value", ["0", "-5", "soon", "inf", "nan"])
-def test_solr_timeout_must_be_a_positive_number(
-    monkeypatch: pytest.MonkeyPatch, value: str
-) -> None:
+def test_an_invalid_solr_timeout_exits_with_an_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Which values are invalid is tested once, on positive_seconds (ht_indexer_api_test.py)."""
     with pytest.raises(SystemExit) as exit_info:
-        _arguments(monkeypatch, "--solr_timeout", value)
+        _arguments(monkeypatch, "--solr_timeout", "0")
 
     assert exit_info.value.code == 2

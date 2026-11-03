@@ -16,21 +16,26 @@ def _run_main(monkeypatch: pytest.MonkeyPatch, *extra: str) -> MagicMock:
     return solr_api
 
 
-def test_the_local_indexer_uses_the_default_solr_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
-    assert _run_main(monkeypatch).timeout == (10.0, 120.0)
+@pytest.mark.parametrize(
+    ("options", "expected"),
+    [
+        pytest.param([], (10.0, 120.0), id="default"),
+        pytest.param(
+            ["--solr_timeout", "600"], (10.0, 600.0), id="read-timeout-from-the-command-line"
+        ),
+    ],
+)
+def test_solr_timeout_reaches_the_solr_client_of_the_local_indexer(
+    monkeypatch: pytest.MonkeyPatch, options: list[str], expected: tuple[float, float]
+) -> None:
+    assert _run_main(monkeypatch, *options).timeout == expected
 
 
-def test_solr_timeout_sets_the_read_timeout_of_the_local_indexer(
+def test_the_local_indexer_exits_with_an_error_for_an_invalid_solr_timeout(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    assert _run_main(monkeypatch, "--solr_timeout", "600").timeout == (10.0, 600.0)
-
-
-@pytest.mark.parametrize("value", ["0", "-1", "inf", "soon"])
-def test_the_local_indexer_rejects_an_invalid_solr_timeout(
-    monkeypatch: pytest.MonkeyPatch, value: str
-) -> None:
+    """Which values are invalid is tested once, on positive_seconds (ht_indexer_api_test.py)."""
     with pytest.raises(SystemExit) as exit_info:
-        _run_main(monkeypatch, "--solr_timeout", value)
+        _run_main(monkeypatch, "--solr_timeout", "0")
 
     assert exit_info.value.code == 2

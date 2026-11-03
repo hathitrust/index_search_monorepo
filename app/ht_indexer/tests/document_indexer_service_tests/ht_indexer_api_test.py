@@ -1,3 +1,4 @@
+import argparse
 import socket
 from collections.abc import Callable, Generator
 from pathlib import Path
@@ -7,11 +8,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import requests
 from document_indexer_service.failure_classifier import FailureKind, classify_failure
-from ht_indexer_api.ht_indexer_api import (
-    DEFAULT_CONNECT_TIMEOUT_SECONDS,
-    DEFAULT_READ_TIMEOUT_SECONDS,
-    HTSolrAPI,
-)
+from ht_indexer_api.ht_indexer_api import HTSolrAPI, positive_seconds
 
 
 @pytest.fixture
@@ -85,34 +82,28 @@ SOLR_CALLS: list[tuple[str, str, Callable[[HTSolrAPI], Any]]] = [
 CALL_IDS = [name for _, name, _ in SOLR_CALLS]
 
 
-def test_default_timeouts() -> None:
-    assert HTSolrAPI("http://solr/").timeout == (
-        DEFAULT_CONNECT_TIMEOUT_SECONDS,
-        DEFAULT_READ_TIMEOUT_SECONDS,
-    )
-    assert (DEFAULT_CONNECT_TIMEOUT_SECONDS, DEFAULT_READ_TIMEOUT_SECONDS) == (10.0, 120.0)
-
-
+@pytest.mark.parametrize(
+    ("api", "expected"),
+    [
+        pytest.param(HTSolrAPI("http://solr/"), (10.0, 120.0), id="default"),
+        pytest.param(
+            HTSolrAPI("http://solr/", read_timeout=30, connect_timeout=2), (2, 30), id="configured"
+        ),
+    ],
+)
 @pytest.mark.parametrize(("method", "name", "call"), SOLR_CALLS, ids=CALL_IDS)
-def test_every_solr_request_uses_the_default_timeout(
-    method: str, name: str, call: Callable[[HTSolrAPI], Any]
+def test_every_solr_request_uses_the_timeout(
+    method: str,
+    name: str,
+    call: Callable[[HTSolrAPI], Any],
+    api: HTSolrAPI,
+    expected: tuple[float, float],
 ) -> None:
     with patch(f"ht_indexer_api.ht_indexer_api.requests.{method}") as mock_request:
         mock_request.return_value = MagicMock(status_code=200)
-        call(HTSolrAPI("http://solr/"))
+        call(api)
 
-    assert mock_request.call_args.kwargs["timeout"] == (10.0, 120.0)
-
-
-@pytest.mark.parametrize(("method", "name", "call"), SOLR_CALLS, ids=CALL_IDS)
-def test_every_solr_request_uses_the_configured_timeout(
-    method: str, name: str, call: Callable[[HTSolrAPI], Any]
-) -> None:
-    with patch(f"ht_indexer_api.ht_indexer_api.requests.{method}") as mock_request:
-        mock_request.return_value = MagicMock(status_code=200)
-        call(HTSolrAPI("http://solr/", read_timeout=30, connect_timeout=2))
-
-    assert mock_request.call_args.kwargs["timeout"] == (2, 30)
+    assert mock_request.call_args.kwargs["timeout"] == expected
 
 
 @pytest.mark.parametrize("value", [0, -1, float("inf"), float("nan")])
@@ -123,6 +114,18 @@ def test_a_timeout_that_is_not_positive_is_rejected(name: str, value: float) -> 
             HTSolrAPI("http://solr/", read_timeout=value)
         else:
             HTSolrAPI("http://solr/", connect_timeout=value)
+
+
+def test_positive_seconds_accepts_a_positive_number() -> None:
+    """The argparse type used by --solr_timeout in the indexer and in the local script."""
+    assert positive_seconds("30") == 30.0
+    assert positive_seconds("0.5") == 0.5
+
+
+@pytest.mark.parametrize("value", ["0", "-5", "soon", "inf", "nan"])
+def test_positive_seconds_rejects_anything_else(value: str) -> None:
+    with pytest.raises(argparse.ArgumentTypeError):
+        positive_seconds(value)
 
 
 @pytest.fixture

@@ -182,20 +182,19 @@ def test_queue_params_out_of_range_raises_value_error(
         QueueConfig(global_config_path, app_path)
 
 
-def test_batch_size_override_wins_over_the_config_file(
-    global_config_path: Path, app_config_path: Path
+@pytest.mark.parametrize(
+    ("override", "expected"),
+    [
+        pytest.param(25, 25, id="override-wins-over-the-config-file"),
+        pytest.param(None, 10, id="no-override-uses-the-config-file"),
+    ],
+)
+def test_batch_size_override(
+    global_config_path: Path, app_config_path: Path, override: int | None, expected: int
 ) -> None:
-    params = QueueConfig(global_config_path, app_config_path, batch_size=25).get_params()
+    params = QueueConfig(global_config_path, app_config_path, batch_size=override).get_params()
 
-    assert params.batch_size == 25
-
-
-def test_without_a_batch_size_override_the_config_file_value_is_used(
-    global_config_path: Path, app_config_path: Path
-) -> None:
-    params = QueueConfig(global_config_path, app_config_path, batch_size=None).get_params()
-
-    assert params.batch_size == 10
+    assert params.batch_size == expected
 
 
 @pytest.mark.parametrize("value", [0, 65_536])
