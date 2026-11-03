@@ -426,29 +426,38 @@ class TestFullTextRetrieverService:
         )
 
 
-class TestMainListDocumentsRequired:
-    """main() must exit 1 with `--list_documents is required` when the list is missing
-    or empty, before constructing FullTextSearchRetrieverQueueService (no Solr or queue
-    connection should be opened)."""
+MAIN_HT_ID = "mdp.39015078560292"
+
+
+class TestMain:
+    """main() exits 1 with `--list_documents is required` when the list is missing or empty,
+    before constructing FullTextSearchRetrieverQueueService (no Solr or queue connection is
+    opened). With a list, it logs a summary of the run and exits 1 if any item failed, so the
+    script can tell the run went wrong."""
 
     @pytest.fixture
     def run_main(
         self, stub_retriever_external_services: None, monkeypatch: pytest.MonkeyPatch
-    ) -> Callable[[list[str]], tuple[SystemExit, list[Any], MagicMock]]:
-        def _run(argv: list[str]) -> tuple[SystemExit, list[Any], MagicMock]:
+    ) -> Callable[..., tuple[int | str | None, list[Any], MagicMock]]:
+        def _run(
+            argv: list[str], counts: PublishCounts | None = None
+        ) -> tuple[int | str | None, list[Any], MagicMock]:
             monkeypatch.setattr(sys, "argv", ["retriever", "--query_field", "item", *argv])
+            exit_code: int | str | None = 0
             with (
-                # Red-phase safety: today's code enters the `while True` polling loop
-                # and sleeps forever; fail fast instead of hanging.
-                patch("time.sleep", side_effect=AssertionError("entered polling mode")),
                 patch.object(
                     retriever_service_module, "FullTextSearchRetrieverQueueService"
                 ) as service_cls,
                 capture_logs() as entries,
-                pytest.raises(SystemExit) as exc_info,
             ):
-                retriever_service_module.main()
-            return exc_info.value, entries, service_cls
+                service_cls.return_value.full_text_search_retriever_service.return_value = (
+                    counts or PublishCounts()
+                )
+                try:
+                    retriever_service_module.main()
+                except SystemExit as exc:
+                    exit_code = exc.code
+            return exit_code, entries, service_cls
 
         return _run
 
@@ -461,14 +470,51 @@ class TestMainListDocumentsRequired:
     )
     def test_main_without_list_documents_exits_1(
         self,
-        run_main: Callable[[list[str]], tuple[SystemExit, list[Any], MagicMock]],
+        run_main: Callable[..., tuple[int | str | None, list[Any], MagicMock]],
         argv: list[str],
     ) -> None:
-        exit_exc, entries, service_cls = run_main(argv)
+        exit_code, entries, service_cls = run_main(argv)
 
-        assert exit_exc.code == 1
+        assert exit_code == 1
         assert_log_entry(entries, event="--list_documents is required", log_level="error")
         service_cls.assert_not_called()
+
+    @pytest.mark.parametrize(
+        ("mode_argv", "counts", "expected_exit_code"),
+        [
+            pytest.param([], PublishCounts(published=1), 0, id="single-thread-all-published"),
+            pytest.param([], PublishCounts(failed=1), 1, id="single-thread-some-failed"),
+            pytest.param(
+                ["--parallelize"], PublishCounts(published=1), 0, id="parallel-all-published"
+            ),
+            pytest.param(["--parallelize"], PublishCounts(failed=1), 1, id="parallel-some-failed"),
+        ],
+    )
+    def test_main_with_list_documents_exits_by_failed_count(
+        self,
+        run_main: Callable[..., tuple[int | str | None, list[Any], MagicMock]],
+        mode_argv: list[str],
+        counts: PublishCounts,
+        expected_exit_code: int,
+    ) -> None:
+        exit_code, _, _ = run_main(["--list_documents", MAIN_HT_ID, *mode_argv], counts)
+
+        assert exit_code == expected_exit_code
+
+    def test_main_with_list_documents_logs_run_summary(
+        self, run_main: Callable[..., tuple[int | str | None, list[Any], MagicMock]]
+    ) -> None:
+        counts = PublishCounts(published=2, failed=1, not_found=3)
+
+        _, entries, _ = run_main(["--list_documents", MAIN_HT_ID], counts)
+
+        assert_log_entry(
+            entries,
+            event="Process=retrieving: run summary",
+            published=2,
+            failed=1,
+            not_found=3,
+        )
 
 
 class TestLogHtIdsNotInCatalog:

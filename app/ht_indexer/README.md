@@ -294,7 +294,9 @@ indexer service. They are already set inside the containers; on your machine, lo
 In all the use cases, a list of documents is received as input. The list of documents is provided by the
 caller — either as a comma-separated argument (`--list_documents`) or as a text file passed to
 `run_retriever_service_by_file` (`--input_document_file`). The retriever exits 1 with
-`--list_documents is required` when no list is supplied.
+`--list_documents is required` when no list is supplied. At the end of a run it logs a
+`Process=retrieving: run summary` line (published / failed / not_found) and exits 1 if any item
+failed, so a calling script can detect the failure; the failed ht_ids are in the ERROR log lines.
 
 The list of documents is used to query the Catalog index. The retriever_service retrieves the metadata of each
 document from the Catalog index. The user must also provide a parameter indicating the catalog Solr field

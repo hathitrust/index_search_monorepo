@@ -394,14 +394,26 @@ def main() -> None:
     logger.info(f"Process=retrieving: Total of documents to process {len(list_documents)}")
 
     if init_args_obj.parallelize:
-        run_retriever_service_threads(
+        counts = run_retriever_service_threads(
             list_documents,
             by_field,
             document_retriever_service,
             init_args_obj.max_workers,
         )
     else:
-        document_retriever_service.full_text_search_retriever_service(list_documents, by_field)
+        counts = document_retriever_service.full_text_search_retriever_service(
+            list_documents, by_field
+        )
+
+    logger.info(
+        "Process=retrieving: run summary",
+        published=counts.published,
+        failed=counts.failed,
+        not_found=counts.not_found,
+    )
+    # Logs are the only record of failed items, so exit non-zero to let the caller know
+    if counts.failed > 0:
+        sys.exit(1)
 
 
 if __name__ == "__main__":
