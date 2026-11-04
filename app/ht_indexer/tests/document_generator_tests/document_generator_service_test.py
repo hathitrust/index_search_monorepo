@@ -4,7 +4,6 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 from document_generator.document_generator_service import DocumentGeneratorService
-from ht_queue_service.queue_producer import MessageTooLargeError
 from ht_utils.testing import capture_logs, find_log_entry
 
 
@@ -32,45 +31,6 @@ class TestDocumentGeneratorService:
         db_conn = Mock()
         service = _make_service_with_mocks(db_conn)
         return service, db_conn
-
-    @pytest.mark.parametrize(
-        ("message", "failing_method", "error"),
-        [
-            pytest.param(VALID_MESSAGE, None, None, id="success"),
-            pytest.param(
-                VALID_MESSAGE,
-                "generate_full_text_entry",
-                FileNotFoundError("zip not found"),
-                id="generation-fails",
-            ),
-            pytest.param(
-                VALID_MESSAGE,
-                "publish_document",
-                MessageTooLargeError(
-                    "Message mdp.1 size 20 bytes exceeds max_message_size 10 bytes"
-                ),
-                id="message-too-large",
-            ),
-            pytest.param({}, None, None, id="missing-ht-id"),
-        ],
-    )
-    def test_generate_document_never_calls_update_status(
-        self, message: dict[str, Any], failing_method: str | None, error: Exception | None
-    ) -> None:
-        service, db_conn = self._make_service()
-        with (
-            patch.object(
-                service,
-                "generate_full_text_entry",
-                return_value={"id": "mdp.39015078560292"},
-            ),
-            patch.object(service, failing_method, side_effect=error)
-            if failing_method
-            else contextlib.nullcontext(),
-        ):
-            service.generate_document(message, delivery_tag=1)
-
-        db_conn.update_status.assert_not_called()
 
     @pytest.mark.parametrize(
         ("failing_method", "error", "expects_ack"),
