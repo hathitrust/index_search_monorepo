@@ -62,7 +62,10 @@ class HtMysql:
         """Execute a query in MySQL and return the results as a list of dictionaries
         :param query: The SQL query to execute
         :param params: Optional dictionary of parameters to bind to the query
-        :return: List of dictionaries representing the query results
+        :return: List of dictionaries representing the query results; [] only when the query
+            matched no rows
+        :raises sqlalchemy.exc.SQLAlchemyError: if the query fails, so callers can tell an
+            error from an empty result
         """
 
         if not query:
@@ -76,7 +79,7 @@ class HtMysql:
                 return rows
         except exc.SQLAlchemyError as e:
             logger.error(f"MySQL Query Error: {get_general_error_message('DatabaseQuery', e)}")
-            return []
+            raise
 
 
 def get_mysql_conn(pool_size: int = 1) -> HtMysql:
