@@ -55,7 +55,12 @@ def _load_config(config_path: Path) -> dict[str, Any]:
 
 class QueueConfig:
     def __init__(
-        self, global_path: Path, app_path: Path, config_key: str = "queue", prefix: str = ""
+        self,
+        global_path: Path,
+        app_path: Path,
+        config_key: str = "queue",
+        prefix: str = "",
+        batch_size: int | None = None,
     ) -> None:
         """
         Initialize the QueueConfig with default values or load from a YAML file.
@@ -69,6 +74,9 @@ class QueueConfig:
         :param config_key: Key to identify the specific queue configuration in the YAML files.
         :param prefix: Optional prefix for environment variables to initialize the queue configuration
         for document_generator service that has a source (_SRC) and target (_TGT) queues.
+        :param batch_size: Optional value that overrides batch_size from the YAML files (for example,
+        from a command-line option). None means use the configured value. It is validated like the
+        configured one.
         """
 
         prefix = prefix.lower()
@@ -88,6 +96,8 @@ class QueueConfig:
 
         # Merge the configurations, with app_config taking precedence
         app_cfg = {**global_cfg, **default_app_config}
+        if batch_size is not None:
+            app_cfg["batch_size"] = batch_size
 
         # Load the application-specific configuration
         self.merged_config = self._load_env_vars(app_cfg)

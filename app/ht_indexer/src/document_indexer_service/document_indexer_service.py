@@ -29,6 +29,9 @@ class DocumentIndexerQueueService(QueueMultipleConsumer):
     # Wait after a batch that put messages back: 1s, 2s, 4s... up to the cap.
     BACKOFF_BASE_SECONDS = 1.0
     BACKOFF_MAX_SECONDS = 60.0
+    # A failed request logs at most this many ids. --batch_size can be up to 65535, and a line that
+    # long may be dropped by the log system. `docs` always has the full count.
+    MAX_LOGGED_IDS = 100
 
     def __init__(self, solr_api_full_text: HTSolrAPI, queue_params: QueueParams):
         """Initialize the Document Indexer Queue Service.
@@ -106,11 +109,19 @@ class DocumentIndexerQueueService(QueueMultipleConsumer):
             seconds=time.time() - start_time,
         )
 
-    def _log_solr_failure(self, scope: str, docs: int, error: Exception) -> None:
+    def _log_solr_failure(
+        self, scope: str, documents: list[dict[str, Any]], error: Exception
+    ) -> None:
+        """Log a failed request to Solr with the ids of the messages that were in it (the first
+        MAX_LOGGED_IDS), so a timeout or an outage can be traced to the items it affected.
+        """
         self.logger.error(
             "solr_request_failed",
             scope=scope,
-            docs=docs,
+            docs=len(documents),
+            ht_ids=[
+                get_queue_message_id(document) for document in documents[: self.MAX_LOGGED_IDS]
+            ],
             failure_kind=classify_failure(error).value,
             failure_type=failure_type(error),
             error=str(error),
@@ -184,7 +195,7 @@ class DocumentIndexerQueueService(QueueMultipleConsumer):
         try:
             self._index(batch)
         except Exception as e:
-            self._log_solr_failure("batch", len(batch), e)
+            self._log_solr_failure("batch", batch, e)
             all_acked = self._handle_failed_batch(batch, delivery_tags, e, channel)
         else:
             for message, delivery_tag in zip(batch, delivery_tags, strict=True):
@@ -224,7 +235,7 @@ class DocumentIndexerQueueService(QueueMultipleConsumer):
                 self._index([message])
             except Exception as doc_error:
                 all_acked = False
-                self._log_solr_failure("document", 1, doc_error)
+                self._log_solr_failure("document", [message], doc_error)
                 if classify_failure(doc_error) is FailureKind.PERMANENT:
                     self._dead_letter(message, delivery_tag, doc_error, channel)
                 elif _solr_cannot_be_used(doc_error):

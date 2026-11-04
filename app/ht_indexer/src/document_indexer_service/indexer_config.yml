@@ -3,6 +3,8 @@
 queue:
     # The name of the queue
     queue_name: indexer_queue
+    # How many messages are read from the queue and sent to Solr in one request (1 to 65535).
+    # The --batch_size command-line option overrides it.
     batch_size: 10
     requeue_message: false
     # How many times a message may be put back on the queue after Solr answers its own request
