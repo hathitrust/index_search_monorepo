@@ -10,7 +10,6 @@ from typing import Any
 
 from ht_queue_service.queue_config import QueueParams
 from ht_utils.ht_logger import get_ht_logger
-from ht_utils.ht_mysql import HtMysql
 
 from document_retriever_service.full_text_search_retriever_service import (
     FullTextSearchRetrieverQueueService,
@@ -105,7 +104,6 @@ def retrieve_documents_by_file(
     input_documents_file: str | Path,
     status_file: str | Path,
     parallelize: bool,
-    db_conn: HtMysql,
     max_workers: int,
 ) -> ByFileSummary:
     """This method is used to retrieve the documents from the Catalog and generate the full-text search entry.
@@ -120,7 +118,6 @@ def retrieve_documents_by_file(
     :param input_documents_file: The file containing the list of documents to process
     :param status_file: The file to store the status of the documents
     :param parallelize: If True, the processing will be done in parallel
-    :param db_conn: The database connection
     :param max_workers: The maximum number of workers to use in parallel processing
     :return: the run summary, also logged as one line
     """
@@ -159,7 +156,6 @@ def retrieve_documents_by_file(
             if parallelize:
                 # Run retriever service in threads
                 counts += run_retriever_service_threads(
-                    db_conn,
                     list_documents,
                     query_field,
                     document_retriever_service,
@@ -169,7 +165,7 @@ def retrieve_documents_by_file(
             else:
                 # Run retriever service sequentially
                 counts += document_retriever_service.full_text_search_retriever_service(
-                    db_conn, list_documents, query_field
+                    list_documents, query_field
                 )
 
             logger.info(
@@ -206,7 +202,6 @@ def main() -> None:
         init_args_obj.input_documents_file,
         init_args_obj.status_file,
         init_args_obj.parallelize,
-        init_args_obj.db_conn,
         init_args_obj.max_workers,
     )
 

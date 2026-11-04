@@ -3,11 +3,13 @@ import os
 from typing import Any
 from unittest.mock import Mock, patch
 
+import pytest
 from conftest import create_test_queue_config
 from document_generator.document_generator_service import DocumentGeneratorService
 from ht_queue_service.queue_producer import QueueProducer
 
 
+@pytest.mark.integration
 class TestDocumentGeneratorServiceQueueIntegration:
     """Drives DocumentGeneratorService through a live RabbitMQ queue via
     start_consuming() -> process_batch(), the same way queue_multiple_consumer_test.py
@@ -55,9 +57,8 @@ class TestDocumentGeneratorServiceQueueIntegration:
         ):
             service.start_consuming()
 
-        # generate_document ran end to end: MySQL status written, message acked and
-        # removed from the queue (not left unacked or dead-lettered).
-        db_conn.update_status.assert_called_once()
+        # generate_document ran end to end: message acked and removed from the queue
+        # (not left unacked or dead-lettered).
         assert service.channel is not None
         assert service.queue_manager.get_total_messages(service.channel) == 0
 
@@ -103,7 +104,6 @@ class TestDocumentGeneratorServiceQueueIntegration:
         ):
             service.start_consuming()
 
-        db_conn.update_status.assert_called_once()
         assert service.channel is not None
 
         # requeue_message=False means the rejected message was dead-lettered, not

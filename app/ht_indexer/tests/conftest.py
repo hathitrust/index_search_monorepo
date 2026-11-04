@@ -5,7 +5,7 @@ import uuid
 from collections.abc import Callable, Generator, Iterator
 from pathlib import Path
 from typing import Any, Protocol
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 from catalog_metadata.catalog_metadata import CatalogItemMetadata, CatalogRecordMetadata
@@ -235,14 +235,8 @@ def drain_ht_ids(consumer: QueueMultipleConsumer, timeout: int = 5) -> list[str]
 
 @pytest.fixture
 def stub_retriever_external_services(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
-    """Isolate RetrieverServiceArguments from Solr/MySQL/queue config (production-like env: no Solr credentials)."""
+    """Isolate RetrieverServiceArguments from Solr/queue config (production-like env: no Solr credentials)."""
     for var in SOLR_CATALOG_CREDENTIAL_VARS:
         monkeypatch.delenv(var, raising=False)
-    with (
-        patch("document_retriever_service.retriever_arguments.QueueConfig"),
-        patch(
-            "document_retriever_service.retriever_arguments.get_mysql_conn",
-            return_value=MagicMock(),
-        ),
-    ):
+    with patch("document_retriever_service.retriever_arguments.QueueConfig"):
         yield

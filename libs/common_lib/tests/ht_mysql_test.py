@@ -31,44 +31,6 @@ def mysql_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
 
 class TestHtMysql:
     @patch("ht_utils.ht_mysql.create_engine")
-    def test_create_table(self, mock_create_engine: MagicMock) -> None:
-        mock_conn = MagicMock()
-        mock_create_engine.return_value.begin.return_value.__enter__.return_value = mock_conn
-
-        ht_mysql = get_mysql_conn()
-
-        create_table_sql = """
-        CREATE TABLE test_table (
-            id BIGINT AUTO_INCREMENT PRIMARY KEY,
-            message VARCHAR(255) UNIQUE NOT NULL,
-            status ENUM('pending', 'processing', 'failed', 'completed', 'requeued') NOT NULL DEFAULT 'Pending',
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
-        """
-
-        ht_mysql.create_table(create_table_sql)
-
-        mock_conn.execute.assert_called_once()
-        (executed_stmt,), _ = mock_conn.execute.call_args
-        assert str(executed_stmt) == create_table_sql
-
-    @patch("ht_utils.ht_mysql.create_engine")
-    def test_table_exits(self, mock_create_engine: MagicMock) -> None:
-        mock_conn = MagicMock()
-        mock_create_engine.return_value.connect.return_value.__enter__.return_value = mock_conn
-
-        ht_mysql = get_mysql_conn()
-
-        mock_conn.execute.return_value.fetchone.return_value = ("test_table",)
-        assert ht_mysql.table_exists("test_table") is True
-
-        mock_conn.execute.return_value.fetchone.return_value = None
-        assert ht_mysql.table_exists("non_existent_table") is False
-
-        mock_conn.execute.side_effect = sqlalchemy.exc.SQLAlchemyError("Database error")
-        assert ht_mysql.table_exists("error_table") is None
-
-    @patch("ht_utils.ht_mysql.create_engine")
     def test_init_raises_when_database_is_unreachable(self, mock_create_engine: MagicMock) -> None:
         """A bad password or unreachable host must fail at construction time,
         not be silently until the first query happens to run."""

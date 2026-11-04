@@ -78,40 +78,6 @@ class HtMysql:
             logger.error(f"MySQL Query Error: {get_general_error_message('DatabaseQuery', e)}")
             return []
 
-    def table_exists(self, table_name: str) -> bool | None:
-        query = "SHOW TABLES LIKE :table"
-        try:
-            with self._get_engine().connect() as conn:
-                result = conn.execute(text(query), {"table": table_name})
-                return result.fetchone() is not None
-        except exc.SQLAlchemyError as e:
-            logger.error(f"Error checking if table exists: {e}")
-            return None
-
-    def insert_batch(self, insert_query: str, batch_values: list[dict[str, Any]]) -> None:
-        try:
-            with self._get_engine().begin() as conn:
-                conn.execute(text(insert_query), batch_values)
-                logger.info(f"Inserted {len(batch_values)} records successfully.")
-        except exc.SQLAlchemyError as e:
-            logger.error(f"Error inserting batch of records: {e}")
-
-    def create_table(self, create_table_sql: str) -> None:
-        try:
-            with self._get_engine().begin() as conn:
-                conn.execute(text(create_table_sql))
-                logger.info("Table created successfully")
-        except exc.SQLAlchemyError as e:
-            logger.error(f"Failed to create table: {e}")
-
-    def update_status(self, update_query: str, update_values: list[dict[str, Any]]) -> None:
-        try:
-            with self._get_engine().begin() as conn:
-                conn.execute(text(update_query), update_values)
-                logger.info(f"Updated {len(update_values)} records successfully.")
-        except exc.SQLAlchemyError as e:
-            logger.error(f"Error updating status: {e}")
-
 
 def get_mysql_conn(pool_size: int = 1) -> HtMysql:
     """Connection info must be provided as environment variables:

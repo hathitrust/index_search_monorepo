@@ -60,7 +60,6 @@ def run(tmp_path: Path) -> SimpleNamespace:
                 input_file,
                 tmp_path / "status.txt",
                 False,
-                MagicMock(),
                 1,
             )
             log_entries = captured_logs
@@ -109,6 +108,7 @@ class TestRunRetrieverServiceByFile:
             assert len(ids2process) == 12
             assert len(processed_ids) == 0
 
+    @pytest.mark.integration
     def test_run_retriever_service_by_file(
         self,
         get_input_file: Path,
@@ -130,7 +130,6 @@ class TestRunRetrieverServiceByFile:
             requeue_message=requeue_message,
         )
 
-        mysql_db = MagicMock()  # Mock MySQL connection
         retrieve_documents_by_file(
             producer_queue_config.queue_params,
             "item",
@@ -141,7 +140,6 @@ class TestRunRetrieverServiceByFile:
             get_input_file,
             status_file,
             False,
-            mysql_db,
             1,
         )
 
@@ -275,7 +273,7 @@ class TestReadIdsFromFile:
 
 class TestRetrieveDocumentsByFileSummary:
     def test_sends_only_valid_unique_ids(self, run: SimpleNamespace) -> None:
-        _, sent_ids, _ = run.service.full_text_search_retriever_service.call_args.args
+        sent_ids, _ = run.service.full_text_search_retriever_service.call_args.args
         assert sorted(sent_ids) == ["mdp.1", "mdp.2", "mdp.3"]
 
     def test_returns_summary(self, run: SimpleNamespace) -> None:

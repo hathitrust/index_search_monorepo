@@ -1,13 +1,10 @@
-from typing import Any, cast
+import contextlib
+from typing import Any
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
-from document_generator.document_generator_service import (
-    FAILURE_UPDATE_STATUS,
-    SUCCESS_UPDATE_STATUS,
-    DocumentGeneratorService,
-)
-from ht_queue_service.queue_producer import MessageTooLargeError
+from document_generator.document_generator_service import DocumentGeneratorService
+from ht_utils.testing import capture_logs, find_log_entry
 
 
 def _make_service_with_mocks(db_conn: Mock) -> DocumentGeneratorService:
@@ -26,201 +23,68 @@ def _make_service_with_mocks(db_conn: Mock) -> DocumentGeneratorService:
     return service
 
 
-class TestDocumentGeneratorServiceMysqlUpdate:
+VALID_MESSAGE: dict[str, Any] = {"ht_id": "mdp.39015078560292"}
+
+
+class TestDocumentGeneratorService:
     def _make_service(self) -> tuple[DocumentGeneratorService, Mock]:
-        # Create a DocumentGeneratorService with a mocked MySQL connection and queue channel.
         db_conn = Mock()
         service = _make_service_with_mocks(db_conn)
         return service, db_conn
 
-    def test_generate_document_success_calls_update_status_with_processing_and_completed(
-        self,
-    ) -> None:
-        # Test that when generate_document is called and succeeds, it calls update_status to update MySQL with
-        # status=processing and generator_status=completed.
-        service, db_conn = self._make_service()
-        message = {"ht_id": "mdp.39015078560292"}
-
-        with patch.object(
-            service, "generate_full_text_entry", return_value={"id": "mdp.39015078560292"}
-        ):
-            with patch.object(service, "publish_document"):
-                service.generate_document(message, delivery_tag=1)
-
-        db_conn.update_status.assert_called_once()
-        query_arg, values_arg = db_conn.update_status.call_args.args
-        assert query_arg == SUCCESS_UPDATE_STATUS
-        update_dict = values_arg[0]
-        assert update_dict["status"] == "processing"
-        assert update_dict["generator_status"] == "completed"
-        assert update_dict["ht_id"] == "mdp.39015078560292"
-
     @pytest.mark.parametrize(
-        ("failing_method", "error", "error_text"),
+        ("failing_method", "error", "expects_ack"),
         [
+            pytest.param(None, None, True, id="success-acks-message"),
             pytest.param(
                 "generate_full_text_entry",
                 FileNotFoundError("zip not found"),
-                "zip not found",
-                id="generation-fails",
-            ),
-            pytest.param(
-                "publish_document",
-                MessageTooLargeError(
-                    "Message mdp.1 size 20 bytes exceeds max_message_size 10 bytes; not published"
-                ),
-                "exceeds max_message_size",
-                id="message-too-large",
+                False,
+                id="failure-rejects-message",
             ),
         ],
     )
-    def test_generate_document_failure_calls_update_status_with_failed_and_failed(
+    def test_generate_document_ack_or_reject(
         self,
-        failing_method: str,
-        error: Exception,
-        error_text: str,
+        failing_method: str | None,
+        error: Exception | None,
+        expects_ack: bool,
     ) -> None:
-        # Test that when generate_document is called and fails, it calls update_status to update MySQL with
-        # status=failed and generator_status=failed, and includes an error message.
-        service, db_conn = self._make_service()
+        service, _ = self._make_service()
         message = {"ht_id": "mdp.39015078560292"}
-
-        with patch.object(
-            service, "generate_full_text_entry", return_value={"id": "mdp.39015078560292"}
-        ):
-            with patch.object(service, failing_method, side_effect=error):
-                service.generate_document(message, delivery_tag=1)
-
-        db_conn.update_status.assert_called_once()
-        query_arg, values_arg = db_conn.update_status.call_args.args
-        assert query_arg == FAILURE_UPDATE_STATUS
-        update_dict = values_arg[0]
-        assert update_dict["status"] == "failed"
-        assert update_dict["generator_status"] == "failed"
-        assert update_dict["ht_id"] == "mdp.39015078560292"
-        assert "error" in update_dict
-        assert update_dict["error"]
-        assert error_text in update_dict["error"]
-
-    def test_generate_document_missing_ht_id_skips_update_status(self) -> None:
-        service, db_conn = self._make_service()
-        # Test that when generate_document is called with a message missing the 'ht_id', it does not update MySQL status.
-        message: dict[str, Any] = {}
-
-        service.generate_document(message, delivery_tag=1)
-
-        db_conn.update_status.assert_not_called()
-
-    def test_generate_document_success_update_placed_after_acknowledge(self) -> None:
-        # Test to check that the generator acknowledges a message to the RabbitMQ before it writes to MySQL.
-        # This is important because if the MySQL write fails, the message should not be requeued and processed again.
-        service, db_conn = self._make_service()
-        message = {"ht_id": "mdp.39015078560292"}
-        call_order: list[str] = []
-
-        def record_ack(*args: object, **kwargs: object) -> None:
-            call_order.append("ack")
-
-        def record_update_status(*args: object, **kwargs: object) -> None:
-            call_order.append("update_status")
-
-        db_conn.update_status.side_effect = record_update_status
-
         with (
-            patch.object(service, "positive_acknowledge", side_effect=record_ack),
             patch.object(
-                service, "generate_full_text_entry", return_value={"id": "mdp.39015078560292"}
+                service,
+                "generate_full_text_entry",
+                return_value={"id": "mdp.39015078560292"},
             ),
             patch.object(service, "publish_document"),
+            patch.object(service, failing_method, side_effect=error)
+            if failing_method
+            else contextlib.nullcontext(),
+            patch.object(service, "positive_acknowledge") as ack,
+            patch.object(service, "reject_message") as reject,
         ):
             service.generate_document(message, delivery_tag=1)
 
-        # The assertion checks that there are exactly 2 calls, the ack first and the status write second.
-        assert call_order == ["ack", "update_status"], (
-            f"Expected ack before update_status, got order: {call_order}"
-        )
+        if expects_ack:
+            ack.assert_called_once()
+            reject.assert_not_called()
+        else:
+            reject.assert_called_once()
+            ack.assert_not_called()
 
-
-class TestGeneratorStatusWriteErrors:
-    # A status write runs after the message is already acked or rejected, so its failure must not
-    # reject an acked message, record a published document as failed, or stop the consume loop.
-    def _make_service(self) -> tuple[DocumentGeneratorService, Mock]:
-        # Create a DocumentGeneratorService with a mocked MySQL connection that raises an error on update_status.
-        # Simulate a failure in the MySQL update_status method to test how the service handles it.
-        db_conn = Mock()
-        db_conn.update_status.side_effect = RuntimeError("MySQL unavailable")
-        service = _make_service_with_mocks(db_conn)
-        return service, db_conn
-
-    def _generate_successfully(self, service: DocumentGeneratorService) -> None:
+    def test_generate_document_failure_logs_error_with_ht_id(self) -> None:
+        service, _ = self._make_service()
         with (
             patch.object(
-                service, "generate_full_text_entry", return_value={"id": "mdp.39015078560292"}
+                service,
+                "generate_full_text_entry",
+                side_effect=FileNotFoundError("zip not found"),
             ),
-            patch.object(service, "publish_document"),
+            capture_logs() as entries,
         ):
-            service.generate_document({"ht_id": "mdp.39015078560292"}, delivery_tag=1)
+            service.generate_document({"ht_id": "mdp.1"}, delivery_tag=1)
 
-    def _generate_with_failure(self, service: DocumentGeneratorService) -> None:
-        with patch.object(
-            service, "generate_full_text_entry", side_effect=FileNotFoundError("zip not found")
-        ):
-            service.generate_document({"ht_id": "mdp.39015078560292"}, delivery_tag=1)
-
-    def test_generate_document_success_status_write_error_does_not_reject_message(self) -> None:
-        # Test that when generate_document succeeds but the MySQL status write fails, it does not reject the message.
-        service, _ = self._make_service()
-
-        self._generate_successfully(service)
-
-        cast(MagicMock, service.channel).basic_reject.assert_not_called()
-
-    def test_generate_document_success_status_write_error_does_not_write_failed_status(
-        self,
-    ) -> None:
-        # Test that when generate_document succeeds but the MySQL status write fails, it does not write a failed status to MySQL.
-        service, db_conn = self._make_service()
-
-        self._generate_successfully(service)
-
-        assert db_conn.update_status.call_args.args[0] == SUCCESS_UPDATE_STATUS
-
-    def test_generate_document_failure_status_write_error_does_not_raise(self) -> None:
-        # Test that when generate_document fails and the MySQL status write also fails, it does not raise an exception.
-        service, db_conn = self._make_service()
-
-        self._generate_with_failure(service)
-
-        db_conn.update_status.assert_called_once()
-        assert db_conn.update_status.call_args.args[0] == FAILURE_UPDATE_STATUS
-        cast(MagicMock, service.channel).basic_reject.assert_called_once()
-
-    # def test_generate_document_failure_status_write_error_still_rejects_message(self) -> None:
-    #    service, _ = self._make_service()
-
-    #    self._generate_with_failure(service)
-
-    #    service.channel.basic_reject.assert_called_once()  # type: ignore[attr-defined]  # Mock attribute
-
-
-class TestGeneratorStatusGuardInSQL:
-    # These tests do not run queries or access MySQL. They pin the shape of the guard.
-    # Only the shared status and error column is guarded, inside SET, so generator_status
-    # is always written. status must be assigned last: MySQL evaluates SET left to right.
-    def test_success_update_status_sql_guards_status_last_and_where_has_no_guard(self) -> None:
-        assert SUCCESS_UPDATE_STATUS.endswith(
-            "status = CASE WHEN status <> 'completed' THEN :status ELSE status END "
-            "WHERE ht_id = :ht_id"
-        )
-
-    def test_failure_update_status_sql_guards_status_last_and_where_has_no_guard(self) -> None:
-        assert FAILURE_UPDATE_STATUS.endswith(
-            "status = CASE WHEN status <> 'completed' THEN :status ELSE status END "
-            "WHERE ht_id = :ht_id"
-        )
-
-    def test_failure_update_status_sql_guards_error_when_row_is_completed(self) -> None:
-        assert (
-            "error = CASE WHEN status <> 'completed' THEN :error ELSE error END"
-            in FAILURE_UPDATE_STATUS
-        )
+        entry = find_log_entry(entries, event="document failed", ht_id="mdp.1")
+        assert "zip not found" in str(entry["error"])
