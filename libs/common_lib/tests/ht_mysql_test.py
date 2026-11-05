@@ -117,19 +117,19 @@ class TestHtMysql:
         with pytest.raises(sqlalchemy.exc.SQLAlchemyError, match="boom"):
             ht_mysql.query_mysql("SELECT 1")
 
-    @patch("ht_utils.ht_mysql.create_engine")
-    def test_query_mysql_logs_error_without_credentials(
-        self, mock_create_engine: MagicMock
-    ) -> None:
-        ht_mysql = get_mysql_conn()
-        mock_create_engine.return_value.connect.side_effect = sqlalchemy.exc.SQLAlchemyError("boom")
+    def test_connection_error_is_logged_and_raised_without_the_password(self) -> None:
+        # Real mysql-connector error (no mock): nothing is listening for these made-up
+        # credentials, so the driver refuses or rejects the connection. The password is
+        # deliberately different from the username so a leak can't hide behind it.
+        secret = "S3cr3t-Pa55word-do-not-log"
 
-        with capture_logs() as entries, pytest.raises(sqlalchemy.exc.SQLAlchemyError):
-            ht_mysql.query_mysql("SELECT 1")
+        with capture_logs() as entries, pytest.raises(sqlalchemy.exc.SQLAlchemyError) as exc_info:
+            HtMysql("localhost", "some-user", secret, "some_database")
 
         errors = [e for e in entries if e["log_level"] == "error"]
         assert errors
-        assert all("test-pass" not in str(e) for e in errors)
+        assert all(secret not in str(e) for e in errors)
+        assert secret not in str(exc_info.value)
 
     def test_query_mysql_raises_when_connection_pool_is_exhausted(self) -> None:
         # A real (SQLite) pool of one connection with no overflow: the second caller waits
