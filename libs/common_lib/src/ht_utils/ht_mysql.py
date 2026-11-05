@@ -66,11 +66,11 @@ class HtMysql:
             matched no rows
         :raises sqlalchemy.exc.SQLAlchemyError: if the query fails, so callers can tell an
             error from an empty result
+        :raises ValueError: if the query is empty or blank (a caller bug, not "no rows")
         """
 
-        if not query:
-            logger.error("Please pass the valid query")
-            return []
+        if not query or not query.strip():
+            raise ValueError("query must not be empty")
         try:
             with self._get_engine().connect() as conn:
                 result = conn.execute(text(query), params or {})

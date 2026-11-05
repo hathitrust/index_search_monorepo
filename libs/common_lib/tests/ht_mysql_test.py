@@ -99,13 +99,18 @@ class TestHtMysql:
 
         assert len(created_engines) == 1
 
+    @pytest.mark.parametrize("blank_query", ["", "   ", "\n\t"])
     @patch("ht_utils.ht_mysql.create_engine")
-    def test_query_mysql_returns_empty_list_for_blank_query(
-        self, mock_create_engine: MagicMock
+    def test_query_mysql_raises_for_blank_query(
+        self, mock_create_engine: MagicMock, blank_query: str
     ) -> None:
         ht_mysql = get_mysql_conn()
 
-        assert ht_mysql.query_mysql("") == []
+        with pytest.raises(ValueError, match="must not be empty"):
+            ht_mysql.query_mysql(blank_query)
+
+        # A blank query is rejected before any connection is used
+        mock_create_engine.return_value.connect.assert_called_once()  # only the constructor's check
 
     @patch("ht_utils.ht_mysql.create_engine")
     def test_query_mysql_raises_on_sqlalchemy_error(self, mock_create_engine: MagicMock) -> None:
