@@ -24,3 +24,4 @@ coverage.xml
 .vscode/
 .devcontainer/
 .editorconfig
+app/data_operations/src/kbart_file_generator/output/

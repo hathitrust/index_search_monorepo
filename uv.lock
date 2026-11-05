@@ -3,10 +3,10 @@ revision = 5
 requires-python = ">=3.14"
 resolution-markers = [
     "python_full_version >= '3.15' and sys_platform == 'win32'",
-    "python_full_version < '3.15' and sys_platform == 'win32'",
     "python_full_version >= '3.15' and sys_platform == 'emscripten'",
-    "python_full_version < '3.15' and sys_platform == 'emscripten'",
     "python_full_version >= '3.15' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version < '3.15' and sys_platform == 'win32'",
+    "python_full_version < '3.15' and sys_platform == 'emscripten'",
     "python_full_version < '3.15' and sys_platform != 'emscripten' and sys_platform != 'win32'",
 ]
 
@@ -397,6 +397,7 @@ version = "0.1.0"
 source = { editable = "app/data_operations" }
 default-groups = "all"
 dependencies = [
+    { name = "click" },
     { name = "ht-utils" },
     { name = "pyyaml" },
 ]
@@ -408,6 +409,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "click", specifier = ">=8.5.0,<9" },
     { name = "ht-utils", editable = "libs/common_lib" },
     { name = "pyyaml", specifier = ">=6.0.3,<7" },
 ]

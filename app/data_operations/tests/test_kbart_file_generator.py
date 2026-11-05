@@ -1,247 +1,314 @@
-import csv
-from collections.abc import Sequence
+import json
+import tempfile
+from datetime import date
 from pathlib import Path
-from typing import Any
 
-import kbart_file_generator.kbart_file_generator as kbart_module
 import pytest
-import sqlalchemy.exc
-from ht_utils.testing import capture_logs
-from kbart_file_generator.kbart_file_generator import (
-    KBART_COLUMN_ORDER,
-    build_kbart_row,
-    fetch_lookup_results_in_parallel,
-    fetch_title_dates_from_mysql_batch,
-    generate_kbart_rows,
-    read_catalog_ids,
-)
+from dotenv import load_dotenv
+from kbart_file_generator.kbart_file_generator import KBART_COLUMN_ORDER, KBARTFileGenerator
+
+load_dotenv()
 
 
-def write_holdings_report(path: Path, rows: list[dict[str, str]], fieldnames: list[str]) -> Path:
-    with path.open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=fieldnames, delimiter="\t")
-        writer.writeheader()
-        writer.writerows(rows)
-    return path
+@pytest.mark.integration
+def test_kbart_generator_integration() -> None:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        output_path = Path(tmpdir)
+        file_prefix = f"kbart_umich_{date.today()}"
+
+        (rows, errors) = KBARTFileGenerator(
+            inst_id="umich", output_path=output_path, batch_size=1000
+        ).generate_kbart_export()
+        # Actual rows: 1000
+        assert rows > 1000
+        assert errors == 0
+
+        assert (output_path / f"{file_prefix}.tsv").exists()
+        assert (output_path / f"{file_prefix}.metadata.json").exists()
+
+        with open(output_path / f"{file_prefix}.metadata.json") as json_fh:
+            data = json.load(json_fh)
+            assert data["inst_id"] == "umich"
+            assert data["written_rows"] == rows
+            assert data["skipped_rows"] == errors
+
+        with open(output_path / f"{file_prefix}.tsv") as tsv_fh:
+            header = tsv_fh.readline()
+            assert header.startswith("publication_title\t")
+            assert len(tsv_fh.readlines()) == rows
 
 
-def test_read_catalog_ids_deduplicates_and_preserves_order(tmp_path: Path) -> None:
-    report_path = write_holdings_report(
-        tmp_path / "holdings.tsv",
-        rows=[
-            {"catalog_id": "0009040", "volume_id": "a"},
-            {"catalog_id": "0009040", "volume_id": "b"},
-            {"catalog_id": " 127531 ", "volume_id": "c"},
-            {"catalog_id": "", "volume_id": "d"},
-            {"catalog_id": "140237", "volume_id": "e"},
-        ],
-        fieldnames=["catalog_id", "volume_id"],
+def test_build_kbart_row_maps_solr_fields_to_expected_columns_for_non_english() -> None:
+
+    row = KBARTFileGenerator.build_kbart_row(
+        {
+            "id": "006288731",
+            "format": ["Book"],
+            "oclc": ["148105100"],
+            "mainauthor": ["Murasaki Shikibu, b. 978?", "紫式部, b. 978?"],
+            "title": ["Genji monogatari kogetsu shō"],
+            "vtitle": "源氏物語湖月抄",
+            "title_display": "Genji monogatari kogetsu shō / [Murasaki Shikibu gencho] Kitamura Kigin cho (源氏物語湖月抄 / [紫式部原著] ; 北村季吟著)",
+            "display_date": "1926",
+            "publisher": ["Bunken Shoin,", "文献書院,"],
+            "ht_id_display": [
+                "uc1.b3402480|20260816|v. 1|1929|1920-1929|||Genji monogatari kogetsu shō / [Murasaki Shikibu gencho] Kitamura Kigin cho (源氏物語湖月抄 / [紫式部原著] ; 北村季吟著), v. 1",
+                "uc1.b3402481|20260816|v. 2|1929|1920-1929|||Genji monogatari kogetsu shō / [Murasaki Shikibu gencho] Kitamura Kigin cho (源氏物語湖月抄 / [紫式部原著] ; 北村季吟著), v. 2",
+                "uc1.b3402482|20260811|v. 3|1929|1920-1929|||Genji monogatari kogetsu shō / [Murasaki Shikibu gencho] Kitamura Kigin cho (源氏物語湖月抄 / [紫式部原著] ; 北村季吟著), v. 3",
+                "uc1.b3402483|20260816|v. 4|1929|1920-1929|||Genji monogatari kogetsu shō / [Murasaki Shikibu gencho] Kitamura Kigin cho (源氏物語湖月抄 / [紫式部原著] ; 北村季吟著), v. 4",
+                "uc1.b3402484|20250117|v. 5|1929|1920-1929|||Genji monogatari kogetsu shō / [Murasaki Shikibu gencho] Kitamura Kigin cho (源氏物語湖月抄 / [紫式部原著] ; 北村季吟著), v. 5",
+                "uc1.b3402485|20260810|v. 6|1929|1920-1929|||Genji monogatari kogetsu shō / [Murasaki Shikibu gencho] Kitamura Kigin cho (源氏物語湖月抄 / [紫式部原著] ; 北村季吟著), v. 6",
+                "uc1.b3402514|20260810|v. 7|1929|1920-1929|||Genji monogatari kogetsu shō / [Murasaki Shikibu gencho] Kitamura Kigin cho (源氏物語湖月抄 / [紫式部原著] ; 北村季吟著), v. 7",
+            ],
+        }
     )
 
-    assert read_catalog_ids(report_path) == ["0009040", "127531", "140237"]
+    assert list(row) == KBART_COLUMN_ORDER
+    assert row == {
+        "publication_title": "Genji monogatari kogetsu shō",
+        "alternate_publication_title": "源氏物語湖月抄",
+        "alternate_title_type": "parallel",
+        "print_identifier": "",
+        "online_identifier": "",
+        "date_first_issue_online": "",
+        "num_first_vol_online": "",
+        "num_first_issue_online": "",
+        "date_last_issue_online": "",
+        "num_last_vol_online": "",
+        "num_last_issue_online": "",
+        "title_url": "https://catalog.hathitrust.org/Record/6288731",
+        "contributor": "Murasaki Shikibu, b. 978?",
+        "contributor_type": "author",
+        "title_id": "6288731",
+        "embargo_info": "",
+        "coverage_depth": "full",
+        "notes": "Access is variable and dependent on resource sharing participation",
+        "publisher_name": "Bunken Shoin, 文献書院",
+        "publication_type": "monograph",
+        "content_type": "text",
+        "date_monograph_published_print": "1926",
+        "date_monograph_published_online": "",
+        "monograph_volume": "",
+        "monograph_edition": "",
+        "duration": "",
+        "parent_publication_title_id": "",
+        "preceding_publication_title_id": "",
+        "access_type": "M",
+        "oclc": "148105100",
+    }
 
 
-def test_build_kbart_row_maps_solr_fields_to_expected_columns() -> None:
-    row = build_kbart_row(
+def test_build_kbart_row_maps_solr_fields_to_expected_columns_for_monograph_with_edition() -> None:
+    row = KBARTFileGenerator.build_kbart_row(
         {
-            "id": "0009040",
+            "id": "000631817",
+            "format": ["Book"],
+            "oclc": ["13759846"],
+            "isbn": ["9780394536392", "0394536398"],
+            "mainauthor": ["Choate, Pat."],
+            "title": ["The high-flex society : shaping America's economic future"],
+            "title_display": "The high-flex society : shaping America's economic future / by Pat Choate, and J.K. Linger",
+            "display_date": "1986",
+            "publisher": ["Knopf,"],
+            "edition": ["1st ed."],
+            "ht_id_display": [
+                "uc1.b4397043|20250226||1986|1980-1989|||The high-flex society : shaping America's economic future / by Pat Choate, and J.K. Linger",
+                "mdp.39015018649148|20261004||1986|1980-1989|||The high-flex society : shaping America's economic future / by Pat Choate, and J.K. Linger",
+            ],
+        }
+    )
+
+    assert list(row) == KBART_COLUMN_ORDER
+    assert row == {
+        "publication_title": "The high-flex society : shaping America's economic future / by Pat Choate, and J.K. Linger",
+        "alternate_publication_title": "",
+        "alternate_title_type": "",
+        "print_identifier": "9780394536392",
+        "online_identifier": "",
+        "date_first_issue_online": "",
+        "num_first_vol_online": "",
+        "num_first_issue_online": "",
+        "date_last_issue_online": "",
+        "num_last_vol_online": "",
+        "num_last_issue_online": "",
+        "title_url": "https://catalog.hathitrust.org/Record/631817",
+        "contributor": "Choate, Pat.",
+        "contributor_type": "author",
+        "title_id": "631817",
+        "embargo_info": "",
+        "coverage_depth": "full",
+        "notes": "Access is variable and dependent on resource sharing participation",
+        "publisher_name": "Knopf",
+        "publication_type": "monograph",
+        "content_type": "text",
+        "date_monograph_published_print": "1986",
+        "date_monograph_published_online": "",
+        "monograph_volume": "",
+        "monograph_edition": "1st ed.",
+        "duration": "",
+        "parent_publication_title_id": "",
+        "preceding_publication_title_id": "",
+        "access_type": "M",
+        "oclc": "13759846",
+    }
+
+
+def test_build_kbart_row_maps_solr_fields_to_expected_columns_for_monograph() -> None:
+    row = KBARTFileGenerator.build_kbart_row(
+        {
+            "id": "000000240",
+            "format": ["Book"],
+            "oclc": ["22703"],
+            "isbn": ["9780822931782", "0822931788"],
+            "mainauthor": ["Parrini, Carl P."],
+            "title": ["Heir to empire: United States economic diplomacy, 1916-1923"],
+            "title_display": "Heir to empire: United States economic diplomacy, 1916-1923 [by] Carl P. Parrini",
+            "display_date": "1969",
+            "publisher": ["University of Pittsburg Press"],
+            "ht_id_display": [
+                "uc1.b4912432|20250320||1969|1960-1969|||Heir to empire: United States economic diplomacy, 1916-1923 [by] Carl P. Parrini"
+            ],
+        }
+    )
+    assert list(row) == KBART_COLUMN_ORDER
+    assert row == {
+        "publication_title": "Heir to empire: United States economic diplomacy, 1916-1923 [by] Carl P. Parrini",
+        "alternate_publication_title": "",
+        "alternate_title_type": "",
+        "print_identifier": "9780822931782",
+        "online_identifier": "",
+        "date_first_issue_online": "",
+        "num_first_vol_online": "",
+        "num_first_issue_online": "",
+        "date_last_issue_online": "",
+        "num_last_vol_online": "",
+        "num_last_issue_online": "",
+        "title_url": "https://catalog.hathitrust.org/Record/240",
+        "contributor": "Parrini, Carl P.",
+        "contributor_type": "author",
+        "title_id": "240",
+        "embargo_info": "",
+        "coverage_depth": "full",
+        "notes": "Access is variable and dependent on resource sharing participation",
+        "publisher_name": "University of Pittsburg Press",
+        "publication_type": "monograph",
+        "content_type": "text",
+        "date_monograph_published_print": "1969",
+        "date_monograph_published_online": "",
+        "monograph_volume": "",
+        "monograph_edition": "",
+        "duration": "",
+        "parent_publication_title_id": "",
+        "preceding_publication_title_id": "",
+        "access_type": "M",
+        "oclc": "22703",
+    }
+
+
+def test_build_kbart_row_maps_solr_fields_to_expected_columns_for_serial() -> None:
+    row = KBARTFileGenerator.build_kbart_row(
+        # from: curl "$CATALOG_SOLR_RO_URL/query?q=id:000045279&fl=id,title_display,title,vtitle,isbn,issn,mainauthor,publisher,oclc,ht_id_display,format,edition&wt=python"
+        {
+            "id": "000045279",
+            "format": ["Serial", "Journal"],
+            "oclc": ["8731707"],
+            "issn": ["0734-0664"],
+            "title": ["Gerodontology"],
             "title_display": "Gerodontology",
-            "isbn": ["07340664", "11111111"],
-            "mainauthor": "Beech Hill Enterprises",
+            "display_date": "1982",
             "publisher": ["Beech Hill Enterprises,"],
-            "oclc": ["8731707", "9999999"],
-            "display_date": "1990",
-        },
-        {
-            "date_first_issue_online": "2001",
-            "date_last_issue_online": "2005",
-            "bib_fmt": "SE",
-        },
+            "ht_id_display": [
+                "uc1.31158011383618|20130809|v.02 yr.1983|1983|1980-1989|||Gerodontology, v.02 yr.1983",
+                "uc1.31158011385407|20130809|v.04 yr.1985|1985|1980-1989|||Gerodontology, v.04 yr.1985",
+                "uc1.31158012088026|20130809|v.05 yr.1986|1986|1980-1989|||Gerodontology, v.05 yr.1986",
+                "uc1.l0051309250|20130809|v.06 yr.1987|1987|1980-1989|||Gerodontology, v.06 yr.1987",
+                "uc1.l0061540274|20130809|v.07 yr.1988|1988|1980-1989|||Gerodontology, v.07 yr.1988",
+                "uc1.l0061132213|20130809|v.08 yr.1989|1989|1980-1989|||Gerodontology, v.08 yr.1989",
+                "uc1.l0067454678|20130809|v.09 yr.1990|1990|1990-1999|||Gerodontology, v.09 yr.1990",
+                "uc1.l0078148681|20130809|v.10 no.1-2 yr.1993|1993|1990-1999|||Gerodontology, v.10 no.1-2 yr.1993",
+            ],
+        }
     )
 
     assert list(row) == KBART_COLUMN_ORDER
     assert row == {
         "publication_title": "Gerodontology",
-        "print_identifier": "07340664",
+        "alternate_publication_title": "",
+        "alternate_title_type": "",
+        "print_identifier": "0734-0664",
         "online_identifier": "",
-        "date_first_issue_online": "2001",
+        "date_first_issue_online": "1983",
         "num_first_vol_online": "",
         "num_first_issue_online": "",
-        "date_last_issue_online": "2005",
+        "date_last_issue_online": "1993",
         "num_last_vol_online": "",
         "num_last_issue_online": "",
-        "title_url": "https://catalog.hathitrust.org/Record/9040",
-        "first author": "Beech Hill Enterprises",
-        "title_id": "9040",
+        "title_url": "https://catalog.hathitrust.org/Record/45279",
+        "contributor": "",
+        "contributor_type": "",
+        "title_id": "45279",
         "embargo_info": "",
-        "coverage_depth": "",
-        "coverage_notes": "",
-        "publisher_name": "Beech Hill Enterprises,",
-        "oclc_number": "8731707",
+        "coverage_depth": "full",
+        "notes": "Access is variable and dependent on resource sharing participation",
+        "publisher_name": "Beech Hill Enterprises",
+        "publication_type": "serial",
+        "content_type": "text",
+        "date_monograph_published_print": "",
+        "date_monograph_published_online": "",
+        "monograph_volume": "",
+        "monograph_edition": "",
+        "duration": "",
+        "parent_publication_title_id": "",
+        "preceding_publication_title_id": "",
+        "access_type": "M",
+        "oclc": "8731707",
     }
 
 
-def test_fetch_title_dates_from_mysql_batch_queries_one_batch(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    captured_queries: list[tuple[str, dict[str, str]]] = []
-
-    class FakeMysqlConnection:
-        def query_mysql(
-            self, query: str, params: dict[str, str] | None = None
-        ) -> list[dict[str, object]]:
-            captured_queries.append((query, params or {}))
-            if params == {"bib_num_0": "101703357", "bib_num_1": "000127531"}:
-                return [
-                    {
-                        "bib_num": "101703357",
-                        "date_first_issue_online": "2001",
-                        "date_last_issue_online": "2005",
-                    }
-                ]
-            return [
-                {
-                    "bib_num": "000140237",
-                    "date_first_issue_online": "1998",
-                    "date_last_issue_online": "1999",
-                }
-            ]
-
-    fake_conn = FakeMysqlConnection()
-
-    results = fetch_title_dates_from_mysql_batch(["101703357", "000127531"], fake_conn)
-
-    assert len(captured_queries) == 1
-    assert "MIN(rights_date_used) AS date_first_issue_online" in captured_queries[0][0]
-    assert "MAX(rights_date_used) AS date_last_issue_online" in captured_queries[0][0]
-    assert results == {
-        "101703357": {
-            "bib_num": "101703357",
-            "date_first_issue_online": "2001",
-            "date_last_issue_online": "2005",
-        },
-    }
+def test_extract_dates_gets_min_and_max() -> None:
+    assert KBARTFileGenerator.extract_dates(
+        ["test.1|||1936||||", "test.2|||1937||||", "test.3|||1938||||"]
+    ) == ("1936", "1938")
+    pass
 
 
-def test_fetch_title_dates_from_mysql_batch_returns_empty_dict_when_no_rows_match() -> None:
-    class FakeMysqlConnection:
-        def query_mysql(
-            self, query: str, params: dict[str, str] | None = None
-        ) -> list[dict[str, object]]:
-            return []
-
-    assert fetch_title_dates_from_mysql_batch(["101703357"], FakeMysqlConnection()) == {}
+def test_extract_dates_ignores_empty() -> None:
+    assert KBARTFileGenerator.extract_dates(
+        ["test.1|||||||", "test.2|||1980||||", "test.3|||1990||||"]
+    ) == ("1980", "1990")
 
 
-@pytest.fixture
-def failing_mysql_conn() -> Any:
-    """A MySQL connection whose query_mysql always raises, as when the database is down."""
-
-    class FailingMysqlConnection:
-        def query_mysql(
-            self, query: str, params: dict[str, str] | None = None
-        ) -> list[dict[str, object]]:
-            raise sqlalchemy.exc.SQLAlchemyError("mysql down")
-
-    return FailingMysqlConnection()
+def test_extract_dates_ignores_9999() -> None:
+    assert KBARTFileGenerator.extract_dates(
+        ["test.1|||9999||||", "test.2|||1980||||", "test.3|||1990||||"]
+    ) == ("1980", "1990")
 
 
-def test_fetch_title_dates_from_mysql_batch_raises_and_logs_catalog_ids_on_mysql_error(
-    failing_mysql_conn: Any,
-) -> None:
-    with (
-        capture_logs() as entries,
-        pytest.raises(sqlalchemy.exc.SQLAlchemyError, match="mysql down"),
-    ):
-        fetch_title_dates_from_mysql_batch(["101703357", "000127531"], failing_mysql_conn)
-
-    errors = [e for e in entries if e["log_level"] == "error"]
-    assert errors
-    assert "101703357, 000127531" in str(errors[0])
+def test_extract_dates_ignores_malformed() -> None:
+    assert KBARTFileGenerator.extract_dates(
+        ["test.1|||notadate||||", "test.2|||1980||||", "test.3|||1990||||"]
+    ) == ("1980", "1990")
 
 
-def test_fetch_lookup_results_in_parallel_aborts_when_mysql_fails(
-    monkeypatch: pytest.MonkeyPatch, failing_mysql_conn: Any
-) -> None:
-    """A MySQL error must stop the export, not produce rows with missing dates."""
-
-    monkeypatch.setattr(kbart_module, "get_mysql_conn", lambda pool_size: failing_mysql_conn)
-    monkeypatch.setattr(kbart_module, "fetch_title_metadata_from_solr_batch", lambda batch: {})
-
-    with pytest.raises(sqlalchemy.exc.SQLAlchemyError, match="mysql down"):
-        fetch_lookup_results_in_parallel(["101703357"])
+def test_extract_dates_ignores_non_four_digit() -> None:
+    assert KBARTFileGenerator.extract_dates(
+        ["test.1|||999||||", "test.2|||1980||||", "test.3|||20001||||"]
+    ) == ("1980", "1980")
 
 
-def test_main_stops_and_writes_no_output_when_mysql_fails(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failing_mysql_conn: Any
-) -> None:
-    """The error escapes main() (Python then exits non-zero) and no partial KBART file,
-    summary or error report is left behind."""
-
-    input_file = write_holdings_report(
-        tmp_path / "holdings.tsv", [{"catalog_id": "101703357"}], ["catalog_id"]
-    )
-    output_file = tmp_path / "kbart.tsv"
-    metadata_file = tmp_path / "kbart.metadata.json"
-    error_file = tmp_path / "kbart.errors.tsv"
-    monkeypatch.setattr(
-        "sys.argv",
+def test_extract_dates_returns_same_for_min_max_with_one() -> None:
+    assert KBARTFileGenerator.extract_dates(
         [
-            "kbart_file_generator",
-            "--input-file", str(input_file),
-            "--output-file", str(output_file),
-            "--metadata-file", str(metadata_file),
-            "--error-file", str(error_file),
-        ],
-    )  # fmt: skip
-    monkeypatch.setattr(kbart_module, "get_mysql_conn", lambda pool_size: failing_mysql_conn)
-    monkeypatch.setattr(kbart_module, "fetch_title_metadata_from_solr_batch", lambda batch: {})
-
-    with pytest.raises(sqlalchemy.exc.SQLAlchemyError, match="mysql down"):
-        kbart_module.main()
-
-    assert not output_file.exists()
-    assert not metadata_file.exists()
-    assert not error_file.exists()
+            "test.1|||1872||||",
+        ]
+    ) == ("1872", "1872")
 
 
-def test_generate_kbart_rows_matches_zero_padded_ids_to_stripped_lookup_keys(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Lookup results are keyed by catalog id with leading zeros stripped; catalog_ids from
-    the input file are zero-padded."""
-
-    def fake_fetch_lookup_results_in_parallel(
-        catalog_ids: Sequence[str], batch_size: int = 100
-    ) -> tuple[dict[str, dict[str, object]], dict[str, dict[str, object]]]:
-        return (
-            {
-                "9040": {
-                    "id": "0009040",
-                    "title_display": "Gerodontology",
-                    "isbn": ["07340664"],
-                    "mainauthor": "Beech Hill Enterprises",
-                    "publisher": ["Beech Hill Enterprises,"],
-                    "oclc": ["8731707"],
-                },
-            },
-            {
-                "9040": {
-                    "date_first_issue_online": "2001",
-                    "date_last_issue_online": "2005",
-                    "bib_fmt": "SE",
-                },
-            },
-        )
-
-    monkeypatch.setattr(
-        kbart_module, "fetch_lookup_results_in_parallel", fake_fetch_lookup_results_in_parallel
-    )
-
-    rows, errors = generate_kbart_rows(["0009040"])
-
-    assert errors == []
-    assert len(rows) == 1
-    assert rows[0]["title_id"] == "9040"
-    assert rows[0]["publication_title"] == "Gerodontology"
-    assert rows[0]["date_first_issue_online"] == "2001"
+def test_extract_dates_returns_empty_string_without_good_dates() -> None:
+    assert KBARTFileGenerator.extract_dates(
+        [
+            "test.1|||||||",
+            "test.2|||9999||||",
+            "test.3|||baddate||||",
+        ]
+    ) == ("", "")
