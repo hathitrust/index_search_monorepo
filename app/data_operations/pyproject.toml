@@ -15,7 +15,8 @@ classifiers = [
 ]
 dependencies = [
     "ht-utils",
-    "pyyaml>=6.0.3,<7"
+    "pyyaml>=6.0.3,<7",
+    "regex>=2026.9.29",
 ]
 
 [dependency-groups]

@@ -1,38 +1,33 @@
-"""Generate a KBART TSV from a holdings report keyed by catalog_id."""
+"""Generate a KBART 3.0 TSV given an organization ID"""
 
 from __future__ import annotations
 
-import argparse
 import base64
 import csv
 import json
-import multiprocessing
-import os
-from collections.abc import Mapping, Sequence
-from concurrent.futures import Future, ThreadPoolExecutor, as_completed
+from collections.abc import Generator, Mapping, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
+import click
+import regex
 from ht_utils.ht_env_config import HtEnvConfig
 from ht_utils.ht_logger import get_ht_logger
-from ht_utils.ht_mysql import HtMysql, get_mysql_conn
 from ht_utils.ht_utils import (
-    normalize_catalog_id_pad_zeros,
     normalize_catalog_id_stripped_zeros,
-    split_into_batches,
     write_metadata_summary,
-    write_tsv,
 )
-from ht_utils.query_maker import make_solr_term_query
 from ht_utils.text_processor import first_value, list_values
 
 logger = get_ht_logger(name=__name__)
 
 KBART_COLUMN_ORDER = [
     "publication_title",
+    "alternate_publication_title",
+    "alternate_title_type",
     "print_identifier",
     "online_identifier",
     "date_first_issue_online",
@@ -42,13 +37,24 @@ KBART_COLUMN_ORDER = [
     "num_last_vol_online",
     "num_last_issue_online",
     "title_url",
-    "first author",
+    "contributor",
+    "contributor_type",
     "title_id",
     "embargo_info",
     "coverage_depth",
-    "coverage_notes",
+    "notes",
     "publisher_name",
-    "oclc_number",
+    "publication_type",
+    "content_type",
+    "date_monograph_published_print",
+    "date_monograph_published_online",
+    "monograph_volume",
+    "monograph_edition",
+    "duration",
+    "parent_publication_title_id",
+    "preceding_publication_title_id",
+    "access_type",
+    "oclc",
 ]
 
 MAX_WORKERS = 20
@@ -62,63 +68,63 @@ DEFAULT_BATCH_SIZE = 100
 SOLR_FIELDS = [
     "id",
     "title_display",
+    "title",
+    "vtitle",
     "isbn",
     "issn",
     "mainauthor",
     "publisher",
     "oclc",
+    "display_date",
+    "ht_id_display",
+    "format",
+    "edition",
 ]
 
-
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Generate a KBART TSV from a holdings report.")
-    parser.add_argument(
-        "--input-file", "-f", type=Path, default=DEFAULT_INPUT_FILE, help="Input holdings TSV path."
+@click.command()
+@click.option("--inst-id", type=str, help="Institution ID to generate a report for.")
+@click.option(
+    "--output-file", "-o", type=Path, default=DEFAULT_OUTPUT_FILE, help="Output KBART TSV path."
+)
+@click.option(
+    "--metadata-file",
+    "-m",
+    type=Path,
+    default=DEFAULT_METADATA_FILE,
+    help="JSON summary sidecar path.",
+)
+@click.option(
+    "--error-file",
+    "-e",
+    type=Path,
+    default=DEFAULT_ERROR_FILE,
+    help="TSV error sidecar path.",
+)
+@click.option(
+    "--batch-size",
+    type=int,
+    default=DEFAULT_BATCH_SIZE,
+    help="Maximum number of rows to fetch per Solr request.",
+)
+def main(
+    output_file: Path, metadata_file: Path, error_file: Path, batch_size: int, inst_id: str
+) -> None:
+    """Generate a KBART TSV from solr records for a given institution."""
+    logger.info(f"Generating KBART report for {inst_id}")
+    logger.info(f"Output to {output_file}")
+    logger.info(f"Summary in {metadata_file}")
+    logger.info(f"Errors in {error_file}")
+    logger.info(f"Querying solr in batches of {batch_size}")
+    row_count, error_count = generate_kbart_export(
+        inst_id,
+        output_file,
+        metadata_file,
+        error_file,
+        batch_size=batch_size,
     )
-    parser.add_argument(
-        "--output-file", "-o", type=Path, default=DEFAULT_OUTPUT_FILE, help="Output KBART TSV path."
-    )
-    parser.add_argument(
-        "--metadata-file",
-        "-m",
-        type=Path,
-        default=DEFAULT_METADATA_FILE,
-        help="JSON summary sidecar path.",
-    )
-    parser.add_argument(
-        "--error-file",
-        "-e",
-        type=Path,
-        default=DEFAULT_ERROR_FILE,
-        help="TSV error sidecar path.",
-    )
-    parser.add_argument(
-        "--batch-size",
-        type=int,
-        default=DEFAULT_BATCH_SIZE,
-        help="Maximum number of catalog_ids to include per Solr request.",
-    )
-    parser.add_argument(
-        "--env", default=os.environ.get("HT_ENVIRONMENT", "dev"), help="Lookup environment."
-    )
-    return parser.parse_args()
-
-
-def read_catalog_ids(path: Path) -> list[str]:
-
-    if not path.exists():
-        raise FileNotFoundError(f"Cannot find holdings report at {path}")
-    with path.open("r", encoding="utf-8", newline="") as handle:
-        reader = csv.DictReader(handle, delimiter="\t")
-        if reader.fieldnames is None or "catalog_id" not in reader.fieldnames:
-            raise ValueError(f"Holdings report {path} is missing required column 'catalog_id'")
-
-        ordered_catalog_ids: dict[str, None] = {}
-        for row in reader:
-            catalog_id = (row.get("catalog_id") or "").strip()
-            if catalog_id:
-                ordered_catalog_ids.setdefault(catalog_id, None)
-    return list(ordered_catalog_ids)
+    logger.info("Generated %d KBART rows", row_count)
+    if error_count > 0:
+        logger.warning("Skipped %d catalog_ids during KBART generation", error_count)
 
 
 def filter_out_dates(value: str) -> str:
@@ -141,257 +147,231 @@ def check_bib_fmt_field(title_dates: Mapping[str, object] | None) -> str:
         return filter_out_dates(first_value((title_dates or {}).get("date_last_issue_online")))
 
 
+def extract_dates(ht_id_display: Sequence[str]) -> tuple[str, str]:
+    """returns the earliest & latest dates from the items in a record"""
+
+    # data is an array of strings like
+    # "uc1.b3753482|20260925|v.1 1937|1937|1930-1939|||Archives d'ophtalmologie et revue générale d'ophtalmologie, v.1 1937"
+    # fields are pipe-separated; fields are:
+    #
+    # htid
+    # last_update_date
+    # enum_chron
+    # enum_pubdate
+    # enum_pubdate_range
+    # title_sortkey
+    # author_sortkey
+    # dtitle
+    #
+    # we only care about enum_pubdate
+
+    dates = [item_info.split("|")[3] for item_info in ht_id_display]
+    return filter_out_dates(min(dates)), filter_out_dates(max(dates))
+
+
 def build_kbart_row(
     metadata: Mapping[str, object],
-    title_dates: Mapping[str, object] | None = None,
 ) -> dict[str, str]:
     raw_id = first_value(metadata.get("id"))
     title_id = normalize_catalog_id_stripped_zeros(raw_id)
     identifiers = list_values(metadata.get("isbn")) or list_values(metadata.get("issn"))
-    # solr field value: publisher
-    publisher_name = first_value(metadata.get("publisher"))
-    # first value present in solr field oclc
+    # remove trailing punctuation
+    publisher_name = regex.sub(r"\p{Punctuation}*$", "", first_value(metadata.get("publisher")))
     oclc_number = first_value(metadata.get("oclc"))
+    title_display = first_value(metadata.get("title_display"))
+    title = first_value(metadata.get("title"))
+    vtitle = first_value(metadata.get("vtitle"))
+    mainauthor = (first_value(metadata.get("mainauthor")),)
+    (min_date, max_date) = extract_dates(metadata.get("ht_id_display"))
+    is_serial = "Serial" in metadata.get("format")
+    is_monograph = "Book" in metadata.get("format")
 
     return {
-        # value of solr field: title_display
-        "publication_title": first_value(metadata.get("title_display")),
+        # value of solr field: title_display; if solr field 'vtitle' is present, only use field: title
+        "publication_title": title if vtitle else title_display,
+        # vtitle if present (or empty)
+        "alternate_publication_title": vtitle,
+        # when 'vtitle' field in solr, use value 'parallel'
+        "alternate_title_type": "parallel" if vtitle else "",
         # value of solr isbn or issn.  Where multiple values, select only first value
         "print_identifier": first_value(identifiers),
+        # null
         "online_identifier": "",
-        "date_first_issue_online": filter_out_dates(
-            first_value((title_dates or {}).get("date_first_issue_online"))
-        ),
+        # When we have year values, in the 974$y, especially for serials and MPMs, are we able to identify the earliest of those values? If so, use that value; if not, use solr display_date
+        "date_first_issue_online": min_date,
+        # null
         "num_first_vol_online": "",
+        # null
         "num_first_issue_online": "",
-        "date_last_issue_online": check_bib_fmt_field(title_dates),
+        # Similar to date_first, if we are able to identify the most recent year value, use that. If not, leave blank
+        "date_last_issue_online": max_date,
+        # null
         "num_last_vol_online": "",
+        # null
         "num_last_issue_online": "",
+        # Use the solr value of id, stripped of leading 0s, to create a link to the title level record.
         "title_url": f"https://catalog.hathitrust.org/Record/{title_id}",
-        "first author": first_value(metadata.get("mainauthor")),
+        # for monograph, use first value in solr field 'mainauthor'; for serials leave null
+        "contributor": "" if is_serial else mainauthor,
+        # if 'mainauthor' is present in sorl record, value is 'Author', otherwise null
+        "contributor_type": "Author" if mainauthor and not is_serial else "",
+        # use solr field id_int
         "title_id": title_id,
+        # null
         "embargo_info": "",
-        "coverage_depth": "",
-        "coverage_notes": "",
+        # always value 'full',
+        "coverage_depth": "full",
+        # value: "Access is variable and dependent on resource sharing participation"
+        "note": "Access is variable and dependent on resource sharing participation",
+        # solr field value: publisher, remove trailing punctuation
         "publisher_name": publisher_name,
-        "oclc_number": oclc_number,
+        # from "format" in solr. Where value contains "serial" should be 'Serial'. Where contains "book" should be "monograph"
+        "publication_type": "Serial" if is_serial else "Book" if is_monograph else "",
+        # value is 'text'
+        "content_type": "text",
+        # When we have year values, in the 974$y, especially for serials and MPMs, are we able to identify the earliest of those values? If so, use that value; if not, use solr display_date
+        "date_monograph_published_print": min_date,
+        # null,
+        "date_monograph_published_online": "",
+        # null
+        "monograph_volume": "",
+        # from Edition field in solr
+        "monograph_edition": first_value(metadata.get("edition")),
+        # null
+        "duration": "",
+        # difficult to identify so 'null'
+        "parent_publication_title_id": "",
+        # null
+        "preceding_publication_title_id": "",
+        # hardcode as 'M' which means 'Mixed
+        "access_type": "M",
+        # first value present in solr field oclc
+        "oclc": oclc_number,
     }
 
 
-def fetch_title_dates_from_mysql_batch(
-    batch: Sequence[str],
-    db_conn: HtMysql,
-) -> dict[str, dict[str, object]]:
-    if not batch:
-        return {}
-
-    bind_names = [f"bib_num_{index}" for index, _ in enumerate(batch)]
-    params = {bind_name: bib_num for bind_name, bib_num in zip(bind_names, batch, strict=False)}
-    placeholders = ", ".join(f":{bind_name}" for bind_name in bind_names)
-    query = f"""
-        SELECT
-            bib_num, bib_fmt,
-            MIN(rights_date_used) AS date_first_issue_online,
-            MAX(rights_date_used) AS date_last_issue_online
-        FROM hf
-        WHERE bib_num IN ({placeholders})
-        GROUP BY bib_num
-    """
-
-    results_by_id: dict[str, dict[str, object]] = {}
-    for row in db_conn.query_mysql(query, params=params):
-        bib_num = first_value(row.get("bib_num"))
-        if bib_num:
-            results_by_id[normalize_catalog_id_stripped_zeros(bib_num)] = row
-
-    return results_by_id
-
-
-def fetch_title_metadata_from_solr_batch(
-    batch: Sequence[str],
-) -> dict[str, dict[str, object]]:
-    if not batch:
-        return {}
-
+def matching_solr_records(inst_id: str, batch_size: int) -> Generator[dict[str, object]]:
     query_url = f"{HtEnvConfig().catalog_solr_ro_url.rstrip('/')}/query"
+    last_cursor = None
+    current_cursor = "*"
     params = {
         "q": "*:*",
+        "sort": "id asc",
+        "fq": f'print_holdings:{inst_id} OR ht_availability:"Full text"',
         "fl": ",".join(SOLR_FIELDS),
-        "rows": len(batch),
+        "rows": batch_size,
         "wt": "json",
+        "cursorMark": current_cursor
     }
     headers = {"Content-Type": "application/x-www-form-urlencoded"}
     env_config = HtEnvConfig()
     raw_auth = f"{env_config.solr_user}:{env_config.solr_password}".encode()
     headers["Authorization"] = f"Basic {base64.b64encode(raw_auth).decode('ascii')}"
 
-    normalized_batch = [normalize_catalog_id_pad_zeros(catalog_id) for catalog_id in batch]
-
-    params.update({"fq": make_solr_term_query(normalized_batch, "record")})
-    request = Request(
-        query_url,
-        data=urlencode(params).encode("utf-8"),
-        headers=headers,
-        method="POST",
-    )
-    try:
-        with urlopen(request, timeout=30) as response:
-            payload = json.load(response)
-    except HTTPError as exc:
-        raise RuntimeError(
-            f"Solr query failed with HTTP {exc.code} for batch {list(batch)}"
-        ) from exc
-    except URLError as exc:
-        raise RuntimeError(f"Could not reach Solr at {query_url}") from exc
-
-    results_by_id: dict[str, dict[str, object]] = {}
-    docs = payload.get("response", {}).get("docs", [])
-    for document in docs:
-        if isinstance(document, dict):
-            document_id = first_value(document.get("id"))
-            if document_id:
-                results_by_id[normalize_catalog_id_stripped_zeros(document_id)] = document
-    return results_by_id
-
-
-def fetch_lookup_results_in_parallel(
-    catalog_ids: Sequence[str],
-    batch_size: int = DEFAULT_BATCH_SIZE,
-) -> tuple[dict[str, dict[str, object]], dict[str, dict[str, object]]]:
-    if not catalog_ids:
-        return {}, {}
-
-    id_batches = list(split_into_batches(list(catalog_ids), batch_size))
-    total_workers = min(multiprocessing.cpu_count() * 2, MAX_WORKERS)
-
-    db_conn = get_mysql_conn(pool_size=total_workers)
-
-    metadata_by_id: dict[str, dict[str, object]] = {}
-    date_by_id: dict[str, dict[str, object]] = {}
-
-    with ThreadPoolExecutor(max_workers=total_workers) as executor:
-        future_to_source: dict[Future[Mapping[str, Mapping[str, object]]], str] = {}
-        for batch in id_batches:
-            logger.info("Processing batch: %s", len(batch))
-            future_to_source[executor.submit(fetch_title_metadata_from_solr_batch, batch)] = "solr"
-            future_to_source[
-                executor.submit(fetch_title_dates_from_mysql_batch, batch, db_conn)
-            ] = "mysql"
-
+    while last_cursor != current_cursor:
+        request = Request(
+            query_url,
+            data=urlencode(params).encode("utf-8"),
+            headers=headers,
+            method="POST",
+        )
         try:
-            for future in as_completed(future_to_source):
-                source = future_to_source[future]
-                batch_results = {key: dict(value) for key, value in future.result().items()}
-                if source == "solr":
-                    metadata_by_id.update(batch_results)
-                else:
-                    date_by_id.update(batch_results)
-        except Exception:
-            for pending_future in future_to_source:
-                pending_future.cancel()
-            raise
+            with urlopen(request, timeout=30) as response:
+                payload = json.load(response)
+        except HTTPError as exc:
+            raise RuntimeError(f"Solr query failed with HTTP {exc.code}") from exc
+        except URLError as exc:
+            raise RuntimeError(f"Could not reach Solr at {query_url}") from exc
 
-    logger.info(
-        "Parallel process: Extracted %d metadata from Solr and %d metadata from MySQL",
-        len(metadata_by_id),
-        len(date_by_id),
-    )
+        response = payload.get("response", {})
+        docs = response.get("docs", [])
+        last_cursor = current_cursor
+        current_cursor = payload.get("nextCursorMark")
+        if current_cursor is None:
+            raise RuntimeError("Solr response missing nextCursorMark")
 
-    return metadata_by_id, date_by_id
+        params["cursorMark"] = current_cursor
 
+        for document in docs:
+            if isinstance(document, dict):
+                document_id = first_value(document.get("id"))
+                if document_id:
+                    yield document
 
-def write_error_report(path: Path, errors: Sequence[dict[str, str]]) -> Path:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=["catalog_id", "reason"], delimiter="\t")
-        writer.writeheader()
-        for error in errors:
-            writer.writerow(
-                {"catalog_id": error.get("catalog_id", ""), "reason": error.get("reason", "")}
-            )
-    return path
+def kbart_rows(
+    inst_id: str, batch_size: int
+) -> Generator[tuple[dict[str, str] | None, dict[str, str] | None]]:
 
-
-def generate_kbart_rows(
-    catalog_ids: Sequence[str],
-    *,
-    batch_size: int = DEFAULT_BATCH_SIZE,
-) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
-    metadata_by_id, date_by_id = fetch_lookup_results_in_parallel(
-        catalog_ids, batch_size=batch_size
-    )
-
-    logger.info(
-        "Extracted %d metadata from Solr and %d metadata from MySQL",
-        len(metadata_by_id),
-        len(date_by_id),
-    )
-
-    rows: list[dict[str, str]] = []
-    errors: list[dict[str, str]] = []
-
-    for catalog_id in catalog_ids:
-        normalized_id = normalize_catalog_id_stripped_zeros(catalog_id)
-        metadata = metadata_by_id.get(normalized_id)
-        if metadata is None:
-            errors.append({"catalog_id": catalog_id, "reason": "metadata not found"})
-            continue
-
-        row = build_kbart_row(metadata, date_by_id.get(normalized_id))
+    for record in matching_solr_records(inst_id, batch_size):
+        row = build_kbart_row(record)
+        # TODO not sure if this is worth the hassle of reporting this way --
+        # things with missing titles aren't our problem. Log elsewhere,
+        # skip/ignore, and
+        # move on?
         if not row["publication_title"] or not row["title_id"]:
-            errors.append({"catalog_id": catalog_id, "reason": "required source fields missing"})
-            continue
-        rows.append(row)
-
-    return rows, errors
+            yield (
+                None,
+                {"catalog_id": str(record.get("id")), "reason": "required source fields missing"},
+            )
+        else:
+            yield row, None
 
 
 def generate_kbart_export(
-    input_file: Path,
+    inst_id: str,
     output_file: Path,
     metadata_file: Path,
     error_file: Path,
-    *,
     batch_size: int = DEFAULT_BATCH_SIZE,
-) -> tuple[int, list[dict[str, str]]]:
-    # Load all the rows of the file
-    catalog_ids = read_catalog_ids(input_file)
-    rows, errors = generate_kbart_rows(
-        catalog_ids,
-        batch_size=batch_size,
-    )
+) -> tuple[int, int]:
 
-    rows_path, written_rows = write_tsv(rows, output_file, columns_name=KBART_COLUMN_ORDER)
-    write_error_report(error_file, errors)
+    # TODO extract class w/ parameters?
+
+    row_count = 0
+    error_count = 0
+    processed_records = 0
+
+    error_file.parent.mkdir(parents=True, exist_ok=True)
+
+    with output_file.open("w", encoding="utf-8", newline="") as output_fh:
+        with error_file.open("w", encoding="utf-8", newline="") as error_fh:
+            report_writer = csv.DictWriter(output_fh, fieldnames=KBART_COLUMN_ORDER, delimiter="\t")
+            report_writer.writeheader()
+
+            error_writer = csv.DictWriter(
+                error_fh, fieldnames=["catalog_id", "reason"], delimiter="\t"
+            )
+            error_writer.writeheader()
+
+            for row, error in kbart_rows(inst_id, batch_size):
+                processed_records += 1
+                if row is not None:
+                    row_count += 1
+                    report_writer.writerow(
+                        {field: row.get(field, "") for field in KBART_COLUMN_ORDER}
+                    )
+                if error is not None:
+                    error_count += 1
+                    error_writer.writerow(
+                        {
+                            "catalog_id": error.get("catalog_id", ""),
+                            "reason": error.get("reason", ""),
+                        }
+                    )
 
     metadata_summary = {
         "generated_at": datetime.now(UTC).isoformat(),
-        "input_file": str(input_file),
+        "inst_id": inst_id,
         "output_file": str(output_file),
         "error_file": str(error_file),
-        "processed_catalog_ids": len(catalog_ids),
-        "written_rows": written_rows,
-        "skipped_rows": len(errors),
+        "processed_records": processed_records,
+        "written_rows": row_count,
+        "skipped_rows": error_count,
         "column_order": KBART_COLUMN_ORDER,
     }
 
     write_metadata_summary(metadata_file, metadata_summary)
-    return len(rows), errors
-
-
-def main() -> None:
-    args = parse_args()
-    logger.info("Reading KBART holdings report from %s", args.input_file)
-    written_rows, errors = generate_kbart_export(
-        args.input_file,
-        args.output_file,
-        args.metadata_file,
-        args.error_file,
-        batch_size=args.batch_size,
-    )
-    logger.info("Generated %d KBART rows", written_rows)
-    if errors:
-        logger.warning("Skipped %d catalog_ids during KBART generation", len(errors))
+    return row_count, error_count
 
 
 if __name__ == "__main__":
