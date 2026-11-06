@@ -3,7 +3,9 @@ from typing import Any
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
+import sqlalchemy.exc
 from document_generator.document_generator_service import DocumentGeneratorService
+from document_generator.full_text_document_generator import FullTextDocumentGenerator
 from ht_utils.testing import capture_logs, find_log_entry
 
 
@@ -88,3 +90,34 @@ class TestDocumentGeneratorService:
 
         entry = find_log_entry(entries, event="document failed", ht_id="mdp.1")
         assert "zip not found" in str(entry["error"])
+
+    def test_mysql_error_rejects_the_message_and_logs_the_ht_id(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """End to end through the real FullTextDocumentGenerator and MysqlMetadataExtractor: a
+        MySQL error must not produce a document with missing data. The message is rejected (not
+        acked, not published) and the error is logged with the ht_id. Only the file-dependent
+        steps (zip check, OCR text, full record) are stubbed."""
+        monkeypatch.setenv("SDR_DIR", "/tmp/sdr1/obj")  # HtDocument reads it to find the zip
+        db_conn = Mock()
+        db_conn.query_mysql.side_effect = sqlalchemy.exc.SQLAlchemyError("mysql down")
+        service = _make_service_with_mocks(db_conn)
+        service.document_generator = FullTextDocumentGenerator(db_conn)
+        message = {"ht_id": "mdp.39015078560292", "fullrecord": "<record/>"}
+
+        with (
+            patch("document_generator.document_generator_service.Path.is_file", return_value=True),
+            patch.object(FullTextDocumentGenerator, "create_ocr_field", return_value={}),
+            patch.object(FullTextDocumentGenerator, "create_allfields_field", return_value={}),
+            patch.object(service, "publish_document") as publish,
+            patch.object(service, "positive_acknowledge") as ack,
+            patch.object(service, "reject_message") as reject,
+            capture_logs() as entries,
+        ):
+            service.generate_document(message, delivery_tag=1)
+
+        reject.assert_called_once()
+        ack.assert_not_called()
+        publish.assert_not_called()
+        entry = find_log_entry(entries, event="document failed", ht_id="mdp.39015078560292")
+        assert "mysql down" in str(entry["error"])

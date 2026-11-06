@@ -4,9 +4,12 @@ from pathlib import Path
 
 import kbart_file_generator.kbart_file_generator as kbart_module
 import pytest
+import sqlalchemy.exc
+from ht_utils.testing import capture_logs
 from kbart_file_generator.kbart_file_generator import (
     KBART_COLUMN_ORDER,
     build_kbart_row,
+    fetch_lookup_results_in_parallel,
     fetch_title_dates_from_mysql_batch,
     generate_kbart_rows,
     read_catalog_ids,
@@ -117,6 +120,91 @@ def test_fetch_title_dates_from_mysql_batch_queries_one_batch(
             "date_last_issue_online": "2005",
         },
     }
+
+
+def test_fetch_title_dates_from_mysql_batch_returns_empty_dict_when_no_rows_match() -> None:
+    class FakeMysqlConnection:
+        def query_mysql(
+            self, query: str, params: dict[str, str] | None = None
+        ) -> list[dict[str, object]]:
+            return []
+
+    assert fetch_title_dates_from_mysql_batch(["101703357"], FakeMysqlConnection()) == {}
+
+
+def test_fetch_title_dates_from_mysql_batch_raises_and_logs_catalog_ids_on_mysql_error() -> None:
+    class FailingMysqlConnection:
+        def query_mysql(
+            self, query: str, params: dict[str, str] | None = None
+        ) -> list[dict[str, object]]:
+            raise sqlalchemy.exc.SQLAlchemyError("mysql down")
+
+    with (
+        capture_logs() as entries,
+        pytest.raises(sqlalchemy.exc.SQLAlchemyError, match="mysql down"),
+    ):
+        fetch_title_dates_from_mysql_batch(["101703357", "000127531"], FailingMysqlConnection())
+
+    errors = [e for e in entries if e["log_level"] == "error"]
+    assert errors
+    assert "101703357, 000127531" in str(errors[0])
+
+
+def test_fetch_lookup_results_in_parallel_aborts_when_mysql_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A MySQL error must stop the export, not produce rows with missing dates."""
+
+    class FailingMysqlConnection:
+        def query_mysql(
+            self, query: str, params: dict[str, str] | None = None
+        ) -> list[dict[str, object]]:
+            raise sqlalchemy.exc.SQLAlchemyError("mysql down")
+
+    monkeypatch.setattr(kbart_module, "get_mysql_conn", lambda pool_size: FailingMysqlConnection())
+    monkeypatch.setattr(kbart_module, "fetch_title_metadata_from_solr_batch", lambda batch: {})
+
+    with pytest.raises(sqlalchemy.exc.SQLAlchemyError, match="mysql down"):
+        fetch_lookup_results_in_parallel(["101703357"])
+
+
+def test_main_stops_and_writes_no_output_when_mysql_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The error escapes main() (Python then exits non-zero) and no partial KBART file,
+    summary or error report is left behind."""
+
+    class FailingMysqlConnection:
+        def query_mysql(
+            self, query: str, params: dict[str, str] | None = None
+        ) -> list[dict[str, object]]:
+            raise sqlalchemy.exc.SQLAlchemyError("mysql down")
+
+    input_file = write_holdings_report(
+        tmp_path / "holdings.tsv", [{"catalog_id": "101703357"}], ["catalog_id"]
+    )
+    output_file = tmp_path / "kbart.tsv"
+    metadata_file = tmp_path / "kbart.metadata.json"
+    error_file = tmp_path / "kbart.errors.tsv"
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "kbart_file_generator",
+            "--input-file", str(input_file),
+            "--output-file", str(output_file),
+            "--metadata-file", str(metadata_file),
+            "--error-file", str(error_file),
+        ],
+    )  # fmt: skip
+    monkeypatch.setattr(kbart_module, "get_mysql_conn", lambda pool_size: FailingMysqlConnection())
+    monkeypatch.setattr(kbart_module, "fetch_title_metadata_from_solr_batch", lambda batch: {})
+
+    with pytest.raises(sqlalchemy.exc.SQLAlchemyError, match="mysql down"):
+        kbart_module.main()
+
+    assert not output_file.exists()
+    assert not metadata_file.exists()
+    assert not error_file.exists()
 
 
 def test_generate_kbart_rows_matches_zero_padded_ids_to_stripped_lookup_keys(

@@ -198,8 +198,15 @@ def fetch_title_dates_from_mysql_batch(
         GROUP BY bib_num
     """
 
+    try:
+        rows = db_conn.query_mysql(query, params=params)
+    except Exception:
+        # A MySQL failure must stop the export: an empty result would write rows without dates.
+        logger.error("MySQL query failed for catalog_ids=%s", ", ".join(batch))
+        raise
+
     results_by_id: dict[str, dict[str, object]] = {}
-    for row in db_conn.query_mysql(query, params=params):
+    for row in rows:
         bib_num = first_value(row.get("bib_num"))
         if bib_num:
             results_by_id[normalize_catalog_id_stripped_zeros(bib_num)] = row
