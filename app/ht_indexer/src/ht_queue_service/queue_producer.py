@@ -170,11 +170,13 @@ class QueueProducer:
             StreamLostError: when a transient publish error exhausts `MAX_PUBLISH_ATTEMPTS`.
         """
 
+        ht_id = queue_message.get("ht_id") or queue_message.get("id")
+
         try:
             body = json.dumps(queue_message).encode("utf-8")
         except (TypeError, ValueError) as json_err:
             logger.error(
-                f"Failed to serialize message htid={queue_message.get('ht_id')}: {json_err}",
+                f"Failed to serialize message htid={ht_id}: {json_err}",
                 exc_info=True,
             )
             raise
@@ -183,7 +185,7 @@ class QueueProducer:
         limit = self.queue_manager.max_message_size
         if size > limit:
             raise MessageTooLargeError(
-                f"Message htid={queue_message.get('ht_id')} size {size} bytes exceeds max_message_size {limit} bytes; not published"
+                f"Message htid={ht_id} size {size} bytes exceeds max_message_size {limit} bytes; not published"
             )
 
         for attempt in range(1, MAX_PUBLISH_ATTEMPTS + 1):
@@ -209,7 +211,7 @@ class QueueProducer:
 
                 logger.info(
                     "published_message",
-                    ht_id=queue_message.get("ht_id"),
+                    ht_id=ht_id,
                     queue=self.queue_manager.queue_name,
                     size=size,
                 )
@@ -223,19 +225,19 @@ class QueueProducer:
             ) as err:
                 if attempt == MAX_PUBLISH_ATTEMPTS:
                     logger.error(
-                        f"Giving up publishing message htid={queue_message.get('ht_id')} to {self.queue_manager.queue_name} "
+                        f"Giving up publishing message htid={ht_id} to {self.queue_manager.queue_name} "
                         f"after {MAX_PUBLISH_ATTEMPTS} attempts: {err}"
                     )
                     raise
                 logger.warning(
-                    f"RabbitMQ connection/channel closed while publishing message htid={queue_message.get('ht_id')} "
+                    f"RabbitMQ connection/channel closed while publishing message htid={ht_id} "
                     f"(attempt {attempt}/{MAX_PUBLISH_ATTEMPTS}): {err}. Reconnecting and retrying..."
                 )
                 self._thread_reconnect()
 
             except Exception as err:
                 logger.error(
-                    f"Unexpected error publishing message htid={queue_message.get('ht_id')}: {err}",
+                    f"Unexpected error publishing message htid={ht_id}: {err}",
                     exc_info=True,
                 )
                 raise
