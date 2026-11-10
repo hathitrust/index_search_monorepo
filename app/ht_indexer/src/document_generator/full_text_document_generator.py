@@ -147,23 +147,22 @@ class FullTextDocumentGenerator:
         ):
             if element.tag.find("datafield") > -1:
                 tag_att = element.attrib.get("tag")
-                # Ignore "CID" value. It is likely to be a restatement of the data in the
-                # 001 and it is nonstandard.
-                if tag_att == "CID":
+                # Ignore empty tags or non-numeric tags. Some MARC XML files have a nonstandard 999 tag with a
+                # CID, HOL, FMT, DAT, CAT value. It is likely to be a restatement of the data in the
+                # 001, and it is nonstandard.
+                if not tag_att or not tag_att.isdigit():
                     continue
-                try:
-                    if int(tag_att) > 99 and event == "start":
-                        # Looks for subfields
-                        childs = [child for child in element]
-                        if len(childs) > 0:
-                            for child in childs:
-                                all_fields = all_fields.strip() + " " + str(child.text)
-                        else:
-                            if element.text:
-                                all_fields = all_fields.strip() + " " + str(element.text)
-                except ValueError as e:
-                    logger.info(f"Element tag is not an integer value {e}")
-                    pass
+
+                if int(tag_att) > 99 and event == "start":
+                    # Looks for subfields
+                    childs = [child for child in element]
+                    if len(childs) > 0:
+                        for child in childs:
+                            all_fields = all_fields.strip() + " " + str(child.text)
+                    else:
+                        if element.text:
+                            all_fields = all_fields.strip() + " " + str(element.text)
+
         return xml.sax.saxutils.quoteattr(all_fields)
 
     def make_full_text_search_document(

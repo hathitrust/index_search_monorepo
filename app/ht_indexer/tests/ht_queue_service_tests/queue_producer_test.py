@@ -196,3 +196,23 @@ def test_publish_messages_channel_closed_retries_at_most_three_attempts(
         producer.publish_messages(message)
 
     assert basic_publish.call_count == calls
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "queue_message",
+    [
+        pytest.param({"ht_id": "12345678"}, id="retriever-message-ht-id-key"),
+        pytest.param({"id": "12345678"}, id="generator-solr-document-id-key"),
+    ],
+)
+def test_publish_messages_published_logs_ht_id(
+    make_producer: Callable[..., QueueProducer],
+    queue_message: dict[str, str],
+) -> None:
+    producer = make_producer()
+
+    with capture_logs() as entries:
+        producer.publish_messages(queue_message)
+
+    assert_log_entry(entries, ht_id="12345678")
