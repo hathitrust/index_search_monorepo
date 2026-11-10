@@ -720,3 +720,64 @@ class TestRetrieverPublishCounts:
         )
 
         assert counts == retriever_service_module.PublishCounts(published=2, failed=2)
+
+
+class TestRetrieverSolrTimeout:
+    # Infrastructure-free: HTSolrAPI now sends every Catalog request with a timeout, so a slow Solr
+    # raises requests.exceptions.Timeout. These tests pin down what the retriever does with it.
+
+    @staticmethod
+    def _service() -> FullTextSearchRetrieverQueueService:
+        return FullTextSearchRetrieverQueueService(
+            MagicMock(), "http://solr", "solr_user", "solr_password", {"q": "*:*"}
+        )
+
+    def test_retrieve_documents_from_solr_timeout_is_not_swallowed(self) -> None:
+        solr_retriever = MagicMock()
+        solr_retriever.send_solr_request.side_effect = requests.exceptions.ReadTimeout("slow")
+
+        with pytest.raises(requests.exceptions.Timeout):
+            self._service().retrieve_documents_from_solr("ht_id:mdp.1", solr_retriever)
+
+    def test_sequential_run_timeout_stops_the_run_after_publishing_earlier_chunks(self) -> None:
+        # Chunk 1 is published, chunk 2 times out: the error escapes, so chunk 3 is never tried
+        # and the timed-out chunk is not counted as failed.
+        service = self._service()
+        response = MagicMock()
+        response.content = json.dumps({"response": {"docs": []}}).encode("utf-8")
+        with (
+            patch.object(retriever_service_module, "SOLR_BATCH_SIZE", 1),
+            patch.object(FullTextSearchRetrieverQueueService, "get_queue_producer"),
+            patch.object(retriever_service_module, "HTSolrAPI"),
+            patch.object(
+                service,
+                "retrieve_documents_from_solr",
+                side_effect=[response, requests.exceptions.ReadTimeout("slow"), response],
+            ) as mock_retrieve,
+            patch.object(
+                FullTextSearchRetrieverQueueService,
+                "generate_chunk_metadata",
+                return_value=ChunkMetadata(),
+            ),
+            patch.object(
+                FullTextSearchRetrieverQueueService, "log_ht_ids_not_in_catalog", return_value=set()
+            ),
+            patch.object(FullTextSearchRetrieverQueueService, "publishing_documents") as mock_pub,
+        ):
+            with pytest.raises(requests.exceptions.Timeout):
+                service.full_text_search_retriever_service(["mdp.1", "mdp.2", "mdp.3"], "item")
+
+        assert mock_retrieve.call_count == 2
+        assert mock_pub.call_count == 1
+
+    def test_run_retriever_service_threads_timeout_counts_the_batch_as_failed(self) -> None:
+        service = MagicMock()
+        service.full_text_search_retriever_service.side_effect = requests.exceptions.ReadTimeout(
+            "slow"
+        )
+
+        counts = retriever_service_module.run_retriever_service_threads(
+            ["mdp.1", "mdp.2", "mdp.3", "mdp.4"], "item", service, 2
+        )
+
+        assert counts == retriever_service_module.PublishCounts(failed=4)
