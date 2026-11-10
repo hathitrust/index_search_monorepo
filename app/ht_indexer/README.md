@@ -302,7 +302,8 @@ timeout and 10 second connect timeout as the indexer.
   * Sequential run: the run stops. Chunks after the failed one are not tried.
   * `--parallelize`: the thread that hit the timeout counts the failed chunk and the chunks after it as failed. The
     ids it already published are counted as published. The other threads carry on.
-  * `run_retriever_service_by_file`: the run stops and logs the summary.
+  * `run_retriever_service_by_file`: sequentially, the run stops and logs the summary. With `--parallelize` it
+    carries on with the next 200 ids, as for any failed thread, and the failed ids show up in `errors`.
 * **Connect timeout.** The 10 second connect timeout is still not an option for the retriever. Add a
   `--solr_connect_timeout` if connecting to the Catalog Solr is ever slow.
 
