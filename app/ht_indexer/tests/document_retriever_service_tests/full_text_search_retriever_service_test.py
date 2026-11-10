@@ -740,8 +740,8 @@ class TestRetrieverSolrTimeout:
             self._service().retrieve_documents_from_solr("ht_id:mdp.1", solr_retriever)
 
     def test_sequential_run_timeout_stops_the_run_after_publishing_earlier_chunks(self) -> None:
-        # Chunk 1 is published, chunk 2 times out: the error escapes, so chunk 3 is never tried
-        # and the timed-out chunk is not counted as failed.
+        # Chunk 1 is published, chunk 2 times out: the error escapes, so chunk 3 is never tried.
+        # The error carries chunk 1's counts and the 2 ids (chunks 2 and 3) left unprocessed.
         service = self._service()
         response = MagicMock()
         response.content = json.dumps({"response": {"docs": []}}).encode("utf-8")
@@ -762,22 +762,35 @@ class TestRetrieverSolrTimeout:
             patch.object(
                 FullTextSearchRetrieverQueueService, "log_ht_ids_not_in_catalog", return_value=set()
             ),
-            patch.object(FullTextSearchRetrieverQueueService, "publishing_documents") as mock_pub,
+            patch.object(
+                FullTextSearchRetrieverQueueService,
+                "publishing_documents",
+                return_value=retriever_service_module.PublishCounts(published=1),
+            ) as mock_pub,
         ):
-            with pytest.raises(requests.exceptions.Timeout):
+            with pytest.raises(retriever_service_module.SolrRetrievalError) as error:
                 service.full_text_search_retriever_service(["mdp.1", "mdp.2", "mdp.3"], "item")
 
+        assert isinstance(error.value.__cause__, requests.exceptions.Timeout)
+        assert error.value.counts == retriever_service_module.PublishCounts(published=1)
+        assert error.value.unprocessed == 2
         assert mock_retrieve.call_count == 2
         assert mock_pub.call_count == 1
 
-    def test_run_retriever_service_threads_timeout_counts_the_batch_as_failed(self) -> None:
+    def test_run_retriever_service_threads_timeout_counts_only_unprocessed_ids_as_failed(
+        self,
+    ) -> None:
+        # Each thread batch (2 ids) published 1 id before the timeout and left 1 unprocessed:
+        # the published ids are not counted as failed.
         service = MagicMock()
-        service.full_text_search_retriever_service.side_effect = requests.exceptions.ReadTimeout(
-            "slow"
+        service.full_text_search_retriever_service.side_effect = (
+            retriever_service_module.SolrRetrievalError(
+                "slow", retriever_service_module.PublishCounts(published=1), 1
+            )
         )
 
         counts = retriever_service_module.run_retriever_service_threads(
             ["mdp.1", "mdp.2", "mdp.3", "mdp.4"], "item", service, 2
         )
 
-        assert counts == retriever_service_module.PublishCounts(failed=4)
+        assert counts == retriever_service_module.PublishCounts(published=2, failed=2)
