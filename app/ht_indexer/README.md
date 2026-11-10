@@ -274,7 +274,7 @@ python -m document_indexer_service.document_indexer_service \
 ```
 
 * The timeout applies to **every** request that `HTSolrAPI` sends to Solr, including the Catalog queries of the
-  retriever service, which uses the default. Waiting for Solr to accept the connection has its own limit of 10 seconds.
+  retriever service (see [Retriever Solr timeout](#retriever-solr-timeout)). Waiting for Solr to accept the connection has its own limit of 10 seconds.
   It is not an option; it is `DEFAULT_CONNECT_TIMEOUT_SECONDS` in `ht_indexer_api.py`.
 * The read timeout is the longest silence allowed between bytes from Solr, not a limit on the whole request. A big batch
   that Solr is slowly answering does not hit it, and a Solr that sends nothing does. Raise it if large batches time out.
@@ -284,6 +284,27 @@ python -m document_indexer_service.document_indexer_service \
 * An out-of-range `--batch_size` or a `--solr_timeout` that is not a finite positive number stops the service with an error.
 * The local indexing script (`document_indexer_local_service.py`) also accepts `--solr_timeout`. Its requests use
   `commit=true`, which can stay silent while Solr commits, so raise the value for big files.
+
+#### Retriever Solr timeout
+
+The retriever (`full_text_search_retriever_service` and `run_retriever_service_by_file`) accepts `--solr_timeout SECONDS`
+(greater than 0, default 120) for its Catalog queries (ETT-2055). Without the option it uses the same 120 second read
+timeout and 10 second connect timeout as the indexer.
+
+* **Is 120 seconds enough?** Each Catalog query is one chunk of at most 200 ids (`SOLR_BATCH_SIZE`) with `rows=200`.
+  Against the sample Catalog Solr (2,000 records) such a query takes under 0.05 seconds to the first byte and returns
+  about 400 KB. That sample is small, so it shows the query shape, not production speed. The timeout is the longest
+  silence between bytes, not a limit on the whole request, so a healthy Solr should not reach it with this chunk size.
+  A Solr that is overloaded or stuck is what reaches it. In that case, raise `--solr_timeout` only if the queries are
+  slow but do answer, because a longer timeout just delays the failure when Solr is down.
+* **What happens on a timeout?** The request fails with `requests.exceptions.Timeout`, and the retriever raises
+  `SolrRetrievalError` (the `Timeout` is its `__cause__`). The chunks published before it stay published.
+  * Sequential run: the run stops. Chunks after the failed one are not tried.
+  * `--parallelize`: the thread that hit the timeout counts the failed chunk and the chunks after it as failed. The
+    ids it already published are counted as published. The other threads carry on.
+  * `run_retriever_service_by_file`: the run stops and logs the summary.
+* **Connect timeout.** The 10 second connect timeout is still not an option for the retriever. Add a
+  `--solr_connect_timeout` if connecting to the Catalog Solr is ever slow.
 
 #### Logs and alerts
 

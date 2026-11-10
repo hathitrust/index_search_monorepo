@@ -27,7 +27,7 @@ from document_retriever_service.full_text_search_retriever_service import (
 )
 from document_retriever_service.retriever_arguments import RetrieverServiceArguments
 from document_retriever_service.retriever_services_utils import RetrieverServicesUtils
-from ht_indexer_api.ht_indexer_api import HTSolrAPI
+from ht_indexer_api.ht_indexer_api import DEFAULT_READ_TIMEOUT_SECONDS, HTSolrAPI
 from ht_utils.ht_logger import get_ht_logger
 from ht_utils.query_maker import make_solr_term_query
 from ht_utils.testing import assert_log_entry, capture_logs
@@ -283,6 +283,45 @@ class TestFullTextRetrieverService:
 
         # Assert
         assert (args.solr_user, args.solr_password) == ("catalog-user", "catalog-pass")
+
+    def test_retriever_arguments_solr_timeout_defaults_to_the_htsolrapi_default(
+        self, stub_retriever_external_services: None
+    ) -> None:
+        args = RetrieverServiceArguments(argparse.ArgumentParser(), argv=[])
+
+        assert args.solr_timeout == DEFAULT_READ_TIMEOUT_SECONDS
+
+    def test_retriever_arguments_solr_timeout_on_the_command_line(
+        self, stub_retriever_external_services: None
+    ) -> None:
+        args = RetrieverServiceArguments(
+            argparse.ArgumentParser(), argv=["--solr_timeout", "300.5"]
+        )
+
+        assert args.solr_timeout == 300.5
+
+    @pytest.mark.parametrize("value", ["0", "-1", "inf", "nan", "slow"])
+    def test_retriever_arguments_solr_timeout_must_be_a_positive_number(
+        self, stub_retriever_external_services: None, value: str
+    ) -> None:
+        with pytest.raises(SystemExit) as exit_info:
+            RetrieverServiceArguments(argparse.ArgumentParser(), argv=["--solr_timeout", value])
+
+        assert exit_info.value.code == 2  # argparse's own exit code for a bad value
+
+    def test_service_gives_the_solr_timeout_to_the_catalog_client(self) -> None:
+        service = FullTextSearchRetrieverQueueService(
+            MagicMock(), "http://solr", "solr_user", "solr_password", {}, solr_timeout=300
+        )
+        with (
+            patch.object(FullTextSearchRetrieverQueueService, "get_queue_producer"),
+            patch.object(retriever_service_module, "HTSolrAPI") as mock_solr_api,
+        ):
+            service.full_text_search_retriever_service([], "item")
+
+        mock_solr_api.assert_called_once_with(
+            "http://solr", "solr_user", "solr_password", read_timeout=300
+        )
 
     @pytest.mark.integration
     def test_full_text_search_retriever_service(

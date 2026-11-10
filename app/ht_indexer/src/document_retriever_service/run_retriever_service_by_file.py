@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from ht_indexer_api.ht_indexer_api import DEFAULT_READ_TIMEOUT_SECONDS
 from ht_queue_service.queue_config import QueueParams
 from ht_utils.ht_logger import get_ht_logger
 
@@ -105,6 +106,7 @@ def retrieve_documents_by_file(
     status_file: str | Path,
     parallelize: bool,
     max_workers: int,
+    solr_timeout: float = DEFAULT_READ_TIMEOUT_SECONDS,
 ) -> ByFileSummary:
     """This method is used to retrieve the documents from the Catalog and generate the full-text search entry.
     The list of documents to index is extracted from a file.
@@ -119,6 +121,7 @@ def retrieve_documents_by_file(
     :param status_file: The file to store the status of the documents
     :param parallelize: If True, the processing will be done in parallel
     :param max_workers: The maximum number of workers to use in parallel processing
+    :param solr_timeout: Seconds to wait for Solr to send data before a request fails
     :return: the run summary, also logged as one line
     """
 
@@ -127,7 +130,12 @@ def retrieve_documents_by_file(
         exit()
 
     document_retriever_service = FullTextSearchRetrieverQueueService(
-        queue_params, solr_host, solr_user, solr_password, solr_retriever_query_params
+        queue_params,
+        solr_host,
+        solr_user,
+        solr_password,
+        solr_retriever_query_params,
+        solr_timeout,
     )
 
     ids_file = read_ids_from_file(input_documents_file, query_field)
@@ -203,6 +211,7 @@ def main() -> None:
         init_args_obj.status_file,
         init_args_obj.parallelize,
         init_args_obj.max_workers,
+        init_args_obj.solr_timeout,
     )
 
 

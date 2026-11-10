@@ -5,6 +5,7 @@ import sys
 import tempfile
 
 from config import config_queue_file_path
+from ht_indexer_api.ht_indexer_api import DEFAULT_READ_TIMEOUT_SECONDS, positive_seconds
 from ht_queue_service.queue_config import QueueConfig
 from ht_utils.ht_env_config import HtEnvConfig
 from ht_utils.ht_logger import get_ht_logger
@@ -40,6 +41,14 @@ class RetrieverServiceArguments:
             help="Retrieve documents in parallel using multiple threads",
             action="store_true",
             default=False,
+        )
+        parser.add_argument(
+            "--solr_timeout",
+            type=positive_seconds,
+            default=DEFAULT_READ_TIMEOUT_SECONDS,
+            help="Seconds to wait for the Catalog Solr to send data before a request fails "
+            f"(default: {DEFAULT_READ_TIMEOUT_SECONDS:g}). It is the longest silence allowed "
+            "between bytes from Solr, not a limit on the whole request.",
         )
 
         try:
@@ -81,6 +90,7 @@ class RetrieverServiceArguments:
 
         self.list_documents = self.args.list_documents
         self.query_field = self.args.query_field
+        self.solr_timeout = self.args.solr_timeout
 
         env_config = HtEnvConfig()
         self.solr_host = env_config.catalog_solr_ro_url

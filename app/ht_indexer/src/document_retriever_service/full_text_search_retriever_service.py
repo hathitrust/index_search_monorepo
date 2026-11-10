@@ -10,7 +10,7 @@ from typing import Any
 
 import requests
 from catalog_metadata.catalog_metadata import CatalogItemMetadata, CatalogRecordMetadata
-from ht_indexer_api.ht_indexer_api import HTSolrAPI
+from ht_indexer_api.ht_indexer_api import DEFAULT_READ_TIMEOUT_SECONDS, HTSolrAPI
 from ht_queue_service.queue_config import QueueParams
 from ht_queue_service.queue_producer import QueueProducer
 from ht_utils.ht_logger import get_ht_logger
@@ -89,12 +89,14 @@ class FullTextSearchRetrieverQueueService:
         solr_user: str | None = None,
         solr_password: str | None = None,
         solr_retriever_query_params: dict[str, Any] | None = None,
+        solr_timeout: float = DEFAULT_READ_TIMEOUT_SECONDS,
     ):
 
         self.solr_host = solr_host
         self.solr_user = solr_user
         self.solr_password = solr_password
         self.solr_retriever_query_params = solr_retriever_query_params
+        self.solr_timeout = solr_timeout
 
         # Queue configuration
         self.queue_params = queue_params
@@ -282,7 +284,9 @@ class FullTextSearchRetrieverQueueService:
         # Create a connection to the queue to produce messages
         queue_producer = FullTextSearchRetrieverQueueService.get_queue_producer(self.queue_params)
 
-        solr_retriever = HTSolrAPI(self.solr_host, self.solr_user, self.solr_password)
+        solr_retriever = HTSolrAPI(
+            self.solr_host, self.solr_user, self.solr_password, read_timeout=self.solr_timeout
+        )
 
         counts = PublishCounts()
         processed = 0
@@ -417,6 +421,7 @@ def main() -> None:
         init_args_obj.solr_user,
         init_args_obj.solr_password,
         init_args_obj.solr_retriever_query_params,
+        init_args_obj.solr_timeout,
     )
 
     by_field = init_args_obj.query_field
