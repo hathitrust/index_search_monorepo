@@ -479,7 +479,7 @@ class TestMain:
         self, stub_retriever_external_services: None, monkeypatch: pytest.MonkeyPatch
     ) -> Callable[..., tuple[int | str | None, list[Any], MagicMock]]:
         def _run(
-            argv: list[str], counts: PublishCounts | None = None
+            argv: list[str], counts: PublishCounts | None = None, error: Exception | None = None
         ) -> tuple[int | str | None, list[Any], MagicMock]:
             monkeypatch.setattr(sys, "argv", ["retriever", "--query_field", "item", *argv])
             exit_code: int | str | None = 0
@@ -489,9 +489,9 @@ class TestMain:
                 ) as service_cls,
                 capture_logs() as entries,
             ):
-                service_cls.return_value.full_text_search_retriever_service.return_value = (
-                    counts or PublishCounts()
-                )
+                service = service_cls.return_value.full_text_search_retriever_service
+                service.return_value = counts or PublishCounts()
+                service.side_effect = error
                 try:
                     retriever_service_module.main()
                 except SystemExit as exc:
@@ -553,6 +553,19 @@ class TestMain:
             published=2,
             failed=1,
             not_found=3,
+        )
+
+    def test_main_sequential_solr_error_logs_summary_with_counts_so_far_and_exits_1(
+        self, run_main: Callable[..., tuple[int | str | None, list[Any], MagicMock]]
+    ) -> None:
+        # 1 id published, then Solr timed out with 2 ids left unprocessed
+        error = retriever_service_module.SolrRetrievalError("slow", PublishCounts(published=1), 2)
+
+        exit_code, entries, _ = run_main(["--list_documents", MAIN_HT_ID], error=error)
+
+        assert exit_code == 1
+        assert_log_entry(
+            entries, event="Process=retrieving: run summary", published=1, failed=2, not_found=0
         )
 
 

@@ -436,9 +436,14 @@ def main() -> None:
             init_args_obj.max_workers,
         )
     else:
-        counts = document_retriever_service.full_text_search_retriever_service(
-            list_documents, by_field
-        )
+        try:
+            counts = document_retriever_service.full_text_search_retriever_service(
+                list_documents, by_field
+            )
+        except SolrRetrievalError as e:
+            # Keep what was published before the failure, so the summary and exit code are right
+            logger.error(f"Solr request failed, the run stopped early: {e}")
+            counts = e.counts + PublishCounts(failed=e.unprocessed)
 
     logger.info(
         "Process=retrieving: run summary",
