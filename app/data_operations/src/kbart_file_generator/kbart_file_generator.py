@@ -2,25 +2,22 @@
 
 from __future__ import annotations
 
-import base64
 import csv
-import json
-from collections.abc import Generator, Mapping, Sequence
+import re
+from collections.abc import Generator, Sequence
 from datetime import UTC, date, datetime
 from pathlib import Path
-from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode
-from urllib.request import Request, urlopen
 
 import click
 import structlog
+from ht_search.export_all_results import SolrExporter, SolrResult
 from ht_utils.ht_env_config import HtEnvConfig
 from ht_utils.ht_logger import get_ht_logger
 from ht_utils.ht_utils import (
     normalize_catalog_id_stripped_zeros,
     write_metadata_summary,
 )
-from ht_utils.text_processor import first_value, list_values
+from ht_utils.text_processor import first_value
 
 logger = get_ht_logger(name=__name__)
 
@@ -80,6 +77,12 @@ SOLR_FIELDS = [
 
 class KBARTFileGenerator:
     def __init__(self, inst_id: str, batch_size: int, output_path: Path) -> None:
+
+        if not re.match(r"^[A-Za-z0-9-]+$", inst_id):
+            raise ValueError(
+                "inst_id not valid (must contain only alphanumeric characters and '-')"
+            )
+
         self.inst_id = inst_id
         self.output_path = output_path
         self.batch_size = batch_size
@@ -119,22 +122,24 @@ class KBARTFileGenerator:
 
     @staticmethod
     def build_kbart_row(
-        metadata: Mapping[str, object],
+        metadata: SolrResult,
     ) -> dict[str, str]:
-        raw_id = first_value(metadata.get("id"))
+        raw_id = metadata.first_value("id")
         title_id = normalize_catalog_id_stripped_zeros(raw_id)
-        identifiers = list_values(metadata.get("isbn")) or list_values(metadata.get("issn"))
+        identifiers = metadata.list_values("isbn") or metadata.list_values("issn")
         # remove trailing commas
-        publisher_name = " ".join(metadata.get("publisher", [])).rstrip(",")
-        oclc_number = first_value(metadata.get("oclc"))
-        title_display = first_value(metadata.get("title_display"))
-        title = first_value(metadata.get("title"))
-        vtitle = first_value(metadata.get("vtitle"))
-        mainauthor = first_value(metadata.get("mainauthor"))
-        (min_date, max_date) = KBARTFileGenerator.extract_dates(metadata.get("ht_id_display"))
-        display_date = first_value(metadata.get("display_date"))
-        is_serial = "Serial" in metadata.get("format")
-        is_monograph = "Book" in metadata.get("format")
+        publisher_name = " ".join(metadata.list_values("publisher")).rstrip(",")
+        oclc_number = metadata.first_value("oclc")
+        title_display = metadata.first_value("title_display")
+        title = metadata.first_value("title")
+        vtitle = metadata.first_value("vtitle")
+        mainauthor = metadata.first_value("mainauthor")
+        (min_date, max_date) = KBARTFileGenerator.extract_dates(
+            metadata.list_values("ht_id_display")
+        )
+        display_date = metadata.first_value("display_date")
+        is_serial = "Serial" in metadata.list_values("format")
+        is_monograph = "Book" in metadata.list_values("format")
 
         return {
             # value of solr field: title_display; if solr field 'vtitle' is present, only use field: title
@@ -186,7 +191,7 @@ class KBARTFileGenerator:
             # null
             "monograph_volume": "",
             # from Edition field in solr
-            "monograph_edition": first_value(metadata.get("edition")),
+            "monograph_edition": metadata.first_value("edition"),
             # null
             "duration": "",
             # difficult to identify so 'null'
@@ -199,60 +204,38 @@ class KBARTFileGenerator:
             "oclc": oclc_number,
         }
 
-    def matching_solr_records(self) -> Generator[dict[str, object]]:
-        query_url = f"{HtEnvConfig().catalog_solr_ro_url.rstrip('/')}/query"
-        last_cursor = None
-        current_cursor = "*"
+    def matching_solr_records(self) -> Generator[SolrResult]:
+        env_config = HtEnvConfig()
+
+        solr_exporter = SolrExporter(
+            env_config.catalog_solr_ro_url,
+            "env-not-used",
+            user=env_config.solr_user,
+            password=env_config.solr_password,
+        )
+
         params = {
             "q": "*:*",
-            "sort": "id asc",
             "fq": f'print_holdings:{self.inst_id} OR ht_availability:"Full text"',
             "fl": ",".join(SOLR_FIELDS),
-            "rows": self.batch_size,
-            "wt": "json",
-            "cursorMark": current_cursor,
         }
-        headers = {"Content-Type": "application/x-www-form-urlencoded"}
-        env_config = HtEnvConfig()
-        raw_auth = f"{env_config.solr_user}:{env_config.solr_password}".encode()
-        headers["Authorization"] = f"Basic {base64.b64encode(raw_auth).decode('ascii')}"
-        batches_processed = 0
+        records_processed = 0
 
-        while last_cursor != current_cursor:
-            request = Request(
-                query_url,
-                data=urlencode(params).encode("utf-8"),
-                headers=headers,
-                method="POST",
-            )
-            try:
-                with urlopen(request, timeout=30) as response:
-                    payload = json.load(response)
-            except HTTPError as exc:
-                raise RuntimeError(f"Solr query failed with HTTP {exc.code}") from exc
-            except URLError as exc:
-                raise RuntimeError(f"Could not reach Solr at {query_url}") from exc
-
-            response = payload.get("response", {})
-            docs = response.get("docs", [])
-            last_cursor = current_cursor
-            current_cursor = payload.get("nextCursorMark")
-            if current_cursor is None:
-                raise RuntimeError("Solr response missing nextCursorMark")
-
-            params["cursorMark"] = current_cursor
-
-            batches_processed += 1
-            if batches_processed % 100 == 0:
+        for document in solr_exporter.run_cursor_raw(
+            solr_params=params, batch_size=self.batch_size
+        ):
+            records_processed += 1
+            if (records_processed / self.batch_size) % 100 == 0:
                 logger.info(
-                    f"processed {batches_processed} pages of results ({batches_processed * self.batch_size} records)"
+                    f"{records_processed} processed ({records_processed / self.batch_size} pages of results)"
                 )
 
-            for document in docs:
-                if isinstance(document, dict):
-                    document_id = first_value(document.get("id"))
-                    if document_id:
-                        yield document
+            document_id = document.first_value("id")
+            if document_id:
+                yield document
+            else:
+                self.error_count += 1
+                logger.warning("Can't process record (id missing)")
 
     def kbart_rows(self) -> Generator[dict[str, str]]:
         for record in self.matching_solr_records():
@@ -265,7 +248,7 @@ class KBARTFileGenerator:
             if not row["publication_title"] or not row["title_id"]:
                 self.error_count += 1
                 logger.warning(
-                    f"Can't process record {record.get('id')}: title or ID fields missing"
+                    f"Can't process record {record.first_value('id')}: output publication_title or title_id fields missing"
                 )
             else:
                 self.row_count += 1
@@ -279,6 +262,7 @@ class KBARTFileGenerator:
 
         file_prefix = f"kbart_{self.inst_id}_{date.today()}"
 
+        self.output_path.mkdir(parents=True, exist_ok=True)
         output_file = self.output_path / f"{file_prefix}.tsv"
         metadata_file = self.output_path / f"{file_prefix}.metadata.json"
 
@@ -326,9 +310,9 @@ class KBARTFileGenerator:
 )
 def main(inst_id: str, output_path: Path, batch_size: int) -> None:
     """Generate a KBART TSV from solr records for a given institution."""
-    structlog.reset_defaults()
     KBARTFileGenerator(inst_id, batch_size, output_path).generate_kbart_export()
 
 
 if __name__ == "__main__":
+    structlog.reset_defaults()
     main()

@@ -66,7 +66,7 @@ def main():
     )
     # '"good"'
     list_documents = []
-    for x in solr_exporter.run_cursor(
+    for x in solr_exporter.run_query_term_cursor(
         query, query_config_file_path, conf_query=conf_query, list_output_fields=["id", "ht_id"]
     ):
         dict_x = json.loads(x)

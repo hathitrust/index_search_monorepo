@@ -138,7 +138,9 @@ def main():
             solr_base_url, args.env, user=env_config.solr_user, password=env_config.solr_password
         )
         # '"good"'
-        for x in solr_exporter.run_cursor(query, query_config_file_path, conf_query=conf_query):
+        for x in solr_exporter.run_query_term_cursor(
+            query, query_config_file_path, conf_query=conf_query
+        ):
             logger.info(x)
 
         time.sleep(interval)
