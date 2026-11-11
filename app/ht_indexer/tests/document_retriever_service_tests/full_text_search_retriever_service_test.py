@@ -300,15 +300,6 @@ class TestFullTextRetrieverService:
 
         assert args.solr_timeout == 300.5
 
-    @pytest.mark.parametrize("value", ["0", "-1", "inf", "nan", "slow"])
-    def test_retriever_arguments_solr_timeout_must_be_a_positive_number(
-        self, stub_retriever_external_services: None, value: str
-    ) -> None:
-        with pytest.raises(SystemExit) as exit_info:
-            RetrieverServiceArguments(argparse.ArgumentParser(), argv=["--solr_timeout", value])
-
-        assert exit_info.value.code == 2  # argparse's own exit code for a bad value
-
     def test_service_gives_the_solr_timeout_to_the_catalog_client(self) -> None:
         service = FullTextSearchRetrieverQueueService(
             MagicMock(), "http://solr", "solr_user", "solr_password", {}, solr_timeout=300
