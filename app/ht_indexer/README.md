@@ -299,6 +299,8 @@ timeout and 10 second connect timeout as the indexer.
   slow but do answer, because a longer timeout just delays the failure when Solr is down.
 * **What happens on a timeout?** The request fails with `requests.exceptions.Timeout`, and the retriever raises
   `SolrRetrievalError` (the `Timeout` is its `__cause__`). The chunks published before it stay published.
+  `SolrRetrievalError` is not only for timeouts: it wraps any `requests` error from a Catalog query (HTTP 4xx/5xx,
+  connection refused), so all of them are handled as described below.
   * Sequential run: the run stops. Chunks after the failed one are not tried.
   * `--parallelize`: the thread that hit the timeout counts the failed chunk and the chunks after it as failed. The
     ids it already published are counted as published. The other threads carry on.
