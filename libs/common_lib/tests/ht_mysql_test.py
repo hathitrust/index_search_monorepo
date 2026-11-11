@@ -7,6 +7,9 @@ import pytest
 import sqlalchemy.exc
 from ht_utils.ht_env_config import HtEnvConfigMissingError
 from ht_utils.ht_mysql import HtMysql, get_mysql_conn
+from ht_utils.testing import capture_logs
+from sqlalchemy import create_engine
+from sqlalchemy.pool import QueuePool
 
 
 @pytest.fixture(autouse=True)
@@ -96,24 +99,81 @@ class TestHtMysql:
 
         assert len(created_engines) == 1
 
+    @pytest.mark.parametrize("blank_query", ["", "   ", "\n\t"])
     @patch("ht_utils.ht_mysql.create_engine")
-    def test_query_mysql_returns_empty_list_for_blank_query(
-        self, mock_create_engine: MagicMock
+    def test_query_mysql_raises_for_blank_query(
+        self, mock_create_engine: MagicMock, blank_query: str
     ) -> None:
         ht_mysql = get_mysql_conn()
 
-        assert ht_mysql.query_mysql("") == []
+        with pytest.raises(ValueError, match="must not be empty"):
+            ht_mysql.query_mysql(blank_query)
+
+        # A blank query is rejected before any connection is used
+        mock_create_engine.return_value.connect.assert_called_once()  # only the constructor's check
 
     @patch("ht_utils.ht_mysql.create_engine")
-    def test_query_mysql_returns_empty_list_on_sqlalchemy_error(
-        self, mock_create_engine: MagicMock
-    ) -> None:
+    def test_query_mysql_raises_on_sqlalchemy_error(self, mock_create_engine: MagicMock) -> None:
         # Construct successfully first (the fail-fast connect check in __init__ must
         # pass), then break the *next* connect() call, made by query_mysql itself.
         ht_mysql = get_mysql_conn()
         mock_create_engine.return_value.connect.side_effect = sqlalchemy.exc.SQLAlchemyError("boom")
 
-        assert ht_mysql.query_mysql("SELECT 1") == []
+        with pytest.raises(sqlalchemy.exc.SQLAlchemyError, match="boom"):
+            ht_mysql.query_mysql("SELECT 1")
+
+    def test_connection_error_is_logged_and_raised_without_the_password(self) -> None:
+        # Real mysql-connector error (no mock): nothing is listening for these made-up
+        # credentials, so the driver refuses or rejects the connection. The password is
+        # deliberately different from the username so a leak can't hide behind it.
+        secret = "S3cr3t-Pa55word-do-not-log"
+
+        with capture_logs() as entries, pytest.raises(sqlalchemy.exc.SQLAlchemyError) as exc_info:
+            HtMysql("localhost", "some-user", secret, "some_database")
+
+        errors = [e for e in entries if e["log_level"] == "error"]
+        assert errors
+        assert all(secret not in str(e) for e in errors)
+        assert secret not in str(exc_info.value)
+
+    def test_query_mysql_raises_when_connection_pool_is_exhausted(self) -> None:
+        # A real (SQLite) pool of one connection with no overflow: the second caller waits
+        # pool_timeout seconds and SQLAlchemy raises. This must reach the caller, not become [].
+        engine = create_engine(
+            "sqlite://",
+            poolclass=QueuePool,
+            pool_size=1,
+            max_overflow=0,
+            pool_timeout=0.1,
+            connect_args={"check_same_thread": False},
+        )
+        HtMysql._engine = engine
+        ht_mysql = HtMysql.__new__(HtMysql)
+
+        with engine.connect(), pytest.raises(sqlalchemy.exc.TimeoutError):
+            ht_mysql.query_mysql("SELECT 1")
+
+        assert issubclass(sqlalchemy.exc.TimeoutError, sqlalchemy.exc.SQLAlchemyError)
+
+    @patch("ht_utils.ht_mysql.create_engine")
+    def test_query_mysql_returns_empty_list_when_no_rows_match(
+        self, mock_create_engine: MagicMock
+    ) -> None:
+        ht_mysql = get_mysql_conn()
+        conn = mock_create_engine.return_value.connect.return_value.__enter__.return_value
+        conn.execute.return_value = []
+
+        assert ht_mysql.query_mysql("SELECT 1 WHERE 0") == []
+
+    @patch("ht_utils.ht_mysql.create_engine")
+    def test_query_mysql_returns_rows_as_dicts(self, mock_create_engine: MagicMock) -> None:
+        ht_mysql = get_mysql_conn()
+        row = MagicMock()
+        row._mapping = {"member_id": "umich"}
+        conn = mock_create_engine.return_value.connect.return_value.__enter__.return_value
+        conn.execute.return_value = [row]
+
+        assert ht_mysql.query_mysql("SELECT member_id FROM t") == [{"member_id": "umich"}]
 
 
 class TestGetMysqlConnRequiredCredentials:
