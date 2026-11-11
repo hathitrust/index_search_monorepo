@@ -1,6 +1,7 @@
 import csv
 from collections.abc import Sequence
 from pathlib import Path
+from typing import Any
 
 import kbart_file_generator.kbart_file_generator as kbart_module
 import pytest
@@ -132,18 +133,27 @@ def test_fetch_title_dates_from_mysql_batch_returns_empty_dict_when_no_rows_matc
     assert fetch_title_dates_from_mysql_batch(["101703357"], FakeMysqlConnection()) == {}
 
 
-def test_fetch_title_dates_from_mysql_batch_raises_and_logs_catalog_ids_on_mysql_error() -> None:
+@pytest.fixture
+def failing_mysql_conn() -> Any:
+    """A MySQL connection whose query_mysql always raises, as when the database is down."""
+
     class FailingMysqlConnection:
         def query_mysql(
             self, query: str, params: dict[str, str] | None = None
         ) -> list[dict[str, object]]:
             raise sqlalchemy.exc.SQLAlchemyError("mysql down")
 
+    return FailingMysqlConnection()
+
+
+def test_fetch_title_dates_from_mysql_batch_raises_and_logs_catalog_ids_on_mysql_error(
+    failing_mysql_conn: Any,
+) -> None:
     with (
         capture_logs() as entries,
         pytest.raises(sqlalchemy.exc.SQLAlchemyError, match="mysql down"),
     ):
-        fetch_title_dates_from_mysql_batch(["101703357", "000127531"], FailingMysqlConnection())
+        fetch_title_dates_from_mysql_batch(["101703357", "000127531"], failing_mysql_conn)
 
     errors = [e for e in entries if e["log_level"] == "error"]
     assert errors
@@ -151,17 +161,11 @@ def test_fetch_title_dates_from_mysql_batch_raises_and_logs_catalog_ids_on_mysql
 
 
 def test_fetch_lookup_results_in_parallel_aborts_when_mysql_fails(
-    monkeypatch: pytest.MonkeyPatch,
+    monkeypatch: pytest.MonkeyPatch, failing_mysql_conn: Any
 ) -> None:
     """A MySQL error must stop the export, not produce rows with missing dates."""
 
-    class FailingMysqlConnection:
-        def query_mysql(
-            self, query: str, params: dict[str, str] | None = None
-        ) -> list[dict[str, object]]:
-            raise sqlalchemy.exc.SQLAlchemyError("mysql down")
-
-    monkeypatch.setattr(kbart_module, "get_mysql_conn", lambda pool_size: FailingMysqlConnection())
+    monkeypatch.setattr(kbart_module, "get_mysql_conn", lambda pool_size: failing_mysql_conn)
     monkeypatch.setattr(kbart_module, "fetch_title_metadata_from_solr_batch", lambda batch: {})
 
     with pytest.raises(sqlalchemy.exc.SQLAlchemyError, match="mysql down"):
@@ -169,16 +173,10 @@ def test_fetch_lookup_results_in_parallel_aborts_when_mysql_fails(
 
 
 def test_main_stops_and_writes_no_output_when_mysql_fails(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failing_mysql_conn: Any
 ) -> None:
     """The error escapes main() (Python then exits non-zero) and no partial KBART file,
     summary or error report is left behind."""
-
-    class FailingMysqlConnection:
-        def query_mysql(
-            self, query: str, params: dict[str, str] | None = None
-        ) -> list[dict[str, object]]:
-            raise sqlalchemy.exc.SQLAlchemyError("mysql down")
 
     input_file = write_holdings_report(
         tmp_path / "holdings.tsv", [{"catalog_id": "101703357"}], ["catalog_id"]
@@ -196,7 +194,7 @@ def test_main_stops_and_writes_no_output_when_mysql_fails(
             "--error-file", str(error_file),
         ],
     )  # fmt: skip
-    monkeypatch.setattr(kbart_module, "get_mysql_conn", lambda pool_size: FailingMysqlConnection())
+    monkeypatch.setattr(kbart_module, "get_mysql_conn", lambda pool_size: failing_mysql_conn)
     monkeypatch.setattr(kbart_module, "fetch_title_metadata_from_solr_batch", lambda batch: {})
 
     with pytest.raises(sqlalchemy.exc.SQLAlchemyError, match="mysql down"):
