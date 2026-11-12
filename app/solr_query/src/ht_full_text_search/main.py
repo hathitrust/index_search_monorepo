@@ -68,18 +68,18 @@ def main():
         :return: JSON with the results
         """
 
-        # TODO: run_cursor, should receive the query_string and the query_type (ocr or all).
+        # TODO: run_query_term_cursor, should receive the query_string and the query_type (ocr or all).
         # When the API is started the config file is loaded in memory,
         # so the query type can be used to select the kind of query to run and the params dict is updated with the query
         # string.
 
         query_config_file_path = Path(config_files_path, "full_text_search/config_query.yaml")
 
-        # Use StreamingResponse to stream the results because run_cursor output is a generator, so data
+        # Use StreamingResponse to stream the results because run_query_term_cursor output is a generator, so data
         # is not loaded into memory and is sent in chunks.
         # return StreamingResponse(result, media_type="application/json")
         return StreamingResponse(
-            exporter_api["obj"].run_cursor(
+            exporter_api["obj"].run_query_term_cursor(
                 query, query_config_path=query_config_file_path, conf_query="ocr"
             ),
             media_type="application/json",

@@ -8,6 +8,7 @@ from typing import Any
 import requests
 import yaml
 from ht_utils.ht_env_config import HtEnvConfig
+from ht_utils.text_processor import first_value, list_values
 from requests.auth import HTTPBasicAuth
 
 from ht_search.config_files import config_files_path
@@ -44,7 +45,7 @@ from ht_search.config_search import default_solr_params
 # Specify the fields to show in the query result
 # Specify if the Solr debug output will be show.Create our onw debug dictionary with fields we decide,
 # e.g. QTime, status, shards, etc.
-def process_results(item: dict[str, Any], list_output_fields: list[str]) -> str:
+def process_results(item: SolrResult, list_output_fields: list[str]) -> str:
     """Prepare the dictionary with Solr results to be exported as JSON
     Args:
         item (dict): The Solr result item.
@@ -53,7 +54,7 @@ def process_results(item: dict[str, Any], list_output_fields: list[str]) -> str:
         str: JSON string of the processed result.
     """
 
-    result = {field: item.get(field, None) for field in list_output_fields}
+    result = {field: item.solr_doc.get(field, None) for field in list_output_fields}
     return json.dumps(result)
 
 
@@ -91,7 +92,24 @@ def make_query(
     return f"{{!edismax {solr_query_params(query_config_file=query_config_file, conf_query=conf_query)}}} {query}"
 
 
+class SolrResult:
+    def __init__(self, solr_doc: dict[str, object]):
+        self.solr_doc = solr_doc
+
+    def first_value(self, field: str) -> str:
+        """Returns the first value of the field as a string, if present, or the
+        empty string if there are no values."""
+        return first_value(self.solr_doc.get(field))
+
+    def list_values(self, field: str) -> list[str]:
+        """Returns all values of the field as a list of strings, or the empty
+        list if there are no values"""
+        return list_values(self.solr_doc.get(field))
+
+
 class SolrExporter:
+    DEFAULT_BATCH_SIZE = 500
+
     def __init__(
         self, solr_url: str, env: str, user: str | None = None, password: str | None = None
     ):
@@ -124,7 +142,44 @@ class SolrExporter:
 
         return response
 
-    def run_cursor(
+    def run_cursor_raw(
+        self,
+        solr_params: dict[str, str],
+        batch_size: int = DEFAULT_BATCH_SIZE,
+    ) -> Generator[SolrResult]:
+        """Queries solr with the given parameters, iterating through result
+        pages using cursorMark and yielding individual result documents"""
+
+        last_cursor = None
+        current_cursor = "*"
+        params = solr_params
+
+        # Ensure we have a sort order (if one is not provided) and the expected
+        # output format and batch size
+        params["cursorMark"] = current_cursor
+        params["wt"] = "json"
+        params["rows"] = str(batch_size)
+        if not params.get("sort"):
+            params["sort"] = "id asc"
+
+        while last_cursor != current_cursor:
+            results = self.send_query(params)
+
+            output = json.loads(results.content)
+            last_cursor = current_cursor
+            current_cursor = output.get("nextCursorMark")
+
+            response = output.get("response", {})
+            docs = response.get("docs", [])
+
+            for result in docs:
+                yield SolrResult(result)
+            if params["cursorMark"] != output["nextCursorMark"]:
+                params["cursorMark"] = output["nextCursorMark"]
+            else:
+                break
+
+    def run_query_term_cursor(
         self,
         query_string: str,
         query_config_path: str | Path | None = None,
@@ -136,7 +191,7 @@ class SolrExporter:
         # See below how the params dictionary is created. As the fields about the query are already in memory, we should
         # update the field q in the params dictionary with the query string and run the query.
 
-        """Run the cursor to export all results
+        """Run the cursor to export results from a search query as it would be done in the application interface.
 
         params = {'cursorMark': '*',
         'debugQuery': 'true',
@@ -166,17 +221,8 @@ class SolrExporter:
         params["debugQuery"] = "true"
         params["q"] = make_query(query_string, query_config_path, conf_query=conf_query)
 
-        while True:
-            results = self.send_query(params)  # send_query
-
-            output = json.loads(results.content)
-
-            for result in output["response"]["docs"]:
-                yield process_results(result, list_output_fields)
-            if params["cursorMark"] != output["nextCursorMark"]:
-                params["cursorMark"] = output["nextCursorMark"]
-            else:
-                break
+        for result in self.run_cursor_raw(params):
+            yield process_results(result, list_output_fields)
 
     @staticmethod
     def create_boost_phrase_fields(query_fields: list[list[Any]]) -> str:
@@ -221,7 +267,7 @@ if __name__ == "__main__":
     query_config_file_path = Path(config_files_path, "full_text_search/config_query.yaml")  # type: ignore[arg-type]
 
     # '"good"'
-    for x in solr_exporter.run_cursor(
+    for x in solr_exporter.run_query_term_cursor(
         args.query, query_config_path=query_config_file_path, conf_query="ocr"
     ):
         print(x)

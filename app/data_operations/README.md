@@ -1,120 +1,131 @@
-<br/>
-  <p align="center">
-    Solr Query
-    <br/>
-    <br/>
-    <a href="https://github.com/hathitrust/index_search_monorepo/tree/main/app/solr_query">README.md</a>
-    -
-    <a href="https://github.com/hathitrust/index_search_monorepo/tree/main/app/solr_query">Request Feature</a>
-  </p>
-
-## Table Of Contents
-
-* [About the Project](#about-the-project)
-* [Built With](#built-with)
-* [Phases](#phases)
-* [Project Set Up](#project-set-up)
-  * [Prerequisites](#prerequisites)
-  * [Installation](#installation)
-  * [Creating A Pull Request](#creating-a-pull-request)
-* [Content Structure](#content-structure)
-  * [Project Structure](#project-structure)
-  * [Site Maps](#site-maps)
-* [Design](#design)
-* [Functionality](#functionality)
-* [Usage](#usage)
-* [Tests](#tests)
-* [Hosting](#hosting)
-* [Resources](#resources)
-
 ## About The Project
 
-This application is a command line tool that allows operations task that focus on retriving documents or/and generating datasets. The application was generated
-when the `ht_search` and `ht_indexer` projects were merged into a monorepo. The purpose of this application is to group scripts used to retrieve data and generated datasets using python.
-
-## Built With
-
-* [Python](https://www.python.org/)
-* [Poetry](https://python-poetry.org/)
-* [Pytest](https://docs.pytest.org/en/stable/)
-* [Docker](https://www.docker.com/)
-* [Makefile](https://www.gnu.org/software/make/)
-* [Black](https://black.readthedocs.io/en/stable/)
-* [Ruff](https://ruff.rs/)
-* 
-## Phases
-- Phase 1— Create an script to generate a list of metadata for titles with markers indicating they are Dissertations
-  - Retrieve the Zephir marc export that have 502 fields from the file src/data/zephir_upd_20260329.json.gz. Pass as a paramater the address to the .json.gz file
-  - generate records for titles in HathiTrust from the Zephir marc export with the words Dissertation/dissertation or PhD/Ph.D.
-  - Generate a csv or .xlsx file with the list of records.
-  - In the following fields title, author, year published, and any field that would potentially allow us to link to other datasets. The ProQuest UMI number could use where it's applicable
-    - ProQuest UMI number could likely be found in one of two places. Per MARC it would be in the 502$o field, which is where dissertation numbers should go. But I believe UMich and possibly others put it in the 035, like this: 035: (ProQuest)disstheses AAI3599037 [for ID pqdiss:3599037]. So either place, but that (ProQuest) prepend should be present 
-  - Include any fields indicating topic area or discipline if available
-  - Include the query used for documentation.
-  - Use pymarc to extract the records that meet the requirement.
-
-- Phase 2—Next Steps
-
-
-
-## Project Set Up
-
-In your local environment, you can use the `docker-compose.yml` file to set up the environment to run each script.
-
-The application is designed to run in a Docker container. The Makefile is used to build the Docker image and run the 
-container.
-
-In the work directory, you can run the following commands to set up the application:
-```bash
-cd app/data_operations
-# Build the Docker image
-make build
-# Create the Docker container and set up the environment variables
-make run
-```
-
-### Prerequisites
-* Docker
-* Python 3 and Poetry (If you want to run the application in your local environment). See the installation section below.
-  
-In your workdir,
-  
-      * `cd app/data_operations` # Change to the data_operations directory
-      * `poetry init` # It will set up your local environment and repository details
-      * `poetry env use python` # To find the virtual environment directory, created by poetry
-      * `source ~/solr_query-TUsF9qpC-py3.11/bin/activate` # Activate the virtual environment in Mac
-      * `poetry install` # Install the dependencies in the virtual environment
-      * `poetry update` # Update poetry.lock file with the latest versions of the dependencies
-      * `C:\Users\user_name\AppData\Local\pypoetry\Cache\virtualenvs\solr_query-d4ARlKJT-py3.12\Scripts\Activate.ps1` # Activate the virtual environment in Windows
-      * ** Note **: 
-              If you are using a Mac, poetry creates their files in the home directory, e.g. /Users/user_name/Library/Caches/pypoetry/.
-              If you are using Windows, poetry creates their files in the home directory, e.g. C:\Users\user_name\AppData\Local\pypoetry\
-
-
-### Project Structure
-
-The project is structured as follows:
-
-```
-    ├── data_operations
-    ├── documentation
-    │   ├── 
-    ├── src
-        ├── metadata_generator.py
-    ├── tests   
-    ├── Dockerfile
-    ├── poetry.lock
-    ├── pyproject.toml
-    ├── README.md 
-    ├── Makefile
- ```
+This component includes various scripts to generate ad-hoc reports from catalog
+data; including these scripts here allows for re-use of other parts of our
+python code for handling data from solr.
 
 ## Design
 
-The infrastructure of this application consists on different scripts. Each script will be used for a specific purpose. 
-For example, the script `metadata_generator.py` will be used to generate a list of metadata for titles with markers indicating they are Dissertations.
+* Use `pymarc` to manipulate MARC records. `pymarc` lets you treat those records as Python objects instead of raw text/binary.
+* Relies on overall docker, python, project infrastructure for python & solr and makes use of [our other python libraries](../../libs) where applicable
 
-Use `pymarc` to manipulate MARC records. `pymarc` lets you treat those records as Python objects instead of raw text/binary.
+## Usage
+
+### KBART 3 generation
+
+Creates a tab-delimited file (tsv) in KBART 3 format according to the [specs and examples](src/kbart_file_generator/data/KBART3_base_columns_and_instructions_for_each_Sheet1.tsv)
+
+The generated KBART report contains one row for each title in HathiTrust that matches the given institution's print holdings, regardless of access status, as well as one row for each title where any item is viewable in full-text by US users in HathiTrust.
+
+The script queries the catalog solr to pull all metadata necessary to populate the KBART file. The following environment variables must be set:
+
+* `CATALOG_SOLR_RO_URL` - base URL to catalog solr core, for example http://solr-host:8983/solr/catalog
+* `SOLR_USER` - basic auth for accessing solr
+* `SOLR_PASSWORD` - basic auth for accessing solr
+
+The final output is a tab-delimited file that can be easily imported into a spreadsheet or database for further analysis.
+
+Run the KBART generator locally with:
+
+```bash
+uv run python src/kbart_file_generator/kbart_file_generator.py inst_id -o path/to/output
+```
+
+where `inst_id` is a [HathiTrust institution ID](https://www.hathitrust.org/member-libraries/resources-for-librarians/institution-identifiers/)
+
+The main report is written to `path/to/output/kbart_inst_id_YYYY-MM-DD.tsv`
+The metadata summary sidecar is written to `path/to/output/kbart_inst_id_YYYY-MM-DD.metadata.json`
+Progress is logged to stdout along with details of any errors.
+
+
+## Language report generator 
+
+Generate ISO 639-3 and ISO 639-5 language report from Zephir marc export
+- Running `app/data_operations/src/metadata_extractor/report_generation.py` against a Zephir MARC export to produces a 
+TSV report containing only `pd` and `pdus` titles that satisfy either the ISO 639-5 or ISO 639-3 criteria.
+- Set 1 matches are driven only by codes listed in `app/data_operations/src/metadata_extractor/data/iso639-5.tsv`, 
+not by generic three-letter MARC language-code matching.
+- Set 2 matches require `041` second indicator `7` and `$2 iso639-3`.
+- Output rows include the requested title identifier, title, OCLC number, matched code, 041 value, 546 value where 
+relevant, and rights code, with exactly one row per record.
+- Automated tests cover both language sets, rights filtering, overlap handling, and TSV output shape.
+Run the language report generator locally with:
+
+```bash
+uv run python src/metadata_extractor/report_generation.py \
+  -f src/metadata_extractor/data/zephir_full_20260430_vufind.json.gz \
+  -o src/metadata_extractor/output/language_report.tsv \
+  -m src/metadata_extractor/output/iso639_language_report.metadata.json \
+  --iso6395-file src/metadata_extractor/data/iso639-5.tsv
+``` 
+
+### MARC fields used to identify language and rights per record:
+
+- 008: It is a fixed-length control field that contains coded information about the bibliographic record
+  - It does not use subfields
+  - It always has 40 characters and each character position has a predefined meaning.
+  - There's a general structure but the interpretation of each position depends on the type of material 
+  (book, maps, serials, etc.)
+  - Position 35–37 is the Language (3-letter code)
+  - e.g. 008 001129s2001 xxu f000 0 eng d -> language = eng
+
+- 041: is the Language Code field. It provides detailed information about the languages associated with 
+the content of a resource—more precise than what you get from the 008 field
+  - This field is used when  a resource contains multiple languages or there are translations or you want to 
+  distinguish between the original language and the language of the text.
+  - First indicator:
+    - 0 → Item is not a translation
+    - 1 → Item is a translation
+  - Second indicator:
+    - Usually blank (#)
+  - $a -> Language of the text
+  - $b -> Language of summaries or abstracts
+  - e.g. multiple language 041 0# $a eng $a fre $a ger
+
+## Identifying Dissertations
+
+
+Script to generate a list of metadata for titles with markers indicating they are Dissertations
+
+* Retrieves the Zephir marc export that have 502 fields from the file src/data/zephir_upd_20260329.json.gz. Pass as a paramater the address to the .json.gz file
+* Generate records for titles in HathiTrust from the Zephir marc export with the words Dissertation/dissertation or PhD/Ph.D.
+* Generates a csv or .xlsx file with the list of records.
+* Includes various fields including title, author, year published, and other fields that could allow linking to other datasets.
+* Includes fields that could include a ProQuest UMI number. Per MARC it would be in the 502$o field, which is where dissertation numbers should go. But UMich and possibly others put it in the 035, like this: 035: (ProQuest)disstheses AAI3599037 [for ID pqdiss:3599037]. So either place, but that (ProQuest) prepend should be present 
+* Includes fields indicating topic area or discipline if available
+* Uses pymarc to extract the records that meet the requirement.
+
+
+### Usage
+
+Run it locally:
+
+Copy the .json.gz file (`/htapps/archive/catalog`) to your local environment (`metadata_extractor/data`) and run the script with the following command:
+
+```bash
+cd app/data_operations/src/metadata_extractor
+python metadata_generator.py -i ~/data_operations/src/data/zephir_upd_20260329.json.gz -o ~/data_operations/src/metadata_extractor/output/dissertation_metadata.csv
+```
+
+Run in docker environment:
+```bash
+# Build the Docker image
+make build APP_NAME=data-operations APP_DIR=data_operations  
+# Create the Docker container and set up the environment variables
+
+make up APP_NAME=data-operations
+
+# Run the script inside the container. The `docker-compose` now mounts `src/metadata_extractor/data` and `src/metadata_extractor/output`,
+# so you can edit the Zephir export on your host machine and read the generated CSV without copying files out of the container.
+
+docker compose exec data_operations python src/metadata_extractor/metadata_generator.py -i src/metadata_extractor/data/zephir_upd_20260401.json.gz -o src/metadata_extractor/output/yy.csv
+
+docker compose exec data_operations /workspace/.venv/bin/python src/metadata_extractor/report_generation.py -f src/metadata_extractor/data/zephir_full_20260430_vufind.json.gz -o src/metadata_extractor/output/language_report.tsv -m src/metadata_extractor/output/iso639_language_report.metadata.json --iso6395-file src/metadata_extractor/data/iso639-5.tsv
+
+# Run tests using the command below. 
+docker compose exec data_operations /workspace/.venv/bin/python -m pytest
+
+```
 
 ### Key Components
 
@@ -197,110 +208,3 @@ The JSON serialization supports UTF-8 character encoding, so you do not deal wit
   - $c → Date of publication
   - e.g. 264 #1$aNew York :$bPenguin,$c2020. 
          264 #4$c©2019
-
-### MARC fields used to identify language and rights per record:
-
-- 008: It is a fixed-length control field that contains coded information about the bibliographic record
-  - It does not use subfields
-  - It always has 40 characters and each character position has a predefined meaning.
-  - There's a general structure but the interpretation of each position depends on the type of material 
-  (book, maps, serials, etc.)
-  - Position 35–37 is the Language (3-letter code)
-  - e.g. 008 001129s2001 xxu f000 0 eng d -> language = eng
-
-- 041: is the Language Code field. It provides detailed information about the languages associated with 
-the content of a resource—more precise than what you get from the 008 field
-  - This field is used when  a resource contains multiple languages or there are translations or you want to 
-  distinguish between the original language and the language of the text.
-  - First indicator:
-    - 0 → Item is not a translation
-    - 1 → Item is a translation
-  - Second indicator:
-    - Usually blank (#)
-  - $a -> Language of the text
-  - $b -> Language of summaries or abstracts
-  - e.g. multiple language 041 0# $a eng $a fre $a ger
-
-Check here for guidelines for the use of ISO 639-3 languages codes in MARC records
-
-## Usage
-
-Run it locally:
-
-Copy the .json.gz file (`/htapps/archive/catalog`) to your local environment (`metadata_extractor/data`) and run the script with the following command:
-
-```bash
-cd app/data_operations/src/metadata_extractor
-python metadata_generator.py -i ~/data_operations/src/data/zephir_upd_20260329.json.gz -o ~/data_operations/src/metadata_extractor/output/dissertation_metadata.csv
-```
-
-Run in docker environment:
-```bash
-# Build the Docker image
-make build APP_NAME=data-operations APP_DIR=data_operations  
-# Create the Docker container and set up the environment variables
-
-make up APP_NAME=data-operations
-
-# Run the script inside the container. The `docker-compose` now mounts `src/metadata_extractor/data` and `src/metadata_extractor/output`,
-# so you can edit the Zephir export on your host machine and read the generated CSV without copying files out of the container.
-
-docker compose exec data_operations python src/metadata_extractor/metadata_generator.py -i src/metadata_extractor/data/zephir_upd_20260401.json.gz -o src/metadata_extractor/output/yy.csv
-
-docker compose exec data_operations /workspace/.venv/bin/python src/metadata_extractor/report_generation.py -f src/metadata_extractor/data/zephir_full_20260430_vufind.json.gz -o src/metadata_extractor/output/language_report.tsv -m src/metadata_extractor/output/iso639_language_report.metadata.json --iso6395-file src/metadata_extractor/data/iso639-5.tsv
-
-# Run tests using the command below. 
-docker compose exec data_operations /workspace/.venv/bin/python -m pytest
-
-```
-
-**Phase 1**
-- Initially, run the script locally
-- Retrieve the zephir marc export
-- Run the script in docker environment
-- Generate the list of metadata for titles with markers indicating they are Dissertations and save it in a csv file. The file should be saved in the `data_operations/output/` directory.
-
-Use case 1: Create an script to generate a list of metadata for titles with markers indicating they are Dissertations
-Use case 2: Create a tab-delimited file (tsv) in KBART format using the specs as outlined in the file 
-app/data_operations/src/kbart_file_generator/data/KBART_base_columns_and_instructions_for_each_Sheet1.tsv. 
-The KBART file should contain one row for each title that matches OSU’s print holdings, regardless of access status. 
-The script will extract the matching bib IDs from that report app/data_operations/src/kbart_file_generator/data/data file 
-(column catalog_id)
-and then will query solr and/or hathifiles to pull the necessary metadata to populate the KBART file. 
-The script should be able to handle a large number of bib IDs and should be able to run efficiently. 
-The script should also be able to handle any errors that may occur during the data retrieval process and 
-should log any errors for later review. 
-The final output should be a tab-delimited file that can be easily imported into a spreadsheet or database for further analysis.
-Use case 3: Generate ISO 639-3 and ISO 639-5 language report from Zephir marc export
-- Running `app/data_operations/src/metadata_extractor/report_generation.py` against a Zephir MARC export to produces a 
-TSV report containing only `pd` and `pdus` titles that satisfy either the ISO 639-5 or ISO 639-3 criteria.
-- Set 1 matches are driven only by codes listed in `app/data_operations/src/metadata_extractor/data/iso639-5.tsv`, 
-not by generic three-letter MARC language-code matching.
-- Set 2 matches require `041` second indicator `7` and `$2 iso639-3`.
-- Output rows include the requested title identifier, title, OCLC number, matched code, 041 value, 546 value where 
-relevant, and rights code, with exactly one row per record.
-- Automated tests cover both language sets, rights filtering, overlap handling, and TSV output shape.
-
-Run the KBART generator locally with:
-
-```bash
-uv run python src/kbart_file_generator/kbart_file_generator.py \
-  -f src/kbart_file_generator/data/data \
-  -o src/kbart_file_generator/output/kbart_print_holdings.tsv \
-  -m src/kbart_file_generator/output/kbart_print_holdings.metadata.json \
-  -e src/kbart_file_generator/output/kbart_print_holdings.errors.tsv
-```
-
-The main TSV is written to `src/kbart_file_generator/output/kbart_print_holdings.tsv`.
-The metadata summary sidecar is written to `src/kbart_file_generator/output/kbart_print_holdings.metadata.json`.
-Any skipped `catalog_id` values and lookup failures are written to `src/kbart_file_generator/output/kbart_print_holdings.errors.tsv`.
-
-Run the language report generator locally with:
-
-```bash
-uv run python src/metadata_extractor/report_generation.py \
-  -f src/metadata_extractor/data/zephir_full_20260430_vufind.json.gz \
-  -o src/metadata_extractor/output/language_report.tsv \
-  -m src/metadata_extractor/output/iso639_language_report.metadata.json \
-  --iso6395-file src/metadata_extractor/data/iso639-5.tsv
-``` 

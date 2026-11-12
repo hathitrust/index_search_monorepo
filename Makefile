@@ -5,8 +5,8 @@ APPS_DIR = ht_indexer
 LINT_PATHS = app libs
 
 # Paths covered by the type checker. mypy --strict coverage is being rolled out
-# incrementally; currently scoped to libs and app/ht_indexer.
-TYPE_CHECK_PATHS = libs app/ht_indexer
+# incrementally.
+TYPE_CHECK_PATHS = libs app/ht_indexer app/data_operations/src/kbart_file_generator
 
 sync:
 	uv sync --all-packages
