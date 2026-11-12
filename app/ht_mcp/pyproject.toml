@@ -14,7 +14,7 @@ classifiers = [
 ]
 dependencies = [
     "mcp[cli]>=1.30,<2",
-    "httpx>=0.28,<0.29",
+    "httpx>=0.28,<1",
     "pydantic-settings>=2.15,<3",
     "ht-utils",
 ]
@@ -23,7 +23,7 @@ dependencies = [
 dev = [
     "pytest>=9,<10",
     "pytest-asyncio>=1.4,<2",
-    "respx>=0.23,<0.24",
+    "respx>=0.23,<1",
 ]
 
 [tool.pytest.ini_options]
