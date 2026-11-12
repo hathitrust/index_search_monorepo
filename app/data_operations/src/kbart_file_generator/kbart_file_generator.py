@@ -241,10 +241,7 @@ class KBARTFileGenerator:
         for record in self.matching_solr_records():
             self.processed_records += 1
             row = self.build_kbart_row(record)
-            # TODO not sure if this is worth the hassle of reporting this way --
-            # things with missing titles aren't our problem. Log elsewhere,
-            # skip/ignore, and
-            # move on?
+
             if not row["publication_title"] or not row["title_id"]:
                 self.error_count += 1
                 logger.warning(
@@ -258,9 +255,7 @@ class KBARTFileGenerator:
         self,
     ) -> tuple[int, int]:
 
-        # TODO extract class w/ parameters?
-
-        file_prefix = f"kbart_{self.inst_id}_{date.today()}"
+        file_prefix = f"HathiTrust_{self.inst_id.upper()}_ResourceSharing_{date.today()}"
 
         self.output_path.mkdir(parents=True, exist_ok=True)
         output_file = self.output_path / f"{file_prefix}.tsv"
