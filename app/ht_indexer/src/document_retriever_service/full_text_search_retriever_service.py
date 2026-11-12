@@ -10,7 +10,7 @@ from typing import Any
 
 import requests
 from catalog_metadata.catalog_metadata import CatalogItemMetadata, CatalogRecordMetadata
-from ht_indexer_api.ht_indexer_api import HTSolrAPI
+from ht_indexer_api.ht_indexer_api import DEFAULT_READ_TIMEOUT_SECONDS, HTSolrAPI
 from ht_queue_service.queue_config import QueueParams
 from ht_queue_service.queue_producer import QueueProducer
 from ht_utils.ht_logger import get_ht_logger
@@ -47,6 +47,22 @@ class PublishCounts:
         )
 
 
+class SolrRetrievalError(Exception):
+    """A Solr request failed part-way through a run (the original error is the __cause__).
+
+    Carries what the run did before the failure, so a caller does not count items that were
+    already published as failed.
+
+    :param counts: what was published, failed and not found in Catalog before the failure
+    :param unprocessed: ids not processed, including the chunk whose request failed
+    """
+
+    def __init__(self, message: str, counts: PublishCounts, unprocessed: int) -> None:
+        super().__init__(message)
+        self.counts = counts
+        self.unprocessed = unprocessed
+
+
 @dataclass
 class ChunkMetadata:
     """Items built from one Solr response, and the ht_ids whose catalog metadata failed."""
@@ -73,12 +89,14 @@ class FullTextSearchRetrieverQueueService:
         solr_user: str | None = None,
         solr_password: str | None = None,
         solr_retriever_query_params: dict[str, Any] | None = None,
+        solr_timeout: float = DEFAULT_READ_TIMEOUT_SECONDS,
     ):
 
         self.solr_host = solr_host
         self.solr_user = solr_user
         self.solr_password = solr_password
         self.solr_retriever_query_params = solr_retriever_query_params
+        self.solr_timeout = solr_timeout
 
         # Queue configuration
         self.queue_params = queue_params
@@ -248,7 +266,8 @@ class FullTextSearchRetrieverQueueService:
     ) -> PublishCounts:
         """
         This method is used to retrieve the documents from the Catalog and generate the full text search entry
-        If the Solr is not available, an error will be raised, and the process will be stopped
+        If the Solr is not available (including a request timeout), a SolrRetrievalError is raised
+        and the process will be stopped
 
         We run Solr queries in batch
         Each batch will retrieve 200 documents because Solr will fail with the status code 414
@@ -265,9 +284,12 @@ class FullTextSearchRetrieverQueueService:
         # Create a connection to the queue to produce messages
         queue_producer = FullTextSearchRetrieverQueueService.get_queue_producer(self.queue_params)
 
-        solr_retriever = HTSolrAPI(self.solr_host, self.solr_user, self.solr_password)
+        solr_retriever = HTSolrAPI(
+            self.solr_host, self.solr_user, self.solr_password, read_timeout=self.solr_timeout
+        )
 
         counts = PublishCounts()
+        processed = 0
 
         # As we have a long list of ht_ids/ids, the recommendation is to split the list of documents into chunks
         # and create query batch to avoid the Solr URI too long error.
@@ -280,7 +302,14 @@ class FullTextSearchRetrieverQueueService:
             query = make_solr_term_query(chunk, by_field)
 
             # Retrieve the documents from Solr
-            response = self.retrieve_documents_from_solr(query, solr_retriever)
+            try:
+                response = self.retrieve_documents_from_solr(query, solr_retriever)
+            except requests.exceptions.RequestException as e:
+                raise SolrRetrievalError(
+                    f"Solr request failed after {processed} of {len(initial_documents)} ids: {e}",
+                    counts,
+                    len(initial_documents) - processed,
+                ) from e
             output = json.loads(response.content.decode("utf-8"))
 
             # Generate the metadata for the documents
@@ -303,6 +332,7 @@ class FullTextSearchRetrieverQueueService:
             counts += FullTextSearchRetrieverQueueService.publishing_documents(
                 queue_producer, chunk_metadata.items, chunk_metadata.failed
             )
+            processed += len(chunk)
 
         return counts
 
@@ -360,6 +390,10 @@ def run_retriever_service_threads(
             try:
                 counts += future.result()  # This will raise an exception if the thread failed
                 logger.debug(f"Successfully processed batch of {len(batch)} documents")
+            except SolrRetrievalError as e:
+                # Chunks published before the failure are counted as published, not failed
+                logger.error(f"Thread failed processing batch of {len(batch)} documents: {e}")
+                counts += e.counts + PublishCounts(failed=e.unprocessed)
             except Exception as e:
                 logger.error(f"Thread failed processing batch of {len(batch)} documents: {e}")
                 counts += PublishCounts(failed=len(batch))
@@ -387,6 +421,7 @@ def main() -> None:
         init_args_obj.solr_user,
         init_args_obj.solr_password,
         init_args_obj.solr_retriever_query_params,
+        init_args_obj.solr_timeout,
     )
 
     by_field = init_args_obj.query_field
@@ -401,9 +436,14 @@ def main() -> None:
             init_args_obj.max_workers,
         )
     else:
-        counts = document_retriever_service.full_text_search_retriever_service(
-            list_documents, by_field
-        )
+        try:
+            counts = document_retriever_service.full_text_search_retriever_service(
+                list_documents, by_field
+            )
+        except SolrRetrievalError as e:
+            # Keep what was published before the failure, so the summary and exit code are right
+            logger.error(f"Solr request failed, the run stopped early: {e}")
+            counts = e.counts + PublishCounts(failed=e.unprocessed)
 
     logger.info(
         "Process=retrieving: run summary",
