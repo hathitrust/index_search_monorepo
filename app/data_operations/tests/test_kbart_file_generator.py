@@ -13,7 +13,7 @@ load_dotenv()
 
 @pytest.mark.integration
 def test_kbart_generator_integration(tmp_path: Path) -> None:
-    file_prefix = f"kbart_umich_{date.today()}"
+    file_prefix = f"HathiTrust_UMICH_ResourceSharing_{date.today().strftime('%Y-%m-%d')}"
 
     runner = CliRunner()
     result = runner.invoke(main, args=["umich", "--output-path", str(tmp_path)])
