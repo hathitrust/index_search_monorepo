@@ -97,7 +97,6 @@ class DocumentIndexerQueueService(QueueMultipleConsumer):
         """Send documents to Solr in one request. Raises if the request or the response fails."""
         start_time = time.time()
         response = self.solr_api_full_text.index_documents(documents)
-        response.raise_for_status()
 
         for i in documents:
             self.logger.info("document_indexed", ht_id=get_queue_message_id(i))

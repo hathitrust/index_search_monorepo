@@ -147,3 +147,75 @@ def test_a_hung_solr_raises_a_timeout_that_the_indexer_treats_as_temporary(
         api.index_documents([{"id": "mdp.1"}])
 
     assert classify_failure(error.value) is FailureKind.TRANSIENT
+
+
+# --- Raising on Solr errors (ETT-2015) -------------------------------------------------------
+
+
+def _solr_response(status_code: int) -> requests.Response:
+    """A real requests.Response, so raise_for_status() behaves exactly like it does for Solr."""
+    response = requests.Response()
+    response.status_code = status_code
+    response.url = "http://solr/update/json/docs"
+    return response
+
+
+def test_index_documents_returns_the_response_when_solr_accepts_the_documents() -> None:
+    with patch("ht_indexer_api.ht_indexer_api.requests.post") as mock_post:
+        mock_post.return_value = _solr_response(200)
+
+        response = HTSolrAPI("http://solr/").index_documents([{"id": "mdp.1"}])
+
+    assert response.status_code == 200
+
+
+@pytest.mark.parametrize("status_code", [400, 401, 404, 500, 503])
+def test_index_documents_raises_when_solr_answers_with_an_error(status_code: int) -> None:
+    with patch("ht_indexer_api.ht_indexer_api.requests.post") as mock_post:
+        mock_post.return_value = _solr_response(status_code)
+
+        with pytest.raises(requests.exceptions.HTTPError) as error:
+            HTSolrAPI("http://solr/").index_documents([{"id": "mdp.1"}])
+
+    # The indexer's failure classifier reads the status from the exception
+    assert error.value.response is not None
+    assert error.value.response.status_code == status_code
+
+
+def test_index_documents_by_file_stops_at_the_first_file_solr_rejects(tmp_path: Path) -> None:
+    """An error on an earlier file is no longer hidden by a later file that succeeds."""
+    for name in ("a.json", "b.json"):
+        (tmp_path / name).write_text("{}")
+
+    with patch("ht_indexer_api.ht_indexer_api.requests.post") as mock_post:
+        mock_post.side_effect = [_solr_response(400), _solr_response(200)]
+
+        with pytest.raises(requests.exceptions.HTTPError):
+            HTSolrAPI("http://solr/").index_documents_by_file(tmp_path, ["a.json", "b.json"])
+
+    assert mock_post.call_count == 1
+
+
+def test_index_documents_by_file_returns_the_last_response_when_every_file_is_accepted(
+    tmp_path: Path,
+) -> None:
+    for name in ("a.json", "b.json"):
+        (tmp_path / name).write_text("{}")
+
+    with patch("ht_indexer_api.ht_indexer_api.requests.post") as mock_post:
+        mock_post.return_value = _solr_response(200)
+
+        response = HTSolrAPI("http://solr/").index_documents_by_file(tmp_path, ["a.json", "b.json"])
+
+    assert response.status_code == 200
+    assert mock_post.call_count == 2
+
+
+def test_get_solr_status_still_returns_error_responses() -> None:
+    """The solr_query /ping endpoint reports Solr's status code, so this one must not raise."""
+    with patch("ht_indexer_api.ht_indexer_api.requests.get") as mock_get:
+        mock_get.return_value = _solr_response(503)
+
+        response = HTSolrAPI("http://solr/").get_solr_status()
+
+    assert response.status_code == 503
