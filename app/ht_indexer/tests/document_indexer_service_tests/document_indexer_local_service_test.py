@@ -1,8 +1,11 @@
 import sys
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+import requests
 from document_indexer_service import document_indexer_local_service
+from ht_utils.testing import assert_log_entry, capture_logs
 
 
 def _run_main(monkeypatch: pytest.MonkeyPatch, *extra: str) -> MagicMock:
@@ -39,3 +42,46 @@ def test_the_local_indexer_exits_with_an_error_for_an_invalid_solr_timeout(
         _run_main(monkeypatch, "--solr_timeout", "0")
 
     assert exit_info.value.code == 2
+
+
+class _StopLoop(BaseException):
+    """Raised from the patched sleep to leave the endless indexing loop (not caught by except Exception)."""
+
+
+def _http_error(status_code: int) -> requests.exceptions.HTTPError:
+    response = requests.Response()
+    response.status_code = status_code
+    return requests.exceptions.HTTPError(f"{status_code} error", response=response)
+
+
+def test_the_local_indexer_logs_the_solr_error_and_keeps_the_files(tmp_path: Path) -> None:
+    (tmp_path / "a.json").write_text("{}")
+    solr_api = MagicMock()
+    solr_api.index_documents_by_file.side_effect = _http_error(400)
+    service = document_indexer_local_service.DocumentIndexerLocalService(solr_api)
+
+    with (
+        capture_logs() as logs,
+        patch.object(document_indexer_local_service, "sleep", side_effect=_StopLoop),
+        pytest.raises(_StopLoop),
+    ):
+        service.indexer_service(str(tmp_path))
+
+    assert_log_entry(logs, event="local_indexing_failed", files=1, status_code=400)
+    assert (tmp_path / "a.json").exists()
+
+
+def test_the_local_indexer_logs_a_connection_error_without_a_status(tmp_path: Path) -> None:
+    (tmp_path / "a.json").write_text("{}")
+    solr_api = MagicMock()
+    solr_api.index_documents_by_file.side_effect = requests.exceptions.ConnectionError("down")
+    service = document_indexer_local_service.DocumentIndexerLocalService(solr_api)
+
+    with (
+        capture_logs() as logs,
+        patch.object(document_indexer_local_service, "sleep", side_effect=_StopLoop),
+        pytest.raises(_StopLoop),
+    ):
+        service.indexer_service(str(tmp_path))
+
+    assert_log_entry(logs, event="local_indexing_failed", files=1, status_code=None)

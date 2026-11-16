@@ -71,6 +71,18 @@ class DocumentIndexerLocalService:
                         if response.status_code == 200:
                             self.clean_up_folder(document_local_path, chunk)
 
+            except requests.exceptions.RequestException as e:
+                # Solr rejected the files or could not be reached. The files stay in the folder
+                # (they are not cleaned up) and the same chunk is tried again after the pause.
+                status_code = e.response.status_code if e.response is not None else None
+                logger.error(
+                    "local_indexing_failed",
+                    files=len(chunk),
+                    status_code=status_code,
+                    error=str(e),
+                )
+                sleep(3)
+
             except Exception as e:
                 logger.info(f"{document_local_path} does not exit {e}")
                 sleep(3)  # Wait until the folder is created
