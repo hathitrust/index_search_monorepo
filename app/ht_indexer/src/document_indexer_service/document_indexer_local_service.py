@@ -15,7 +15,6 @@ from ht_utils.ht_logger import get_ht_logger
 
 logger = get_ht_logger(name=__name__)
 
-CHUNK_SIZE = 500
 DOCUMENT_LOCAL_PATH = "/tmp/indexing_data/"
 
 
@@ -29,6 +28,16 @@ class DocumentIndexerLocalService:
             path, list_documents=list_documents
         )
         return response
+
+    @staticmethod
+    def _log_failure(file: str, error: requests.exceptions.RequestException) -> None:
+        # The file stays in the folder; it is tried again on the next pass
+        logger.error(
+            "local_indexing_failed",
+            file=file,
+            status_code=error.response.status_code if error.response is not None else None,
+            error=str(error),
+        )
 
     @staticmethod
     def clean_up_folder(document_path: str, list_ids: list[str]) -> None:
@@ -58,30 +67,23 @@ class DocumentIndexerLocalService:
                 ]
 
                 logger.info(f"Indexing {len(json_files)} documents.")
-                # Split the list of files in batch
-                if json_files:
-                    while json_files:
-                        chunk, json_files = json_files[:CHUNK_SIZE], json_files[CHUNK_SIZE:]
-
-                        logger.info(f"Indexing documents: {chunk}")
+                # One file at a time: a file that Solr accepts is cleaned up at once, and a file
+                # that Solr rejects stays in the folder without holding back the others.
+                for file in json_files:
+                    try:
                         response = self.indexing_documents(
-                            document_local_path, list_documents=chunk
+                            document_local_path, list_documents=[file]
                         )
-                        logger.info(f"Index operation status: {response.status_code}")
-                        if response.status_code == 200:
-                            self.clean_up_folder(document_local_path, chunk)
-
-            except requests.exceptions.RequestException as e:
-                # Solr rejected the files or could not be reached. The files stay in the folder
-                # (they are not cleaned up) and the same chunk is tried again after the pause.
-                status_code = e.response.status_code if e.response is not None else None
-                logger.error(
-                    "local_indexing_failed",
-                    files=len(chunk),
-                    status_code=status_code,
-                    error=str(e),
-                )
-                sleep(3)
+                    except requests.exceptions.HTTPError as error:
+                        # Solr answered with an error for this file: go on with the next one
+                        self._log_failure(file, error)
+                        continue
+                    except requests.exceptions.RequestException as error:
+                        # Solr did not answer: the other files would fail the same way
+                        self._log_failure(file, error)
+                        break
+                    logger.info(f"Index operation status: {response.status_code}")
+                    self.clean_up_folder(document_local_path, [file])
 
             except Exception as e:
                 logger.info(f"{document_local_path} does not exit {e}")

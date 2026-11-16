@@ -111,8 +111,11 @@ class HTSolrAPI:
         :raises requests.exceptions.HTTPError: If Solr answers with an error status (4xx or 5xx).
         Files before the failing one have already been sent.
         :raises requests.exceptions.RequestException: If a request fails (connection, timeout)
+        :raises ValueError: If there are no files to send
         :return: The response to the last file
         """
+        if not list_documents:
+            raise ValueError("list_documents must have at least one file")
         data_path = Path(path)
         for doc in list_documents:
             doc_path = f"{data_path}/{doc}"

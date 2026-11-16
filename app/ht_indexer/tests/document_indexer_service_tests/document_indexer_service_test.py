@@ -1,7 +1,7 @@
 import time
 from collections.abc import Callable
 from typing import Any
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 import requests
@@ -223,6 +223,22 @@ def test_process_batch_dead_letters_a_document_that_fails_with_an_unknown_error(
     assert result is False
     assert _dead_lettered_tags(channel) == [10, 11]
     assert channel.basic_nack.call_count == 0
+
+
+def test_process_batch_with_the_real_solr_client_keeps_messages_when_solr_answers_503() -> None:
+    """FakeHTSolrAPI copies the raise of HTSolrAPI.index_documents. This one uses the real
+    client, so the two stay in line: if the real client stopped raising on an error status, a
+    503 would be acked and the messages lost."""
+    answer = requests.Response()
+    answer.status_code = 503
+    service, channel = _make_service(HTSolrAPI("http://solr/"))
+
+    with patch("ht_indexer_api.ht_indexer_api.requests.post", return_value=answer):
+        result = service.process_batch(_batch(), [10, 11])
+
+    assert result is False
+    assert channel.basic_ack.call_count == 0
+    assert _retried_tags(channel) == [10, 11]
 
 
 # --- Bounded retry and backoff ---------------------------------------------------------------

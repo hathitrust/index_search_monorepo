@@ -1,5 +1,7 @@
 import sys
+from collections.abc import Mapping, MutableMapping
 from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -48,40 +50,84 @@ class _StopLoop(BaseException):
     """Raised from the patched sleep to leave the endless indexing loop (not caught by except Exception)."""
 
 
-def _http_error(status_code: int) -> requests.exceptions.HTTPError:
+def _answer(status_code: int) -> requests.Response:
     response = requests.Response()
     response.status_code = status_code
-    return requests.exceptions.HTTPError(f"{status_code} error", response=response)
+    return response
 
 
-def test_the_local_indexer_logs_the_solr_error_and_keeps_the_files(tmp_path: Path) -> None:
-    (tmp_path / "a.json").write_text("{}")
+def _http_error(status_code: int) -> requests.exceptions.HTTPError:
+    return requests.exceptions.HTTPError(f"{status_code} error", response=_answer(status_code))
+
+
+def _run_one_pass(
+    folder: Path, answers: Mapping[str, requests.Response | Exception]
+) -> tuple[MagicMock, list[MutableMapping[str, Any]]]:
+    """Run the indexing loop for one pass. `answers` says what Solr does for each file name.
+    Returns the Solr client mock and the log entries."""
+
+    def index_documents_by_file(path: str, list_documents: list[str]) -> requests.Response:
+        answer = answers[list_documents[0]]
+        if isinstance(answer, Exception):
+            raise answer
+        return answer
+
     solr_api = MagicMock()
-    solr_api.index_documents_by_file.side_effect = _http_error(400)
+    solr_api.index_documents_by_file.side_effect = index_documents_by_file
     service = document_indexer_local_service.DocumentIndexerLocalService(solr_api)
-
     with (
         capture_logs() as logs,
         patch.object(document_indexer_local_service, "sleep", side_effect=_StopLoop),
         pytest.raises(_StopLoop),
     ):
-        service.indexer_service(str(tmp_path))
+        service.indexer_service(str(folder))
+    return solr_api, logs
 
-    assert_log_entry(logs, event="local_indexing_failed", files=1, status_code=400)
+
+def _make_files(folder: Path, *names: str) -> None:
+    for name in names:
+        (folder / name).write_text("{}")
+
+
+def test_a_file_that_solr_rejects_is_logged_and_kept(tmp_path: Path) -> None:
+    _make_files(tmp_path, "a.json")
+
+    _, logs = _run_one_pass(tmp_path, {"a.json": _http_error(400)})
+
+    assert_log_entry(logs, event="local_indexing_failed", file="a.json", status_code=400)
     assert (tmp_path / "a.json").exists()
 
 
-def test_the_local_indexer_logs_a_connection_error_without_a_status(tmp_path: Path) -> None:
-    (tmp_path / "a.json").write_text("{}")
-    solr_api = MagicMock()
-    solr_api.index_documents_by_file.side_effect = requests.exceptions.ConnectionError("down")
-    service = document_indexer_local_service.DocumentIndexerLocalService(solr_api)
+def test_a_rejected_file_does_not_hold_back_the_other_files(tmp_path: Path) -> None:
+    _make_files(tmp_path, "bad.json", "good1.json", "good2.json")
 
-    with (
-        capture_logs() as logs,
-        patch.object(document_indexer_local_service, "sleep", side_effect=_StopLoop),
-        pytest.raises(_StopLoop),
-    ):
-        service.indexer_service(str(tmp_path))
+    solr_api, _ = _run_one_pass(
+        tmp_path,
+        {"bad.json": _http_error(400), "good1.json": _answer(200), "good2.json": _answer(200)},
+    )
 
-    assert_log_entry(logs, event="local_indexing_failed", files=1, status_code=None)
+    assert solr_api.index_documents_by_file.call_count == 3
+    assert sorted(path.name for path in tmp_path.iterdir()) == ["bad.json"]
+
+
+def test_files_are_cleaned_up_after_any_successful_answer(tmp_path: Path) -> None:
+    """Not only after a 200: Solr or a proxy can answer 204."""
+    _make_files(tmp_path, "a.json")
+
+    _run_one_pass(tmp_path, {"a.json": _answer(204)})
+
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_the_pass_stops_when_solr_cannot_be_reached(tmp_path: Path) -> None:
+    _make_files(tmp_path, "a.json", "b.json")
+
+    solr_api, logs = _run_one_pass(
+        tmp_path,
+        {name: requests.exceptions.ConnectionError("down") for name in ("a.json", "b.json")},
+    )
+
+    # The second file would fail the same way, so it is not tried
+    assert solr_api.index_documents_by_file.call_count == 1
+    assert_log_entry(logs, event="local_indexing_failed", status_code=None)
+    assert sorted(path.name for path in tmp_path.iterdir()) == ["a.json", "b.json"]

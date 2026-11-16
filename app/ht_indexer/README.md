@@ -498,9 +498,10 @@ not from the queue.
 
 ```docker compose exec document-indexer python -m document_indexer_service.document_indexer_local_service --solr_indexing_api http://solr-lss-dev:8983/solr/#/core-x/ --document_local_path /tmp/indexing_data```
 
-If Solr rejects a file or cannot be reached, the script logs an error with the event `local_indexing_failed`
-(`files`, `status_code`, `error`; `status_code` is empty when Solr did not answer). It keeps the files in the folder
-and tries the same files again after a short pause. Files are deleted only after Solr accepts them. This event is
+The script sends one file at a time and deletes a file as soon as Solr accepts it. If Solr rejects a file (a 4xx or 5xx
+answer), the script logs an error with the event `local_indexing_failed` (`file`, `status_code`, `error`), leaves that
+file in the folder and goes on with the next one. The rejected file is tried again on the next pass. If Solr cannot be
+reached at all (`status_code` is empty), the script stops the pass and starts again after a short pause. This event is
 for local runs and is not part of the alert contract above.
 
 ### Processing documents reading the list of ids from a file

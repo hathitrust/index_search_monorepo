@@ -219,3 +219,9 @@ def test_get_solr_status_still_returns_error_responses() -> None:
         response = HTSolrAPI("http://solr/").get_solr_status()
 
     assert response.status_code == 503
+
+
+def test_index_documents_by_file_refuses_an_empty_list(tmp_path: Path) -> None:
+    """There would be no response to return."""
+    with pytest.raises(ValueError, match="at least one file"):
+        HTSolrAPI("http://solr/").index_documents_by_file(tmp_path, [])
