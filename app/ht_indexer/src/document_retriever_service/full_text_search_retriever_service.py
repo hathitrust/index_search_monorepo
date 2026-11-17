@@ -121,7 +121,7 @@ class FullTextSearchRetrieverQueueService:
         """Generate the metadata and the ht_id of the document to be published in the queue"""
 
         item_id = record.ht_id
-        logger.info(f"Processing document htid={item_id}")
+        logger.info("Processing document", ht_id=item_id)
 
         item_metadata = record.metadata
         item_metadata["ht_id"] = item_id
@@ -139,7 +139,7 @@ class FullTextSearchRetrieverQueueService:
 
         for record in result:
             item_metadata, item_id = FullTextSearchRetrieverQueueService.generate_metadata(record)
-            logger.info(f"Publishing document htid={item_id}")
+            logger.info("Publishing document", ht_id=item_id)
 
             try:
                 if queue_producer_conn is None:
@@ -151,7 +151,7 @@ class FullTextSearchRetrieverQueueService:
                 error_info = get_error_message_by_document(
                     "FullTextSearchRetrieverQueueService", e, item_metadata
                 )
-                logger.error(f"Error in publishing document htid={item_id} {error_info}")
+                logger.error("Error in publishing document", ht_id=item_id, error=error_info)
                 failed += 1
 
         # Metadata failures are never published; count them as failed. They are already
@@ -233,8 +233,9 @@ class FullTextSearchRetrieverQueueService:
         for item_id in item_ids:
             chunk_metadata.failed[item_id] = str(e)
             logger.error(
-                f"Error in building catalog metadata for document htid={item_id} "
-                f"{get_general_error_message('FullTextSearchRetrieverQueueService', e)}"
+                "Error in building catalog metadata for document",
+                ht_id=item_id,
+                error=get_general_error_message("FullTextSearchRetrieverQueueService", e),
             )
 
     @staticmethod
@@ -256,8 +257,9 @@ class FullTextSearchRetrieverQueueService:
         )
         for item_id in sorted(missing):
             logger.error(
-                f"Error in retrieving document htid={item_id} "
-                f"FullTextSearchRetrieverQueueService_not found in Catalog"
+                "Error in retrieving document",
+                ht_id=item_id,
+                error="FullTextSearchRetrieverQueueService_not found in Catalog",
             )
         return missing
 

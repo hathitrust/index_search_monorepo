@@ -303,6 +303,6 @@ class TestRetrieveDocumentsByFileSummary:
 
     def test_logs_error_for_invalid_id(self, run: SimpleNamespace) -> None:
         assert any(
-            "'bad id'" in log["event"] and log.get("log_level") == "error"
+            log.get("ht_id") == "bad id" and log.get("log_level") == "error"
             for log in run.log_entries
         )
