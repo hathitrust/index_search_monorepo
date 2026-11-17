@@ -1,16 +1,16 @@
 import argparse
 import sys
 
-from config import config_queue_file_path
 from ht_indexer_api.ht_indexer_api import (
     DEFAULT_READ_TIMEOUT_SECONDS,
     HTSolrAPI,
     positive_seconds,
 )
-from ht_queue_service.queue_config import QueueConfig
+from ht_queue_service.queue_settings import QueueSettings
 from ht_utils.ht_env_config import HtEnvConfig
 from ht_utils.ht_logger import get_ht_logger
-from ht_utils.ht_utils import get_general_error_message
+from pydantic import ValidationError
+from pydantic_settings import SettingsConfigDict
 
 from . import indexer_config_file_path
 
@@ -19,6 +19,14 @@ logger = get_ht_logger(name=__name__)
 # Higher than the HTSolrAPI default (10s), which the search and retriever code still use: while
 # uploading a batch, Solr may stop reading for longer than that and the upload is cut.
 INDEXER_CONNECT_TIMEOUT_SECONDS = 60.0
+
+
+class IndexerQueueSettings(QueueSettings):
+    model_config = SettingsConfigDict(
+        env_prefix="RABBITMQ_INDEXER_",
+        yaml_file=indexer_config_file_path / "indexer_config.yml",
+        yaml_config_section="queue",
+    )
 
 
 class IndexerServiceArguments:
@@ -83,38 +91,13 @@ class IndexerServiceArguments:
 
         self.document_local_path = self.args.document_local_path
 
+        overrides = {}
+
+        if self.args.batch_size is not None:
+            overrides["batch_size"] = self.args.batch_size
+
         try:
-            # Using queue or local machine
-            ############### QUEUE CONFIGURATION ####################
-            # Build resource file paths using Traversable's '/' operator
-            global_config = config_queue_file_path / "global_config.yml"
-            app_config = indexer_config_file_path / "indexer_config.yml"
-            # Validate that the files actually exist
-            if not global_config.is_file():
-                logger.error(f"Queue config file {global_config} does not exist")
-                sys.exit(1)
-            if not app_config.is_file():
-                logger.error(f"Queue config file {app_config} does not exist")
-                sys.exit(1)
-            # importlib.resources.files() is typed as Traversable, which typeshed doesn't
-            # declare as PathLike -- but for these packages (regular installed directories,
-            # not zips) they are.
-            self.queue_config = QueueConfig(
-                global_config,  # type: ignore[arg-type]
-                app_config,  # type: ignore[arg-type]
-                config_key="queue",
-                batch_size=self.args.batch_size,
-            )
-
-        except ValueError as e:
-            # For example, a --batch_size outside the allowed range
+            self.queue_settings = IndexerQueueSettings(**overrides)
+        except ValidationError as e:
             logger.error(f"Invalid queue configuration: {e}")
-            sys.exit(1)
-
-        except KeyError as e:
-            logger.error(
-                f"Environment variables required: "
-                f"{get_general_error_message('DocumentIndexerService', e)}"
-            )
-
             sys.exit(1)

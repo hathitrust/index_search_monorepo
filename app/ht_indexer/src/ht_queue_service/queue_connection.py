@@ -3,6 +3,8 @@ from ht_utils.ht_errors import HTError
 from ht_utils.ht_logger import get_ht_logger
 from pika.exceptions import AMQPConnectionError, ProbableAuthenticationError
 
+from ht_queue_service.queue_settings import QueueSettings
+
 logger = get_ht_logger(name=__name__)
 
 # Calculate the maximum number of messages in the queue
@@ -22,16 +24,15 @@ MAX_DOCUMENT_IN_QUEUE = 200000  # 200000 is the maximum number of messages in th
 
 
 class QueueConnection:
-    def __init__(self, user: str, password: str, host: str, heartbeat: int):
+    def __init__(self, queue_settings: QueueSettings):
         # Define credentials (user/password) as environment variables
         # Declaring the credentials needed for connection, such as host, port, username, password, and exchange.
 
-        self.credentials = pika.PlainCredentials(username=user, password=password)
-
-        self.user = user
-        self.password = password
-        self.host = host
-        self.heartbeat = heartbeat
+        self.credentials = pika.PlainCredentials(
+            username=queue_settings.username, password=queue_settings.password.get_secret_value()
+        )
+        self.host = queue_settings.host
+        self.heartbeat = queue_settings.heartbeat
         self.queue_connection: pika.BlockingConnection | None = self._connect()
 
     def _connect(self) -> pika.BlockingConnection:

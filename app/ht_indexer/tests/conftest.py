@@ -1,21 +1,16 @@
-import copy
 import json
 import os
 import uuid
-from collections.abc import Callable, Generator, Iterator
-from pathlib import Path
 from typing import Any, Protocol
-from unittest.mock import patch
 
 import pytest
 from catalog_metadata.catalog_metadata import CatalogItemMetadata, CatalogRecordMetadata
 from dotenv import load_dotenv
 from ht_queue_service.channel_creator import ChannelCreator
-from ht_queue_service.queue_config import QueueConfig
 from ht_queue_service.queue_manager import QueueManager
 from ht_queue_service.queue_multiple_consumer import QueueMultipleConsumer
+from ht_queue_service.queue_settings import QueueSettings
 from ht_utils.ht_env_config import HtEnvConfig
-from ht_utils.ht_utils import create_temporary_yaml_file
 from pika.adapters.blocking_connection import BlockingChannel
 
 load_dotenv()
@@ -39,73 +34,18 @@ class ConcreteQueueConsumer(QueueMultipleConsumer):
         return True
 
 
-@pytest.fixture
-def get_global_queue_config() -> dict[str, Any]:
-    """
-    Returns rabbitmq configuration for testing purposes.
-    """
-
-    return {
-        "queue": {
-            "host": os.environ["RABBITMQ_INDEXER_RW_HOST"],
-            "port": os.environ["RABBITMQ_INDEXER_RW_PORT"],
-            "user": os.environ["RABBITMQ_INDEXER_RW_USERNAME"],
-            "password": os.environ["RABBITMQ_INDEXER_RW_PASSWORD"],
-        }
-    }
-
-
-@pytest.fixture
-def get_app_queue_config() -> dict[str, Any]:
-    """
-    This function is used to create the application configuration
-    """
-    return {
-        "queue": {
-            "queue_name": None,
-            "batch_size": 1,
-            "requeue_message": False,
-            "exchange_type": "direct",
-            "durable": True,
-            "auto_delete": False,
-            "exclusive": False,
-            "heartbeat": 60,
-            "connection_timeout": 10,
-            "retry_interval": 5,
-            "shutdown_on_empty_queue": False,
-        }
-    }
-
-
-def create_test_queue_config(
-    global_config: dict[str, Any],
-    app_config: dict[str, Any],
-    queue_name: str,
-    batch_size: int = 1,
-    requeue_message: bool = False,
-    shutdown_on_empty_queue: bool = False,
-    **queue_overrides: Any,  # Any: forwards arbitrary QueueParams keys into the config dict
-) -> tuple[QueueConfig, str, str]:
-
-    global_config_file_path = create_temporary_yaml_file(global_config)
-    config = copy.deepcopy(app_config)
-    config["queue"].update(
-        {
-            "queue_name": queue_name,
-            "batch_size": batch_size,
-            "requeue_message": requeue_message,
-            "shutdown_on_empty_queue": shutdown_on_empty_queue,
-        }
-    )
-    config["queue"].update(queue_overrides)
-    app_config_file_path = create_temporary_yaml_file(config)
-    queue_config = QueueConfig(Path(global_config_file_path), Path(app_config_file_path))
-    return queue_config, global_config_file_path, app_config_file_path
-
-
-@pytest.fixture
-def get_rabbit_mq_host_name() -> str:
-    return HtEnvConfig().rabbitmq_indexer_rw_host
+class QueueTestSettings(QueueSettings):
+    queue_name: str = "default_test_queue"
+    batch_size: int = 1
+    requeue_message: bool = False
+    exchange_type: str = "direct"
+    durable: bool = True
+    auto_delete: bool = False
+    exclusive: bool = False
+    heartbeat: int = 60
+    connection_timeout: int = 10
+    retry_interval: int = 5
+    shutdown_on_empty_queue: bool = False
 
 
 @pytest.fixture
@@ -147,39 +87,6 @@ def solr_catalog_url() -> str:
 @pytest.fixture
 def random_queue_name() -> str:
     return f"test_queue_{uuid.uuid4().hex[:8]}"
-
-
-@pytest.fixture
-def make_queue_config(
-    get_global_queue_config: dict[str, Any],
-    get_app_queue_config: dict[str, Any],
-    random_queue_name: str,
-) -> Generator[Callable[..., QueueConfig]]:
-    """Factory fixture for a QueueConfig backed by temporary YAML files.
-
-    Defaults to a fresh random queue name (instead of a hardcoded string) so
-    repeated/parallel test runs don't collide on shared broker state. Every temp
-    file created through this factory is removed on teardown, even if the test
-    body raises -- unlike the inline os.remove() calls each test used to end with,
-    which never ran once an earlier assert failed.
-    """
-    created_paths: list[str] = []
-
-    def _make(*, queue_name: str | None = None, **config_overrides: Any) -> QueueConfig:
-        queue_config, global_path, app_path = create_test_queue_config(
-            get_global_queue_config,
-            get_app_queue_config,
-            queue_name or random_queue_name,
-            **config_overrides,
-        )
-        created_paths.extend([global_path, app_path])
-        return queue_config
-
-    yield _make
-
-    for path in created_paths:
-        if os.path.exists(path):
-            os.remove(path)
 
 
 class QueueServiceLike(Protocol):
@@ -231,12 +138,3 @@ def drain_ht_ids(consumer: QueueMultipleConsumer, timeout: int = 5) -> list[str]
         else:
             break
     return ht_ids
-
-
-@pytest.fixture
-def stub_retriever_external_services(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
-    """Isolate RetrieverServiceArguments from Solr/queue config (production-like env: no Solr credentials)."""
-    for var in SOLR_CATALOG_CREDENTIAL_VARS:
-        monkeypatch.delenv(var, raising=False)
-    with patch("document_retriever_service.retriever_arguments.QueueConfig"):
-        yield

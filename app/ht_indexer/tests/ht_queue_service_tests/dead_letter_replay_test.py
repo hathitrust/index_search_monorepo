@@ -1,15 +1,13 @@
 import json
 import time
-from collections.abc import Callable
 from types import SimpleNamespace
 from typing import Any, NamedTuple, cast
 from unittest.mock import MagicMock
 
 import pika
 import pytest
-from conftest import ConcreteQueueConsumer, close_channel_and_connection
+from conftest import ConcreteQueueConsumer, QueueTestSettings, close_channel_and_connection
 from ht_queue_service.dead_letter_replay import ReplaySummary, replay_dead_letter_messages
-from ht_queue_service.queue_config import QueueConfig
 from ht_utils.testing import assert_log_entry, capture_logs
 from pika.adapters.blocking_connection import BlockingChannel
 from pika.exceptions import NackError, UnroutableError
@@ -241,12 +239,10 @@ def test_failed_publish_leaves_the_message_in_the_dead_letter_queue_and_stops(
     assert channel.get_count == 2
 
 
-def test_replay_moves_a_dead_lettered_message_back_to_the_main_queue(
-    make_queue_config: Callable[..., QueueConfig],
-) -> None:
+def test_replay_moves_a_dead_lettered_message_back_to_the_main_queue() -> None:
     """With a real RabbitMQ: reject a message so the broker dead-letters it, then replay it."""
-    queue_params = make_queue_config(batch_size=1, requeue_message=False).queue_params
-    consumer = ConcreteQueueConsumer(queue_params)
+    queue_settings = QueueTestSettings()
+    consumer = ConcreteQueueConsumer(queue_settings)
     assert consumer.channel is not None
     channel = consumer.channel
     queue_manager = consumer.queue_manager

@@ -11,8 +11,8 @@ from typing import Any
 import requests
 from catalog_metadata.catalog_metadata import CatalogItemMetadata, CatalogRecordMetadata
 from ht_indexer_api.ht_indexer_api import DEFAULT_READ_TIMEOUT_SECONDS, HTSolrAPI
-from ht_queue_service.queue_config import QueueParams
 from ht_queue_service.queue_producer import QueueProducer
+from ht_queue_service.queue_settings import QueueSettings
 from ht_utils.ht_logger import get_ht_logger
 from ht_utils.ht_utils import (
     get_error_message_by_document,
@@ -84,7 +84,11 @@ class FullTextSearchRetrieverQueueService:
 
     def __init__(
         self,
-        queue_params: QueueParams | None = None,
+        # TODO likely as part of ETT-1981: these are optional because we don't
+        # necessarily use them in the tests, esp. the queue settings  --
+        # should provide the queue producer & solr api directly, and then we
+        # can provide mocked implementations
+        queue_settings: QueueSettings | None = None,
         solr_host: str | None = None,
         solr_user: str | None = None,
         solr_password: str | None = None,
@@ -99,14 +103,14 @@ class FullTextSearchRetrieverQueueService:
         self.solr_timeout = solr_timeout
 
         # Queue configuration
-        self.queue_params = queue_params
+        self.queue_settings = queue_settings
 
     @staticmethod
-    def get_queue_producer(queue_params: QueueParams) -> QueueProducer | None:
+    def get_queue_producer(queue_settings: QueueSettings) -> QueueProducer | None:
         """Establish a connection to the queue to publish the documents"""
 
         try:
-            queue_producer = QueueProducer(queue_params)
+            queue_producer = QueueProducer(queue_settings)
             return queue_producer
 
         except Exception as e:
@@ -278,13 +282,13 @@ class FullTextSearchRetrieverQueueService:
         :return: total of items published, failed and not found in Catalog, across all chunks
         """
 
-        if self.queue_params is None:
-            raise RuntimeError("queue_params is required")
+        if self.queue_settings is None:
+            raise RuntimeError("queue_settings is required")
         if self.solr_host is None:
             raise RuntimeError("solr_host is required")
 
         # Create a connection to the queue to produce messages
-        queue_producer = FullTextSearchRetrieverQueueService.get_queue_producer(self.queue_params)
+        queue_producer = FullTextSearchRetrieverQueueService.get_queue_producer(self.queue_settings)
 
         solr_retriever = HTSolrAPI(
             self.solr_host, self.solr_user, self.solr_password, read_timeout=self.solr_timeout
@@ -418,7 +422,7 @@ def main() -> None:
         sys.exit(1)
 
     document_retriever_service = FullTextSearchRetrieverQueueService(
-        init_args_obj.queue_config.queue_params,
+        init_args_obj.queue_settings,
         init_args_obj.solr_host,
         init_args_obj.solr_user,
         init_args_obj.solr_password,
