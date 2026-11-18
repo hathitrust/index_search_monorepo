@@ -66,8 +66,11 @@ def replay_dead_letter_messages(
         channel.confirm_delivery()
 
     logger.info(
-        f"event=dlq_replay_started queue={dead_letter_queue} in_dead_letter_queue="
-        f"{in_dead_letter_queue} limit={limit} dry_run={dry_run}"
+        "dlq_replay_started",
+        queue=dead_letter_queue,
+        in_dead_letter_queue=in_dead_letter_queue,
+        limit=limit,
+        dry_run=dry_run,
     )
 
     inspected = 0
@@ -86,7 +89,7 @@ def replay_dead_letter_messages(
         ht_id = _ht_id(payload)
 
         if dry_run:
-            logger.info(f"event=dlq_replay_would_replay ht_id={ht_id}")
+            logger.info("dlq_replay_would_replay", ht_id=ht_id)
             continue
 
         try:
@@ -102,26 +105,27 @@ def replay_dead_letter_messages(
         except (UnroutableError, NackError, AMQPError) as error:
             # Leave this message in the dead-letter queue and stop. Log first, and do not let a
             # failing nack (e.g. the channel closed) hide the original error.
-            logger.error(
-                f"event=dlq_replay_failed ht_id={ht_id} replayed={replayed} error={str(error)!r}"
-            )
+            logger.error("dlq_replay_failed", ht_id=ht_id, replayed=replayed, error=str(error))
             try:
                 channel.basic_nack(delivery_tag=delivery_tag, requeue=True)
             except AMQPError as nack_error:
                 # An unacknowledged message goes back to the queue when the channel closes anyway
-                logger.warning(f"event=dlq_replay_nack_failed error={str(nack_error)!r}")
+                logger.warning("dlq_replay_nack_failed", error=str(nack_error))
             raise
         channel.basic_ack(delivery_tag=delivery_tag)
         replayed += 1
-        logger.info(f"event=dlq_replay_message ht_id={ht_id}")
+        logger.info("dlq_replay_message", ht_id=ht_id)
 
     if dry_run and last_tag is not None:
         # Hand every message we only looked at back to the dead-letter queue
         channel.basic_nack(delivery_tag=last_tag, multiple=True, requeue=True)
 
     logger.info(
-        f"event=dlq_replay_finished in_dead_letter_queue={in_dead_letter_queue} "
-        f"inspected={inspected} replayed={replayed} dry_run={dry_run}"
+        "dlq_replay_finished",
+        in_dead_letter_queue=in_dead_letter_queue,
+        inspected=inspected,
+        replayed=replayed,
+        dry_run=dry_run,
     )
     return ReplaySummary(
         in_dead_letter_queue=in_dead_letter_queue, replayed=replayed, inspected=inspected
