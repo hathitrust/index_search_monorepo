@@ -60,13 +60,18 @@ def test_batch_size_must_be_a_number(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.mark.parametrize(
     ("options", "expected"),
     [
-        pytest.param([], (10.0, 120.0), id="default"),
+        pytest.param([], (60.0, 120.0), id="default"),
         pytest.param(
-            ["--solr_timeout", "30"], (10.0, 30.0), id="read-timeout-from-the-command-line"
+            ["--solr_timeout", "30"], (60.0, 30.0), id="read-timeout-from-the-command-line"
+        ),
+        pytest.param(
+            ["--solr_connect_timeout", "90"],
+            (90.0, 120.0),
+            id="connect-timeout-from-the-command-line",
         ),
     ],
 )
-def test_solr_timeout_reaches_the_solr_client(
+def test_solr_timeouts_reach_the_solr_client(
     monkeypatch: pytest.MonkeyPatch, options: list[str], expected: tuple[float, float]
 ) -> None:
     arguments = _arguments(monkeypatch, *options)
@@ -74,9 +79,12 @@ def test_solr_timeout_reaches_the_solr_client(
     assert arguments.solr_api_full_text.timeout == expected
 
 
-def test_an_invalid_solr_timeout_exits_with_an_error(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize("option", ["--solr_timeout", "--solr_connect_timeout"])
+def test_an_invalid_solr_timeout_exits_with_an_error(
+    monkeypatch: pytest.MonkeyPatch, option: str
+) -> None:
     """Which values are invalid is tested once, on positive_seconds (ht_indexer_api_test.py)."""
     with pytest.raises(SystemExit) as exit_info:
-        _arguments(monkeypatch, "--solr_timeout", "0")
+        _arguments(monkeypatch, option, "0")
 
     assert exit_info.value.code == 2
