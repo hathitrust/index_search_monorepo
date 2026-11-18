@@ -64,7 +64,7 @@ class MysqlMetadataExtractor:
         )
         params = {"doc_id": doc_id, "max_item_ids": MAX_ITEM_IDS}
 
-        logger.info(f"MySQL query htid={doc_id}: {query_item_in_large_coll} params={params}")
+        logger.info("MySQL query", ht_id=doc_id, query=query_item_in_large_coll, params=params)
         return self.mysql_obj.query_mysql(query_item_in_large_coll, params=params)
 
     def add_rights_field(self, doc_id: str) -> list[dict[str, Any]]:
@@ -73,14 +73,14 @@ class MysqlMetadataExtractor:
 
         query = "SELECT * FROM rights_current WHERE namespace=:namespace AND id=:id"
         params = {"namespace": namespace, "id": _id}
-        logger.info(f"MySQL query htid={doc_id}: {query} params={params}")
+        logger.info("MySQL query", ht_id=doc_id, query=query, params=params)
         return self.mysql_obj.query_mysql(query, params=params)
 
     def add_ht_heldby_field(self, doc_id: str) -> list[dict[str, Any]]:
         query = "SELECT member_id FROM holdings_htitem_htmember WHERE volume_id=:doc_id"
         params = {"doc_id": doc_id}
 
-        logger.info(f"MySQL query htid={doc_id}: {query} params={params}")
+        logger.info("MySQL query", ht_id=doc_id, query=query, params=params)
         # ht_heldby is a list of institutions
         return self.mysql_obj.query_mysql(query, params=params)
 
@@ -88,12 +88,12 @@ class MysqlMetadataExtractor:
         query = "SELECT member_id FROM holdings_htitem_htmember WHERE volume_id=:doc_id AND access_count > 0"
         params = {"doc_id": doc_id}
 
-        logger.info(f"MySQL query htid={doc_id}: {query} params={params}")
+        logger.info("MySQL query", ht_id=doc_id, query=query, params=params)
         return self.mysql_obj.query_mysql(query, params=params)
 
     def retrieve_mysql_data(self, doc_id: str) -> dict[str, Any]:
         entry: dict[str, Any] = {}
-        logger.info(f"Retrieving data from MySql htid={doc_id}")
+        logger.info("Retrieving data from MySql", ht_id=doc_id)
 
         doc_rights = self.add_rights_field(doc_id)
 
