@@ -195,7 +195,7 @@ class QueueProducer:
                 limit=limit,
             )
             raise MessageTooLargeError(
-                f"Message htid={ht_id} size {size} bytes exceeds max_message_size {limit} bytes; not published"
+                f"Message ht_id={ht_id} size {size} bytes exceeds max_message_size {limit} bytes; not published"
             )
 
         for attempt in range(1, MAX_PUBLISH_ATTEMPTS + 1):
