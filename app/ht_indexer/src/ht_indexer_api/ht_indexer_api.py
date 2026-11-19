@@ -88,7 +88,11 @@ class HTSolrAPI:
     def index_documents(
         self, list_documents: list[dict[str, Any]], solr_url_json: str = "update/json/docs"
     ) -> requests.Response:
-        """Read an XML and feed into SOLR for indexing"""
+        """Send a list of documents to Solr for indexing.
+
+        :raises requests.exceptions.HTTPError: If Solr answers with an error status (4xx or 5xx)
+        :raises requests.exceptions.RequestException: If the request fails (connection, timeout)
+        """
         response = requests.post(
             f"{self.url.replace('#/', '')}{solr_url_json}",
             headers={"Content-Type": "application/json"},
@@ -96,12 +100,22 @@ class HTSolrAPI:
             timeout=self.timeout,
             data=orjson.dumps(list_documents),
         )
+        response.raise_for_status()
         return response
 
     def index_documents_by_file(
         self, path: str | Path, list_documents: list[str], solr_url_json: str = "update/json/docs"
     ) -> requests.Response:
-        """Read an XML and feed into SOLR for indexing"""
+        """Read files from a folder and feed them into SOLR for indexing, one request per file.
+
+        :raises requests.exceptions.HTTPError: If Solr answers with an error status (4xx or 5xx).
+        Files before the failing one have already been sent.
+        :raises requests.exceptions.RequestException: If a request fails (connection, timeout)
+        :raises ValueError: If there are no files to send
+        :return: The response to the last file
+        """
+        if not list_documents:
+            raise ValueError("list_documents must have at least one file")
         data_path = Path(path)
         for doc in list_documents:
             doc_path = f"{data_path}/{doc}"
@@ -119,10 +133,8 @@ class HTSolrAPI:
                         "commit": "true",
                     },
                 )
+                response.raise_for_status()
 
-        # FIXME only returns last response; will miss errors from earlier
-        # responses should consider checking for exceptions after the post
-        # rather than expecting the caller to check
         return response
 
     def send_solr_request(self, solr_host: str, solr_params: dict[str, Any]) -> requests.Response:
