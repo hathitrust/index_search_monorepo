@@ -16,6 +16,10 @@ from . import indexer_config_file_path
 
 logger = get_ht_logger(name=__name__)
 
+# Higher than the HTSolrAPI default (10s), which the search and retriever code still use: while
+# uploading a batch, Solr may stop reading for longer than that and the upload is cut.
+INDEXER_CONNECT_TIMEOUT_SECONDS = 60.0
+
 
 class IndexerServiceArguments:
     def __init__(self, parser: argparse.ArgumentParser) -> None:
@@ -52,6 +56,17 @@ class IndexerServiceArguments:
             "failure: the messages stay on the queue.",
         )
 
+        parser.add_argument(
+            "--solr_connect_timeout",
+            type=positive_seconds,
+            default=INDEXER_CONNECT_TIMEOUT_SECONDS,
+            help="Seconds to wait for Solr to accept the connection (default: "
+            f"{INDEXER_CONNECT_TIMEOUT_SECONDS:g}). The HTTP client also applies it while the "
+            "request body is being sent, so it is the longest an upload may stall before the "
+            "request fails with 'Connection aborted ... timed out'. A timeout is treated as a "
+            "temporary failure: the messages stay on the queue.",
+        )
+
         self.args = parser.parse_args()
 
         env_config = HtEnvConfig()
@@ -63,6 +78,7 @@ class IndexerServiceArguments:
             user=solr_user,
             password=solr_password,
             read_timeout=self.args.solr_timeout,
+            connect_timeout=self.args.solr_connect_timeout,
         )
 
         self.document_local_path = self.args.document_local_path

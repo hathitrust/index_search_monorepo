@@ -4,6 +4,7 @@ from unittest.mock import Mock
 import pytest
 import sqlalchemy.exc
 from document_generator.mysql_data_extractor import MysqlMetadataExtractor
+from ht_utils.testing import assert_log_entry, capture_logs
 
 
 class TestMysqlMetadataExtractorBoundParams:
@@ -48,6 +49,18 @@ class TestMysqlMetadataExtractorBoundParams:
         payload_query = db_conn.query_mysql.call_args.args[0]
 
         assert benign_query == payload_query
+
+
+class TestMysqlMetadataExtractorLogs:
+    def test_the_query_log_has_the_ht_id_as_a_field(self) -> None:
+        db_conn = Mock()
+        db_conn.query_mysql.return_value = []
+        extractor = MysqlMetadataExtractor(db_conn)
+
+        with capture_logs() as entries:
+            extractor.add_rights_field("mdp.39015012345678")
+
+        assert_log_entry(entries, event="MySQL query", ht_id="mdp.39015012345678")
 
 
 class TestMysqlMetadataExtractorDatabaseErrors:

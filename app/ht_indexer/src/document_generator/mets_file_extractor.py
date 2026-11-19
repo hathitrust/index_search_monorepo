@@ -62,13 +62,13 @@ class MetsAttributeExtractor:
         return list(set(all_features))
 
     def create_mets_entry(self, ht_id: str) -> dict[str, Any]:
-        logger.info(f"Creating METS map htid={ht_id}")
+        logger.info("Creating METS map", ht_id=ht_id)
         mets_map = self.create_mets_map()
 
-        logger.info(f"Creating METS entry htid={ht_id}")
+        logger.info("Creating METS entry", ht_id=ht_id)
         features = MetsAttributeExtractor.get_unique_features(mets_map)
 
-        logger.info(f"Retrieving document orders htid={ht_id}")
+        logger.info("Retrieving document orders", ht_id=ht_id)
         reading_order = self.get_reading_order()
 
         return {

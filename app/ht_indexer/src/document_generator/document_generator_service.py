@@ -75,10 +75,10 @@ class DocumentGeneratorService(QueueMultipleConsumer):
             entry = self.document_generator.make_full_text_search_document(ht_document, record)
         except Exception as e:
             raise Exception(
-                f"Document htid={ht_document.document_id} could not be generated: Error - {e}"
+                f"Document ht_id={ht_document.document_id} could not be generated: Error - {e}"
             ) from e
 
-        htid_logger.info("Finish", time=time.time() - start_time)
+        htid_logger.info("Finish", seconds=round(time.time() - start_time, 3))
 
         return entry
 

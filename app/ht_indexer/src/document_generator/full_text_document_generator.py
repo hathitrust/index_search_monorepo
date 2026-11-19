@@ -43,7 +43,7 @@ def extract_fields_from_mets_file(ht_id: str, doc_source_path: str) -> dict[str,
 
         return mets_fields
     except Exception as e:
-        logger.error(f"Error generating METS fields for htid={ht_id}: {e}")
+        logger.error("Error generating METS fields", ht_id=ht_id, error=str(e))
         raise e
 
 
@@ -191,7 +191,10 @@ class FullTextDocumentGenerator:
         entry.update(FullTextDocumentGenerator.create_allfields_field(fullrecord_field))
         doc_metadata.pop("fullrecord")
         logger.info(
-            f"Time to generate process=OCR_field ht_id={doc.document_id} Time={time.time() - start}"
+            "Time to generate",
+            process="OCR_field",
+            ht_id=doc.document_id,
+            seconds=round(time.time() - start, 3),
         )
 
         # Add Catalog fields to the full-text document
@@ -201,14 +204,20 @@ class FullTextDocumentGenerator:
         # Retrieve data from MariaDB
         entry.update(self.mysql_data_extractor.retrieve_mysql_data(doc.document_id))
         logger.info(
-            f"Time to generate process=MySQL_fields ht_id={doc.document_id} Time={time.time() - start}"
+            "Time to generate",
+            process="MySQL_fields",
+            ht_id=doc.document_id,
+            seconds=round(time.time() - start, 3),
         )
 
         start = time.time()
         # Extract fields from METS file
         entry.update(extract_fields_from_mets_file(doc.document_id, doc.source_path))
         logger.info(
-            f"Time to generate process=METS_fields ht_id={doc.document_id} Time={time.time() - start}"
+            "Time to generate",
+            process="METS_fields",
+            ht_id=doc.document_id,
+            seconds=round(time.time() - start, 3),
         )
         entry.pop("ht_id")
         return entry

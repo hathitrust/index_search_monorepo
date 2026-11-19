@@ -6,6 +6,7 @@ from typing import Any, cast
 import pika.exceptions
 from ht_utils.ht_errors import HTError
 from ht_utils.ht_logger import get_ht_logger
+from ht_utils.ht_utils import get_queue_message_id
 from pika.adapters.blocking_connection import BlockingChannel
 
 from ht_queue_service.channel_creator import ChannelCreator
@@ -170,13 +171,15 @@ class QueueProducer:
             StreamLostError: when a transient publish error exhausts `MAX_PUBLISH_ATTEMPTS`.
         """
 
-        ht_id = queue_message.get("ht_id") or queue_message.get("id")
+        ht_id = get_queue_message_id(queue_message)
 
         try:
             body = json.dumps(queue_message).encode("utf-8")
         except (TypeError, ValueError) as json_err:
             logger.error(
-                f"Failed to serialize message htid={ht_id}: {json_err}",
+                "Failed to serialize message",
+                ht_id=ht_id,
+                error=str(json_err),
                 exc_info=True,
             )
             raise
@@ -184,8 +187,15 @@ class QueueProducer:
         size = len(body)
         limit = self.queue_manager.max_message_size
         if size > limit:
+            # Logged as fields so a search on ht_id finds this failure too (ETT-2018)
+            logger.error(
+                "Message too large, not published",
+                ht_id=ht_id,
+                size=size,
+                limit=limit,
+            )
             raise MessageTooLargeError(
-                f"Message htid={ht_id} size {size} bytes exceeds max_message_size {limit} bytes; not published"
+                f"Message ht_id={ht_id} size {size} bytes exceeds max_message_size {limit} bytes; not published"
             )
 
         for attempt in range(1, MAX_PUBLISH_ATTEMPTS + 1):
@@ -225,19 +235,26 @@ class QueueProducer:
             ) as err:
                 if attempt == MAX_PUBLISH_ATTEMPTS:
                     logger.error(
-                        f"Giving up publishing message htid={ht_id} to {self.queue_manager.queue_name} "
-                        f"after {MAX_PUBLISH_ATTEMPTS} attempts: {err}"
+                        "Giving up publishing message",
+                        ht_id=ht_id,
+                        queue=self.queue_manager.queue_name,
+                        attempts=MAX_PUBLISH_ATTEMPTS,
+                        error=str(err),
                     )
                     raise
                 logger.warning(
-                    f"RabbitMQ connection/channel closed while publishing message htid={ht_id} "
-                    f"(attempt {attempt}/{MAX_PUBLISH_ATTEMPTS}): {err}. Reconnecting and retrying..."
+                    "RabbitMQ connection/channel closed while publishing message, reconnecting",
+                    ht_id=ht_id,
+                    attempt=f"{attempt}/{MAX_PUBLISH_ATTEMPTS}",
+                    error=str(err),
                 )
                 self._thread_reconnect()
 
             except Exception as err:
                 logger.error(
-                    f"Unexpected error publishing message htid={ht_id}: {err}",
+                    "Unexpected error publishing message",
+                    ht_id=ht_id,
+                    error=str(err),
                     exc_info=True,
                 )
                 raise
