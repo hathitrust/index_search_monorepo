@@ -303,6 +303,29 @@ class TestRetrieveDocumentsByFileSummary:
 
     def test_logs_error_for_invalid_id(self, run: SimpleNamespace) -> None:
         assert any(
-            "'bad id'" in log["event"] and log.get("log_level") == "error"
+            log.get("ht_id") == "bad id" and log.get("log_level") == "error"
             for log in run.log_entries
         )
+
+    def test_an_invalid_record_id_is_logged_as_record_id(self, tmp_path: Path) -> None:
+        input_file = tmp_path / "ids.txt"
+        input_file.write_text("bad id\n")
+
+        with patch.object(by_file_module, "FullTextSearchRetrieverQueueService"):
+            with capture_logs() as entries:
+                retrieve_documents_by_file(
+                    MagicMock(),
+                    "record",
+                    "http://solr",
+                    "solr_user",
+                    "solr_password",
+                    {},
+                    input_file,
+                    tmp_path / "status.txt",
+                    False,
+                    1,
+                )
+
+        (failure,) = [e for e in entries if e["event"] == "Invalid id in the input file: skipped"]
+        assert failure["record_id"] == "bad id"
+        assert "ht_id" not in failure

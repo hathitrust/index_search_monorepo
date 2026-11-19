@@ -571,16 +571,15 @@ class TestLogHtIdsNotInCatalog:
         return items
 
     def test_logs_error_for_each_ht_id_missing_from_catalog(self) -> None:
-        with patch.object(retriever_service_module, "logger") as mock_logger:
+        with capture_logs() as entries:
             missing = FullTextSearchRetrieverQueueService.log_ht_ids_not_in_catalog(
                 ["mdp.1", "mdp.2", "mdp.3"], self._items("mdp.1")
             )
 
         assert missing == {"mdp.2", "mdp.3"}
-        assert mock_logger.error.call_count == 2
-        logged = [call.args[0] for call in mock_logger.error.call_args_list]
-        assert "mdp.2" in logged[0] and "not found in Catalog" in logged[0]
-        assert "mdp.3" in logged[1] and "not found in Catalog" in logged[1]
+        errors = [e for e in entries if e["log_level"] == "error"]
+        assert [e["ht_id"] for e in errors] == ["mdp.2", "mdp.3"]
+        assert all("not found in Catalog" in e["error"] for e in errors)
 
     def test_does_not_log_when_all_ht_ids_are_returned(self) -> None:
         with patch.object(retriever_service_module, "logger") as mock_logger:
@@ -679,8 +678,8 @@ class TestPublishingDocuments:
         with capture_logs() as entries:
             TestPublishingDocuments._publish_one_failed_and_one_succeeded()
 
-        assert any(e["log_level"] == "error" and "htid=mdp.fail" in e["event"] for e in entries), (
-            entries
+        assert_log_entry(
+            entries, event="Error in publishing document", log_level="error", ht_id="mdp.fail"
         )
 
     def test_publishing_documents_publish_failure_returns_counts(self) -> None:

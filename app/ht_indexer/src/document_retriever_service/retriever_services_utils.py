@@ -20,8 +20,9 @@ class RetrieverServicesUtils:
         :param content: dict with the content of the message
         """
         logger.info(
-            f"Sending message with htid={content.get('ht_id')} "
-            f"to queue {queue_producer_conn.queue_manager.queue_name}"
+            "Sending message to queue",
+            ht_id=content.get("ht_id"),
+            queue=queue_producer_conn.queue_manager.queue_name,
         )
         queue_producer_conn.publish_messages(content)
 

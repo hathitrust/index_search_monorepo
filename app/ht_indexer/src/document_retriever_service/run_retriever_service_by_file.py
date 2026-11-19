@@ -141,7 +141,19 @@ def retrieve_documents_by_file(
     ids_file = read_ids_from_file(input_documents_file, query_field)
     # Logs invalidIDs
     for doc_id in ids_file.invalid:
-        logger.error(f"Invalid {query_field} htid={doc_id!r} in {input_documents_file}: skipped")
+        # The item id is always logged as ht_id, a Catalog record id as record_id (ETT-2018)
+        if query_field == "record":
+            logger.error(
+                "Invalid id in the input file: skipped",
+                record_id=doc_id,
+                file=str(input_documents_file),
+            )
+        else:
+            logger.error(
+                "Invalid id in the input file: skipped",
+                ht_id=doc_id,
+                file=str(input_documents_file),
+            )
 
     ids2process, processed_ids = get_non_processed_ids(status_file, ids_file.ids)
     already_processed = len(ids_file.ids) - len(ids2process)

@@ -9,6 +9,7 @@ import pytest
 from conftest import ConcreteQueueConsumer, close_channel_and_connection
 from ht_queue_service.dead_letter_replay import replay_dead_letter_messages
 from ht_queue_service.queue_config import QueueConfig
+from ht_utils.testing import assert_log_entry, capture_logs
 from pika.exceptions import NackError, UnroutableError
 
 
@@ -47,6 +48,29 @@ def test_replay_publishes_to_the_main_queue_then_acknowledges_the_dead_letter() 
         ("indexer_queue_exchange", "indexer_queue", _body("b")),
     ]
     assert [call.kwargs["delivery_tag"] for call in channel.basic_ack.call_args_list] == [1, 2]
+
+
+def test_replay_logs_structured_events_with_the_ht_id_as_a_field() -> None:
+    channel, queue_manager = _fake_broker([_body("mdp.1")])
+
+    with capture_logs() as entries:
+        replay_dead_letter_messages(channel, queue_manager)
+
+    assert_log_entry(
+        entries, event="dlq_replay_started", queue="indexer_queue_dlq", in_dead_letter_queue=1
+    )
+    assert_log_entry(entries, event="dlq_replay_message", ht_id="mdp.1")
+    assert_log_entry(entries, event="dlq_replay_finished", replayed=1, inspected=1, dry_run=False)
+
+
+def test_a_failed_replay_logs_the_ht_id_and_the_error_as_fields() -> None:
+    channel, queue_manager = _fake_broker([_body("mdp.1")])
+    channel.basic_publish.side_effect = pika.exceptions.ChannelClosed(320, "gone")
+
+    with capture_logs() as entries, pytest.raises(pika.exceptions.ChannelClosed):
+        replay_dead_letter_messages(channel, queue_manager)
+
+    assert_log_entry(entries, event="dlq_replay_failed", ht_id="mdp.1", replayed=0)
 
 
 def test_replay_respects_max() -> None:
