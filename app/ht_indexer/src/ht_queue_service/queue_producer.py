@@ -187,6 +187,13 @@ class QueueProducer:
         size = len(body)
         limit = self.queue_manager.max_message_size
         if size > limit:
+            # Logged as fields so a search on ht_id finds this failure too (ETT-2018)
+            logger.error(
+                "Message too large, not published",
+                ht_id=ht_id,
+                size=size,
+                limit=limit,
+            )
             raise MessageTooLargeError(
                 f"Message htid={ht_id} size {size} bytes exceeds max_message_size {limit} bytes; not published"
             )

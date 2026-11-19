@@ -228,3 +228,21 @@ def test_publish_messages_serialization_failure_logs_ht_id_as_a_field(
         producer.publish_messages({"id": "mdp.1", "not_json": object()})
 
     assert_log_entry(entries, event="Failed to serialize message", log_level="error", ht_id="mdp.1")
+
+
+@pytest.mark.integration
+def test_publish_messages_too_large_logs_ht_id_as_a_field(
+    make_producer: Callable[..., QueueProducer],
+) -> None:
+    producer = make_producer(max_message_size=MESSAGE_SIZE - 1)
+
+    with capture_logs() as entries, pytest.raises(MessageTooLargeError):
+        producer.publish_messages({"id": "mdp.1", "text": "x" * MESSAGE_SIZE})
+
+    assert_log_entry(
+        entries,
+        event="Message too large, not published",
+        log_level="error",
+        ht_id="mdp.1",
+        limit=MESSAGE_SIZE - 1,
+    )
