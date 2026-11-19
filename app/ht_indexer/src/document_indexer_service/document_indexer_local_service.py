@@ -16,6 +16,7 @@ from ht_utils.ht_logger import get_ht_logger
 logger = get_ht_logger(name=__name__)
 
 DOCUMENT_LOCAL_PATH = "/tmp/indexing_data/"
+SLEEP_SECONDS = 3
 
 
 class DocumentIndexerLocalService:
@@ -30,12 +31,16 @@ class DocumentIndexerLocalService:
         return response
 
     @staticmethod
-    def _log_failure(file: str, error: requests.exceptions.RequestException) -> None:
+    def _log_failure(file: str, error: OSError) -> None:
         # The file stays in the folder; it is tried again on the next pass
+        # RequestException is an OSError too, and only it can carry a response from Solr
+        response = (
+            error.response if isinstance(error, requests.exceptions.RequestException) else None
+        )
         logger.error(
             "local_indexing_failed",
             file=file,
-            status_code=error.response.status_code if error.response is not None else None,
+            status_code=response.status_code if response is not None else None,
             error=str(error),
         )
 
@@ -74,6 +79,8 @@ class DocumentIndexerLocalService:
                         response = self.indexing_documents(
                             document_local_path, list_documents=[file]
                         )
+                        logger.info(f"Index operation status: {response.status_code}")
+                        self.clean_up_folder(document_local_path, [file])
                     except requests.exceptions.HTTPError as error:
                         # Solr answered with an error for this file: go on with the next one
                         self._log_failure(file, error)
@@ -82,15 +89,24 @@ class DocumentIndexerLocalService:
                         # Solr did not answer: the other files would fail the same way
                         self._log_failure(file, error)
                         break
-                    logger.info(f"Index operation status: {response.status_code}")
-                    self.clean_up_folder(document_local_path, [file])
+                    except OSError as error:
+                        # The file could not be read or deleted: go on with the next one.
+                        # This must come after the two handlers above, because RequestException
+                        # is an OSError too.
+                        self._log_failure(file, error)
+                        continue
 
             except Exception as e:
-                logger.info(f"{document_local_path} does not exit {e}")
-                sleep(3)  # Wait until the folder is created
+                # Most likely the folder does not exist yet, but any other error ends up here too
+                logger.warning(
+                    "local_indexing_pass_failed",
+                    path=document_local_path,
+                    error=str(e),
+                )
+                sleep(SLEEP_SECONDS)  # Wait until the folder is created
 
-            logger.info("Processing ended, sleeping for 5 minutes")
-            sleep(3)
+            logger.info(f"Processing ended, sleeping for {SLEEP_SECONDS} seconds")
+            sleep(SLEEP_SECONDS)
 
 
 def main() -> None:

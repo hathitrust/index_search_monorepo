@@ -131,3 +131,47 @@ def test_the_pass_stops_when_solr_cannot_be_reached(tmp_path: Path) -> None:
     assert solr_api.index_documents_by_file.call_count == 1
     assert_log_entry(logs, event="local_indexing_failed", status_code=None)
     assert sorted(path.name for path in tmp_path.iterdir()) == ["a.json", "b.json"]
+
+
+def test_a_file_that_cannot_be_read_is_logged_and_does_not_hold_back_the_others(
+    tmp_path: Path,
+) -> None:
+    _make_files(tmp_path, "gone.json", "good.json")
+
+    solr_api, logs = _run_one_pass(
+        tmp_path, {"gone.json": FileNotFoundError("gone"), "good.json": _answer(200)}
+    )
+
+    assert solr_api.index_documents_by_file.call_count == 2
+    assert_log_entry(logs, event="local_indexing_failed", file="gone.json", status_code=None)
+    assert sorted(path.name for path in tmp_path.iterdir()) == ["gone.json"]
+
+
+def test_a_file_that_cannot_be_deleted_after_indexing_does_not_stop_the_pass(
+    tmp_path: Path,
+) -> None:
+    _make_files(tmp_path, "a.json", "b.json")
+
+    with patch("os.remove", side_effect=PermissionError("denied")):
+        solr_api, logs = _run_one_pass(tmp_path, {"a.json": _answer(200), "b.json": _answer(200)})
+
+    assert solr_api.index_documents_by_file.call_count == 2
+    assert_log_entry(logs, event="local_indexing_failed", status_code=None, error="denied")
+
+
+def test_a_missing_folder_is_logged_as_a_warning_with_its_path(tmp_path: Path) -> None:
+    missing = tmp_path / "missing"
+
+    _, logs = _run_one_pass(missing, {})
+
+    assert_log_entry(
+        logs, event="local_indexing_pass_failed", log_level="warning", path=str(missing)
+    )
+
+
+def test_the_log_says_how_long_the_loop_sleeps(tmp_path: Path) -> None:
+    seconds = document_indexer_local_service.SLEEP_SECONDS
+
+    _, logs = _run_one_pass(tmp_path, {})
+
+    assert_log_entry(logs, event=f"Processing ended, sleeping for {seconds} seconds")
