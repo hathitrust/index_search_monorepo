@@ -5,8 +5,8 @@ from typing import Any
 
 import requests
 from ht_indexer_api.ht_indexer_api import HTSolrAPI
-from ht_queue_service.queue_config import QueueParams
 from ht_queue_service.queue_multiple_consumer import QueueMultipleConsumer
+from ht_queue_service.queue_settings import QueueSettings
 from ht_utils.ht_logger import get_ht_logger
 from ht_utils.ht_utils import get_error_message_by_document, get_queue_message_id
 from pika.adapters.blocking_connection import BlockingChannel
@@ -33,16 +33,16 @@ class DocumentIndexerQueueService(QueueMultipleConsumer):
     # long may be dropped by the log system. `docs` always has the full count.
     MAX_LOGGED_IDS = 100
 
-    def __init__(self, solr_api_full_text: HTSolrAPI, queue_params: QueueParams):
+    def __init__(self, solr_api_full_text: HTSolrAPI, queue_settings: QueueSettings):
         """Initialize the Document Indexer Queue Service.
         :param solr_api_full_text: The Solr API client for full-text indexing
-        :param queue_params: The object with the queue parameters
+        :param queue_settings: The object with the queue parameters
         """
         # Call the parent class constructor that initializes the connection to the queue
-        super().__init__(queue_params)
+        super().__init__(queue_settings)
         self.solr_api_full_text = solr_api_full_text
         # How many times a message may be put back after Solr answered its own request with a 5xx
-        self.max_retries = queue_params.max_retries
+        self.max_retries = queue_settings.max_retries
         # Failed attempts per message, kept in memory only: it starts again from zero on restart.
         self.retry_attempts: dict[str, int] = {}
         # Messages put back during the current batch, and consecutive batches that put some back
@@ -268,9 +268,9 @@ def _solr_cannot_be_used(error: Exception) -> bool:
     return error.response is not None and error.response.status_code in UNAVAILABLE_STATUS_CODES
 
 
-def start_service(solr_api_full_text: HTSolrAPI, queue_params: QueueParams) -> bool:
-    document_indexer_queue_service = DocumentIndexerQueueService(solr_api_full_text, queue_params)
-    logger.info(f"Starting Document Indexer Service with queue: {queue_params.queue_name}")
+def start_service(solr_api_full_text: HTSolrAPI, queue_settings: QueueSettings) -> bool:
+    document_indexer_queue_service = DocumentIndexerQueueService(solr_api_full_text, queue_settings)
+    logger.info(f"Starting Document Indexer Service with queue: {queue_settings.queue_name}")
     # Start consuming messages from the queue
     return document_indexer_queue_service.start_consuming()
 
@@ -280,7 +280,7 @@ def main() -> None:
 
     init_args_obj = IndexerServiceArguments(parser)
 
-    if not start_service(init_args_obj.solr_api_full_text, init_args_obj.queue_config.queue_params):
+    if not start_service(init_args_obj.solr_api_full_text, init_args_obj.queue_settings):
         # The error was already logged by start_consuming; exit non-zero so the orchestrator restarts us
         logger.error("[!] Consumer stopped because of an error. Exiting")
         sys.exit(1)

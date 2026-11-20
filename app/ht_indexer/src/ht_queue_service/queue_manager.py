@@ -3,7 +3,7 @@ from ht_utils.ht_logger import get_ht_logger
 from pika.adapters.blocking_connection import BlockingChannel
 from pika.exceptions import ChannelClosedByBroker
 
-from ht_queue_service.queue_config import QueueParams
+from ht_queue_service.queue_settings import QueueSettings
 
 logger = get_ht_logger(name=__name__)
 
@@ -13,7 +13,7 @@ class QueueManager:
     Reusable class to manage the setup of a queue in RabbitMQ with a dead-letter exchange.
     """
 
-    def __init__(self, queue_params: QueueParams):
+    def __init__(self, queue_settings: QueueSettings):
         """
         Parameters for the queue setup:
         * queue_name: The name of the queue to set up. The name is important when you want to share the queue
@@ -33,17 +33,18 @@ class QueueManager:
 
         """
 
-        self.queue_name = queue_params.queue_name
-        self.main_exchange_name = queue_params.main_exchange_name
-        self.dlx_exchange = queue_params.dlx_exchange
-        self.exchange_type = queue_params.exchange_type
-        self.durable = queue_params.durable
-        self.auto_delete = queue_params.auto_delete
-        self.arguments = queue_params.arguments
+        # TODO see whether we can avoid copying all the queue_settings fields here?
+        self.queue_name = queue_settings.queue_name
+        self.main_exchange_name = queue_settings.main_exchange_name
+        self.dlx_exchange = queue_settings.dlx_exchange
+        self.exchange_type = queue_settings.exchange_type
+        self.durable = queue_settings.durable
+        self.auto_delete = queue_settings.auto_delete
+        self.arguments = queue_settings.arguments
 
-        self.batch_size = queue_params.batch_size
-        self.max_message_size = queue_params.max_message_size
-        self.dead_letter_queue_name = queue_params.dlx_queue_name
+        self.batch_size = queue_settings.batch_size
+        self.max_message_size = queue_settings.max_message_size
+        self.dead_letter_queue_name = queue_settings.dlx_queue_name
 
     def is_ready(self, channel: BlockingChannel | None = None) -> bool:
         """

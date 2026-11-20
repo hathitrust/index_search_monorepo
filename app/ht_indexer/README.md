@@ -40,20 +40,19 @@ documents in a Solr server. The workflow instantiates two solr servers, through 
 All the services are started using `docker-compose.yml` file, and it integrates a queue system to communicate the
 systems involved in the flow to index documents in Full-text search index. The queue system is based on RabbitMQ.
 
-In `config/global_config` there is a `config.yml` file to set up the different variables that are common for all the services
-of `ht_indexer` application. For example, the RabbitMQ URL, RabbitMQ user and password.These variables are also stored
-in as environment variables in the `docker-compose.yml` file. The environment variables have precedence over the default
-values defined in `config.yml file`.
-
 The application is structured in three main services:
 * **document_retriever_service**: Retrieve documents from Catalog index.
 * **document_generator**: Generate the document to index in the Full-text search index.
 * **document_indexer_service**: Index the documents in Full-text search index.
 
-Each of these services has a queue associated with it to manage the flow of documents to be indexed in Full-text search index.
-As each of them has a `config.yml` file to set up the different variables that are specific for each service. 
-The `global_config/config.yml` and the per app `config.yml` files are managed by the script `src/ht_queue_service/queue_config.py`
-that instantiates a config object with all the variables needed for each service to set up the queue system.
+Each of these services has a queue associated with it to manage the flow of documents to be indexed in the
+Full-text search index.  There are global environment variables for RabbitMQ connection information, and a
+separate per-service `config.yml` with various queue parameter values specific to each service. These per-service
+queue parameters can be overridden by environment variables as well. These settings are all managed by the module
+`src/ht_queue_service/queue_settings.py` that instantiates a settings object with all the variables needed for
+each service to set up the queue system. See the top-level `.env` for reference to global and per-service
+environment variables.
+
 
 ## Built With
 
@@ -344,7 +343,7 @@ python -m document_indexer_service.replay_dlq             # replay everything
 ```
 
 Run it from the `ht_indexer` virtual environment or container. The queue name comes from `indexer_config.yml`. The
-RabbitMQ host, port, username and password come from the `RABBITMQ_INDEXER_RW_*` environment variables, like for the
+RabbitMQ host, port, username and password come from the `RABBITMQ_HT_INDEXER_*` environment variables, like for the
 indexer service. They are already set inside the containers; on your machine, load the repository's `.env` file:
 `uv run --env-file .env python -m document_indexer_service.replay_dlq --dry-run`.
 

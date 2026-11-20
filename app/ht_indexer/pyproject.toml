@@ -24,6 +24,7 @@ dependencies = [
     "orjson>=3.11.8,<4",
     "ht-search",
     "ht-utils",
+    "pydantic-settings>=2.16.2,<3",
 ]
 
 [dependency-groups]

@@ -1,7 +1,4 @@
-import os
-from typing import Any
-
-from conftest import create_test_queue_config
+from conftest import QueueTestSettings
 from ht_queue_service.channel_creator import ChannelCreator
 from ht_queue_service.queue_producer import QueueProducer
 from ht_utils.ht_logger import get_ht_logger
@@ -12,18 +9,12 @@ logger = get_ht_logger(name=__name__)
 class TestChannelCreator:
     """Test the QueueConnection class"""
 
-    def test_create_channel_close(self, get_global_queue_config: dict[str, Any]) -> None:
+    def test_create_channel_close(self) -> None:
         """Test the creation and closing of a channel using ChannelCreator
-        :param get_global_queue_config: Fixture to get the global queue configuration
         :return: None
         """
-        channel_creator = ChannelCreator(
-            user=get_global_queue_config["queue"]["user"],
-            password=get_global_queue_config["queue"]["password"],
-            host=get_global_queue_config["queue"]["host"],
-            # TODO: global config for heartbeat if needed
-            heartbeat=600,
-        )
+
+        channel_creator = ChannelCreator(QueueTestSettings())
 
         # Creating a channel
         channel = channel_creator.get_channel()
@@ -35,33 +26,21 @@ class TestChannelCreator:
         channel.close()
         assert channel.is_closed
 
-    def test_purge_queue(
-        self, get_global_queue_config: dict[str, Any], get_app_queue_config: dict[str, Any]
-    ) -> None:
+    def test_purge_queue(self) -> None:
         """Test the purge queue functionality of the QueueProducer class
-        :param get_global_queue_config: Fixture to get the global queue configuration
-        :param get_app_queue_config: Fixture to get the application-specific queue configuration
         :return: None
         """
 
         queue_name = "test_purge_queue"
-
-        queue_config, global_path, app_path = create_test_queue_config(
-            get_global_queue_config,
-            get_app_queue_config,
-            queue_name,
-            batch_size=1,
-            requeue_message=False,
-        )
+        queue_settings = QueueTestSettings(queue_name=queue_name)
 
         # Create producer instance
-        queue_producer = QueueProducer(queue_config.queue_params)
+        queue_producer = QueueProducer(queue_settings)
 
         if not queue_producer.queue_manager.is_ready(queue_producer.channel):
             # The channel will be closed if the queue doesn't exist or is declared with different options.
             # is_ready() method will return False and will create a new channel.
             queue_producer.queue_reconnect()
-            # queue_producer.queue_setup.set_up_queue()
 
         assert queue_producer.channel is not None
         assert queue_producer.channel.is_open
@@ -82,7 +61,3 @@ class TestChannelCreator:
         queue_producer.channel.close()
         assert queue_producer.channel_creator.connection.queue_connection is not None
         queue_producer.channel_creator.connection.queue_connection.close()
-
-        # Cleanup
-        os.remove(global_path)
-        os.remove(app_path)

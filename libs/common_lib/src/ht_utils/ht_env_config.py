@@ -27,60 +27,8 @@ class HtEnvConfig:
         return os.getenv("LOG_LEVEL", "INFO")
 
     @property
-    def rabbitmq_indexer_rw_host(self) -> str:
-        return self._env("RABBITMQ_INDEXER_RW_HOST")
-
-    @property
-    def rabbitmq_indexer_rw_port(self) -> str:
-        return self._env("RABBITMQ_INDEXER_RW_PORT")
-
-    @property
-    def rabbitmq_indexer_rw_username(self) -> str:
-        return self._env("RABBITMQ_INDEXER_RW_USERNAME")
-
-    @property
-    def rabbitmq_indexer_rw_password(self) -> str:
-        return self._env("RABBITMQ_INDEXER_RW_PASSWORD")
-
-    @property
-    def rabbitmq_indexer_src_rw_host(self) -> str:
-        return self._env("RABBITMQ_INDEXER_SRC_RW_HOST")
-
-    @property
-    def rabbitmq_indexer_src_rw_port(self) -> str:
-        return self._env("RABBITMQ_INDEXER_SRC_RW_PORT")
-
-    @property
-    def rabbitmq_indexer_src_rw_username(self) -> str:
-        return self._env("RABBITMQ_INDEXER_SRC_RW_USERNAME")
-
-    @property
-    def rabbitmq_indexer_src_rw_password(self) -> str:
-        return self._env("RABBITMQ_INDEXER_SRC_RW_PASSWORD")
-
-    @property
-    def rabbitmq_indexer_tgt_rw_host(self) -> str:
-        return self._env("RABBITMQ_INDEXER_TGT_RW_HOST")
-
-    @property
-    def rabbitmq_indexer_tgt_rw_port(self) -> str:
-        return self._env("RABBITMQ_INDEXER_TGT_RW_PORT")
-
-    @property
-    def rabbitmq_indexer_tgt_rw_username(self) -> str:
-        return self._env("RABBITMQ_INDEXER_TGT_RW_USERNAME")
-
-    @property
-    def rabbitmq_indexer_tgt_rw_password(self) -> str:
-        return self._env("RABBITMQ_INDEXER_TGT_RW_PASSWORD")
-
-    @property
     def mysql_ht_ro_host(self) -> str:
         return self._env("MYSQL_HT_RO_HOST")
-
-    @property
-    def mysql_ht_ro_port(self) -> str:
-        return self._env("MYSQL_HT_RO_PORT")
 
     @property
     def mysql_ht_ro_username(self) -> str:

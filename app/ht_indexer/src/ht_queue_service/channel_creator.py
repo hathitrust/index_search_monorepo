@@ -11,6 +11,7 @@ from pika.exceptions import (
 )
 
 from ht_queue_service.queue_connection import QueueConnection
+from ht_queue_service.queue_settings import QueueSettings
 
 logger = get_ht_logger(name=__name__)
 
@@ -24,11 +25,9 @@ class ChannelCreator:
         - It uses a threading.lock to synchronize access to the connection when creating channels.
     """
 
-    def __init__(self, user: str, password: str, host: str, heartbeat: int):
+    def __init__(self, queue_settings: QueueSettings):
         # TODO: Implement retry logic with exponential backoff for establishing the connection
-        self.connection = QueueConnection(
-            user, password, host, heartbeat
-        )  # The connection to RabbitMQ
+        self.connection = QueueConnection(queue_settings)
 
         # Thread-safe channel creation for multi-threaded environments
         self._channel_lock = threading.Lock()
