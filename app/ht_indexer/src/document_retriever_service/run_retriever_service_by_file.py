@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from ht_indexer_api.ht_indexer_api import DEFAULT_READ_TIMEOUT_SECONDS
-from ht_queue_service.queue_config import QueueParams
+from ht_queue_service.queue_settings import QueueSettings
 from ht_utils.ht_logger import get_ht_logger
 
 from document_retriever_service.full_text_search_retriever_service import (
@@ -95,8 +95,12 @@ def log_summary(summary: ByFileSummary) -> None:
     )
 
 
+# TODO when we change retriever arguments to use pydantic -- accept
+# retriever arguments directly rather than unpacked things. May also relate to
+# refactoring in ETT-1981 about what constructs connections, HTEnvConfig
+# refactoring for solr credentials, etc.
 def retrieve_documents_by_file(
-    queue_params: QueueParams,
+    queue_settings: QueueSettings,
     query_field: str,
     solr_host: str | None,
     solr_user: str | None,
@@ -111,7 +115,7 @@ def retrieve_documents_by_file(
     """This method is used to retrieve the documents from the Catalog and generate the full-text search entry.
     The list of documents to index is extracted from a file.
 
-    :param queue_params: The object with the queue parameters
+    :param queue_settings: The object with the queue parameters
     :param query_field: The field to use in the query
     :param solr_host: The host of the Solr server
     :param solr_user: The user of the Solr server
@@ -130,7 +134,7 @@ def retrieve_documents_by_file(
         exit()
 
     document_retriever_service = FullTextSearchRetrieverQueueService(
-        queue_params,
+        queue_settings,
         solr_host,
         solr_user,
         solr_password,
@@ -213,7 +217,7 @@ def main() -> None:
     init_args_obj = RetrieverServiceByFileArguments(parser)
 
     retrieve_documents_by_file(
-        init_args_obj.queue_config.queue_params,
+        init_args_obj.queue_settings,
         init_args_obj.query_field,
         init_args_obj.solr_host,
         init_args_obj.solr_user,

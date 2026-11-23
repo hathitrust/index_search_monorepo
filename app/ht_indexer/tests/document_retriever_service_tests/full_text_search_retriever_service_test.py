@@ -1,7 +1,6 @@
 import argparse
 import contextlib
 import json
-import os
 import sys
 from collections.abc import Callable
 from typing import Any
@@ -12,8 +11,8 @@ import requests
 from catalog_metadata.catalog_metadata import CatalogItemMetadata, CatalogRecordMetadata
 from conftest import (
     ConcreteQueueConsumer,
+    QueueTestSettings,
     close_channel_and_connection,
-    create_test_queue_config,
     drain_ht_ids,
     ensure_queue_ready_and_purged,
 )
@@ -28,6 +27,7 @@ from document_retriever_service.full_text_search_retriever_service import (
 from document_retriever_service.retriever_arguments import RetrieverServiceArguments
 from document_retriever_service.retriever_services_utils import RetrieverServicesUtils
 from ht_indexer_api.ht_indexer_api import DEFAULT_READ_TIMEOUT_SECONDS, HTSolrAPI
+from ht_queue_service.queue_settings import QueueSettings
 from ht_utils.ht_logger import get_ht_logger
 from ht_utils.query_maker import make_solr_term_query
 from ht_utils.testing import assert_log_entry, capture_logs
@@ -97,29 +97,14 @@ def _fail_metadata_of(fail_on: str) -> contextlib.AbstractContextManager[Any]:
 
 
 @pytest.fixture
-def queue_config(
-    get_global_queue_config: dict[str, Any], get_app_queue_config: dict[str, Any]
-) -> tuple[Any, Any, Any]:
-    """This function is used to create the queue configuration
+def queue_settings() -> QueueSettings:
 
-    :param get_global_queue_config: fixture to get the global queue configuration
-    :param get_app_queue_config: fixture to get the application queue configuration
-    : return: tuple containing the queue configuration object, global config path, and app config path
+    settings = QueueTestSettings()
+    settings.queue_name = "test_full_text_search_retriever_service"
+    settings.batch_size = 1
+    settings.requeue_message = False
 
-    """
-
-    queue_name = "test_full_text_search_retriever_service"
-    batch_size = 1
-    requeue_message = False
-    producer_queue_config, global_path, app_path = create_test_queue_config(
-        get_global_queue_config,
-        get_app_queue_config,
-        queue_name,
-        batch_size=batch_size,
-        requeue_message=requeue_message,
-    )
-
-    return producer_queue_config, global_path, app_path
+    return settings
 
 
 @pytest.fixture
@@ -136,16 +121,16 @@ def solr_client(solr_catalog_url: str) -> HTSolrAPI:
 def get_document_retriever_service(
     solr_catalog_url: str,
     get_retriever_service_solr_parameters: dict[str, Any],
-    queue_config: tuple[Any, Any, Any],
+    queue_settings: QueueSettings,
 ) -> FullTextSearchRetrieverQueueService:
     """Fixture to create the document retriever service object
     :param solr_catalog_url: fixture to get the Solr URL
     :param get_retriever_service_solr_parameters: fixture to get the Solr parameters
-    :param queue_config: fixture to get the queue configuration
+    :param queue_settings: fixture to get the queue configuration
     : return: FullTextSearchRetrieverQueueService object
     """
     return FullTextSearchRetrieverQueueService(
-        queue_config[0].queue_params,
+        queue_settings,
         solr_catalog_url,
         "solr_user",
         "solr_password",
@@ -272,7 +257,6 @@ class TestFullTextRetrieverService:
     def test_retriever_arguments_catalog_credentials_set_used_for_solr(
         self,
         monkeypatch: pytest.MonkeyPatch,
-        stub_retriever_external_services: None,
     ) -> None:
         # Arrange
         monkeypatch.setenv("SOLR_CATALOG_RO_USERNAME", "catalog-user")
@@ -284,16 +268,12 @@ class TestFullTextRetrieverService:
         # Assert
         assert (args.solr_user, args.solr_password) == ("catalog-user", "catalog-pass")
 
-    def test_retriever_arguments_solr_timeout_defaults_to_the_htsolrapi_default(
-        self, stub_retriever_external_services: None
-    ) -> None:
+    def test_retriever_arguments_solr_timeout_defaults_to_the_htsolrapi_default(self) -> None:
         args = RetrieverServiceArguments(argparse.ArgumentParser(), argv=[])
 
         assert args.solr_timeout == DEFAULT_READ_TIMEOUT_SECONDS
 
-    def test_retriever_arguments_solr_timeout_on_the_command_line(
-        self, stub_retriever_external_services: None
-    ) -> None:
+    def test_retriever_arguments_solr_timeout_on_the_command_line(self) -> None:
         args = RetrieverServiceArguments(
             argparse.ArgumentParser(), argv=["--solr_timeout", "300.5"]
         )
@@ -319,23 +299,22 @@ class TestFullTextRetrieverService:
         self,
         get_retriever_service_solr_parameters: dict[str, Any],
         solr_catalog_url: str,
-        queue_config: tuple[Any, Any, Any],
+        queue_settings: QueueSettings,
     ) -> None:
         """Use case: Check if the message is sent to the queue"""
 
-        queue_params = queue_config[0].queue_params
         # Define the consumer instance
-        consumer_instance = ConcreteQueueConsumer(queue_params)
+        consumer_instance = ConcreteQueueConsumer(queue_settings)
 
         ensure_queue_ready_and_purged(consumer_instance)
 
         assert consumer_instance.channel is not None
-        logger.info(f"Purging the queue {queue_params.queue_name} before the test")
+        logger.info(f"Purging the queue {queue_settings.queue_name} before the test")
 
         list_documents = ["nyp.33433082002258", "not_exist_document"]
 
         document_retriever_service_obj = FullTextSearchRetrieverQueueService(
-            queue_params,
+            queue_settings,
             solr_catalog_url,
             "solr_user",
             "solr_password",
@@ -351,10 +330,6 @@ class TestFullTextRetrieverService:
 
         # Clean up the queue, if the queue is already set up
         close_channel_and_connection(consumer_instance)
-
-        # Delete the temporary files
-        os.remove(queue_config[1])
-        os.remove(queue_config[2])
 
     @pytest.mark.integration
     @pytest.mark.parametrize(
@@ -467,7 +442,7 @@ class TestMain:
 
     @pytest.fixture
     def run_main(
-        self, stub_retriever_external_services: None, monkeypatch: pytest.MonkeyPatch
+        self, monkeypatch: pytest.MonkeyPatch
     ) -> Callable[..., tuple[int | str | None, list[Any], MagicMock]]:
         def _run(
             argv: list[str], counts: PublishCounts | None = None, error: Exception | None = None

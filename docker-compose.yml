@@ -16,10 +16,9 @@ x-env-common: &env_common
 
 # Environment variables specific to the indexer services
 x-env-indexer: &env_indexer
-    RABBITMQ_INDEXER_RW_HOST: rabbitmq
-    RABBITMQ_INDEXER_RW_PORT: 5672
-    RABBITMQ_INDEXER_RW_USERNAME: guest
-    RABBITMQ_INDEXER_RW_PASSWORD: guest
+    RABBITMQ_HT_INDEXER_HOST: rabbitmq
+    RABBITMQ_HT_INDEXER_USERNAME: guest
+    RABBITMQ_HT_INDEXER_PASSWORD: guest
     MYSQL_HT_RO_HOST: mysql-sdr
     MYSQL_HT_RO_USERNAME: mdp-admin
     MYSQL_HT_RO_PASSWORD: mdp-admin
@@ -145,20 +144,7 @@ services:
       mysql-sdr: *healthy
     tty: true
     stdin_open: true
-    environment:
-      <<: *env_indexer
-      RABBITMQ_INDEXER_SRC_RW_HOST: rabbitmq
-      RABBITMQ_INDEXER_SRC_RW_PORT: 5672
-      RABBITMQ_INDEXER_SRC_RW_USERNAME: guest
-      RABBITMQ_INDEXER_SRC_RW_PASSWORD: guest
-      RABBITMQ_INDEXER_SRC_RW_QUEUE_NAME: retriever_queue
-      RABBITMQ_INDEXER_TGT_RW_HOST: rabbitmq
-      RABBITMQ_INDEXER_TGT_RW_PORT: 5672
-      RABBITMQ_INDEXER_TGT_RW_USERNAME: guest
-      RABBITMQ_INDEXER_TGT_RW_PASSWORD: guest
-      RABBITMQ_INDEXER_TGT_RW_QUEUE_NAME: indexer_queue
-      TGT_QUEUE_PASS: guest
-      TGT_QUEUE_USER: guest
+    environment: *env_indexer
     command: ["/workspace/.venv/bin/python", "-m" ,"document_generator.document_generator_service" ]
   document-indexer:
     profiles: [ ht-indexer ]

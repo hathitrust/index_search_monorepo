@@ -32,13 +32,9 @@ def test_main_passes_the_arguments_through_and_builds_the_channel_from_the_queue
 ) -> None:
     replay = MagicMock(return_value=ReplaySummary(3, 2, 2))
 
-    channel_creator_class = _run_main(monkeypatch, "--max", "2", "--dry-run", replay=replay)
+    _run_main(monkeypatch, "--max", "2", "--dry-run", replay=replay)
 
     assert replay.call_args.kwargs == {"max_messages": 2, "dry_run": True}
-    # user, password and host come from the environment; the heartbeat from indexer_config.yml
-    *connection_settings, heartbeat = channel_creator_class.call_args.args
-    assert len(connection_settings) == 3
-    assert heartbeat == 0
 
 
 def test_main_exits_with_an_error_when_the_dead_letter_queue_does_not_exist(

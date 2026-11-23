@@ -5,9 +5,9 @@ from pathlib import Path
 from typing import Any
 
 from ht_document.ht_document import HtDocument
-from ht_queue_service.queue_config import QueueParams
 from ht_queue_service.queue_multiple_consumer import QueueMultipleConsumer
 from ht_queue_service.queue_producer import QueueProducer
+from ht_queue_service.queue_settings import QueueSettings
 from ht_utils.ht_logger import get_ht_logger
 from ht_utils.ht_mysql import HtMysql
 from ht_utils.ht_utils import get_error_message_by_document
@@ -22,7 +22,7 @@ class DocumentGeneratorService(QueueMultipleConsumer):
     def __init__(
         self,
         db_conn: HtMysql,
-        src_queue_params: QueueParams,
+        src_queue_settings: QueueSettings,
         tgt_queue_producer: QueueProducer | None,
         document_repository: str = "pairtree",
         tgt_local: bool = False,
@@ -32,14 +32,14 @@ class DocumentGeneratorService(QueueMultipleConsumer):
         the full text search entry and publish the document in a queue
 
         :param db_conn: MySql connection
-        :param src_queue_params: Queue parameters for retrieving messages from the queue
+        :param src_queue_settings: Queue parameters for retrieving messages from the queue
         :param tgt_queue_producer: Publishing messages to the queue
         :param tgt_local: Indicates if the document will be published in a queue or locally
         :param document_repository: Parameter to know if the plain text of the items is in the local or remote
         repository
         """
 
-        super().__init__(src_queue_params)
+        super().__init__(src_queue_settings)
 
         # Instantiate the document generator object
         self.document_generator = FullTextDocumentGenerator(db_conn)
@@ -149,7 +149,7 @@ def main() -> None:
 
     document_generator_service = DocumentGeneratorService(
         init_args_obj.db_conn,
-        init_args_obj.src_queue_config.queue_params,
+        init_args_obj.src_queue_settings,
         init_args_obj.tgt_queue_producer,
         init_args_obj.document_repository,
         tgt_local=init_args_obj.tgt_local,

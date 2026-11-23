@@ -9,8 +9,8 @@ import pika
 from ht_utils.ht_logger import get_ht_logger
 
 from ht_queue_service.channel_creator import ChannelCreator
-from ht_queue_service.queue_config import QueueParams
 from ht_queue_service.queue_manager import QueueManager
+from ht_queue_service.queue_settings import QueueSettings
 
 logger = get_ht_logger(name=__name__)
 
@@ -19,10 +19,10 @@ class QueueMultipleConsumer(ABC):
     # This is used in at least one test. If it changes, let it change in one place.
     BATCH_SLEEP_LOG_MESSAGE = "No messages in the queue. Waiting for more messages..."
 
-    def __init__(self, queue_params: QueueParams) -> None:
+    def __init__(self, queue_settings: QueueSettings) -> None:
         """
         This class is used to consume a batch of messages from the queue
-        :param queue_config: queue configuration object containing queue_name, exchange_name,
+        :param queue_settings: queue configuration object containing queue_name, exchange_name,
 
         Consumer class handles additional attributes like:
         - requeue_message: If True, messages will be requeued to the queue if processing fails, otherwise they
@@ -30,19 +30,17 @@ class QueueMultipleConsumer(ABC):
         - shutdown_on_empty_queue: If True, the consumer will stop consuming messages when the queue is empty
         """
 
-        self.channel_creator = ChannelCreator(
-            queue_params.user, queue_params.password, queue_params.host, queue_params.heartbeat
-        )  # Factory to create channels
+        self.channel_creator = ChannelCreator(queue_settings)
         self.channel = self.channel_creator.get_channel()
 
-        self.queue_manager = QueueManager(queue_params)
+        self.queue_manager = QueueManager(queue_settings)
 
         # Requeue_message is a boolean to requeue the message to the queue.
         # If it is False, the message will be rejected, and it will be sent to the Dead Letter Queue.
-        self.requeue_message = queue_params.requeue_message
+        self.requeue_message = queue_settings.requeue_message
         # shutdown_on_empty_queue is a boolean to stop consuming messages when the queue is empty.
         # It is used for testing purposes.
-        self.shutdown_on_empty_queue = queue_params.shutdown_on_empty_queue
+        self.shutdown_on_empty_queue = queue_settings.shutdown_on_empty_queue
 
         # Ensure the queue is ready when the consumer is initialized
         if not self.queue_manager.is_ready(self.channel):

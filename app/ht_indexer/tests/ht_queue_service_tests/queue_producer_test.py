@@ -7,8 +7,12 @@ from unittest.mock import patch
 
 import pika.exceptions
 import pytest
-from conftest import ConcreteQueueConsumer, close_channel_and_connection
-from ht_queue_service.queue_config import QueueConfig
+from conftest import (
+    ConcreteQueueConsumer,
+    QueueTestSettings,
+    close_channel_and_connection,
+    ensure_queue_ready_and_purged,
+)
 from ht_queue_service.queue_producer import MessageTooLargeError, QueueProducer
 from ht_utils.ht_logger import get_ht_logger
 from ht_utils.testing import assert_log_entry, capture_logs
@@ -22,58 +26,62 @@ MESSAGE_SIZE = len(json.dumps(message).encode("utf-8"))
 
 
 @pytest.fixture
-def make_producer(
-    make_queue_config: Callable[..., QueueConfig],
-) -> Generator[Callable[..., QueueProducer]]:
+def make_producer() -> Generator[Callable[..., QueueProducer]]:
     producers: list[QueueProducer] = []
 
     def _make(**overrides: Any) -> QueueProducer:  # Any: forwards arbitrary QueueParams overrides
-        producer = QueueProducer(make_queue_config(batch_size=1, **overrides).queue_params)
+        producer = QueueProducer(QueueTestSettings(**overrides))
+        ensure_queue_ready_and_purged(producer)
         producers.append(producer)
         return producer
 
     yield _make
     for producer in producers:
+        print(f"cleaning up {producer}")
         close_channel_and_connection(producer)
 
 
 class TestQueueProducer:
     """Test the QueueProducer class"""
 
-    def test_queue_produce_one_message(self, make_queue_config: Callable[..., QueueConfig]) -> None:
+    def test_queue_produce_one_message(self) -> None:
         """Test publishing a single message to the queue and consuming it to verify."""
-        producer_queue_config = make_queue_config(batch_size=1, requeue_message=False)
 
-        producer_instance = QueueProducer(producer_queue_config.queue_params)
+        producer_instance = QueueProducer(QueueTestSettings())
+        #        ensure_queue_ready_and_purged(producer_instance)
 
         producer_instance.publish_messages(message)
         assert producer_instance.channel is not None
         producer_instance.channel.close()
 
         # Consume the message to ensure it was published correctly
-        consumer_instance = ConcreteQueueConsumer(producer_queue_config.queue_params)
+        consumer_instance = ConcreteQueueConsumer(QueueTestSettings())
 
         list_message: list[dict[str, Any]] = []
         assert consumer_instance.channel is not None
-        for method_frame, _, body in consumer_instance.consume_dead_letter_messages(
-            consumer_instance.channel,
-            inactivity_timeout=5,
-            queue_name=consumer_instance.queue_manager.queue_name,
-        ):
-            if method_frame:
-                output_message = json.loads(body.decode("utf-8"))
-                list_message.append(output_message)
-                assert consumer_instance.channel is not None
-                consumer_instance.positive_acknowledge(
-                    consumer_instance.channel, method_frame.delivery_tag
-                )
-                assert len(list_message) == 1
-                break
-            else:
-                logger.warning(
-                    f"None method_frame in {consumer_instance.queue_manager.queue_name}... Stopping batch consumption."
-                )
-                break
+        try:
+            for method_frame, _, body in consumer_instance.consume_dead_letter_messages(
+                consumer_instance.channel,
+                inactivity_timeout=5,
+                queue_name=consumer_instance.queue_manager.queue_name,
+            ):
+                if method_frame:
+                    output_message = json.loads(body.decode("utf-8"))
+                    list_message.append(output_message)
+                    assert consumer_instance.channel is not None
+                    consumer_instance.positive_acknowledge(
+                        consumer_instance.channel, method_frame.delivery_tag
+                    )
+                    assert len(list_message) == 1
+                    break
+                else:
+                    logger.warning(
+                        f"None method_frame in {consumer_instance.queue_manager.queue_name}... Stopping batch consumption."
+                    )
+                    break
+
+        finally:
+            consumer_instance.channel.close()
 
     def test_publish_invalid_message_raises_type_error(
         self, make_producer: Callable[..., QueueProducer]
@@ -87,11 +95,10 @@ class TestQueueProducer:
         with pytest.raises(TypeError):
             producer_instance.publish_messages({"ht_id": "123", "payload": NonSerializable()})
 
-    def test_queue_reconnect(self, make_queue_config: Callable[..., QueueConfig]) -> None:
+    def test_queue_reconnect(self) -> None:
         """Test the queue reconnect functionality of the QueueProducer class"""
-        producer_queue_config = make_queue_config(batch_size=1, requeue_message=False)
 
-        producer_instance = QueueProducer(producer_queue_config.queue_params)
+        producer_instance = QueueProducer(QueueTestSettings())
 
         # Check if the connection is open
         assert producer_instance.channel_creator.connection.queue_connection is not None
@@ -133,6 +140,7 @@ def test_publish_messages_max_message_size_limits_what_is_published(
 ) -> None:
     """Check if the producer publishes a message only if its serialized size is less than or equal to max_message_size"""
 
+    print(f"Making producer with max message size {limit}")
     producer = make_producer(max_message_size=limit)
 
     with expectation:
