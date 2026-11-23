@@ -28,6 +28,7 @@ from document_retriever_service.full_text_search_retriever_service import (
 from document_retriever_service.retriever_arguments import RetrieverServiceArguments
 from document_retriever_service.retriever_services_utils import RetrieverServicesUtils
 from ht_indexer_api.ht_indexer_api import DEFAULT_READ_TIMEOUT_SECONDS, HTSolrAPI
+from ht_queue_service.queue_producer import PublishConnectionError
 from ht_utils.ht_logger import get_ht_logger
 from ht_utils.query_maker import make_solr_term_query
 from ht_utils.testing import assert_log_entry, capture_logs
@@ -686,6 +687,37 @@ class TestPublishingDocuments:
         counts = TestPublishingDocuments._publish_one_failed_and_one_succeeded()
 
         assert counts == PublishCounts(published=1, failed=1)
+
+    def test_publishing_documents_connection_lost_stops_the_chunk_and_counts_the_rest_as_failed(
+        self,
+    ) -> None:
+        """No reconnect: after a PublishConnectionError the remaining items would fail the same
+        way, so the chunk stops, logs once, and counts the failing item and the rest as failed."""
+        records: list[CatalogItemMetadata] = [MagicMock(), MagicMock(), MagicMock()]
+        with (
+            patch.object(
+                FullTextSearchRetrieverQueueService,
+                "generate_metadata",
+                side_effect=[({"ht_id": f"mdp.{i}"}, f"mdp.{i}") for i in range(3)],
+            ),
+            patch.object(
+                RetrieverServicesUtils,
+                "publish_document",
+                side_effect=[None, PublishConnectionError("lost"), None],
+            ) as publish,
+            capture_logs() as entries,
+        ):
+            counts = FullTextSearchRetrieverQueueService.publishing_documents(
+                MagicMock(), records, {"mdp.bad": "bad item"}
+            )
+
+        assert counts == PublishCounts(
+            published=1, failed=3
+        )  # 2 not published + 1 metadata failure
+        assert publish.call_count == 2  # the third item was never attempted
+        assert_log_entry(
+            entries, event="Connection lost, stopping the chunk", log_level="error", ht_id="mdp.1"
+        )
 
 
 class TestRetrieverPublishCounts:

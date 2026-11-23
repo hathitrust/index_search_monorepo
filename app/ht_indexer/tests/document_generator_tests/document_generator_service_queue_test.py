@@ -35,8 +35,6 @@ class TestDocumentGeneratorServiceQueueIntegration:
         )
 
         producer_instance = QueueProducer(queue_config.queue_params)
-        if not producer_instance.queue_manager.is_ready(producer_instance.channel):
-            producer_instance.queue_reconnect()
         assert producer_instance.channel is not None
         producer_instance.channel.queue_purge(producer_instance.queue_manager.queue_name)
 
@@ -85,8 +83,6 @@ class TestDocumentGeneratorServiceQueueIntegration:
         )
 
         producer_instance = QueueProducer(queue_config.queue_params)
-        if not producer_instance.queue_manager.is_ready(producer_instance.channel):
-            producer_instance.queue_reconnect()
         assert producer_instance.channel is not None
         producer_instance.channel.queue_purge(producer_instance.queue_manager.queue_name)
 

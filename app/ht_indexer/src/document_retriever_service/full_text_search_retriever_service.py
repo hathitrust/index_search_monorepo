@@ -12,7 +12,7 @@ import requests
 from catalog_metadata.catalog_metadata import CatalogItemMetadata, CatalogRecordMetadata
 from ht_indexer_api.ht_indexer_api import DEFAULT_READ_TIMEOUT_SECONDS, HTSolrAPI
 from ht_queue_service.queue_config import QueueParams
-from ht_queue_service.queue_producer import QueueProducer
+from ht_queue_service.queue_producer import PublishConnectionError, QueueProducer
 from ht_utils.ht_logger import get_ht_logger
 from ht_utils.ht_utils import (
     get_error_message_by_document,
@@ -137,7 +137,7 @@ class FullTextSearchRetrieverQueueService:
         published = 0
         failed = 0
 
-        for record in result:
+        for index, record in enumerate(result):
             item_metadata, item_id = FullTextSearchRetrieverQueueService.generate_metadata(record)
             logger.info("Publishing document", ht_id=item_id)
 
@@ -146,6 +146,19 @@ class FullTextSearchRetrieverQueueService:
                     raise RuntimeError("Unable to establish a queue connection")
                 RetrieverServicesUtils.publish_document(queue_producer_conn, item_metadata)
                 published += 1
+
+            except PublishConnectionError as e:
+                # The producer does not reconnect, so every remaining item would fail the same
+                # way. Count this item and the rest of the chunk as failed, log once, and stop.
+                remaining = len(result) - index
+                logger.error(
+                    "Connection lost, stopping the chunk",
+                    ht_id=item_id,
+                    error=str(e),
+                    not_published=remaining,
+                )
+                failed += remaining
+                break
 
             except Exception as e:
                 error_info = get_error_message_by_document(

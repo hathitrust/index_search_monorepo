@@ -3,13 +3,21 @@ import json
 import time
 from collections.abc import Callable, Generator
 from typing import Any
-from unittest.mock import patch
+from unittest.mock import PropertyMock, patch
 
 import pika.exceptions
 import pytest
 from conftest import ConcreteQueueConsumer, close_channel_and_connection
 from ht_queue_service.queue_config import QueueConfig
-from ht_queue_service.queue_producer import MessageTooLargeError, QueueProducer
+from ht_queue_service.queue_manager import QueueManager
+from ht_queue_service.queue_producer import (
+    MessageTooLargeError,
+    PublishConnectionError,
+    PublishError,
+    PublishRefusedError,
+    PublishUnroutableError,
+    QueueProducer,
+)
 from ht_utils.ht_logger import get_ht_logger
 from ht_utils.testing import assert_log_entry, capture_logs
 from pika.adapters.blocking_connection import BlockingChannel
@@ -87,30 +95,6 @@ class TestQueueProducer:
         with pytest.raises(TypeError):
             producer_instance.publish_messages({"ht_id": "123", "payload": NonSerializable()})
 
-    def test_queue_reconnect(self, make_queue_config: Callable[..., QueueConfig]) -> None:
-        """Test the queue reconnect functionality of the QueueProducer class"""
-        producer_queue_config = make_queue_config(batch_size=1, requeue_message=False)
-
-        producer_instance = QueueProducer(producer_queue_config.queue_params)
-
-        # Check if the connection is open
-        assert producer_instance.channel_creator.connection.queue_connection is not None
-        assert producer_instance.channel_creator.connection.queue_connection.is_open
-        assert producer_instance.channel is not None
-        assert producer_instance.channel.is_open
-
-        # Close the channel
-        producer_instance.channel.close()
-
-        assert producer_instance.channel.is_closed
-
-        producer_instance.queue_reconnect()
-
-        assert producer_instance.channel is not None
-        assert producer_instance.channel.is_open
-
-        close_channel_and_connection(producer_instance)
-
 
 @pytest.mark.integration
 @pytest.mark.parametrize(
@@ -164,42 +148,6 @@ def test_publish_messages_published_logs_message_size(
 
 @pytest.mark.integration
 @pytest.mark.parametrize(
-    ("side_effect", "expectation", "calls"),
-    [
-        pytest.param(
-            pika.exceptions.ChannelClosed(406, "PRECONDITION_FAILED"),
-            pytest.raises(pika.exceptions.ChannelClosed),
-            3,
-            id="always-closed-gives-up",
-        ),
-        pytest.param(
-            [pika.exceptions.ChannelClosed(406, "x"), None],
-            contextlib.nullcontext(),
-            2,
-            id="closed-once-recovers",
-        ),
-    ],
-)
-def test_publish_messages_channel_closed_retries_at_most_three_attempts(
-    make_producer: Callable[..., QueueProducer],
-    side_effect: Any,  # Any: pika side_effect may be a single exception or a list
-    expectation: contextlib.AbstractContextManager[Any],
-    calls: int,
-) -> None:
-    """Checks that when publishing fails because the channel or connection closed, the producer reconnects and retries, and gives up after at most MAX_PUBLISH_ATTEMPTS (3) attempts."""
-    producer = make_producer()
-
-    with (
-        patch.object(BlockingChannel, "basic_publish", side_effect=side_effect) as basic_publish,
-        expectation,
-    ):
-        producer.publish_messages(message)
-
-    assert basic_publish.call_count == calls
-
-
-@pytest.mark.integration
-@pytest.mark.parametrize(
     "queue_message",
     [
         pytest.param({"ht_id": "12345678"}, id="retriever-message-ht-id-key"),
@@ -246,3 +194,142 @@ def test_publish_messages_too_large_logs_ht_id_as_a_field(
         ht_id="mdp.1",
         limit=MESSAGE_SIZE - 1,
     )
+
+
+class FakeChannel:
+    """Stands in for a pika channel with publisher confirms: no broker needed."""
+
+    def __init__(self, publish_error: Exception | None = None) -> None:
+        self.publish_error = publish_error
+        self.is_closed = False
+        self.confirm_enabled = False
+        self.publish_calls: list[dict[str, Any]] = []
+
+    def confirm_delivery(self) -> None:
+        self.confirm_enabled = True
+
+    def basic_publish(self, **kwargs: Any) -> None:  # Any: mirrors pika's keyword arguments
+        self.publish_calls.append(kwargs)
+        if self.publish_error is not None:
+            raise self.publish_error
+
+
+@pytest.fixture
+def make_fake_producer(
+    make_queue_config: Callable[..., QueueConfig],
+) -> Callable[..., tuple[QueueProducer, FakeChannel, Any]]:
+    """Build a QueueProducer whose channel is a FakeChannel. Returns (producer, channel, get_channel mock)."""
+
+    def _make(publish_error: Exception | None = None) -> tuple[QueueProducer, FakeChannel, Any]:
+        channel = FakeChannel(publish_error)
+        with (
+            patch("ht_queue_service.queue_producer.ChannelCreator") as channel_creator,
+            patch.object(QueueManager, "is_ready", return_value=True),
+        ):
+            channel_creator.return_value.get_channel.return_value = channel
+            producer = QueueProducer(make_queue_config(batch_size=1).queue_params)
+        return producer, channel, channel_creator.return_value.get_channel
+
+    return _make
+
+
+class TestPublishWithFakeChannel:
+    def test_confirmed_publish_returns_and_is_mandatory(
+        self, make_fake_producer: Callable[..., tuple[QueueProducer, FakeChannel, Any]]
+    ) -> None:
+        """Broker ack: publish_messages returns normally, after confirms were turned on."""
+        producer, channel, _ = make_fake_producer()
+
+        producer.publish_messages(message)
+
+        assert channel.confirm_enabled
+        assert len(channel.publish_calls) == 1
+        assert channel.publish_calls[0]["mandatory"] is True
+        assert channel.publish_calls[0]["routing_key"] == producer.queue_manager.queue_name
+
+    @pytest.mark.parametrize(
+        ("pika_error", "expected_error"),
+        [
+            pytest.param(pika.exceptions.NackError([]), PublishRefusedError, id="nack"),
+            pytest.param(pika.exceptions.UnroutableError([]), PublishUnroutableError, id="return"),
+            pytest.param(
+                pika.exceptions.ChannelClosed(406, "PRECONDITION_FAILED"),
+                PublishConnectionError,
+                id="channel-closed",
+            ),
+            pytest.param(
+                pika.exceptions.ConnectionClosed(320, "CONNECTION_FORCED"),
+                PublishConnectionError,
+                id="connection-closed",
+            ),
+            pytest.param(
+                pika.exceptions.StreamLostError("socket"), PublishConnectionError, id="stream-lost"
+            ),
+            pytest.param(
+                pika.exceptions.ChannelWrongStateError("closing"),
+                PublishConnectionError,
+                id="channel-wrong-state",
+            ),
+        ],
+    )
+    def test_publish_failure_raises_our_error_without_retry_or_reconnect(
+        self,
+        make_fake_producer: Callable[..., tuple[QueueProducer, FakeChannel, Any]],
+        pika_error: Exception,
+        expected_error: type[PublishError],
+    ) -> None:
+        producer, channel, get_channel = make_fake_producer(pika_error)
+
+        with pytest.raises(expected_error) as raised:
+            producer.publish_messages(message)
+
+        assert type(raised.value) is expected_error
+        assert raised.value.__cause__ is pika_error  # the pika error is kept as the cause only
+        assert len(channel.publish_calls) == 1  # no retry
+        assert get_channel.call_count == 1  # no reconnect: the channel was opened once, in __init__
+
+    def test_closed_channel_raises_connection_error_without_publishing(
+        self, make_fake_producer: Callable[..., tuple[QueueProducer, FakeChannel, Any]]
+    ) -> None:
+        producer, channel, get_channel = make_fake_producer()
+        channel.is_closed = True
+
+        with pytest.raises(PublishConnectionError):
+            producer.publish_messages(message)
+
+        assert channel.publish_calls == []
+        assert get_channel.call_count == 1
+
+
+@pytest.mark.integration
+def test_publish_messages_lost_channel_raises_and_does_not_reconnect(
+    make_producer: Callable[..., QueueProducer],
+) -> None:
+    producer = make_producer()
+    original_channel = producer.channel
+
+    with (
+        patch.object(BlockingChannel, "is_closed", new_callable=PropertyMock, return_value=True),
+        pytest.raises(PublishConnectionError),
+    ):
+        producer.publish_messages(message)
+
+    assert producer.channel is original_channel  # the producer did not open a new channel
+
+
+@pytest.mark.integration
+def test_publish_messages_unroutable_raises_instead_of_losing_the_message(
+    make_producer: Callable[..., QueueProducer],
+) -> None:
+    """Against RabbitMQ: with the binding removed, mandatory=True makes the broker return the message."""
+    producer = make_producer()
+    manager = producer.queue_manager
+    assert producer.channel is not None
+    producer.channel.queue_unbind(
+        queue=manager.queue_name,
+        exchange=manager.main_exchange_name,
+        routing_key=manager.queue_name,
+    )
+
+    with pytest.raises(PublishUnroutableError):
+        producer.publish_messages(message)

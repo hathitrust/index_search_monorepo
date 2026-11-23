@@ -16,11 +16,27 @@ from ht_queue_service.queue_manager import QueueManager
 logger = get_ht_logger(name=__name__)
 
 DELIVERY_MODE_PERSISTENT = 2  # Make message persistent
-MAX_PUBLISH_ATTEMPTS = 3
 
 
 class MessageTooLargeError(HTError):
     """The serialized message is larger than QueueParams.max_message_size; it is not published."""
+
+
+class PublishError(HTError):
+    """Base class for publish failures. Callers catch our types, never pika's."""
+
+
+class PublishRefusedError(PublishError):
+    """The broker nacked the message (for example, a disk alarm or an internal error)."""
+
+
+class PublishUnroutableError(PublishError):
+    """The broker returned the message because no queue is bound to receive it."""
+
+
+class PublishConnectionError(PublishError):
+    """The connection or channel was lost while publishing. The producer does not reconnect:
+    the caller should count the item as failed and exit so the orchestrator restarts the process."""
 
 
 class QueueProducer:
@@ -33,8 +49,9 @@ class QueueProducer:
     - Uses a thread-local channel for each non-main thread to avoid sharing non-thread-safe
       Pika channels across threads.
     - Makes published messages persistent (delivery mode = 2) and JSON-encodes payloads.
-    - Detects closed channels/connections, reconnects, and retries at most
-      `MAX_PUBLISH_ATTEMPTS` times.
+    - Turns on publisher confirms and publishes with `mandatory=True`, so a nacked or
+      unroutable message raises instead of being lost silently.
+    - Never reconnects: a lost connection raises `PublishConnectionError`.
 
     Attributes:
         channel_creator: Factory that manages the underlying connection and creates channels.
@@ -44,8 +61,8 @@ class QueueProducer:
 
     Notes:
         - Channels are not thread-safe. Each non-main thread gets its own channel.
-        - Publishing retries at most `MAX_PUBLISH_ATTEMPTS` times on `pika`
-          channel/connection errors; after that the last exception is re-raised.
+        - Publishing is not retried. It raises `PublishRefusedError` (nack),
+          `PublishUnroutableError` (returned) or `PublishConnectionError` (connection lost).
           Oversized messages raise `MessageTooLargeError` before any publish attempt.
     """
 
@@ -60,7 +77,8 @@ class QueueProducer:
         - Build a ChannelCreator and opens an initial channel for the main thread.
         - Initialize thread-local storage for per-thread channels.
         - Build a QueueManager to handle queue/exchange setup.
-        - Check if the queue is ready; if not, call `queue_reconnect` to set it up.
+        - Turn on publisher confirms on the channel.
+        - Check if the queue is ready; if not, set it up.
 
         """
         # Define credentials (user/password) as environment variables
@@ -70,7 +88,7 @@ class QueueProducer:
         self.channel_creator = ChannelCreator(
             queue_params.user, queue_params.password, queue_params.host, queue_params.heartbeat
         )  # Factory to create channels
-        self.channel = self.channel_creator.get_channel()
+        self.channel: BlockingChannel | None = self._open_channel()
 
         # Thread-local storage for channels (for multi-threading support)
         self._thread_local = threading.local()
@@ -81,7 +99,17 @@ class QueueProducer:
         # Ensure the queue is ready when the producer is initialized
         if not self.queue_manager.is_ready(self.channel):
             logger.warning("Queue setup not ready. Initializing channel and setup.")
-            self.queue_reconnect()
+            # is_ready() leaves the channel closed when the queue is missing: open a new one
+            self.channel = self._open_channel()
+            self.queue_manager.set_up_queue(self.channel)
+
+    def _open_channel(self) -> BlockingChannel:
+        """Open a channel with publisher confirms turned on."""
+        channel = self.channel_creator.get_channel()
+        if channel is None:
+            raise PublishConnectionError("Unable to establish a RabbitMQ channel")
+        channel.confirm_delivery()
+        return channel
 
     def _get_thread_channel(self) -> BlockingChannel | None:
         """
@@ -96,56 +124,12 @@ class QueueProducer:
             return self.channel
 
         # For other threads, use thread-local channels
-        if (
-            not hasattr(self._thread_local, "channel")
-            or not self._thread_local.channel
-            or self._thread_local.channel.is_closed
-        ):
-            self._thread_local.channel = self.channel_creator.get_channel()
+        if not getattr(self._thread_local, "channel", None):
+            self._thread_local.channel = self._open_channel()
             # Set up queue for this thread's channel
             self.queue_manager.set_up_queue(self._thread_local.channel)
 
         return cast(BlockingChannel | None, self._thread_local.channel)
-
-    def _thread_reconnect(self) -> None:
-        """
-        Reconnect the channel for the current thread.
-
-        For the main thread, it calls the original `queue_reconnect`.
-        For other threads, it creates a new thread-local channel and re-runs the queue set up.
-        """
-        if threading.current_thread() is threading.main_thread():
-            # Main thread uses the original reconnect method
-            self.queue_reconnect()
-        else:
-            # Other threads recreate their thread-local channel
-            logger.info("Reconnecting thread-local channel...")
-            self._thread_local.channel = self.channel_creator.get_channel()
-            self.queue_manager.set_up_queue(self._thread_local.channel)
-
-    def queue_reconnect(self) -> None:
-        """
-        Re-establish the RabbitMQ connection and channel and set up the queue infrastructure.
-        This should be called when the connection or channel is closed unexpectedly.
-
-        Behavior:
-            - Requests a fresh channel from `channel_creator`.
-            - Replaces the main-thread channel and re-declares queue/exchange/bindings.
-        :return: None
-        """
-        logger.info("Reconnecting to RabbitMQ...")
-
-        # Create a new channel
-        new_channel = self.channel_creator.get_channel()
-
-        # Replace the old channel with the new one
-        self.channel = new_channel
-        try:
-            # Set up the queue again if needed
-            self.queue_manager.set_up_queue(self.channel)
-        except Exception as err:
-            logger.error(f"Failed to reinitialize queue setup: {err}", exc_info=True)
-            raise
 
     def publish_messages(self, queue_message: dict[str, Any]) -> None:
         # TODO: Define a dataclass for the queue message to ensure type safety and validation
@@ -158,17 +142,16 @@ class QueueProducer:
            raised without a retry.
          - If the serialized message is larger than `queue_manager.max_message_size`, raises
            `MessageTooLargeError` before contacting the broker.
-         - If the channel/connection closes during publishing, reconnects and retries up to
-           `MAX_PUBLISH_ATTEMPTS` times. On the last attempt, the original exception is
-           re-raised so the broker's reason is preserved for logging.
-
+         - Publishes with `mandatory=True` on a channel with publisher confirms, and returns
+           only after the broker confirms. There is no retry and no reconnect.
         :param queue_message: The message to be published should be a dictionary.
         :return: None
 
         :raises TypeError, ValueError: when the message cannot be serialized to JSON.
         :raises MessageTooLargeError: when the serialized body exceeds `max_message_size`.
-        :raises pika.exceptions.ChannelClosed, ConnectionClosed, ChannelWrongStateError,
-            StreamLostError: when a transient publish error exhausts `MAX_PUBLISH_ATTEMPTS`.
+        :raises PublishRefusedError: when the broker nacks the message.
+        :raises PublishUnroutableError: when the broker returns the message (no binding).
+        :raises PublishConnectionError: when the connection or channel is lost.
         """
 
         ht_id = get_queue_message_id(queue_message)
@@ -198,63 +181,56 @@ class QueueProducer:
                 f"Message ht_id={ht_id} size {size} bytes exceeds max_message_size {limit} bytes; not published"
             )
 
-        for attempt in range(1, MAX_PUBLISH_ATTEMPTS + 1):
+        try:
             channel = self._get_thread_channel()
-            try:
-                if not channel or channel.is_closed:
-                    logger.warning(
-                        f"Channel closed before publish (queue: {self.queue_manager.queue_name}). Reconnecting."
-                    )
-                    self._thread_reconnect()
-                    channel = self._get_thread_channel()
-                if channel is None:
-                    raise RuntimeError("Unable to establish a RabbitMQ channel")
-
-                channel.basic_publish(
-                    exchange=self.queue_manager.main_exchange_name,
-                    routing_key=self.queue_manager.queue_name,
-                    body=body,
-                    properties=pika.BasicProperties(
-                        delivery_mode=DELIVERY_MODE_PERSISTENT, content_type="application/json"
-                    ),  # make a message persistent
+            if channel is None or channel.is_closed:
+                raise PublishConnectionError(
+                    f"Channel closed before publish (queue: {self.queue_manager.queue_name}), ht_id={ht_id}"
                 )
 
-                logger.info(
-                    "published_message",
-                    ht_id=ht_id,
-                    queue=self.queue_manager.queue_name,
-                    size=size,
-                )
-                return
+            channel.basic_publish(
+                exchange=self.queue_manager.main_exchange_name,
+                routing_key=self.queue_manager.queue_name,
+                body=body,
+                properties=pika.BasicProperties(
+                    delivery_mode=DELIVERY_MODE_PERSISTENT, content_type="application/json"
+                ),  # make a message persistent
+                mandatory=True,
+            )
+        except PublishConnectionError as err:
+            logger.error("Connection lost, message not published", ht_id=ht_id, error=str(err))
+            raise
+        except pika.exceptions.UnroutableError as err:
+            logger.error(
+                "Message returned by the broker, not published",
+                ht_id=ht_id,
+                queue=self.queue_manager.queue_name,
+            )
+            raise PublishUnroutableError(
+                f"Message ht_id={ht_id} was returned: no queue bound"
+            ) from err
+        except pika.exceptions.NackError as err:
+            logger.error(
+                "Message nacked by the broker, not published",
+                ht_id=ht_id,
+                queue=self.queue_manager.queue_name,
+            )
+            raise PublishRefusedError(f"Message ht_id={ht_id} was nacked by the broker") from err
+        except pika.exceptions.AMQPError as err:
+            # ChannelClosed, ConnectionClosed, StreamLostError, ChannelWrongStateError, ...
+            logger.error(
+                "Connection lost, message not published",
+                ht_id=ht_id,
+                queue=self.queue_manager.queue_name,
+                error=str(err),
+            )
+            raise PublishConnectionError(
+                f"Connection lost publishing ht_id={ht_id}: {err}"
+            ) from err
 
-            except (
-                pika.exceptions.ChannelClosed,
-                pika.exceptions.ConnectionClosed,
-                pika.exceptions.ChannelWrongStateError,
-                pika.exceptions.StreamLostError,
-            ) as err:
-                if attempt == MAX_PUBLISH_ATTEMPTS:
-                    logger.error(
-                        "Giving up publishing message",
-                        ht_id=ht_id,
-                        queue=self.queue_manager.queue_name,
-                        attempts=MAX_PUBLISH_ATTEMPTS,
-                        error=str(err),
-                    )
-                    raise
-                logger.warning(
-                    "RabbitMQ connection/channel closed while publishing message, reconnecting",
-                    ht_id=ht_id,
-                    attempt=f"{attempt}/{MAX_PUBLISH_ATTEMPTS}",
-                    error=str(err),
-                )
-                self._thread_reconnect()
-
-            except Exception as err:
-                logger.error(
-                    "Unexpected error publishing message",
-                    ht_id=ht_id,
-                    error=str(err),
-                    exc_info=True,
-                )
-                raise
+        logger.info(
+            "published_message",
+            ht_id=ht_id,
+            queue=self.queue_manager.queue_name,
+            size=size,
+        )

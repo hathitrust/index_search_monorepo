@@ -6,6 +6,11 @@ import pytest
 import sqlalchemy.exc
 from document_generator.document_generator_service import DocumentGeneratorService
 from document_generator.full_text_document_generator import FullTextDocumentGenerator
+from ht_queue_service.queue_producer import (
+    PublishConnectionError,
+    PublishRefusedError,
+    PublishUnroutableError,
+)
 from ht_utils.testing import capture_logs, find_log_entry
 
 
@@ -75,6 +80,45 @@ class TestDocumentGeneratorService:
         else:
             reject.assert_called_once()
             ack.assert_not_called()
+
+    @pytest.mark.parametrize(
+        "publish_error",
+        [PublishRefusedError("nack"), PublishUnroutableError("returned")],
+        ids=["refused", "unroutable"],
+    )
+    def test_publish_refused_or_unroutable_requeues_without_ack_or_reject(
+        self, publish_error: Exception
+    ) -> None:
+        service, _ = self._make_service()
+        with (
+            patch.object(service, "generate_full_text_entry", return_value={"id": "mdp.1"}),
+            patch.object(service, "publish_document", side_effect=publish_error),
+            patch.object(service, "positive_acknowledge") as ack,
+            patch.object(service, "reject_message") as reject,
+            patch.object(service, "retry_message") as retry,
+        ):
+            service.generate_document({"ht_id": "mdp.1"}, delivery_tag=7)
+
+        retry.assert_called_once_with(service.channel, 7)
+        ack.assert_not_called()
+        reject.assert_not_called()
+
+    def test_publish_connection_lost_raises_without_ack_reject_or_retry(self) -> None:
+        """The error propagates out of generate_document so the consumer stops and main() exits 1."""
+        service, _ = self._make_service()
+        with (
+            patch.object(service, "generate_full_text_entry", return_value={"id": "mdp.1"}),
+            patch.object(service, "publish_document", side_effect=PublishConnectionError("lost")),
+            patch.object(service, "positive_acknowledge") as ack,
+            patch.object(service, "reject_message") as reject,
+            patch.object(service, "retry_message") as retry,
+            pytest.raises(PublishConnectionError),
+        ):
+            service.generate_document({"ht_id": "mdp.1"}, delivery_tag=7)
+
+        ack.assert_not_called()
+        reject.assert_not_called()
+        retry.assert_not_called()
 
     def test_generate_document_failure_logs_error_with_ht_id(self) -> None:
         service, _ = self._make_service()
