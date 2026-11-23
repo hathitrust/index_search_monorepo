@@ -1,5 +1,6 @@
 import contextlib
 import json
+import threading
 import time
 from collections.abc import Callable, Generator
 from typing import Any
@@ -299,6 +300,33 @@ class TestPublishWithFakeChannel:
 
         assert channel.publish_calls == []
         assert get_channel.call_count == 1
+
+
+def test_thread_channel_is_dropped_after_a_failure_and_opened_again_next_time(
+    make_fake_producer: Callable[..., tuple[QueueProducer, FakeChannel, Any]],
+) -> None:
+    """A closed thread channel must not make every later publish from that thread fail."""
+    producer, _, get_channel = make_fake_producer()
+    broken = FakeChannel(pika.exceptions.ChannelClosed(406, "PRECONDITION_FAILED"))
+    healthy = FakeChannel()
+    get_channel.side_effect = [broken, healthy]
+    results: list[Any] = []
+
+    def publish_twice() -> None:
+        for _ in range(2):
+            try:
+                producer.publish_messages(message)
+                results.append("published")
+            except PublishConnectionError:
+                results.append("connection-error")
+
+    with patch.object(QueueManager, "set_up_queue"):
+        worker = threading.Thread(target=publish_twice)
+        worker.start()
+        worker.join()
+
+    assert results == ["connection-error", "published"]
+    assert len(healthy.publish_calls) == 1
 
 
 @pytest.mark.integration

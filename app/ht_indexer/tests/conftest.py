@@ -200,6 +200,8 @@ def ensure_queue_ready_and_purged(service: QueueServiceLike) -> None:
     if not service.queue_manager.is_ready(service.channel):
         # is_ready() leaves the channel closed when the queue is missing: open a new one
         service.channel = service.channel_creator.get_channel()
+        assert service.channel is not None
+        service.channel.confirm_delivery()  # same mode as QueueProducer; harmless for consumers
         service.queue_manager.set_up_queue(service.channel)
     assert service.channel is not None
     service.channel.queue_purge(service.queue_manager.queue_name)

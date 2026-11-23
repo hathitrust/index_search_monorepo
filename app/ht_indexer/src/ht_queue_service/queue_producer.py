@@ -111,6 +111,13 @@ class QueueProducer:
         channel.confirm_delivery()
         return channel
 
+    def _discard_thread_channel(self) -> None:
+        """Forget this thread's channel after a failure, so the next publish opens a fresh one
+        instead of failing forever on a closed channel. This is not a reconnect: if the
+        connection is gone, opening the channel raises PublishConnectionError."""
+        if threading.current_thread() is not threading.main_thread():
+            self._thread_local.channel = None
+
     def _get_thread_channel(self) -> BlockingChannel | None:
         """
         Get a thread-local channel. Creates one if it doesn't exist for this thread.
@@ -198,6 +205,7 @@ class QueueProducer:
                 mandatory=True,
             )
         except PublishConnectionError as err:
+            self._discard_thread_channel()
             logger.error("Connection lost, message not published", ht_id=ht_id, error=str(err))
             raise
         except pika.exceptions.UnroutableError as err:
@@ -217,6 +225,7 @@ class QueueProducer:
             )
             raise PublishRefusedError(f"Message ht_id={ht_id} was nacked by the broker") from err
         except pika.exceptions.AMQPError as err:
+            self._discard_thread_channel()
             # ChannelClosed, ConnectionClosed, StreamLostError, ChannelWrongStateError, ...
             logger.error(
                 "Connection lost, message not published",

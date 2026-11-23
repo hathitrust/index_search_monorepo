@@ -81,14 +81,8 @@ class TestDocumentGeneratorService:
             reject.assert_called_once()
             ack.assert_not_called()
 
-    @pytest.mark.parametrize(
-        "publish_error",
-        [PublishRefusedError("nack"), PublishUnroutableError("returned")],
-        ids=["refused", "unroutable"],
-    )
-    def test_publish_refused_or_unroutable_requeues_without_ack_or_reject(
-        self, publish_error: Exception
-    ) -> None:
+    def test_publish_refused_requeues_without_ack_or_reject(self) -> None:
+        publish_error = PublishRefusedError("nack")
         service, _ = self._make_service()
         with (
             patch.object(service, "generate_full_text_entry", return_value={"id": "mdp.1"}),
@@ -103,16 +97,23 @@ class TestDocumentGeneratorService:
         ack.assert_not_called()
         reject.assert_not_called()
 
-    def test_publish_connection_lost_raises_without_ack_reject_or_retry(self) -> None:
+    @pytest.mark.parametrize(
+        "publish_error",
+        [PublishConnectionError("lost"), PublishUnroutableError("returned")],
+        ids=["connection-lost", "unroutable"],
+    )
+    def test_publish_that_cannot_succeed_raises_without_ack_reject_or_retry(
+        self, publish_error: Exception
+    ) -> None:
         """The error propagates out of generate_document so the consumer stops and main() exits 1."""
         service, _ = self._make_service()
         with (
             patch.object(service, "generate_full_text_entry", return_value={"id": "mdp.1"}),
-            patch.object(service, "publish_document", side_effect=PublishConnectionError("lost")),
+            patch.object(service, "publish_document", side_effect=publish_error),
             patch.object(service, "positive_acknowledge") as ack,
             patch.object(service, "reject_message") as reject,
             patch.object(service, "retry_message") as retry,
-            pytest.raises(PublishConnectionError),
+            pytest.raises(type(publish_error)),
         ):
             service.generate_document({"ht_id": "mdp.1"}, delivery_tag=7)
 
