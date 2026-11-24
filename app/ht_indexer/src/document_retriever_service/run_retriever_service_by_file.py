@@ -16,7 +16,9 @@ from ht_utils.ht_logger import get_ht_logger
 from document_retriever_service.full_text_search_retriever_service import (
     FullTextSearchRetrieverQueueService,
     PublishCounts,
+    QueueConnectionLostError,
     RunStoppedEarlyError,
+    log_unpublished_ids,
     run_retriever_service_threads,
 )
 from document_retriever_service.ht_status_retriever_service import get_non_processed_ids
@@ -198,6 +200,8 @@ def retrieve_documents_by_file(
                     # Keep what was published before the failure. The batches not started are
                     # not run (the queue or Solr is down), so count their ids as failed.
                     logger.error(f"The run stopped early: {e}")
+                    if isinstance(e, QueueConnectionLostError):
+                        log_unpublished_ids(ids2process, query_field)
                     counts += e.counts + PublishCounts(failed=e.unprocessed + len(ids2process))
                     break
 

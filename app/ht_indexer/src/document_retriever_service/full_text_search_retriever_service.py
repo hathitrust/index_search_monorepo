@@ -3,7 +3,7 @@ import copy
 import json
 import sys
 import time
-from collections.abc import Collection
+from collections.abc import Collection, Iterable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from typing import Any
@@ -70,6 +70,17 @@ class SolrRetrievalError(RunStoppedEarlyError):
 class QueueConnectionLostError(RunStoppedEarlyError):
     """The queue connection was lost while publishing. The producer does not reconnect, so the
     run stops: the remaining ids would fail the same way."""
+
+
+def log_unpublished_ids(ids: Iterable[str], by_field: str) -> None:
+    """Log one error per id that was not published because the queue connection was lost.
+
+    Logs are the only record of failed items, so each id gets its own line with the id field
+    every service uses: ht_id for an item, record_id for a Catalog record (ETT-2018).
+    """
+    id_field = "record_id" if by_field == "record" else "ht_id"
+    for item_id in ids:
+        logger.error("Not published: queue connection lost", **{id_field: item_id})
 
 
 @dataclass
@@ -170,6 +181,8 @@ class FullTextSearchRetrieverQueueService:
                     error=str(e),
                     not_published=remaining,
                 )
+                # The failing item is logged above; log the items after it too
+                log_unpublished_ids([later.ht_id for later in result[index + 1 :]], "item")
                 raise QueueConnectionLostError(
                     f"Queue connection lost publishing ht_id={item_id}",
                     PublishCounts(
@@ -369,6 +382,7 @@ class FullTextSearchRetrieverQueueService:
             except QueueConnectionLostError as e:
                 # Stop: no more Solr requests for chunks that cannot be published
                 after_chunk = len(initial_documents) - processed - len(chunk)
+                log_unpublished_ids(initial_documents[processed + len(chunk) :], by_field)
                 raise QueueConnectionLostError(
                     str(e), counts + e.counts, e.unprocessed + after_chunk
                 ) from e.__cause__

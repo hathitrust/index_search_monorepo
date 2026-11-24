@@ -265,7 +265,10 @@ class TestRetrieveDocumentsByFileStoppedRun:
         input_file = tmp_path / "ids.txt"
         input_file.write_text("\n".join(f"mdp.{i}" for i in range(450)))
 
-        with patch.object(by_file_module, "FullTextSearchRetrieverQueueService") as service_cls:
+        with (
+            patch.object(by_file_module, "FullTextSearchRetrieverQueueService") as service_cls,
+            capture_logs() as entries,
+        ):
             service = service_cls.return_value
             service.full_text_search_retriever_service.side_effect = QueueConnectionLostError(
                 "lost", PublishCounts(published=3), 197
@@ -286,6 +289,13 @@ class TestRetrieveDocumentsByFileStoppedRun:
         assert service.full_text_search_retriever_service.call_count == 1
         assert summary.seeded == 3
         assert summary.errors == 197 + 250
+        # The 250 ids of the batches never started are logged one by one (the first batch is not)
+        first_batch = service.full_text_search_retriever_service.call_args.args[0]
+        logged = [
+            e["ht_id"] for e in entries if e["event"] == "Not published: queue connection lost"
+        ]
+        assert len(logged) == 250
+        assert set(logged) == {f"mdp.{i}" for i in range(450)} - set(first_batch)
 
     @pytest.mark.parametrize(("errors", "exits"), [(0, False), (2, True)])
     def test_main_exits_1_only_when_there_are_errors(self, errors: int, exits: bool) -> None:
