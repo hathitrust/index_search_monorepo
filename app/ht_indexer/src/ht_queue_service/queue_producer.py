@@ -83,29 +83,42 @@ class QueueProducer:
         # Define credentials (user/password) as environment variables
         # declaring the credentials needed for connection like host, port, username, password, exchange etc
 
-        # Object to create channels
-        self.channel_creator = ChannelCreator(queue_settings)  # Factory to create channels
-        self.channel: BlockingChannel | None = self._open_channel()
+        try:
+            # Object to create channels
+            self.channel_creator = ChannelCreator(queue_settings)  # Factory to create channels
+            self.channel: BlockingChannel | None = self._open_channel()
 
-        # Thread-local storage for channels (for multi-threading support)
-        self._thread_local = threading.local()
+            # Thread-local storage for channels (for multi-threading support)
+            self._thread_local = threading.local()
 
-        # Object to create the queue and manage its setup and attributes
-        self.queue_manager = QueueManager(queue_settings)
+            # Object to create the queue and manage its setup and attributes
+            self.queue_manager = QueueManager(queue_settings)
 
-        # Ensure the queue is ready when the producer is initialized
-        if not self.queue_manager.is_ready(self.channel):
-            logger.warning("Queue setup not ready. Initializing channel and setup.")
-            # is_ready() leaves the channel closed when the queue is missing: open a new one
-            self.channel = self._open_channel()
-            self.queue_manager.set_up_queue(self.channel)
+            # Ensure the queue is ready when the producer is initialized
+            if not self.queue_manager.is_ready(self.channel):
+                logger.warning("Queue setup not ready. Initializing channel and setup.")
+                # is_ready() leaves the channel closed when the queue is missing: open a new one
+                self.channel = self._open_channel()
+                self.queue_manager.set_up_queue(self.channel)
+        except pika.exceptions.AMQPError as err:
+            raise PublishConnectionError(f"Unable to set up the queue: {err}") from err
 
     def _open_channel(self) -> BlockingChannel:
-        """Open a channel with publisher confirms turned on."""
-        channel = self.channel_creator.get_channel()
+        """Open a channel with publisher confirms turned on.
+
+        :raises PublishConnectionError: when the channel cannot be opened or confirms cannot be
+            enabled. `ChannelCreator.get_channel` wraps pika errors in `RuntimeError`.
+        """
+        try:
+            channel = self.channel_creator.get_channel()
+        except RuntimeError as err:
+            raise PublishConnectionError(f"Unable to establish a RabbitMQ channel: {err}") from err
         if channel is None:
             raise PublishConnectionError("Unable to establish a RabbitMQ channel")
-        channel.confirm_delivery()
+        try:
+            channel.confirm_delivery()
+        except pika.exceptions.AMQPError as err:
+            raise PublishConnectionError(f"Unable to enable publisher confirms: {err}") from err
         return channel
 
     def _discard_thread_channel(self) -> None:

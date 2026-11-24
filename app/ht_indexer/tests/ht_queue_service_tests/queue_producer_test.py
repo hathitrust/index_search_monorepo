@@ -209,13 +209,18 @@ def test_publish_messages_too_large_logs_ht_id_as_a_field(
 class FakeChannel:
     """Stands in for a pika channel with publisher confirms: no broker needed."""
 
-    def __init__(self, publish_error: Exception | None = None) -> None:
+    def __init__(
+        self, publish_error: Exception | None = None, confirm_error: Exception | None = None
+    ) -> None:
         self.publish_error = publish_error
+        self.confirm_error = confirm_error
         self.is_closed = False
         self.confirm_enabled = False
         self.publish_calls: list[dict[str, Any]] = []
 
     def confirm_delivery(self) -> None:
+        if self.confirm_error is not None:
+            raise self.confirm_error
         self.confirm_enabled = True
 
     def basic_publish(self, **kwargs: Any) -> None:  # Any: mirrors pika's keyword arguments
@@ -334,6 +339,76 @@ def test_thread_channel_is_dropped_after_a_failure_and_opened_again_next_time(
 
     assert results == ["connection-error", "published"]
     assert len(healthy.publish_calls) == 1
+
+
+def test_thread_channel_that_cannot_be_opened_raises_publish_connection_error(
+    make_fake_producer: Callable[..., tuple[QueueProducer, FakeChannel, Any]],
+) -> None:
+    """ChannelCreator.get_channel wraps pika errors in RuntimeError: callers must still get our type."""
+    producer, _, get_channel = make_fake_producer()
+    get_channel.side_effect = RuntimeError("Failed to create channel: boom")
+    errors: list[Exception] = []
+
+    def publish() -> None:
+        try:
+            producer.publish_messages(message)
+        except Exception as err:
+            errors.append(err)
+
+    worker = threading.Thread(target=publish)
+    worker.start()
+    worker.join()
+
+    assert len(errors) == 1
+    assert type(errors[0]) is PublishConnectionError
+    assert isinstance(errors[0].__cause__, RuntimeError)
+
+
+class TestProducerStartup:
+    """Errors while the producer is built must also be our own type, never pika's or RuntimeError."""
+
+    @pytest.mark.parametrize(
+        ("channel_error", "confirm_error", "set_up_error"),
+        [
+            pytest.param(
+                RuntimeError("Failed to create channel"), None, None, id="channel-runtime-error"
+            ),
+            pytest.param(
+                None, pika.exceptions.ChannelWrongStateError("closing"), None, id="confirm-fails"
+            ),
+            pytest.param(
+                None,
+                None,
+                pika.exceptions.ChannelClosedByBroker(406, "PRECONDITION_FAILED"),
+                id="set-up-fails",
+            ),
+            pytest.param(
+                pika.exceptions.AMQPConnectionError("refused"), None, None, id="connection-refused"
+            ),
+        ],
+    )
+    def test_startup_failure_raises_publish_connection_error(
+        self,
+        channel_error: Exception | None,
+        confirm_error: Exception | None,
+        set_up_error: Exception | None,
+    ) -> None:
+        channel = FakeChannel(confirm_error=confirm_error)
+        with (
+            patch("ht_queue_service.queue_producer.ChannelCreator") as channel_creator,
+            patch.object(QueueManager, "is_ready", return_value=set_up_error is None),
+            patch.object(QueueManager, "set_up_queue", side_effect=set_up_error),
+        ):
+            get_channel = channel_creator.return_value.get_channel
+            if channel_error is not None:
+                get_channel.side_effect = channel_error
+            else:
+                get_channel.return_value = channel
+            with pytest.raises(PublishConnectionError) as raised:
+                QueueProducer(QueueTestSettings())
+
+        assert type(raised.value) is PublishConnectionError
+        assert raised.value.__cause__ is not None
 
 
 @pytest.mark.integration
