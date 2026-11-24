@@ -20,6 +20,7 @@ from document_retriever_service import (
     full_text_search_retriever_service as retriever_service_module,
 )
 from document_retriever_service.full_text_search_retriever_service import (
+    UNPUBLISHED_EVENT,
     ChunkMetadata,
     FullTextSearchRetrieverQueueService,
     PublishCounts,
@@ -703,9 +704,6 @@ class TestPublishingDocuments:
 
         assert [e["record_id"] for e in entries] == ["008394936", "008394937"]
         assert all("ht_id" not in e for e in entries)
-
-
-UNPUBLISHED_EVENT = "Not published: queue connection lost"
 
 
 class TestRetrieverPublishCounts:

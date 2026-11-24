@@ -16,6 +16,7 @@ from conftest import (
 )
 from document_retriever_service import run_retriever_service_by_file as by_file_module
 from document_retriever_service.full_text_search_retriever_service import (
+    UNPUBLISHED_EVENT,
     PublishCounts,
     QueueConnectionLostError,
 )
@@ -291,9 +292,7 @@ class TestRetrieveDocumentsByFileStoppedRun:
         assert summary.errors == 197 + 250
         # The 250 ids of the batches never started are logged one by one (the first batch is not)
         first_batch = service.full_text_search_retriever_service.call_args.args[0]
-        logged = [
-            e["ht_id"] for e in entries if e["event"] == "Not published: queue connection lost"
-        ]
+        logged = [e["ht_id"] for e in entries if e["event"] == UNPUBLISHED_EVENT]
         assert len(logged) == 250
         assert set(logged) == {f"mdp.{i}" for i in range(450)} - set(first_batch)
 

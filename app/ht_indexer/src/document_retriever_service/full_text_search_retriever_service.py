@@ -72,6 +72,10 @@ class QueueConnectionLostError(RunStoppedEarlyError):
     run stops: the remaining ids would fail the same way."""
 
 
+# Log event for each id not published because the queue connection was lost
+UNPUBLISHED_EVENT = "Not published: queue connection lost"
+
+
 def log_unpublished_ids(ids: Iterable[str], by_field: str) -> None:
     """Log one error per id that was not published because the queue connection was lost.
 
@@ -80,7 +84,7 @@ def log_unpublished_ids(ids: Iterable[str], by_field: str) -> None:
     """
     id_field = "record_id" if by_field == "record" else "ht_id"
     for item_id in ids:
-        logger.error("Not published: queue connection lost", **{id_field: item_id})
+        logger.error(UNPUBLISHED_EVENT, **{id_field: item_id})
 
 
 @dataclass
