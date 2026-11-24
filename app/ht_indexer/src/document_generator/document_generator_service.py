@@ -6,7 +6,12 @@ from typing import Any
 
 from ht_document.ht_document import HtDocument
 from ht_queue_service.queue_multiple_consumer import QueueMultipleConsumer
-from ht_queue_service.queue_producer import QueueProducer
+from ht_queue_service.queue_producer import (
+    PublishConnectionError,
+    PublishError,
+    PublishUnroutableError,
+    QueueProducer,
+)
 from ht_queue_service.queue_settings import QueueSettings
 from ht_utils.ht_logger import get_ht_logger
 from ht_utils.ht_mysql import HtMysql
@@ -139,6 +144,19 @@ class DocumentGeneratorService(QueueMultipleConsumer):
             if self.channel is None:
                 raise RuntimeError("Unable to establish a RabbitMQ channel")
             self.positive_acknowledge(self.channel, delivery_tag)
+        except (PublishConnectionError, PublishUnroutableError) as e:
+            # Connection lost (no reconnect) or no queue bound to the target exchange: retrying
+            # cannot fix either, and a requeue would loop. Do not ack or reject the source message
+            # (the broker redelivers it when the connection closes). Re-raise so the consumer
+            # stops and main() exits 1 for the orchestrator to restart the service.
+            logger.error("Publish cannot succeed, exiting", ht_id=item_id, error=str(e))
+            raise
+        except PublishError as e:
+            # Broker nacked the message: an infrastructure failure, not the message's fault. The source is not acked; put it back on the queue to be tried again.
+            logger.error("Publish failed, source message not acked", ht_id=item_id, error=str(e))
+            if self.channel is None:
+                raise RuntimeError("Unable to establish a RabbitMQ channel") from e
+            self.retry_message(self.channel, delivery_tag)
         except Exception as e:
             self.log_error_document_generator_service(e, message, delivery_tag)
 

@@ -3,6 +3,7 @@
 import argparse
 import os
 import re
+import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -15,6 +16,7 @@ from ht_utils.ht_logger import get_ht_logger
 from document_retriever_service.full_text_search_retriever_service import (
     FullTextSearchRetrieverQueueService,
     PublishCounts,
+    RunStoppedEarlyError,
     run_retriever_service_threads,
 )
 from document_retriever_service.ht_status_retriever_service import get_non_processed_ids
@@ -188,9 +190,16 @@ def retrieve_documents_by_file(
 
             else:
                 # Run retriever service sequentially
-                counts += document_retriever_service.full_text_search_retriever_service(
-                    list_documents, query_field
-                )
+                try:
+                    counts += document_retriever_service.full_text_search_retriever_service(
+                        list_documents, query_field
+                    )
+                except RunStoppedEarlyError as e:
+                    # Keep what was published before the failure. The batches not started are
+                    # not run (the queue or Solr is down), so count their ids as failed.
+                    logger.error(f"The run stopped early: {e}")
+                    counts += e.counts + PublishCounts(failed=e.unprocessed + len(ids2process))
+                    break
 
             logger.info(
                 f"Total time to retrieve and generate documents {time.time() - start_time:.10f}"
@@ -216,7 +225,7 @@ def main() -> None:
 
     init_args_obj = RetrieverServiceByFileArguments(parser)
 
-    retrieve_documents_by_file(
+    summary = retrieve_documents_by_file(
         init_args_obj.queue_settings,
         init_args_obj.query_field,
         init_args_obj.solr_host,
@@ -229,6 +238,9 @@ def main() -> None:
         init_args_obj.max_workers,
         init_args_obj.solr_timeout,
     )
+    # Logs are the only record of failed items, so exit non-zero to let the caller know
+    if summary.errors > 0:
+        sys.exit(1)
 
 
 if __name__ == "__main__":

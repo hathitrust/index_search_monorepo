@@ -15,7 +15,10 @@ from conftest import (
     drain_ht_ids,
 )
 from document_retriever_service import run_retriever_service_by_file as by_file_module
-from document_retriever_service.full_text_search_retriever_service import PublishCounts
+from document_retriever_service.full_text_search_retriever_service import (
+    PublishCounts,
+    QueueConnectionLostError,
+)
 from document_retriever_service.ht_status_retriever_service import get_non_processed_ids
 from document_retriever_service.retriever_arguments import RetrieverServiceByFileArguments
 from document_retriever_service.run_retriever_service_by_file import retrieve_documents_by_file
@@ -250,6 +253,61 @@ class TestReadIdsFromFile:
         ids_file = self._read(tmp_path, content, query_field="item")
 
         assert ids_file.invalid == ["008394936", "mdp 123", "mdp.1,mdp.2", "no_namespace", "MDP.1"]
+
+
+class TestRetrieveDocumentsByFileStoppedRun:
+    def test_connection_lost_counts_unprocessed_ids_as_failed_and_stops(
+        self, tmp_path: Path
+    ) -> None:
+        """450 ids = batches of 200, 200, 50. The first batch loses the connection after 3 were
+        published, with 197 left in it: the 250 ids of the batches never started also count as
+        failed, and the second batch is never requested."""
+        input_file = tmp_path / "ids.txt"
+        input_file.write_text("\n".join(f"mdp.{i}" for i in range(450)))
+
+        with patch.object(by_file_module, "FullTextSearchRetrieverQueueService") as service_cls:
+            service = service_cls.return_value
+            service.full_text_search_retriever_service.side_effect = QueueConnectionLostError(
+                "lost", PublishCounts(published=3), 197
+            )
+            summary = retrieve_documents_by_file(
+                MagicMock(),
+                "item",
+                "http://solr",
+                "solr_user",
+                "solr_password",
+                {},
+                input_file,
+                tmp_path / "status.txt",
+                False,
+                1,
+            )
+
+        assert service.full_text_search_retriever_service.call_count == 1
+        assert summary.seeded == 3
+        assert summary.errors == 197 + 250
+
+    @pytest.mark.parametrize(("errors", "exits"), [(0, False), (2, True)])
+    def test_main_exits_1_only_when_there_are_errors(self, errors: int, exits: bool) -> None:
+        summary = by_file_module.ByFileSummary(
+            requested=2,
+            duplicates=0,
+            invalid=[],
+            already_processed=0,
+            seeded=2 - errors,
+            errors=errors,
+            not_found=0,
+        )
+        with (
+            patch.object(by_file_module, "RetrieverServiceByFileArguments"),
+            patch.object(by_file_module, "retrieve_documents_by_file", return_value=summary),
+        ):
+            if exits:
+                with pytest.raises(SystemExit) as raised:
+                    by_file_module.main()
+                assert raised.value.code == 1
+            else:
+                by_file_module.main()
 
 
 class TestRetrieveDocumentsByFileSummary:

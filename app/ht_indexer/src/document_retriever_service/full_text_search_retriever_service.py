@@ -11,7 +11,7 @@ from typing import Any
 import requests
 from catalog_metadata.catalog_metadata import CatalogItemMetadata, CatalogRecordMetadata
 from ht_indexer_api.ht_indexer_api import DEFAULT_READ_TIMEOUT_SECONDS, HTSolrAPI
-from ht_queue_service.queue_producer import QueueProducer
+from ht_queue_service.queue_producer import PublishConnectionError, QueueProducer
 from ht_queue_service.queue_settings import QueueSettings
 from ht_utils.ht_logger import get_ht_logger
 from ht_utils.ht_utils import (
@@ -47,10 +47,10 @@ class PublishCounts:
         )
 
 
-class SolrRetrievalError(Exception):
-    """A Solr request failed part-way through a run (the original error is the __cause__).
+class RunStoppedEarlyError(Exception):
+    """A run stopped part-way through (the original error is the __cause__).
 
-    Carries what the run did before the failure, so a caller does not count items that were
+    Carries what the run did before it stopped, so a caller does not count items that were
     already published as failed.
 
     :param counts: what was published, failed and not found in Catalog before the failure
@@ -61,6 +61,15 @@ class SolrRetrievalError(Exception):
         super().__init__(message)
         self.counts = counts
         self.unprocessed = unprocessed
+
+
+class SolrRetrievalError(RunStoppedEarlyError):
+    """A Solr request failed part-way through a run."""
+
+
+class QueueConnectionLostError(RunStoppedEarlyError):
+    """The queue connection was lost while publishing. The producer does not reconnect, so the
+    run stops: the remaining ids would fail the same way."""
 
 
 @dataclass
@@ -141,7 +150,7 @@ class FullTextSearchRetrieverQueueService:
         published = 0
         failed = 0
 
-        for record in result:
+        for index, record in enumerate(result):
             item_metadata, item_id = FullTextSearchRetrieverQueueService.generate_metadata(record)
             logger.info("Publishing document", ht_id=item_id)
 
@@ -150,6 +159,24 @@ class FullTextSearchRetrieverQueueService:
                     raise RuntimeError("Unable to establish a queue connection")
                 RetrieverServicesUtils.publish_document(queue_producer_conn, item_metadata)
                 published += 1
+
+            except PublishConnectionError as e:
+                # The producer does not reconnect, so every remaining item would fail the same
+                # way. Stop the run: the caller counts the rest of the ids as failed.
+                remaining = len(result) - index
+                logger.error(
+                    "Connection lost, stopping the run",
+                    ht_id=item_id,
+                    error=str(e),
+                    not_published=remaining,
+                )
+                raise QueueConnectionLostError(
+                    f"Queue connection lost publishing ht_id={item_id}",
+                    PublishCounts(
+                        published=published, failed=failed + len(metadata_failures or {})
+                    ),
+                    remaining,
+                ) from e
 
             except Exception as e:
                 error_info = get_error_message_by_document(
@@ -335,9 +362,16 @@ class FullTextSearchRetrieverQueueService:
             logger.info(f"Metadata generator: Total time = {time.time() - start_time}")
 
             # Publish the documents in the queue; metadata failures are recorded as failed
-            counts += FullTextSearchRetrieverQueueService.publishing_documents(
-                queue_producer, chunk_metadata.items, chunk_metadata.failed
-            )
+            try:
+                counts += FullTextSearchRetrieverQueueService.publishing_documents(
+                    queue_producer, chunk_metadata.items, chunk_metadata.failed
+                )
+            except QueueConnectionLostError as e:
+                # Stop: no more Solr requests for chunks that cannot be published
+                after_chunk = len(initial_documents) - processed - len(chunk)
+                raise QueueConnectionLostError(
+                    str(e), counts + e.counts, e.unprocessed + after_chunk
+                ) from e.__cause__
             processed += len(chunk)
 
         return counts
@@ -396,7 +430,7 @@ def run_retriever_service_threads(
             try:
                 counts += future.result()  # This will raise an exception if the thread failed
                 logger.debug(f"Successfully processed batch of {len(batch)} documents")
-            except SolrRetrievalError as e:
+            except RunStoppedEarlyError as e:
                 # Chunks published before the failure are counted as published, not failed
                 logger.error(f"Thread failed processing batch of {len(batch)} documents: {e}")
                 counts += e.counts + PublishCounts(failed=e.unprocessed)
@@ -446,9 +480,9 @@ def main() -> None:
             counts = document_retriever_service.full_text_search_retriever_service(
                 list_documents, by_field
             )
-        except SolrRetrievalError as e:
+        except RunStoppedEarlyError as e:
             # Keep what was published before the failure, so the summary and exit code are right
-            logger.error(f"Solr request failed, the run stopped early: {e}")
+            logger.error(f"The run stopped early: {e}")
             counts = e.counts + PublishCounts(failed=e.unprocessed)
 
     logger.info(

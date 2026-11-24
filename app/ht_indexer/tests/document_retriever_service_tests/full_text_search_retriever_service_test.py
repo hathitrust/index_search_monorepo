@@ -27,6 +27,7 @@ from document_retriever_service.full_text_search_retriever_service import (
 from document_retriever_service.retriever_arguments import RetrieverServiceArguments
 from document_retriever_service.retriever_services_utils import RetrieverServicesUtils
 from ht_indexer_api.ht_indexer_api import DEFAULT_READ_TIMEOUT_SECONDS, HTSolrAPI
+from ht_queue_service.queue_producer import PublishConnectionError
 from ht_queue_service.queue_settings import QueueSettings
 from ht_utils.ht_logger import get_ht_logger
 from ht_utils.query_maker import make_solr_term_query
@@ -662,6 +663,35 @@ class TestPublishingDocuments:
 
         assert counts == PublishCounts(published=1, failed=1)
 
+    def test_publishing_documents_connection_lost_raises_with_counts_so_far(self) -> None:
+        """No reconnect: after a PublishConnectionError the remaining items would fail the same
+        way, so the run stops. The error carries what was done and how many ids are left."""
+        records: list[CatalogItemMetadata] = [MagicMock(), MagicMock(), MagicMock()]
+        with (
+            patch.object(
+                FullTextSearchRetrieverQueueService,
+                "generate_metadata",
+                side_effect=[({"ht_id": f"mdp.{i}"}, f"mdp.{i}") for i in range(3)],
+            ),
+            patch.object(
+                RetrieverServicesUtils,
+                "publish_document",
+                side_effect=[None, PublishConnectionError("lost"), None],
+            ) as publish,
+            capture_logs() as entries,
+            pytest.raises(retriever_service_module.QueueConnectionLostError) as error,
+        ):
+            FullTextSearchRetrieverQueueService.publishing_documents(
+                MagicMock(), records, {"mdp.bad": "bad item"}
+            )
+
+        assert error.value.counts == PublishCounts(published=1, failed=1)  # the metadata failure
+        assert error.value.unprocessed == 2  # the failing item and the one after it
+        assert publish.call_count == 2  # the third item was never attempted
+        assert_log_entry(
+            entries, event="Connection lost, stopping the run", log_level="error", ht_id="mdp.1"
+        )
+
 
 class TestRetrieverPublishCounts:
     # Infrastructure-free: the counts feed the run_retriever_service_by_file summary
@@ -699,6 +729,47 @@ class TestRetrieverPublishCounts:
             counts = service.full_text_search_retriever_service(["mdp.1", "mdp.2"], "item")
 
         assert counts == retriever_service_module.PublishCounts(published=1, failed=1)
+
+    def test_full_text_search_retriever_service_connection_lost_stops_before_the_next_chunk(
+        self,
+    ) -> None:
+        """Chunk 1 is published, chunk 2 loses the connection: chunk 3 must not query Solr, and
+        its ids are counted as unprocessed along with the rest of chunk 2."""
+        service = FullTextSearchRetrieverQueueService(
+            MagicMock(), "http://solr", "solr_user", "solr_password", {}
+        )
+        response = MagicMock()
+        response.content = json.dumps({"response": {"docs": []}}).encode("utf-8")
+        with (
+            patch.object(retriever_service_module, "SOLR_BATCH_SIZE", 2),
+            patch.object(FullTextSearchRetrieverQueueService, "get_queue_producer"),
+            patch.object(retriever_service_module, "HTSolrAPI"),
+            patch.object(service, "retrieve_documents_from_solr", return_value=response) as solr,
+            patch.object(
+                FullTextSearchRetrieverQueueService,
+                "generate_chunk_metadata",
+                return_value=ChunkMetadata(),
+            ),
+            patch.object(
+                FullTextSearchRetrieverQueueService, "log_ht_ids_not_in_catalog", return_value=set()
+            ),
+            patch.object(
+                FullTextSearchRetrieverQueueService,
+                "publishing_documents",
+                side_effect=[
+                    PublishCounts(published=2),
+                    retriever_service_module.QueueConnectionLostError(
+                        "lost", PublishCounts(published=0, failed=0), 2
+                    ),
+                ],
+            ),
+            pytest.raises(retriever_service_module.QueueConnectionLostError) as error,
+        ):
+            service.full_text_search_retriever_service([f"mdp.{i}" for i in range(6)], "item")
+
+        assert solr.call_count == 2  # the third chunk was never requested
+        assert error.value.counts == PublishCounts(published=2)
+        assert error.value.unprocessed == 4  # 2 left in chunk 2 + chunk 3 (2 ids)
 
     def test_full_text_search_retriever_service_item_mode_counts_failed_and_not_found(
         self,

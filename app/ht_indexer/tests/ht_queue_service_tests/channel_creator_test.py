@@ -37,11 +37,6 @@ class TestChannelCreator:
         # Create producer instance
         queue_producer = QueueProducer(queue_settings)
 
-        if not queue_producer.queue_manager.is_ready(queue_producer.channel):
-            # The channel will be closed if the queue doesn't exist or is declared with different options.
-            # is_ready() method will return False and will create a new channel.
-            queue_producer.queue_reconnect()
-
         assert queue_producer.channel is not None
         assert queue_producer.channel.is_open
 
