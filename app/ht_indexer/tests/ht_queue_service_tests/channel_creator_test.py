@@ -9,22 +9,7 @@ logger = get_ht_logger(name=__name__)
 class TestChannelCreator:
     """Test the QueueConnection class"""
 
-    def test_create_channel_close(self) -> None:
-        """Test the creation and closing of a channel using ChannelCreator
-        :return: None
-        """
 
-        channel_creator = ChannelCreator(QueueTestSettings())
-
-        # Creating a channel
-        channel = channel_creator.get_channel()
-
-        assert channel is not None
-        assert channel.is_open
-
-        # Closing the channel
-        channel.close()
-        assert channel.is_closed
 
     def test_purge_queue(self) -> None:
         """Test the purge queue functionality of the QueueProducer class

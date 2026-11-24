@@ -19,7 +19,7 @@ dependencies = [
     "uvicorn>=0.45,<1",
     "nest-asyncio>=1.6.0,<2",
     "python-dotenv>=1.2.2,<2",
-    "pika>=1.3.2,<2",
+    "pika>=1.5.0rc4,<2",
     "pika-stubs>=0.1.3,<0.2",
     "orjson>=3.11.8,<4",
     "ht-search",
@@ -49,6 +49,7 @@ markers = [
 default-groups = "all"
 package = true # This is the main application package, so we set this to true to allow building/installing it as a package.
 exclude-newer = "7 days"
+exclude-newer-package = { pika = "2026-11-17T15:57:47.607Z" }
 
 # Adding local sources to link the application to the shared libraries in the monorepo.
 [tool.uv.sources]

@@ -12,6 +12,9 @@ from ht_queue_service.queue_multiple_consumer import QueueMultipleConsumer
 from ht_queue_service.queue_settings import QueueSettings
 from ht_utils.ht_env_config import HtEnvConfig
 from pika.adapters.blocking_connection import BlockingChannel
+from collections.abc import Callable, Generator
+from ht_queue_service.queue_connection import QueueConnection
+
 
 load_dotenv()
 
@@ -47,6 +50,27 @@ class QueueTestSettings(QueueSettings):
     retry_interval: int = 5
     shutdown_on_empty_queue: bool = False
 
+@pytest.fixture
+def queue_settings() -> QueueTestSettings:
+    return QueueTestSettings(
+        rabbitmq_ht_indexer_host="rabbitmq.test",
+        rabbitmq_ht_indexer_username="test",
+        rabbitmq_ht_indexer_password="test",
+    )
+
+@pytest.fixture
+def make_queue_connection() -> Generator[Callable[[QueueTestSettings], QueueConnection]]:
+    connections: list[QueueConnection] = []
+
+    def make(settings: QueueTestSettings) -> QueueConnection:
+        connection = QueueConnection(settings)
+        connections.append(connection)
+        return connection
+
+    yield make
+
+    for connection in connections:
+        connection.close()
 
 @pytest.fixture
 def get_retriever_service_solr_parameters() -> dict[str, Any]:

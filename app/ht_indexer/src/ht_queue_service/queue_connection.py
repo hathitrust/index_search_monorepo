@@ -1,7 +1,9 @@
 import pika
+import threading
 from ht_utils.ht_errors import HTError
 from ht_utils.ht_logger import get_ht_logger
 from pika.exceptions import AMQPConnectionError, ProbableAuthenticationError
+from pika.adapters.thread_safe_connection import Channel
 
 from ht_queue_service.queue_settings import QueueSettings
 
@@ -33,21 +35,24 @@ class QueueConnection:
         )
         self.host = queue_settings.host
         self.heartbeat = queue_settings.heartbeat
-        self.queue_connection: pika.BlockingConnection | None = self._connect()
+        self.queue_connection: pika.Connection | None = self._connect()
 
-    def _connect(self) -> pika.BlockingConnection:
+        # Thread-safe channel creation for multi-threaded environments
+        self._channel_lock = threading.Lock()
+
+    def _connect(self) -> pika.Connection:
         """Establish a connection to the RabbitMQ server"""
         try:
-            return pika.BlockingConnection(
+            return (pika.Connection(
                 pika.ConnectionParameters(
                     host=self.host,
                     credentials=self.credentials,
                     heartbeat=self.heartbeat,
                     # pika-stubs 0.1.3 types this as numbers.Real, which mypy never matches to int/float;
                     # pika accepts a number of seconds
-                    blocked_connection_timeout=300,  # type: ignore[arg-type]
+                    blocked_connection_timeout=300,
                 )
-            )
+            ))
         # pika.exceptions.AMQPConnectionError - Catch all the issue related to the AMQP
         # protocol (Advanced Message Queuing Protocol)
         # Something went wrong at the protocol level
@@ -60,6 +65,22 @@ class QueueConnection:
             logger.error(f"Unexpected error while connecting to RabbitMQ: {e}")
             raise HTError(f"Could not connect to RabbitMQ at {self.host}.") from e
 
+    def channel(self) -> Channel | None:
+        with self._channel_lock:
+            connection = self.queue_connection
+            if connection is None or connection.is_closed:
+                logger.error("RabbitMQ connection is not established or is closed.")
+                return None
+
+            try:
+                channel = connection.channel()
+            except Exception as error:
+                logger.error(f"Failed to create channel: {error}", exc_info=True)
+                raise RuntimeError(f"Failed to create channel: {error}") from error
+
+            logger.info("Channel created successfully.")
+            return channel
+    
     def close(self) -> None:
         """Close the connection to the RabbitMQ server"""
         try:

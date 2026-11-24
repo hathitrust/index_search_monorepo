@@ -1,5 +1,5 @@
 version = 1
-revision = 5
+revision = 3
 requires-python = ">=3.14"
 resolution-markers = [
     "python_full_version >= '3.15' and sys_platform == 'win32'",
@@ -403,7 +403,6 @@ wheels = [
 name = "data-operations"
 version = "0.1.0"
 source = { editable = "app/data_operations" }
-default-groups = "all"
 dependencies = [
     { name = "click" },
     { name = "ht-utils" },
@@ -464,7 +463,6 @@ wheels = [
 name = "ht-indexer"
 version = "0.2.0"
 source = { editable = "app/ht_indexer" }
-default-groups = "all"
 dependencies = [
     { name = "fastapi" },
     { name = "ht-search" },
@@ -501,7 +499,7 @@ requires-dist = [
     { name = "nest-asyncio", specifier = ">=1.6.0,<2" },
     { name = "orjson", specifier = ">=3.11.8,<4" },
     { name = "pandas", specifier = ">=3.0.2,<4" },
-    { name = "pika", specifier = ">=1.3.2,<2" },
+    { name = "pika", specifier = ">=1.5.0rc4,<2" },
     { name = "pika-stubs", specifier = ">=0.1.3,<0.2" },
     { name = "pydantic-settings", specifier = ">=2.16.2,<3" },
     { name = "pypairtree", specifier = ">=1.1.0,<2" },
@@ -520,7 +518,6 @@ dev = [
 name = "ht-mcp"
 version = "0.1.0"
 source = { editable = "app/ht_mcp" }
-default-groups = "all"
 dependencies = [
     { name = "ht-utils" },
     { name = "httpx" },
@@ -554,7 +551,6 @@ dev = [
 name = "ht-search"
 version = "0.2.0"
 source = { editable = "libs/ht_search" }
-default-groups = "all"
 dependencies = [
     { name = "pyyaml" },
     { name = "requests" },
@@ -578,7 +574,6 @@ dev = [{ name = "pytest", specifier = ">=9,<10" }]
 name = "ht-utils"
 version = "0.2.0"
 source = { editable = "libs/common_lib" }
-default-groups = "all"
 dependencies = [
     { name = "arrow" },
     { name = "mysql-connector-python" },
@@ -1162,11 +1157,11 @@ wheels = [
 
 [[package]]
 name = "pika"
-version = "1.4.4"
+version = "1.5.0rc4"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/7f/26/54e0b98a7f60b474cb0a6c05ecf048d4bc8c866e10ab1c82bc83865e7421/pika-1.4.4.tar.gz", hash = "sha256:8cfc8b33a5cb16e733bd60cffca9732c0d1d761ecd80a89f34ed7df2cd38d6d6", size = 154713, upload-time = "2026-08-06T21:33:39.836Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/1e/27/aed25d6727750a479b945276da1b1c03b0e56ea0dfef5298197825abf543/pika-1.5.0rc4.tar.gz", hash = "sha256:532ac80ec9539d90cd69d4b1f197bd6ffe6a4031405937b846b67ca8c985e8f5", size = 197864, upload-time = "2026-11-03T16:39:37.56Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/7c/f3/921170b78779ac3f8b405cb28fce88acca1562ac114072cbf0a115e19bb9/pika-1.4.4-py3-none-any.whl", hash = "sha256:48de960c97a93b55db06b8be4c53eb977c9c8a2754c57cdae9097abcbd70ce04", size = 165275, upload-time = "2026-08-06T21:33:38.449Z" },
+    { url = "https://files.pythonhosted.org/packages/86/31/2d8f9b8ed8d10ddafaa11d70f12dbf2c03cef6677b759d7f37070c3ff814/pika-1.5.0rc4-py3-none-any.whl", hash = "sha256:2eafe5f8103908ac982053946f29933dce3c8da6f245fd3b011fc8a4b440239a", size = 207845, upload-time = "2026-11-03T16:39:36.046Z" },
 ]
 
 [[package]]
@@ -1609,7 +1604,6 @@ wheels = [
 name = "solr-query"
 version = "0.1.0"
 source = { editable = "app/solr_query" }
-default-groups = "all"
 dependencies = [
     { name = "fastapi" },
     { name = "ht-search" },
