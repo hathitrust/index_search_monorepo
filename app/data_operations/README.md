@@ -17,11 +17,11 @@ Creates a tab-delimited file (tsv) in KBART 3 format according to the [specs and
 
 The generated KBART report contains one row for each title in HathiTrust that matches the given institution's print holdings, regardless of access status, as well as one row for each title where any item is viewable in full-text by US users in HathiTrust.
 
-The script queries the catalog solr to pull all metadata necessary to populate the KBART file. The following environment variables must be set:
+The script queries the catalog solr to pull all metadata necessary to populate the KBART file. The following environment variables are used:
 
-* `CATALOG_SOLR_RO_URL` - base URL to catalog solr core, for example http://solr-host:8983/solr/catalog
-* `SOLR_USER` - basic auth for accessing solr
-* `SOLR_PASSWORD` - basic auth for accessing solr
+* `SOLR_CATALOG_RO_URL` - base URL to catalog solr core, for example http://solr-host:8983/solr/catalog (required)
+* `SOLR_CATALOG_RO_USERNAME` - basic auth for accessing solr (optional)
+* `SOLR_CATALOG_RO_PASSWORD` - basic auth for accessing solr (optional)
 
 The final output is a tab-delimited file that can be easily imported into a spreadsheet or database for further analysis.
 

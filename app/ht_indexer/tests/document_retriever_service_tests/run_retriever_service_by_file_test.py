@@ -22,6 +22,7 @@ from document_retriever_service.full_text_search_retriever_service import (
 from document_retriever_service.ht_status_retriever_service import get_non_processed_ids
 from document_retriever_service.retriever_arguments import RetrieverServiceByFileArguments
 from document_retriever_service.run_retriever_service_by_file import retrieve_documents_by_file
+from ht_utils.ht_env_config import SolrConnectionParameters
 from ht_utils.ht_logger import get_ht_logger
 from ht_utils.testing import assert_log_entry, capture_logs
 
@@ -56,9 +57,11 @@ def run(tmp_path: Path) -> SimpleNamespace:
             summary = retrieve_documents_by_file(
                 MagicMock(),
                 "item",
-                "http://solr",
-                "solr_user",
-                "solr_password",
+                SolrConnectionParameters(
+                    url="http://solr",
+                    username="solr_user",
+                    password="solr_password",
+                ),
                 {},
                 input_file,
                 tmp_path / "status.txt",
@@ -123,9 +126,9 @@ class TestRunRetrieverServiceByFile:
         retrieve_documents_by_file(
             queue_settings,
             "item",
-            solr_catalog_url,
-            "solr_user",
-            "solr_password",
+            SolrConnectionParameters(
+                url=solr_catalog_url, username="solr_user", password="solr_password"
+            ),
             get_retriever_service_solr_parameters,
             get_input_file,
             status_file,
@@ -273,9 +276,11 @@ class TestRetrieveDocumentsByFileStoppedRun:
             summary = retrieve_documents_by_file(
                 MagicMock(),
                 "item",
-                "http://solr",
-                "solr_user",
-                "solr_password",
+                SolrConnectionParameters(
+                    url="http://solr",
+                    username="solr_user",
+                    password="solr_password",
+                ),
                 {},
                 input_file,
                 tmp_path / "status.txt",
@@ -355,9 +360,11 @@ class TestRetrieveDocumentsByFileSummary:
                 retrieve_documents_by_file(
                     MagicMock(),
                     "record",
-                    "http://solr",
-                    "solr_user",
-                    "solr_password",
+                    SolrConnectionParameters(
+                        url="http://solr",
+                        username="solr_user",
+                        password="solr_password",
+                    ),
                     {},
                     input_file,
                     tmp_path / "status.txt",

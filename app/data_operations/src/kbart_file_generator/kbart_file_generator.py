@@ -208,10 +208,8 @@ class KBARTFileGenerator:
         env_config = HtEnvConfig()
 
         solr_exporter = SolrExporter(
-            env_config.catalog_solr_ro_url,
+            env_config.solr_catalog_ro,
             "env-not-used",
-            user=env_config.solr_user,
-            password=env_config.solr_password,
         )
 
         params = {

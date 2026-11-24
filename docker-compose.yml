@@ -9,20 +9,23 @@ x-healthcheck-defaults: &healthcheck-defaults
 
 # Common environment variables for all services
 x-env-common: &env_common
-    CATALOG_SOLR_RO_URL: http://solr-sdr-catalog:9033/solr/catalog/
-    FULL_TEXT_SOLR_RO_URL: http://admin:solrRocks@solr-lss-dev:8983/solr/core-x/
-    SOLR_USER: admin
-    SOLR_PASSWORD: solrRocks
+    SOLR_CATALOG_RO_URL: http://solr-sdr-catalog:9033/solr/catalog/
+    SOLR_FULL_TEXT_RO_URL: http://solr-lss-dev:8983/solr/core-x/
+    SOLR_FULL_TEXT_RO_USERNAME: admin
+    SOLR_FULL_TEXT_RO_PASSWORD: solrRocks
+    SOLR_FULL_TEXT_RW_URL: http://solr-lss-dev:8983/solr/core-x/
+    SOLR_FULL_TEXT_Rw_USERNAME: admin
+    SOLR_FULL_TEXT_RW_PASSWORD: solrRocks
+    MYSQL_HT_RO_HOST: mysql-sdr
+    MYSQL_HT_RO_USERNAME: mdp-admin
+    MYSQL_HT_RO_PASSWORD: mdp-admin
+    MYSQL_HT_RO_DATABASE: ht
 
 # Environment variables specific to the indexer services
 x-env-indexer: &env_indexer
     RABBITMQ_HT_INDEXER_HOST: rabbitmq
     RABBITMQ_HT_INDEXER_USERNAME: guest
     RABBITMQ_HT_INDEXER_PASSWORD: guest
-    MYSQL_HT_RO_HOST: mysql-sdr
-    MYSQL_HT_RO_USERNAME: mdp-admin
-    MYSQL_HT_RO_PASSWORD: mdp-admin
-    MYSQL_HT_RO_DATABASE: ht
     SDR_DIR: /sdr1/obj
 
 x-ht-indexer-vols: &ht_indexer_vols
@@ -167,7 +170,7 @@ services:
     environment:
       << : *env_common_indexer
       QUEUE_NAME: indexer_queue
-    command: ["/workspace/.venv/bin/python", "-m","document_indexer_service.document_indexer_service", "--solr_indexing_api", "http://solr-lss-dev:8983/solr/#/core-x/", "--batch_size", "100" ]
+    command: ["/workspace/.venv/bin/python", "-m","document_indexer_service.document_indexer_service", "--batch_size", "100" ]
   rabbitmq:
     image: rabbitmq:3.13-management
     ports:

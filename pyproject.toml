@@ -9,7 +9,7 @@ classifiers = [
     "Programming Language :: Python :: 3.14",
 ]
 dependencies = [
-    "python-dotenv>=1.2.2",
+    "python-dotenv>=1.2.2,<2",
 ]
 
 [dependency-groups]
@@ -70,6 +70,12 @@ exclude = ["build", "dist", ".venv", ".git", "__pycache__"]
 
 # Autofix issues when possible
 fix = true
+
+[tool.ruff.lint.per-file-ignores]
+# In conftest.py we need to make sure load_dotenv() happens before other module
+# loading. This rule already has an exception for other kinds of environment
+# variable manipulation during imports, but doesn't know about dotenv.
+"conftest.py" = ["E402"]
 
 
 [tool.mypy]

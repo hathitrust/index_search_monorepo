@@ -9,16 +9,17 @@ import pytest
 import requests
 from document_indexer_service.failure_classifier import FailureKind, classify_failure
 from ht_indexer_api.ht_indexer_api import HTSolrAPI, positive_seconds
+from ht_utils.ht_env_config import SolrConnectionParameters
 
 
 @pytest.fixture
 def get_solr_api() -> HTSolrAPI:
-    return HTSolrAPI("http://solr-lss-dev:8983/solr/core-x/")
+    return HTSolrAPI(SolrConnectionParameters(url="http://solr-lss-dev:8983/solr/core-x/"))
 
 
 @pytest.fixture
 def get_fake_solr_api() -> HTSolrAPI:
-    return HTSolrAPI("http://solr-lss-dev:8983/solr/core-not_exist/")
+    return HTSolrAPI(SolrConnectionParameters(url="http://solr-lss-dev:8983/solr/core-not_exist/"))
 
 
 class TestHTSolrAPI:
@@ -85,9 +86,15 @@ CALL_IDS = [name for _, name, _ in SOLR_CALLS]
 @pytest.mark.parametrize(
     ("api", "expected"),
     [
-        pytest.param(HTSolrAPI("http://solr/"), (10.0, 120.0), id="default"),
         pytest.param(
-            HTSolrAPI("http://solr/", read_timeout=30, connect_timeout=2), (2, 30), id="configured"
+            HTSolrAPI(SolrConnectionParameters(url="http://solr/")), (10.0, 120.0), id="default"
+        ),
+        pytest.param(
+            HTSolrAPI(
+                SolrConnectionParameters(url="http://solr/"), read_timeout=30, connect_timeout=2
+            ),
+            (2, 30),
+            id="configured",
         ),
     ],
 )
@@ -111,9 +118,9 @@ def test_every_solr_request_uses_the_timeout(
 def test_a_timeout_that_is_not_positive_is_rejected(name: str, value: float) -> None:
     with pytest.raises(ValueError, match=f"{name} must be a finite number greater than 0"):
         if name == "read_timeout":
-            HTSolrAPI("http://solr/", read_timeout=value)
+            HTSolrAPI(SolrConnectionParameters(url="http://solr/"), read_timeout=value)
         else:
-            HTSolrAPI("http://solr/", connect_timeout=value)
+            HTSolrAPI(SolrConnectionParameters(url="http://solr/"), connect_timeout=value)
 
 
 def test_positive_seconds_accepts_a_positive_number() -> None:
@@ -141,7 +148,7 @@ def test_a_hung_solr_raises_a_timeout_that_the_indexer_treats_as_temporary(
     silent_server: str,
 ) -> None:
     """The setting really stops the wait, and the error is the one ETT-1894 keeps on the queue."""
-    api = HTSolrAPI(silent_server, read_timeout=0.3)
+    api = HTSolrAPI(SolrConnectionParameters(url=silent_server), read_timeout=0.3)
 
     with pytest.raises(requests.exceptions.ReadTimeout) as error:
         api.index_documents([{"id": "mdp.1"}])
@@ -164,7 +171,9 @@ def test_index_documents_returns_the_response_when_solr_accepts_the_documents() 
     with patch("ht_indexer_api.ht_indexer_api.requests.post") as mock_post:
         mock_post.return_value = _solr_response(200)
 
-        response = HTSolrAPI("http://solr/").index_documents([{"id": "mdp.1"}])
+        response = HTSolrAPI(SolrConnectionParameters(url="http://solr/")).index_documents(
+            [{"id": "mdp.1"}]
+        )
 
     assert response.status_code == 200
 
@@ -175,7 +184,9 @@ def test_index_documents_raises_when_solr_answers_with_an_error(status_code: int
         mock_post.return_value = _solr_response(status_code)
 
         with pytest.raises(requests.exceptions.HTTPError) as error:
-            HTSolrAPI("http://solr/").index_documents([{"id": "mdp.1"}])
+            HTSolrAPI(SolrConnectionParameters(url="http://solr/")).index_documents(
+                [{"id": "mdp.1"}]
+            )
 
     # The indexer's failure classifier reads the status from the exception
     assert error.value.response is not None
@@ -191,7 +202,9 @@ def test_index_documents_by_file_stops_at_the_first_file_solr_rejects(tmp_path: 
         mock_post.side_effect = [_solr_response(400), _solr_response(200)]
 
         with pytest.raises(requests.exceptions.HTTPError):
-            HTSolrAPI("http://solr/").index_documents_by_file(tmp_path, ["a.json", "b.json"])
+            HTSolrAPI(SolrConnectionParameters(url="http://solr/")).index_documents_by_file(
+                tmp_path, ["a.json", "b.json"]
+            )
 
     assert mock_post.call_count == 1
 
@@ -205,7 +218,9 @@ def test_index_documents_by_file_returns_the_last_response_when_every_file_is_ac
     with patch("ht_indexer_api.ht_indexer_api.requests.post") as mock_post:
         mock_post.return_value = _solr_response(200)
 
-        response = HTSolrAPI("http://solr/").index_documents_by_file(tmp_path, ["a.json", "b.json"])
+        response = HTSolrAPI(SolrConnectionParameters(url="http://solr/")).index_documents_by_file(
+            tmp_path, ["a.json", "b.json"]
+        )
 
     assert response.status_code == 200
     assert mock_post.call_count == 2
@@ -216,7 +231,7 @@ def test_get_solr_status_still_returns_error_responses() -> None:
     with patch("ht_indexer_api.ht_indexer_api.requests.get") as mock_get:
         mock_get.return_value = _solr_response(503)
 
-        response = HTSolrAPI("http://solr/").get_solr_status()
+        response = HTSolrAPI(SolrConnectionParameters(url="http://solr/")).get_solr_status()
 
     assert response.status_code == 503
 
@@ -224,4 +239,6 @@ def test_get_solr_status_still_returns_error_responses() -> None:
 def test_index_documents_by_file_refuses_an_empty_list(tmp_path: Path) -> None:
     """There would be no response to return."""
     with pytest.raises(ValueError, match="at least one file"):
-        HTSolrAPI("http://solr/").index_documents_by_file(tmp_path, [])
+        HTSolrAPI(SolrConnectionParameters(url="http://solr/")).index_documents_by_file(
+            tmp_path, []
+        )

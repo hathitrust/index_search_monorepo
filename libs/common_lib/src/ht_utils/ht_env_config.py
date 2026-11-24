@@ -1,90 +1,43 @@
-import os
+from typing import Annotated
 
-# from functools import property
-
-
-class HtEnvConfigMissingError(RuntimeError):
-    """Raised when a required env var is missing.
-
-    Environment variables must be supplied explicitly rather than silently
-    defaulted. A missing credential should fail as early in the process as
-    possible.
-    """
+from pydantic import AfterValidator, BaseModel, Field, SecretStr
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-class HtEnvConfig:
-    """Singleton object for configuration as defined by environment variables.
+class SolrConnectionParameters(BaseModel):
+    @staticmethod
+    def remove_empty(value: str | None) -> str | None:
+        return value if value else None
+
+    url: str = Field(min_length=1)
+    username: Annotated[str | None, AfterValidator(remove_empty)] = None
+    password: Annotated[SecretStr | None, AfterValidator(remove_empty)] = None
+
+
+class MysqlConnectionParameters(BaseModel):
+    host: str = Field(min_length=1)
+    username: str = Field(min_length=1)
+    password: SecretStr = Field(min_length=1)
+    database: str = Field(min_length=1)
+
+
+class HtEnvConfig(BaseSettings):
+    """Object for configuration as defined by environment variables.
 
     This gives a single place to define what environment variables are used, to
     fetch them when needed, and to usefully report errors when missing.
     """
 
-    instance = None
+    model_config = SettingsConfigDict(
+        env_nested_delimiter="_", nested_model_default_partial_update=True
+    )
 
-    @property
-    def log_level(self) -> str:
-        """Application log level. Defaults to INFO"""
-        return os.getenv("LOG_LEVEL", "INFO")
+    log_level: str = "INFO"
+    sdr_dir: str | None = None
 
-    @property
-    def mysql_ht_ro_host(self) -> str:
-        return self._env("MYSQL_HT_RO_HOST")
+    # TODO: Raise something more useful if these aren't set?
+    mysql_ht_ro: MysqlConnectionParameters
 
-    @property
-    def mysql_ht_ro_username(self) -> str:
-        return self._env("MYSQL_HT_RO_USERNAME")
-
-    @property
-    def mysql_ht_ro_password(self) -> str:
-        return self._env("MYSQL_HT_RO_PASSWORD")
-
-    @property
-    def mysql_ht_ro_database(self) -> str:
-        return self._env("MYSQL_HT_RO_DATABASE")
-
-    @property
-    def full_text_solr_ro_url(self) -> str:
-        return self._env("FULL_TEXT_SOLR_RO_URL")
-
-    @property
-    def catalog_solr_ro_url(self) -> str:
-        return self._env("CATALOG_SOLR_RO_URL")
-
-    @property
-    def solr_catalog_ro_username(self) -> str | None:
-        return self._optional_env("SOLR_CATALOG_RO_USERNAME")
-
-    @property
-    def solr_catalog_ro_password(self) -> str | None:
-        return self._optional_env("SOLR_CATALOG_RO_PASSWORD")
-
-    @property
-    def solr_user(self) -> str:
-        return self._env("SOLR_USER")
-
-    @property
-    def solr_password(self) -> str:
-        return self._env("SOLR_PASSWORD")
-
-    @property
-    def sdr_dir(self) -> str:
-        return self._env("SDR_DIR")
-
-    def __new__(cls) -> HtEnvConfig:
-        if cls.instance is None:
-            cls.instance = super().__new__(cls)
-        return cls.instance
-
-    def _env(self, var: str) -> str:
-        val = os.getenv(var)
-        if not val:
-            raise HtEnvConfigMissingError(f"{var} env var required")
-        return val
-
-    def _optional_env(self, var: str) -> str | None:
-        """Return the env var, or None when it is unset or empty.
-
-        :param var: The name of the env var to fetch
-        :return: The value of the env var, or None if it is unset or empty
-        """
-        return os.getenv(var) or None
+    solr_catalog_ro: SolrConnectionParameters
+    solr_full_text_ro: SolrConnectionParameters
+    solr_full_text_rw: SolrConnectionParameters

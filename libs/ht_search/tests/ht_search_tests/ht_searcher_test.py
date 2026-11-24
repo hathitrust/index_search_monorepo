@@ -67,13 +67,9 @@ def ht_searcher_fixture() -> HTSearcher:
     :return:
     """
 
-    env_config = HtEnvConfig()
-
     return HTSearcher(
+        solr_conn_params=HtEnvConfig().solr_full_text_ro,
         environment="dev",
-        solr_url=env_config.full_text_solr_ro_url,
-        user=env_config.solr_user,
-        password=env_config.solr_password,
     )
 
 

@@ -6,14 +6,13 @@ import yaml
 from document_indexer_service import indexer_config_file_path
 from document_indexer_service.indexer_arguments import IndexerServiceArguments
 
-SOLR_URL = "http://solr-lss-dev:8983/solr/core-x/"
-
 
 def _arguments(monkeypatch: pytest.MonkeyPatch, *extra: str) -> IndexerServiceArguments:
     """Parse a command line the way the indexer does, with the real indexer_config.yml."""
-    monkeypatch.setenv("SOLR_USER", "solr_user")
-    monkeypatch.setenv("SOLR_PASSWORD", "solr_password")
-    monkeypatch.setattr(sys, "argv", ["indexer", "--solr_indexing_api", SOLR_URL, *extra])
+    monkeypatch.setenv("SOLR_FULL_TEXT_RW_URL", "http://solr-lss-dev:8983/solr/core-x/")
+    monkeypatch.setenv("SOLR_FULL_TEXT_RW_USERNAME", "solr_user")
+    monkeypatch.setenv("SOLR_FULL_TEXT_RW_PASSWORD", "solr_password")
+    monkeypatch.setattr(sys, "argv", ["indexer", *extra])
     return IndexerServiceArguments(argparse.ArgumentParser())
 
 

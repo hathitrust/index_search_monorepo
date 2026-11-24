@@ -4,11 +4,8 @@ from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
-from dotenv import load_dotenv
 from ht_search.export_all_results import SolrResult
 from kbart_file_generator.kbart_file_generator import KBART_COLUMN_ORDER, KBARTFileGenerator, main
-
-load_dotenv()
 
 
 @pytest.mark.integration

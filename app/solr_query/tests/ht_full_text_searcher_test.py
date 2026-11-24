@@ -1,7 +1,7 @@
 from unittest.mock import patch
 
 from ht_full_text_search.ht_full_text_searcher import HTFullTextSearcher
-from ht_utils.ht_env_config import HtEnvConfig
+from ht_utils.ht_env_config import HtEnvConfig, SolrConnectionParameters
 
 
 class TestRetrieveDocumentsFromFile:
@@ -12,7 +12,9 @@ class TestRetrieveDocumentsFromFile:
     @staticmethod
     def _searcher():
         return HTFullTextSearcher(
-            solr_url="http://fake-solr", ht_search_query=None, environment="dev"
+            solr_conn_params=SolrConnectionParameters(url="http://fake-solr"),
+            ht_search_query=None,
+            environment="dev",
         )
 
     def test_yields_a_batch_for_100_or_fewer_ids(self):
@@ -54,10 +56,8 @@ class TestHTFullTextSearcher:
     def test_search(self, ht_full_text_query):
         env_config = HtEnvConfig()
         searcher = HTFullTextSearcher(
-            solr_url=env_config.full_text_solr_ro_url,
+            solr_conn_params=env_config.solr_full_text_ro,
             ht_search_query=ht_full_text_query,
-            user=env_config.solr_user,
-            password=env_config.solr_password,
         )
         solr_results = searcher.solr_result_query_dict(
             query_string="majority of the votes",

@@ -4,7 +4,7 @@ from argparse import ArgumentParser
 
 from ht_search.ht_query.ht_full_text_query import HTFullTextQuery
 from ht_search.ht_searcher.ht_searcher import HTSearcher
-from ht_utils.ht_env_config import HtEnvConfig
+from ht_utils.ht_env_config import HtEnvConfig, SolrConnectionParameters
 from ht_utils.ht_logger import get_ht_logger
 
 logger = get_ht_logger(name=__name__)
@@ -17,18 +17,14 @@ LS::Operation::Search ==> it contains all the logic about interleaved adn A/B te
 class HTFullTextSearcher(HTSearcher):
     def __init__(
         self,
-        solr_url: str = None,
+        solr_conn_params: SolrConnectionParameters,
         ht_search_query: HTFullTextQuery = None,
         environment: str = "dev",
-        user=None,
-        password=None,
     ):
         super().__init__(
-            solr_url=solr_url,
+            solr_conn_params=solr_conn_params,
             ht_search_query=ht_search_query,
             environment=environment,
-            user=user,
-            password=password,
         )
 
     def solr_result_output(
@@ -113,9 +109,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     env_config = HtEnvConfig()
-    solr_url = env_config.full_text_solr_ro_url
-    solr_user = env_config.solr_user
-    solr_password = env_config.solr_password
 
     query_string = args.query_string
     fl = args.fl
@@ -125,11 +118,7 @@ if __name__ == "__main__":
 
     # Create a full text searcher object
     ht_full_search = HTFullTextSearcher(
-        solr_url=solr_url,
-        ht_search_query=Q,
-        environment=args.env,
-        user=solr_user,
-        password=solr_password,
+        solr_conn_params=env_config.solr_full_text_ro, ht_search_query=Q, environment=args.env
     )
 
     filter_dict = {}

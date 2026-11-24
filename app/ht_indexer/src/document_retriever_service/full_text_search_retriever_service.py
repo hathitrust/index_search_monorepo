@@ -13,6 +13,7 @@ from catalog_metadata.catalog_metadata import CatalogItemMetadata, CatalogRecord
 from ht_indexer_api.ht_indexer_api import DEFAULT_READ_TIMEOUT_SECONDS, HTSolrAPI
 from ht_queue_service.queue_producer import PublishConnectionError, QueueProducer
 from ht_queue_service.queue_settings import QueueSettings
+from ht_utils.ht_env_config import SolrConnectionParameters
 from ht_utils.ht_logger import get_ht_logger
 from ht_utils.ht_utils import (
     get_error_message_by_document,
@@ -93,21 +94,17 @@ class FullTextSearchRetrieverQueueService:
 
     def __init__(
         self,
-        # TODO likely as part of ETT-1981: these are optional because we don't
-        # necessarily use them in the tests, esp. the queue settings  --
-        # should provide the queue producer & solr api directly, and then we
-        # can provide mocked implementations
-        queue_settings: QueueSettings | None = None,
-        solr_host: str | None = None,
-        solr_user: str | None = None,
-        solr_password: str | None = None,
+        queue_settings: QueueSettings,
+        solr_conn_params: SolrConnectionParameters,
         solr_retriever_query_params: dict[str, Any] | None = None,
         solr_timeout: float = DEFAULT_READ_TIMEOUT_SECONDS,
     ):
 
-        self.solr_host = solr_host
-        self.solr_user = solr_user
-        self.solr_password = solr_password
+        self.solr_conn_params = solr_conn_params
+
+        # TODO solr_host -> solr_url ?
+        self.solr_host = solr_conn_params.url
+
         self.solr_retriever_query_params = solr_retriever_query_params
         self.solr_timeout = solr_timeout
 
@@ -203,6 +200,8 @@ class FullTextSearchRetrieverQueueService:
         if self.solr_retriever_query_params is None:
             raise RuntimeError("solr_retriever_query_params is required")
 
+        # FIXME HTSolrAPI should already know the host; we shouldn't have to
+        # set it separately here
         if self.solr_host is None:
             raise RuntimeError("solr_host is required")
         chunk_solr_params = copy.deepcopy(self.solr_retriever_query_params)
@@ -317,9 +316,7 @@ class FullTextSearchRetrieverQueueService:
         # Create a connection to the queue to produce messages
         queue_producer = FullTextSearchRetrieverQueueService.get_queue_producer(self.queue_settings)
 
-        solr_retriever = HTSolrAPI(
-            self.solr_host, self.solr_user, self.solr_password, read_timeout=self.solr_timeout
-        )
+        solr_retriever = HTSolrAPI(self.solr_conn_params, read_timeout=self.solr_timeout)
 
         counts = PublishCounts()
         processed = 0
@@ -457,9 +454,7 @@ def main() -> None:
 
     document_retriever_service = FullTextSearchRetrieverQueueService(
         init_args_obj.queue_settings,
-        init_args_obj.solr_host,
-        init_args_obj.solr_user,
-        init_args_obj.solr_password,
+        init_args_obj.solr_catalog_conn_params,
         init_args_obj.solr_retriever_query_params,
         init_args_obj.solr_timeout,
     )

@@ -31,13 +31,6 @@ class IndexerQueueSettings(QueueSettings):
 
 class IndexerServiceArguments:
     def __init__(self, parser: argparse.ArgumentParser) -> None:
-        parser.add_argument(
-            "--solr_indexing_api",
-            help="",
-            required=True,
-            default="http://solr-lss-dev:8983/solr/#/core-x/",
-        )
-
         # Path to the folder where the documents are stored. This parameter is useful for running the script locally
         parser.add_argument(
             "--document_local_path",
@@ -78,13 +71,9 @@ class IndexerServiceArguments:
         self.args = parser.parse_args()
 
         env_config = HtEnvConfig()
-        solr_user = env_config.solr_user
-        solr_password = env_config.solr_password
 
         self.solr_api_full_text = HTSolrAPI(
-            url=self.args.solr_indexing_api,
-            user=solr_user,
-            password=solr_password,
+            env_config.solr_full_text_rw,
             read_timeout=self.args.solr_timeout,
             connect_timeout=self.args.solr_connect_timeout,
         )

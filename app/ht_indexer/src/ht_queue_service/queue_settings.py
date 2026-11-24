@@ -15,14 +15,14 @@ DEFAULT_MAX_RETRIES = 5
 class QueueSettings(BaseSettings):
     """Marshalls configuration from the environment and from YAML files to create connection parameters for rabbitmq"""
 
-    host: str = Field(alias="rabbitmq_ht_indexer_host")
-    username: str = Field(alias="rabbitmq_ht_indexer_username")
-    password: SecretStr = Field(alias="rabbitmq_ht_indexer_password")
+    host: str = Field(alias="rabbitmq_ht_indexer_host", min_length=1)
+    username: str = Field(alias="rabbitmq_ht_indexer_username", min_length=1)
+    password: SecretStr = Field(alias="rabbitmq_ht_indexer_password", min_length=1)
     # Parameters defining by each application
-    queue_name: str
+    queue_name: str = Field(min_length=1)
     batch_size: PositiveInt = Field(le=MAX_BATCH_SIZE)
     requeue_message: bool
-    exchange_type: str
+    exchange_type: str = Field(min_length=1)
     durable: bool
     auto_delete: bool
     exclusive: bool
