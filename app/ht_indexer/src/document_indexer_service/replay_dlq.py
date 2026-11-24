@@ -7,21 +7,19 @@ Run it by hand once the cause of the failures is fixed (Solr back, document corr
     python -m document_indexer_service.replay_dlq               # replay everything
 
 The queue name comes from indexer_config.yml. The RabbitMQ host, port, username and password come
-from the RABBITMQ_INDEXER_RW_* environment variables (see HtEnvConfig), like for the indexer service.
+from the RABBITMQ_HT_INDEXER_* environment variables.
 """
 
 import argparse
 import sys
 
-from config import config_queue_file_path
 from ht_queue_service.channel_creator import ChannelCreator
 from ht_queue_service.dead_letter_replay import replay_dead_letter_messages
-from ht_queue_service.queue_config import QueueConfig
 from ht_queue_service.queue_manager import QueueManager
 from ht_utils.ht_logger import get_ht_logger
 from pika.exceptions import AMQPError
 
-from . import indexer_config_file_path
+from document_indexer_service.indexer_arguments import IndexerQueueSettings
 
 logger = get_ht_logger(name=__name__)
 
@@ -49,15 +47,9 @@ def main() -> None:
 
     # importlib.resources.files() is typed as Traversable, which typeshed doesn't declare as
     # PathLike -- but for these packages (regular installed directories, not zips) they are.
-    queue_params = QueueConfig(
-        config_queue_file_path / "global_config.yml",  # type: ignore[arg-type]
-        indexer_config_file_path / "indexer_config.yml",  # type: ignore[arg-type]
-        config_key="queue",
-    ).get_params()
+    queue_settings = IndexerQueueSettings()
 
-    channel_creator = ChannelCreator(
-        queue_params.user, queue_params.password, queue_params.host, queue_params.heartbeat
-    )
+    channel_creator = ChannelCreator(queue_settings)
     channel = channel_creator.get_channel()
     if channel is None:
         logger.error("Unable to establish a RabbitMQ channel")
@@ -65,7 +57,7 @@ def main() -> None:
 
     try:
         replay_dead_letter_messages(
-            channel, QueueManager(queue_params), max_messages=args.max, dry_run=args.dry_run
+            channel, QueueManager(queue_settings), max_messages=args.max, dry_run=args.dry_run
         )
     except AMQPError as error:
         # Details were logged where it failed; the message that failed is still in the DLQ

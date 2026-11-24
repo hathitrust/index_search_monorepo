@@ -28,8 +28,8 @@ def test_batch_size_on_the_command_line_overrides_indexer_config(
 ) -> None:
     arguments = _arguments(monkeypatch, "--batch_size", "25")
 
-    assert arguments.queue_config.queue_params.batch_size == 25
-    assert arguments.queue_config.queue_params.batch_size != _configured_batch_size()
+    assert arguments.queue_settings.batch_size == 25
+    assert arguments.queue_settings.batch_size != _configured_batch_size()
 
 
 def test_without_batch_size_the_value_from_indexer_config_is_used(
@@ -37,7 +37,7 @@ def test_without_batch_size_the_value_from_indexer_config_is_used(
 ) -> None:
     arguments = _arguments(monkeypatch)
 
-    assert arguments.queue_config.queue_params.batch_size == _configured_batch_size()
+    assert arguments.queue_settings.batch_size == _configured_batch_size()
 
 
 @pytest.mark.parametrize("value", ["0", "65536"])

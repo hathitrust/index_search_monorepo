@@ -10,8 +10,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 from conftest import (
     ConcreteQueueConsumer,
+    QueueTestSettings,
     close_channel_and_connection,
-    create_test_queue_config,
     drain_ht_ids,
 )
 from document_retriever_service import run_retriever_service_by_file as by_file_module
@@ -68,9 +68,7 @@ def run(tmp_path: Path) -> SimpleNamespace:
 
 
 @pytest.fixture
-def make_args(
-    stub_retriever_external_services: None,
-) -> Callable[[list[str]], RetrieverServiceByFileArguments]:
+def make_args() -> Callable[[list[str]], RetrieverServiceByFileArguments]:
     def _make(argv: list[str]) -> RetrieverServiceByFileArguments:
         return RetrieverServiceByFileArguments(argparse.ArgumentParser(), argv=argv)
 
@@ -115,23 +113,12 @@ class TestRunRetrieverServiceByFile:
         status_file: str,
         solr_catalog_url: str,
         get_retriever_service_solr_parameters: dict[str, Any],
-        get_global_queue_config: dict[str, Any],
-        get_app_queue_config: dict[str, Any],
     ) -> None:
-        queue_name = "test_run_retriever_service_by_file"
-        batch_size = 1
-        requeue_message = False
 
-        producer_queue_config, global_path, app_path = create_test_queue_config(
-            get_global_queue_config,
-            get_app_queue_config,
-            queue_name,
-            batch_size=batch_size,
-            requeue_message=requeue_message,
-        )
+        queue_settings = QueueTestSettings(queue_name="test_full_test_search_retriever_service")
 
         retrieve_documents_by_file(
-            producer_queue_config.queue_params,
+            queue_settings,
             "item",
             solr_catalog_url,
             "solr_user",
@@ -143,7 +130,7 @@ class TestRunRetrieverServiceByFile:
             1,
         )
 
-        consumer_instance = ConcreteQueueConsumer(producer_queue_config.queue_params)
+        consumer_instance = ConcreteQueueConsumer(queue_settings)
         assert consumer_instance.channel is not None
 
         # Service to consume the messages
@@ -167,14 +154,9 @@ class TestRunRetrieverServiceByFile:
         # Clean up the queue, if the queue is already set up
         close_channel_and_connection(consumer_instance)
 
-        # Delete the temporary files
-        os.remove(global_path)
-        os.remove(app_path)
-
     def test_retriever_by_file_arguments_status_file_default_not_in_src_package_dir(
         self,
         temp_input_file: str,
-        stub_retriever_external_services: None,
         make_args: Callable[[list[str]], RetrieverServiceByFileArguments],
     ) -> None:
         # Arrange
@@ -188,7 +170,6 @@ class TestRunRetrieverServiceByFile:
     def test_retriever_by_file_arguments_status_file_overridable_via_cli(
         self,
         temp_input_file: str,
-        stub_retriever_external_services: None,
         make_args: Callable[[list[str]], RetrieverServiceByFileArguments],
     ) -> None:
         # Act

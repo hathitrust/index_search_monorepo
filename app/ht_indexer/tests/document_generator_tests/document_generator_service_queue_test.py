@@ -1,10 +1,9 @@
 import json
-import os
 from typing import Any
 from unittest.mock import Mock, patch
 
 import pytest
-from conftest import create_test_queue_config
+from conftest import QueueTestSettings, close_channel_and_connection, ensure_queue_ready_and_purged
 from document_generator.document_generator_service import DocumentGeneratorService
 from ht_queue_service.queue_producer import QueueProducer
 
@@ -21,31 +20,20 @@ class TestDocumentGeneratorServiceQueueIntegration:
 
     def test_process_batch_consumes_and_acks_message_on_success(
         self,
-        get_global_queue_config: dict[str, Any],
-        get_app_queue_config: dict[str, Any],
     ) -> None:
-        queue_name = "test_generator_service_consume_success"
-        queue_config, global_path, app_path = create_test_queue_config(
-            get_global_queue_config,
-            get_app_queue_config,
-            queue_name,
-            batch_size=1,
-            requeue_message=False,
-            shutdown_on_empty_queue=True,
+        queue_settings = QueueTestSettings(
+            queue_name="test_generator_service_consume_success", shutdown_on_empty_queue=True
         )
 
-        producer_instance = QueueProducer(queue_config.queue_params)
-        assert producer_instance.channel is not None
-        producer_instance.channel.queue_purge(producer_instance.queue_manager.queue_name)
+        producer_instance = QueueProducer(queue_settings)
+        ensure_queue_ready_and_purged(producer_instance)
 
         message = {"ht_id": "mdp.39015078560292"}
         producer_instance.publish_messages(message)
-        producer_instance.channel.close()
-        assert producer_instance.channel_creator.connection.queue_connection is not None
-        producer_instance.channel_creator.connection.queue_connection.close()
+        close_channel_and_connection(producer_instance)
 
         db_conn = Mock()
-        service = DocumentGeneratorService(db_conn, queue_config.queue_params, None, tgt_local=True)
+        service = DocumentGeneratorService(db_conn, queue_settings, None, tgt_local=True)
 
         with (
             patch.object(
@@ -60,40 +48,24 @@ class TestDocumentGeneratorServiceQueueIntegration:
         assert service.channel is not None
         assert service.queue_manager.get_total_messages(service.channel) == 0
 
-        service.channel.close()
-        assert service.channel_creator.connection.queue_connection is not None
-        service.channel_creator.connection.queue_connection.close()
-
-        os.remove(global_path)
-        os.remove(app_path)
+        close_channel_and_connection(service)
 
     def test_process_batch_dead_letters_message_on_generation_failure(
         self,
-        get_global_queue_config: dict[str, Any],
-        get_app_queue_config: dict[str, Any],
     ) -> None:
-        queue_name = "test_generator_service_consume_failure"
-        queue_config, global_path, app_path = create_test_queue_config(
-            get_global_queue_config,
-            get_app_queue_config,
-            queue_name,
-            batch_size=1,
-            requeue_message=False,
-            shutdown_on_empty_queue=True,
+        queue_settings = QueueTestSettings(
+            queue_name="test_generator_service_consume_failure", shutdown_on_empty_queue=True
         )
 
-        producer_instance = QueueProducer(queue_config.queue_params)
-        assert producer_instance.channel is not None
-        producer_instance.channel.queue_purge(producer_instance.queue_manager.queue_name)
+        producer_instance = QueueProducer(queue_settings)
+        ensure_queue_ready_and_purged(producer_instance)
 
         message = {"ht_id": "mdp.39015078560292"}
         producer_instance.publish_messages(message)
-        producer_instance.channel.close()
-        assert producer_instance.channel_creator.connection.queue_connection is not None
-        producer_instance.channel_creator.connection.queue_connection.close()
+        close_channel_and_connection(producer_instance)
 
         db_conn = Mock()
-        service = DocumentGeneratorService(db_conn, queue_config.queue_params, None, tgt_local=True)
+        service = DocumentGeneratorService(db_conn, queue_settings, None, tgt_local=True)
 
         with patch.object(
             service, "generate_full_text_entry", side_effect=FileNotFoundError("zip not found")
@@ -119,9 +91,4 @@ class TestDocumentGeneratorServiceQueueIntegration:
         assert list_ids == [message["ht_id"]]
 
         dlx_channel.close()
-        service.channel.close()
-        assert service.channel_creator.connection.queue_connection is not None
-        service.channel_creator.connection.queue_connection.close()
-
-        os.remove(global_path)
-        os.remove(app_path)
+        close_channel_and_connection(service)

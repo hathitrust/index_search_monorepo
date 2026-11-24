@@ -4,12 +4,13 @@ import os
 import sys
 import tempfile
 
-from config import config_queue_file_path
 from ht_indexer_api.ht_indexer_api import DEFAULT_READ_TIMEOUT_SECONDS, positive_seconds
-from ht_queue_service.queue_config import QueueConfig
+from ht_queue_service.queue_settings import QueueSettings
 from ht_utils.ht_env_config import HtEnvConfig
 from ht_utils.ht_logger import get_ht_logger
-from ht_utils.ht_utils import comma_separated_list, get_general_error_message
+from ht_utils.ht_utils import comma_separated_list
+from pydantic import ValidationError
+from pydantic_settings import SettingsConfigDict
 
 from . import retriever_config_file_path
 
@@ -18,6 +19,14 @@ logger = get_ht_logger(name=__name__)
 SOLR_ROW_START = 0
 SOLR_TOTAL_ROWS = 200
 MAX_WORKERS = 20
+
+
+class RetrieverQueueSettings(QueueSettings):
+    model_config = SettingsConfigDict(
+        env_prefix="RABBITMQ_RETRIEVER_",
+        yaml_file=retriever_config_file_path / "retriever_config.yml",
+        yaml_config_section="queue",
+    )
 
 
 class RetrieverServiceArguments:
@@ -51,36 +60,6 @@ class RetrieverServiceArguments:
             "between bytes from Solr, not a limit on the whole request.",
         )
 
-        try:
-            # Using queue or local machine
-            ############### QUEUE CONFIGURATION ####################
-            # Build resource file paths using Traversable's '/' operator
-            global_config = config_queue_file_path / "global_config.yml"
-            app_config = retriever_config_file_path / "retriever_config.yml"
-            # Validate that the files actually exist
-            if not global_config.is_file():
-                logger.error(f"Queue config file {global_config} does not exist")
-                sys.exit(1)
-            if not app_config.is_file():
-                logger.error(f"Queue config file {app_config} does not exist")
-                sys.exit(1)
-            # importlib.resources.files() is typed as Traversable, which typeshed doesn't
-            # declare as PathLike -- but for these packages (regular installed directories,
-            # not zips) they are.
-            self.queue_config = QueueConfig(
-                global_config,  # type: ignore[arg-type]
-                app_config,  # type: ignore[arg-type]
-                config_key="queue",
-            )
-            ########################################################
-
-        except KeyError as e:
-            logger.error(
-                f"Environment variables required: "
-                f"{get_general_error_message('DocumentIndexerService', e)}"
-            )
-
-            sys.exit(1)
         self.args = parser.parse_args(argv)
 
         self.parallelize = self.args.parallelize
@@ -91,6 +70,12 @@ class RetrieverServiceArguments:
         self.list_documents = self.args.list_documents
         self.query_field = self.args.query_field
         self.solr_timeout = self.args.solr_timeout
+
+        try:
+            self.queue_settings = RetrieverQueueSettings()
+        except ValidationError as e:
+            logger.error(f"Invalid queue configuration: {e}")
+            sys.exit(1)
 
         env_config = HtEnvConfig()
         self.solr_host = env_config.catalog_solr_ro_url

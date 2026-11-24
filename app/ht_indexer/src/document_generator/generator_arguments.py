@@ -1,20 +1,36 @@
 import argparse
 import sys
 
-from config import config_queue_file_path
-from ht_queue_service.queue_config import QueueConfig, QueueParams
-
 # root imports
 from ht_queue_service.queue_producer import QueueProducer
+from ht_queue_service.queue_settings import QueueSettings
 from ht_utils.ht_logger import get_ht_logger
 from ht_utils.ht_mysql import HtMysql, get_mysql_conn
 
 # utils
 from ht_utils.ht_utils import get_general_error_message
+from pydantic import ValidationError
+from pydantic_settings import SettingsConfigDict
 
 from . import generator_config_file_path
 
 logger = get_ht_logger(name=__name__)
+
+
+class GeneratorSourceQueueSettings(QueueSettings):
+    model_config = SettingsConfigDict(
+        env_prefix="RABBITMQ_GENERATOR_SRC_",
+        yaml_file=generator_config_file_path / "generator_config.yml",
+        yaml_config_section="src_queue",
+    )
+
+
+class GeneratorTargetQueueSettings(QueueSettings):
+    model_config = SettingsConfigDict(
+        env_prefix="RABBITMQ_GENERATOR_TGT_",
+        yaml_file=generator_config_file_path / "generator_config.yml",
+        yaml_config_section="tgt_queue",
+    )
 
 
 class GeneratorServiceArguments:
@@ -44,22 +60,24 @@ class GeneratorServiceArguments:
 
         self.args = parser.parse_args()
 
+        try:
+            self.src_queue_settings = GeneratorSourceQueueSettings()
+            self.tgt_queue_settings = GeneratorTargetQueueSettings()
+        except ValidationError as e:
+            logger.error(f"Invalid queue configuration {e}")
+            sys.exit(1)
+
+        self.tgt_local: bool = self.args.tgt_local
+        self.tgt_queue_producer: QueueProducer | None = None
+
         # MySql connection
         # TODO: Create the db connection pool when required by document_generator_service instead of here to shorten the
         #  startup time of the service
         self.db_conn = self.get_db_conn()
 
-        # Queue configuration
-        self.src_queue_config, self.tgt_queue_config = (
-            GeneratorServiceArguments._build_queue_configs()
-        )
-
-        self.tgt_local: bool = self.args.tgt_local
-        self.tgt_queue_producer: QueueProducer | None = None
-
         if not self.tgt_local:
             self.tgt_queue_producer = GeneratorServiceArguments._make_producer(
-                self.tgt_queue_config.queue_params
+                self.tgt_queue_settings
             )
 
         # Local output options
@@ -79,60 +97,9 @@ class GeneratorServiceArguments:
         return self.db_conn
 
     @staticmethod
-    def _build_queue_configs() -> tuple[QueueConfig, QueueConfig]:
-        """
-        Build and validate queue configuration from YAML resources, then
-        construct source and target QueueConfig instances.
-        """
-        global_config = config_queue_file_path / "global_config.yml"
-        app_config = generator_config_file_path / "generator_config.yml"
-
-        if not global_config.is_file():
-            logger.error(f"Queue config file {global_config} does not exist")
-            sys.exit(1)
-        if not app_config.is_file():
-            logger.error(f"Queue config file {app_config} does not exist")
-            sys.exit(1)
-
+    def _make_producer(queue_settings: QueueSettings) -> QueueProducer:
         try:
-            # importlib.resources.files() is typed as Traversable, which typeshed doesn't
-            # declare as PathLike -- but for these packages (regular installed directories,
-            # not zips) they are.
-            src_queue_config = QueueConfig(
-                global_config,  # type: ignore[arg-type]
-                app_config,  # type: ignore[arg-type]
-                config_key="src_queue",
-                prefix="SRC_",
-            )
-            tgt_queue_config = QueueConfig(
-                global_config,  # type: ignore[arg-type]
-                app_config,  # type: ignore[arg-type]
-                config_key="tgt_queue",
-                prefix="TGT_",
-            )
-            return src_queue_config, tgt_queue_config
-        except KeyError as e:
-            logger.error(
-                f"Invalid queue configuration: {get_general_error_message('DocumentGeneratorService', e)}"
-            )
-            sys.exit(1)
-        except Exception as e:
-            # Unexpected errors: include traceback
-            logger.exception("Unexpected error creating QueueConfig")
-            logger.error(
-                f"Queue configuration error: {get_general_error_message('DocumentGeneratorService', e)}"
-            )
-            sys.exit(1)
-
-    @staticmethod
-    def _make_producer(queue_params: QueueParams) -> QueueProducer:
-        try:
-            return QueueProducer(queue_params)
-        except KeyError as e:
-            logger.error(
-                f"Missing environment variables: {get_general_error_message('DocumentGeneratorService', e)}"
-            )
-            sys.exit(1)
+            return QueueProducer(queue_settings)
         except Exception as e:
             logger.error(
                 f"Queue connection required: {get_general_error_message('DocumentGeneratorService', e)}"

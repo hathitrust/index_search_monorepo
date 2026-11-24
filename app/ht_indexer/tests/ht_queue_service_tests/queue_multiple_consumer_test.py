@@ -1,22 +1,23 @@
 import json
 from collections import defaultdict
-from collections.abc import Callable
 from typing import Any
 
 import pytest
-from conftest import close_channel_and_connection, ensure_queue_ready_and_purged
-from ht_queue_service.queue_config import QueueConfig, QueueParams
+from conftest import QueueTestSettings, close_channel_and_connection, ensure_queue_ready_and_purged
 from ht_queue_service.queue_multiple_consumer import QueueMultipleConsumer
 from ht_queue_service.queue_producer import QueueProducer
+from ht_queue_service.queue_settings import QueueSettings
 from ht_utils.ht_logger import get_ht_logger
 from ht_utils.testing import capture_logs
 
 logger = get_ht_logger(name=__name__)
 
+# TODO refactor repetitive setup here into a fixture?
+
 
 class HTMultipleConsumerServiceConcrete(QueueMultipleConsumer):
-    def __init__(self, queue_params: QueueParams, max_redelivery: int = 3):
-        super().__init__(queue_params)
+    def __init__(self, queue_settings: QueueSettings, max_redelivery: int = 3):
+        super().__init__(queue_settings)
 
         self.consume_one_message: list[dict[str, Any]] = []
         # These two variables are used to track the redelivery count and seen messages
@@ -110,22 +111,18 @@ def list_messages() -> list[dict[str, Any]]:
 
 
 class TestHTMultipleQueueConsumer:
-    def test_start_consuming_false_on_failure(
-        self, one_message: dict[str, Any], make_queue_config: Callable[..., QueueConfig]
-    ) -> None:
+    def test_start_consuming_false_on_failure(self, one_message: dict[str, Any]) -> None:
         """Verify that `start_consuming` returns False on error"""
-        queue_config = make_queue_config(
-            batch_size=1, requeue_message=False, shutdown_on_empty_queue=True
-        )
+        queue_settings = QueueTestSettings(shutdown_on_empty_queue=True)
 
         # Boilerplate setup: create producer and publish one message
-        producer_instance = QueueProducer(queue_config.queue_params)
+        producer_instance = QueueProducer(queue_settings)
         ensure_queue_ready_and_purged(producer_instance)
         producer_instance.publish_messages(one_message)
         close_channel_and_connection(producer_instance)
 
         # Create our failing consumer instance
-        multiple_consumer_instance = TestStartConsumingFail(queue_config.queue_params)
+        multiple_consumer_instance = TestStartConsumingFail(queue_settings)
 
         # This subclass deliberately raises in `consume_batch` and we expect
         # the exception to be caught, "something went wrong" log message and `False` return
@@ -138,18 +135,15 @@ class TestHTMultipleQueueConsumer:
             )
         close_channel_and_connection(multiple_consumer_instance)
 
-    def test_queue_consume_message(
-        self, one_message: dict[str, Any], make_queue_config: Callable[..., QueueConfig]
-    ) -> None:
+    def test_queue_consume_message(self, one_message: dict[str, Any]) -> None:
         """Test for consuming a message from the queue
         One message is published and consumed, then at the end of the test the queue is empty
         """
-        queue_config = make_queue_config(
-            batch_size=1, requeue_message=False, shutdown_on_empty_queue=True
-        )
+
+        queue_settings = QueueTestSettings(shutdown_on_empty_queue=True)
 
         # Create a producer instance to publish the message
-        producer_instance = QueueProducer(queue_config.queue_params)
+        producer_instance = QueueProducer(queue_settings)
         ensure_queue_ready_and_purged(producer_instance)
 
         # Publish the message to the queue
@@ -160,7 +154,7 @@ class TestHTMultipleQueueConsumer:
 
         # Create a consumer instance to consume the message
         multiple_consumer_instance = HTMultipleConsumerServiceConcrete(
-            queue_config.queue_params, max_redelivery=1
+            queue_settings, max_redelivery=1
         )
 
         logger.info(
@@ -180,17 +174,13 @@ class TestHTMultipleQueueConsumer:
         logger.info("Closing the channel and connection for the consumer instance")
         close_channel_and_connection(multiple_consumer_instance)
 
-    def test_queue_consume_message_empty(
-        self, make_queue_config: Callable[..., QueueConfig]
-    ) -> None:
+    def test_queue_consume_message_empty(self) -> None:
         """Test for consuming a message from an empty queue"""
-        queue_config = make_queue_config(
-            batch_size=1, requeue_message=False, shutdown_on_empty_queue=True
-        )
+        queue_settings = QueueTestSettings(shutdown_on_empty_queue=True)
 
         # Create a consumer instance to consume the message
         multiple_consumer_instance = HTMultipleConsumerServiceConcrete(
-            queue_config.queue_params, max_redelivery=1
+            queue_settings, max_redelivery=1
         )
 
         assert multiple_consumer_instance.start_consuming()
@@ -205,22 +195,20 @@ class TestHTMultipleQueueConsumer:
         logger.info("Closing the channel and connection for the consumer instance")
         close_channel_and_connection(multiple_consumer_instance)
 
-    def test_queue_requeue_message_requeue_false(
-        self, list_messages: list[dict[str, Any]], make_queue_config: Callable[..., QueueConfig]
-    ) -> None:
+    def test_queue_requeue_message_requeue_false(self, list_messages: list[dict[str, Any]]) -> None:
         """Test for re-queueing a message from the queue, an error is raised, and all the 10 messages is routed
         to the dead letter queue and discarded from the main queue
         """
-        queue_config = make_queue_config(
+        queue_settings = QueueTestSettings(
             batch_size=10, requeue_message=False, shutdown_on_empty_queue=True
         )
 
         # Create a producer instance to publish the message
-        producer_instance = QueueProducer(queue_config.queue_params)
+        producer_instance = QueueProducer(queue_settings)
 
         # Create a consumer instance to consume the message
         multiple_consumer_instance = HTMultipleConsumerServiceConcrete(
-            queue_config.queue_params, max_redelivery=1
+            queue_settings, max_redelivery=1
         )
         ensure_queue_ready_and_purged(multiple_consumer_instance)
         assert multiple_consumer_instance.channel is not None
@@ -295,24 +283,22 @@ class TestHTMultipleQueueConsumer:
         logger.info("Closing the channel and connection for the main queue")
         close_channel_and_connection(multiple_consumer_instance)
 
-    def test_queue_requeue_message_requeue_true(
-        self, list_messages: list[dict[str, Any]], make_queue_config: Callable[..., QueueConfig]
-    ) -> None:
+    def test_queue_requeue_message_requeue_true(self, list_messages: list[dict[str, Any]]) -> None:
         """Test for re-queueing a message from the queue, an error is raised, and instead of routing the message
         to the dead letter queue, it is requeue to the main queue
         """
-        queue_config = make_queue_config(
+        queue_settings = QueueTestSettings(
             batch_size=10, requeue_message=True, shutdown_on_empty_queue=True
         )
 
         # Create a producer instance to publish the message
-        producer_instance = QueueProducer(queue_config.queue_params)
+        producer_instance = QueueProducer(queue_settings)
         ensure_queue_ready_and_purged(producer_instance)
 
         # Create a consumer instance to consume the message
         max_redelivery = 3
         multiple_consumer_instance = HTMultipleConsumerServiceConcrete(
-            queue_config.queue_params, max_redelivery=max_redelivery
+            queue_settings, max_redelivery=max_redelivery
         )
         assert multiple_consumer_instance.channel is not None
 
@@ -347,16 +333,12 @@ class TestHTMultipleQueueConsumer:
         logger.info("Closing the channel and connection for the main queue")
         close_channel_and_connection(multiple_consumer_instance)
 
-    def test_batch_sleep_calls_logger_once(
-        self, make_queue_config: Callable[..., QueueConfig]
-    ) -> None:
-        queue_config = make_queue_config(
-            batch_size=1, requeue_message=False, shutdown_on_empty_queue=True
-        )
+    def test_batch_sleep_calls_logger_once(self) -> None:
+        queue_settings = QueueTestSettings(shutdown_on_empty_queue=True)
 
         # Create a consumer instance to consume the message
         multiple_consumer_instance = HTMultipleConsumerServiceConcrete(
-            queue_config.queue_params, max_redelivery=1
+            queue_settings, max_redelivery=1
         )
 
         with capture_logs() as entries:

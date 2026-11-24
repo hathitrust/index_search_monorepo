@@ -1,4 +1,3 @@
-# producer
 import json
 import threading
 from typing import Any, cast
@@ -10,8 +9,8 @@ from ht_utils.ht_utils import get_queue_message_id
 from pika.adapters.blocking_connection import BlockingChannel
 
 from ht_queue_service.channel_creator import ChannelCreator
-from ht_queue_service.queue_config import QueueParams
 from ht_queue_service.queue_manager import QueueManager
+from ht_queue_service.queue_settings import QueueSettings
 
 logger = get_ht_logger(name=__name__)
 
@@ -19,7 +18,7 @@ DELIVERY_MODE_PERSISTENT = 2  # Make message persistent
 
 
 class MessageTooLargeError(HTError):
-    """The serialized message is larger than QueueParams.max_message_size; it is not published."""
+    """The serialized message is larger than QueueSettings.max_message_size; it is not published."""
 
 
 class PublishError(HTError):
@@ -66,11 +65,11 @@ class QueueProducer:
           Oversized messages raise `MessageTooLargeError` before any publish attempt.
     """
 
-    def __init__(self, queue_params: QueueParams) -> None:
+    def __init__(self, queue_settings: QueueSettings) -> None:
         """
         Initialize the producer and ensure the queue infrastructure is ready.
 
-        :param queue_params: queue configuration object containing queue_name, exchange_name,
+        :param queue_settings: queue configuration object containing queue_name, exchange_name,
         exchange_type, durable, routing_key, and queue_arguments.
 
         Behaviour:
@@ -85,16 +84,14 @@ class QueueProducer:
         # declaring the credentials needed for connection like host, port, username, password, exchange etc
 
         # Object to create channels
-        self.channel_creator = ChannelCreator(
-            queue_params.user, queue_params.password, queue_params.host, queue_params.heartbeat
-        )  # Factory to create channels
+        self.channel_creator = ChannelCreator(queue_settings)  # Factory to create channels
         self.channel: BlockingChannel | None = self._open_channel()
 
         # Thread-local storage for channels (for multi-threading support)
         self._thread_local = threading.local()
 
         # Object to create the queue and manage its setup and attributes
-        self.queue_manager = QueueManager(queue_params)
+        self.queue_manager = QueueManager(queue_settings)
 
         # Ensure the queue is ready when the producer is initialized
         if not self.queue_manager.is_ready(self.channel):
