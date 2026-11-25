@@ -20,6 +20,7 @@ from document_retriever_service import (
     full_text_search_retriever_service as retriever_service_module,
 )
 from document_retriever_service.full_text_search_retriever_service import (
+    UNPUBLISHED_EVENT,
     ChunkMetadata,
     FullTextSearchRetrieverQueueService,
     PublishCounts,
@@ -666,7 +667,7 @@ class TestPublishingDocuments:
     def test_publishing_documents_connection_lost_raises_with_counts_so_far(self) -> None:
         """No reconnect: after a PublishConnectionError the remaining items would fail the same
         way, so the run stops. The error carries what was done and how many ids are left."""
-        records: list[CatalogItemMetadata] = [MagicMock(), MagicMock(), MagicMock()]
+        records: list[CatalogItemMetadata] = [MagicMock(ht_id=f"mdp.{i}") for i in range(3)]
         with (
             patch.object(
                 FullTextSearchRetrieverQueueService,
@@ -691,6 +692,18 @@ class TestPublishingDocuments:
         assert_log_entry(
             entries, event="Connection lost, stopping the run", log_level="error", ht_id="mdp.1"
         )
+        # The item after the failing one is logged by id; the published one is not
+        assert_log_entry(
+            entries, event="Not published: queue connection lost", log_level="error", ht_id="mdp.2"
+        )
+        assert [e["ht_id"] for e in entries if e["event"] == UNPUBLISHED_EVENT] == ["mdp.2"]
+
+    def test_log_unpublished_ids_uses_record_id_in_record_mode(self) -> None:
+        with capture_logs() as entries:
+            retriever_service_module.log_unpublished_ids(["008394936", "008394937"], "record")
+
+        assert [e["record_id"] for e in entries] == ["008394936", "008394937"]
+        assert all("ht_id" not in e for e in entries)
 
 
 class TestRetrieverPublishCounts:
@@ -763,6 +776,7 @@ class TestRetrieverPublishCounts:
                     ),
                 ],
             ),
+            capture_logs() as entries,
             pytest.raises(retriever_service_module.QueueConnectionLostError) as error,
         ):
             service.full_text_search_retriever_service([f"mdp.{i}" for i in range(6)], "item")
@@ -770,6 +784,11 @@ class TestRetrieverPublishCounts:
         assert solr.call_count == 2  # the third chunk was never requested
         assert error.value.counts == PublishCounts(published=2)
         assert error.value.unprocessed == 4  # 2 left in chunk 2 + chunk 3 (2 ids)
+        # The ids of the chunk never started are logged one by one
+        assert [e["ht_id"] for e in entries if e["event"] == UNPUBLISHED_EVENT] == [
+            "mdp.4",
+            "mdp.5",
+        ]
 
     def test_full_text_search_retriever_service_item_mode_counts_failed_and_not_found(
         self,
