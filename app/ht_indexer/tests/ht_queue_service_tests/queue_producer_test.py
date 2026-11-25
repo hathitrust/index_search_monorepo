@@ -194,26 +194,60 @@ def test_publish_messages_too_large_logs_ht_id_as_a_field(
 
 
 class FakeChannel:
-    """Stands in for a pika channel with publisher confirms: no broker needed."""
+    """Stands in for a pika channel with publisher confirms: no broker needed.
+    
+    Synchronous mode: the broker reply is replayed inside basic_publish, through the callbacks
+    the producer registered. `outcome` picks the reply:
+      "ack"    Basic.Ack
+      "nack"   Basic.Nack
+      "return" Basic.Return, then Basic.Ack (what RabbitMQ sends for a mandatory unroutable publish)
+      "none"   no reply (a lost confirm; the producer must time out)
+    """
 
     def __init__(
-        self, publish_error: Exception | None = None, confirm_error: Exception | None = None
+        self, publish_error: Exception | None = None, confirm_error: Exception | None = None,
+            outcome: str = "ack", return_callback_error: Exception | None = None,
     ) -> None:
         self.publish_error = publish_error
         self.confirm_error = confirm_error
+        self.return_callback_error = return_callback_error
+        self.outcome = outcome
         self.is_closed = False
         self.confirm_enabled = False
         self.publish_calls: list[dict[str, Any]] = []
+        self._on_confirm: Callable[[Any], None] | None = None 
+        self._on_return: Callable[..., None] | None = None
 
-    def confirm_delivery(self) -> None:
+    def confirm_delivery(
+        self, ack_nack_callback: Callable[[Any], None], timeout: float = 10.0
+    ) -> None:
         if self.confirm_error is not None:
             raise self.confirm_error
+        self._on_confirm = ack_nack_callback
         self.confirm_enabled = True
 
-    def basic_publish(self, **kwargs: Any) -> None:  # Any: mirrors pika's keyword arguments
+    def basic_publish(self, **kwargs: Any) -> None:
         self.publish_calls.append(kwargs)
         if self.publish_error is not None:
             raise self.publish_error
+        self._replay_broker_reply(kwargs, delivery_tag=len(self.publish_calls))
+
+    def add_on_return_callback(self, callback: Callable[..., None]) -> None:
+        if self.return_callback_error is not None:
+            raise self.return_callback_error
+        self._on_return = callback
+
+    def _replay_broker_reply(self, published: dict[str, Any], delivery_tag: int) -> None:
+        assert self._on_confirm is not None and self._on_return is not None
+        if self.outcome == "return":
+            returned = pika.spec.Basic.Return(
+                312, "NO_ROUTE", published["exchange"], published["routing_key"]
+            )
+            self._on_return(self, returned, published.get("properties"), published["body"])
+        if self.outcome in ("ack", "return"):
+            self._on_confirm(pika.frame.Method(1, pika.spec.Basic.Ack(delivery_tag=delivery_tag)))
+        elif self.outcome == "nack":
+            self._on_confirm(pika.frame.Method(1, pika.spec.Basic.Nack(delivery_tag=delivery_tag)))
 
 
 @pytest.fixture
@@ -222,8 +256,8 @@ def make_fake_producer(
 ) -> Callable[..., tuple[QueueProducer, FakeChannel, Any]]:
     """Build a producer with a fake channel and a mocked QueueConnection."""
 
-    def _make(publish_error: Exception | None = None) -> tuple[QueueProducer, FakeChannel, Any]:
-        channel = FakeChannel(publish_error)
+    def _make(publish_error: Exception | None = None, outcome: str = "ack") -> tuple[QueueProducer, FakeChannel, Any]:
+        channel = FakeChannel(publish_error, outcome=outcome)
         connection = create_autospec(QueueConnection, instance=True)
         connection.channel.return_value = channel
         with patch.object(QueueManager, "is_ready", return_value=True):

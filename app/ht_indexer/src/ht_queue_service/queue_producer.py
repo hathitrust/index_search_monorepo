@@ -1,12 +1,13 @@
 import json
 import threading
 from typing import Any, cast
+from concurrent.futures import Future
 
 import pika.exceptions
 from ht_utils.ht_errors import HTError
 from ht_utils.ht_logger import get_ht_logger
 from ht_utils.ht_utils import get_queue_message_id
-from pika.adapters.blocking_connection import BlockingChannel
+from pika.adapters.thread_safe_connection import Channel
 
 from ht_queue_service.channel_creator import ChannelCreator
 from ht_queue_service.queue_manager import QueueManager
@@ -38,6 +39,62 @@ class PublishConnectionError(PublishError):
     """The connection or channel was lost while publishing. The producer does not reconnect:
     the caller should count the item as failed and exit so the orchestrator restarts the process."""
 
+class _PublishChannel:
+    """A channel plus its publisher-confirm state.
+
+    pika calls on_return and on_confirm on the channel's worker thread; publish_messages waits on a
+    Future in the caller's thread. One publish is in flight per channel, so no delivery tags are needed.
+    pika calls on_return before on_confirm for the same message (same worker thread).
+    """
+
+    def __init__(self, channel: Channel) -> None:
+        self.pika_channel = channel  # the pika channel; QueueManager and the tests use it directly
+        self._lock = threading.Lock()  # callbacks and the caller touch the state below
+        self._pending: Future[PublishOutcome] | None = None
+        self._returned = False
+
+    def enable_confirms(self) -> None:
+        # Return callback first: the blocking confirm_delivery() below runs on the same I/O loop, so a dead
+        # channel makes it raise. A failure of add_on_return_callback itself is only logged by pika.
+        # As we use mandatory=True, we should add_on_return_callback() to ack know the
+        self.pika_channel.add_on_return_callback(self._on_return)
+        self.pika_channel.confirm_delivery(self._on_confirm)
+
+    def begin(self) -> "Future[PublishOutcome]":
+        """Call before basic_publish: a new Future per publish, so an old one can never be reused.
+        The future is an object that holds the result or an exception.
+        """
+        with self._lock:
+            self._returned = False
+            self._pending = Future()
+            return self._pending
+
+    def _on_return(self, channel: Any, method: Any, properties: Any, body: bytes) -> None:  # Any: untyped pika
+        # The Basic.Ack that follows an unroutable publish is not proof the message reached a queue
+        with self._lock:
+            self._returned = True
+
+    def _on_confirm(self, method_frame: Any) -> None:  # Any: pika frame type is untyped
+        with self._lock:
+            pending = self._pending
+            if pending is None or pending.done():
+                return  # a confirm nobody is waiting for
+            if isinstance(method_frame.method, pika.spec.Basic.Nack):
+                pending.set_result("nack")
+            elif self._returned:
+                pending.set_result("returned")
+            else:
+                pending.set_result("ack")
+
+    def await_outcome(self, future: "Future[PublishOutcome]") -> PublishOutcome:
+        deadline = time.monotonic() + PUBLISH_CONFIRM_TIMEOUT
+        while True:
+            try:
+                return future.result(timeout=0.5)
+            except TimeoutError:
+                # A dead connection fires no callback, so poll the channel instead of waiting out the timeout
+                if self.pika_channel.is_closed or time.monotonic() > deadline:
+                    raise PublishConnectionError("No broker confirm: channel closed or timed out") from None
 
 class QueueProducer:
     """
