@@ -38,8 +38,7 @@ def make_producer(
         settings = QueueTestSettings(**overrides)
         connection = make_queue_connection(settings)
         producer = QueueProducer(settings, queue_connection=connection)
-        assert producer.channel is not None
-        producer.channel.queue_purge(producer.queue_manager.queue_name)
+        producer.channel.pika_channel.queue_purge(producer.queue_manager.queue_name)
         return producer
 
     return make
@@ -59,8 +58,8 @@ class TestQueueProducer:
             producer = QueueProducer(queue_settings, queue_connection=connection)
 
         connection.channel.assert_called_once_with()
-        assert producer.channel is channel
-    
+        assert producer.channel.pika_channel is channel
+
     @pytest.mark.integration
     def test_queue_produce_one_message(self, make_producer: Callable[..., QueueProducer]) -> None:
         """Test publishing a single message to the queue and consuming it to verify."""
@@ -69,14 +68,14 @@ class TestQueueProducer:
 
         producer_instance.publish_messages(message)
         assert producer_instance.channel is not None
-        method, _, body = producer_instance.channel.basic_get(
+        method, _, body = producer_instance.channel.pika_channel.basic_get(
             queue=producer_instance.queue_manager.queue_name, auto_ack=False
         )
 
         assert method is not None
         assert body is not None
         assert json.loads(body) == message
-        producer_instance.channel.basic_ack(delivery_tag=method.delivery_tag)
+        producer_instance.channel.pika_channel.basic_ack(delivery_tag=method.delivery_tag)
 
     @pytest.mark.integration
     def test_publish_invalid_message_raises_type_error(
@@ -121,10 +120,9 @@ def test_publish_messages_max_message_size_limits_what_is_published(
     #           Case           │             limit             │           expectation           │        published
     # over-limit-not-published │ 1 byte below the message size │ must raise MessageTooLargeError │ 0 messages in the queue
     # at-limit-published       │ exactly the message size      │ must not raise                  │ 1 message in the queue
-    assert producer.channel is not None
 
     for _ in range(20):
-        total = producer.queue_manager.get_total_messages(producer.channel)
+        total = producer.queue_manager.get_total_messages(producer.channel.pika_channel)
         if total == published:
             break
         time.sleep(0.1)
@@ -195,7 +193,7 @@ def test_publish_messages_too_large_logs_ht_id_as_a_field(
 
 class FakeChannel:
     """Stands in for a pika channel with publisher confirms: no broker needed.
-    
+
     Synchronous mode: the broker reply is replayed inside basic_publish, through the callbacks
     the producer registered. `outcome` picks the reply:
       "ack"    Basic.Ack
@@ -205,8 +203,11 @@ class FakeChannel:
     """
 
     def __init__(
-        self, publish_error: Exception | None = None, confirm_error: Exception | None = None,
-            outcome: str = "ack", return_callback_error: Exception | None = None,
+        self,
+        publish_error: Exception | None = None,
+        confirm_error: Exception | None = None,
+        outcome: str = "ack",
+        return_callback_error: Exception | None = None,
     ) -> None:
         self.publish_error = publish_error
         self.confirm_error = confirm_error
@@ -214,8 +215,10 @@ class FakeChannel:
         self.outcome = outcome
         self.is_closed = False
         self.confirm_enabled = False
+        # It is a list that FakeChannel fills with the keyword arguments of every basic_publish call.
+        # It lets a test check what the producer sent, since there is no broker to look at.
         self.publish_calls: list[dict[str, Any]] = []
-        self._on_confirm: Callable[[Any], None] | None = None 
+        self._on_confirm: Callable[[Any], None] | None = None
         self._on_return: Callable[..., None] | None = None
 
     def confirm_delivery(
@@ -227,6 +230,7 @@ class FakeChannel:
         self.confirm_enabled = True
 
     def basic_publish(self, **kwargs: Any) -> None:
+        # Each entry is a dict such as {"exchange": ..., "routing_key": ..., "body": ...}
         self.publish_calls.append(kwargs)
         if self.publish_error is not None:
             raise self.publish_error
@@ -238,6 +242,7 @@ class FakeChannel:
         self._on_return = callback
 
     def _replay_broker_reply(self, published: dict[str, Any], delivery_tag: int) -> None:
+        """Replay the broker reply to the producer's callbacks, as if the broker had sent it."""
         assert self._on_confirm is not None and self._on_return is not None
         if self.outcome == "return":
             returned = pika.spec.Basic.Return(
@@ -256,7 +261,9 @@ def make_fake_producer(
 ) -> Callable[..., tuple[QueueProducer, FakeChannel, Any]]:
     """Build a producer with a fake channel and a mocked QueueConnection."""
 
-    def _make(publish_error: Exception | None = None, outcome: str = "ack") -> tuple[QueueProducer, FakeChannel, Any]:
+    def _make(
+        publish_error: Exception | None = None, outcome: str = "ack"
+    ) -> tuple[QueueProducer, FakeChannel, Any]:
         channel = FakeChannel(publish_error, outcome=outcome)
         connection = create_autospec(QueueConnection, instance=True)
         connection.channel.return_value = channel
@@ -284,8 +291,8 @@ class TestPublishWithFakeChannel:
     @pytest.mark.parametrize(
         ("pika_error", "expected_error"),
         [
-            pytest.param(pika.exceptions.NackError([]), PublishRefusedError, id="nack"),
-            pytest.param(pika.exceptions.UnroutableError([]), PublishUnroutableError, id="return"),
+            # pytest.param(pika.exceptions.NackError([]), PublishRefusedError, id="nack"),
+            # pytest.param(pika.exceptions.UnroutableError([]), PublishUnroutableError, id="return"),
             pytest.param(
                 pika.exceptions.ChannelClosed(406, "PRECONDITION_FAILED"),
                 PublishConnectionError,
@@ -312,6 +319,7 @@ class TestPublishWithFakeChannel:
         pika_error: Exception,
         expected_error: type[PublishError],
     ) -> None:
+        """Test to check the errors raise from basic_publish"""
         producer, channel, get_channel = make_fake_producer(pika_error)
 
         with pytest.raises(expected_error) as raised:
@@ -334,6 +342,51 @@ class TestPublishWithFakeChannel:
         assert channel.publish_calls == []
         assert get_channel.call_count == 1
 
+    @pytest.mark.parametrize(
+        ("outcome", "expected_error"),
+        [
+            pytest.param("nack", PublishRefusedError, id="nack-refused"),
+            pytest.param("return", PublishUnroutableError, id="return-unroutable"),
+        ],
+    )
+    def test_publish_messages_broker_outcome_raises_our_error(
+        self,
+        make_fake_producer: Callable[..., tuple[QueueProducer, FakeChannel, Any]],
+        outcome: str,
+        expected_error: type[PublishError],
+    ) -> None:
+        """Test to check the errors raise from broker confirms (nack/return)"""
+        producer, channel, get_channel = make_fake_producer(outcome=outcome)
+
+        with pytest.raises(expected_error):
+            producer.publish_messages(message)
+
+        assert len(channel.publish_calls) == 1  # no retry
+        assert get_channel.call_count == 1  # no reconnect
+
+    def test_publish_messages_after_unroutable_succeeds(
+        self, make_fake_producer: Callable[..., tuple[QueueProducer, FakeChannel, Any]]
+    ) -> None:
+        """Test to check that the return callback does not leak to the next publish: each publish gets a new Future."""
+        producer, channel, _ = make_fake_producer(outcome="return")
+        with pytest.raises(PublishUnroutableError):
+            producer.publish_messages(message)
+
+        channel.outcome = "ack"
+        producer.publish_messages(message)  # the return flag of the first publish must not leak
+
+        assert len(channel.publish_calls) == 2
+
+    def test_publish_messages_confirm_timeout_raises_connection_error(
+        self, make_fake_producer: Callable[..., tuple[QueueProducer, FakeChannel, Any]]
+    ) -> None:
+        producer, _, _ = make_fake_producer(outcome="none")
+
+        with (
+            patch("ht_queue_service.queue_producer.PUBLISH_CONFIRM_TIMEOUT", 0.2),
+            pytest.raises(PublishConnectionError),
+        ):
+            producer.publish_messages(message)
 
 def test_thread_channel_is_dropped_after_a_failure_and_opened_again_next_time(
     make_fake_producer: Callable[..., tuple[QueueProducer, FakeChannel, Any]],
@@ -457,7 +510,7 @@ def test_publish_messages_unroutable_raises_instead_of_losing_the_message(
     producer = make_producer()
     manager = producer.queue_manager
     assert producer.channel is not None
-    producer.channel.queue_unbind(
+    producer.channel.pika_channel.queue_unbind(
         queue=manager.queue_name,
         exchange=manager.main_exchange_name,
         routing_key=manager.queue_name,
@@ -467,7 +520,7 @@ def test_publish_messages_unroutable_raises_instead_of_losing_the_message(
         with pytest.raises(PublishUnroutableError):
             producer.publish_messages(message)
     finally:
-        producer.channel.queue_bind(
+        producer.channel.pika_channel.queue_bind(
             queue=manager.queue_name,
             exchange=manager.main_exchange_name,
             routing_key=manager.queue_name,

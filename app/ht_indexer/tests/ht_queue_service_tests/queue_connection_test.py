@@ -1,17 +1,17 @@
-import pytest
-
 from unittest.mock import Mock, patch
-from pika.exceptions import AMQPConnectionError, ProbableAuthenticationError
 
-from ht_utils.ht_errors import HTError
-from conftest import QueueTestSettings, queue_settings
+import pytest
+from conftest import QueueTestSettings
 from ht_queue_service.queue_connection import QueueConnection
+from ht_utils.ht_errors import HTError
 from ht_utils.testing import assert_log_entry, capture_logs
+from pika.exceptions import AMQPConnectionError, ProbableAuthenticationError
 
 
 @pytest.fixture
 def mock_pika_conn() -> Mock:
     return Mock()
+
 
 class TestQueueConnection:
     """Test the QueueConnection class"""
@@ -46,7 +46,9 @@ class TestQueueConnection:
             ),
         ],
     )
-    def test_connect_error_raises_ht_error(self, error: Exception, message: str, queue_settings: QueueTestSettings) -> None:
+    def test_connect_error_raises_ht_error(
+        self, error: Exception, message: str, queue_settings: QueueTestSettings
+    ) -> None:
 
         with patch("pika.Connection", side_effect=error), pytest.raises(HTError) as exc_info:
             QueueConnection(queue_settings)
@@ -61,14 +63,14 @@ class TestQueueConnection:
         """
 
         queue_connection = QueueConnection(QueueTestSettings())
-        
+
         # Create a channel from the connection
         try:
             channel = queue_connection.channel()
-        
+
             assert channel is not None
             assert channel.is_open
-            
+
             channel.close()
             assert channel.is_closed
         finally:
@@ -158,8 +160,6 @@ class TestQueueConnection:
         assert rabbit_mq_connection.queue_connection.is_open
         rabbit_mq_connection.close()
         assert rabbit_mq_connection.queue_connection is None
-
-
 
     @patch("pika.ConnectionParameters")
     @pytest.mark.parametrize("heartbeat", [123], ids=["custom-heartbeat"])

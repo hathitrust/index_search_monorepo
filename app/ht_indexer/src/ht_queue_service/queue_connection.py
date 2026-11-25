@@ -1,9 +1,10 @@
-import pika
 import threading
+
+import pika
 from ht_utils.ht_errors import HTError
 from ht_utils.ht_logger import get_ht_logger
-from pika.exceptions import AMQPConnectionError, ProbableAuthenticationError
 from pika.adapters.thread_safe_connection import Channel
+from pika.exceptions import AMQPConnectionError, ProbableAuthenticationError
 
 from ht_queue_service.queue_settings import QueueSettings
 
@@ -43,7 +44,7 @@ class QueueConnection:
     def _connect(self) -> pika.Connection:
         """Establish a connection to the RabbitMQ server"""
         try:
-            return (pika.Connection(
+            return pika.Connection(
                 pika.ConnectionParameters(
                     host=self.host,
                     credentials=self.credentials,
@@ -52,7 +53,7 @@ class QueueConnection:
                     # pika accepts a number of seconds
                     blocked_connection_timeout=300,
                 )
-            ))
+            )
         # pika.exceptions.AMQPConnectionError - Catch all the issue related to the AMQP
         # protocol (Advanced Message Queuing Protocol)
         # Something went wrong at the protocol level
@@ -80,7 +81,7 @@ class QueueConnection:
 
             logger.info("Channel created successfully.")
             return channel
-    
+
     def close(self) -> None:
         """Close the connection to the RabbitMQ server"""
         try:

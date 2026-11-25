@@ -1,20 +1,19 @@
 import json
 import os
 import uuid
+from collections.abc import Callable, Generator
 from typing import Any, Protocol
 
 import pytest
 from catalog_metadata.catalog_metadata import CatalogItemMetadata, CatalogRecordMetadata
 from dotenv import load_dotenv
 from ht_queue_service.channel_creator import ChannelCreator
+from ht_queue_service.queue_connection import QueueConnection
 from ht_queue_service.queue_manager import QueueManager
 from ht_queue_service.queue_multiple_consumer import QueueMultipleConsumer
 from ht_queue_service.queue_settings import QueueSettings
 from ht_utils.ht_env_config import HtEnvConfig
 from pika.adapters.blocking_connection import BlockingChannel
-from collections.abc import Callable, Generator
-from ht_queue_service.queue_connection import QueueConnection
-
 
 load_dotenv()
 
@@ -50,6 +49,7 @@ class QueueTestSettings(QueueSettings):
     retry_interval: int = 5
     shutdown_on_empty_queue: bool = False
 
+
 @pytest.fixture
 def queue_settings() -> QueueTestSettings:
     return QueueTestSettings(
@@ -57,6 +57,7 @@ def queue_settings() -> QueueTestSettings:
         rabbitmq_ht_indexer_username="test",
         rabbitmq_ht_indexer_password="test",
     )
+
 
 @pytest.fixture
 def make_queue_connection() -> Generator[Callable[[QueueTestSettings], QueueConnection]]:
@@ -71,6 +72,7 @@ def make_queue_connection() -> Generator[Callable[[QueueTestSettings], QueueConn
 
     for connection in connections:
         connection.close()
+
 
 @pytest.fixture
 def get_retriever_service_solr_parameters() -> dict[str, Any]:
