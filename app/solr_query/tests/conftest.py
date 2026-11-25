@@ -1,10 +1,6 @@
 from pathlib import Path
 
 import pytest
-from dotenv import load_dotenv
-
-load_dotenv()
-
 from ht_full_text_search.ht_full_text_searcher import HTFullTextSearcher
 from ht_search import config_files
 from ht_search.ht_query.ht_query import HTSearchQuery

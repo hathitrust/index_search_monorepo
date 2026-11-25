@@ -4,7 +4,7 @@ from typing import Any
 from sqlalchemy import create_engine, exc, text
 from sqlalchemy.engine import Engine
 
-from ht_utils.ht_env_config import HtEnvConfig
+from ht_utils.ht_env_config import ht_env_config
 from ht_utils.ht_logger import get_ht_logger
 from ht_utils.ht_utils import get_general_error_message
 
@@ -93,7 +93,7 @@ def get_mysql_conn(pool_size: int = 1) -> HtMysql:
     :param pool_size: Number of connections in the pool
     :return: HtMysql instance
     """
-    config = HtEnvConfig().mysql_ht_ro
+    config = ht_env_config.mysql_ht_ro
 
     logger.info(f"Connecting to MySql_Host: {config.host} database: {config.database}")
 

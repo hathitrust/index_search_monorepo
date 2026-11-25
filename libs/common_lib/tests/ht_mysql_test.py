@@ -22,15 +22,6 @@ def reset_ht_mysql_singleton() -> Generator[None]:
     HtMysql._engine_config = None
 
 
-@pytest.fixture(autouse=True)
-def mysql_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
-    """It runs automatically before every test in this file, so it sets the
-    required MySQL credentials for get_mysql_conn(); tests exercising the
-    missing-credential path delete them explicitly."""
-    monkeypatch.setenv("MYSQL_HT_RO_USERNAME", "test-user")
-    monkeypatch.setenv("MYSQL_HT_RO_PASSWORD", "test-pass")
-
-
 class TestHtMysql:
     @patch("ht_utils.ht_mysql.create_engine")
     def test_init_raises_when_database_is_unreachable(self, mock_create_engine: MagicMock) -> None:

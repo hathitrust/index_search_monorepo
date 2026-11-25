@@ -3,7 +3,7 @@ import os
 
 import structlog
 
-from ht_utils.ht_env_config import HtEnvConfig
+from ht_utils.ht_env_config import ht_env_config
 
 
 class HtLogger(structlog.PrintLogger):
@@ -17,7 +17,7 @@ class HtLoggerFactory(structlog.PrintLoggerFactory):
         return HtLogger(name)
 
 
-_LOG_LEVEL = logging.getLevelNamesMapping()[HtEnvConfig().log_level.upper()]
+_LOG_LEVEL = logging.getLevelNamesMapping()[ht_env_config.log_level.upper()]
 
 if os.environ.get("PYTEST_VERSION") is None:
     # only configure logger caching when not under test -- would break log

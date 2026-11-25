@@ -1,13 +1,7 @@
-from pathlib import Path
-
 import pytest
 from ht_document.ht_document import HtDocument
+from ht_utils.ht_env_config import ht_env_config
 from pypairtree import pairtree
-
-
-@pytest.fixture(autouse=True)
-def set_sdr_dir(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("SDR_DIR", f"{Path(__file__).parents[1]}/data/document_generator")
 
 
 def test_get_document_pair_path() -> None:
@@ -45,7 +39,7 @@ def test_colon_name_pattern(monkeypatch: pytest.MonkeyPatch) -> None:
     obj_id = HtDocument.get_object_id("coo1.ark:/13960/t57d3f780")
     assert obj_id == "ark:/13960/t57d3f780"
 
-    monkeypatch.setenv("SDR_DIR", "/sdr1/obj")
+    monkeypatch.setattr(ht_env_config, "sdr_dir", "/sdr1/obj")
     ht_doc = HtDocument(document_id="coo1.ark:/13960/t57d3f780", document_repository="pairtree")
 
     doc_path = ht_doc.get_document_pairtree_path()

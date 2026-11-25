@@ -9,9 +9,6 @@ from document_indexer_service.indexer_arguments import IndexerServiceArguments
 
 def _arguments(monkeypatch: pytest.MonkeyPatch, *extra: str) -> IndexerServiceArguments:
     """Parse a command line the way the indexer does, with the real indexer_config.yml."""
-    monkeypatch.setenv("SOLR_FULL_TEXT_RW_URL", "http://solr-lss-dev:8983/solr/core-x/")
-    monkeypatch.setenv("SOLR_FULL_TEXT_RW_USERNAME", "solr_user")
-    monkeypatch.setenv("SOLR_FULL_TEXT_RW_PASSWORD", "solr_password")
     monkeypatch.setattr(sys, "argv", ["indexer", *extra])
     return IndexerServiceArguments(argparse.ArgumentParser())
 

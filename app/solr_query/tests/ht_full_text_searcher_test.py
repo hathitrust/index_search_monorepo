@@ -1,7 +1,7 @@
 from unittest.mock import patch
 
 from ht_full_text_search.ht_full_text_searcher import HTFullTextSearcher
-from ht_utils.ht_env_config import HtEnvConfig, SolrConnectionParameters
+from ht_utils.ht_env_config import SolrConnectionParameters, ht_env_config
 
 
 class TestRetrieveDocumentsFromFile:
@@ -54,9 +54,8 @@ class TestRetrieveDocumentsFromFile:
 
 class TestHTFullTextSearcher:
     def test_search(self, ht_full_text_query):
-        env_config = HtEnvConfig()
         searcher = HTFullTextSearcher(
-            solr_conn_params=env_config.solr_full_text_ro,
+            solr_conn_params=ht_env_config.solr_full_text_ro,
             ht_search_query=ht_full_text_query,
         )
         solr_results = searcher.solr_result_query_dict(

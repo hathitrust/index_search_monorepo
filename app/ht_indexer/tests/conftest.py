@@ -4,16 +4,12 @@ import uuid
 from typing import Any, Protocol
 
 import pytest
-from dotenv import load_dotenv
-
-load_dotenv()
-
 from catalog_metadata.catalog_metadata import CatalogItemMetadata, CatalogRecordMetadata
 from ht_queue_service.channel_creator import ChannelCreator
 from ht_queue_service.queue_manager import QueueManager
 from ht_queue_service.queue_multiple_consumer import QueueMultipleConsumer
 from ht_queue_service.queue_settings import QueueSettings
-from ht_utils.ht_env_config import HtEnvConfig
+from ht_utils.ht_env_config import ht_env_config
 from pika.adapters.blocking_connection import BlockingChannel
 
 current = os.path.dirname(__file__)
@@ -82,7 +78,7 @@ def get_item_metadata(
 
 @pytest.fixture
 def solr_catalog_url() -> str:
-    return HtEnvConfig().solr_catalog_ro.url
+    return ht_env_config.solr_catalog_ro.url
 
 
 @pytest.fixture

@@ -7,7 +7,7 @@ from typing import Any
 
 import requests
 import yaml
-from ht_utils.ht_env_config import HtEnvConfig, SolrConnectionParameters
+from ht_utils.ht_env_config import SolrConnectionParameters, ht_env_config
 from ht_utils.text_processor import first_value, list_values
 from requests.auth import HTTPBasicAuth
 
@@ -264,10 +264,8 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    env_config = HtEnvConfig()
-
     solr_exporter = SolrExporter(
-        env_config.solr_full_text_ro,
+        ht_env_config.solr_full_text_ro,
         args.env,
     )
 

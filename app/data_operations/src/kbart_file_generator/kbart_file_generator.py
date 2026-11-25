@@ -11,7 +11,7 @@ from pathlib import Path
 import click
 import structlog
 from ht_search.export_all_results import SolrExporter, SolrResult
-from ht_utils.ht_env_config import HtEnvConfig
+from ht_utils.ht_env_config import ht_env_config
 from ht_utils.ht_logger import get_ht_logger
 from ht_utils.ht_utils import (
     normalize_catalog_id_stripped_zeros,
@@ -205,10 +205,9 @@ class KBARTFileGenerator:
         }
 
     def matching_solr_records(self) -> Generator[SolrResult]:
-        env_config = HtEnvConfig()
 
         solr_exporter = SolrExporter(
-            env_config.solr_catalog_ro,
+            ht_env_config.solr_catalog_ro,
             "env-not-used",
         )
 

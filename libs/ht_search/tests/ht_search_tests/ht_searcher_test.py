@@ -1,6 +1,6 @@
 import pytest
 from ht_search.ht_searcher.ht_searcher import HTSearcher
-from ht_utils.ht_env_config import HtEnvConfig
+from ht_utils.ht_env_config import ht_env_config
 
 """
 {"responseHeader":{"zkConnected":true,"status":0,"QTime":3,"params":{"q":"*:*","indent":"off","fl":"id","start":"0","json":"","rows":"10","wt":"json"}},
@@ -68,7 +68,7 @@ def ht_searcher_fixture() -> HTSearcher:
     """
 
     return HTSearcher(
-        solr_conn_params=HtEnvConfig().solr_full_text_ro,
+        solr_conn_params=ht_env_config.solr_full_text_ro,
         environment="dev",
     )
 

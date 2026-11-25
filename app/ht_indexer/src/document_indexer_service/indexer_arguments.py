@@ -7,7 +7,7 @@ from ht_indexer_api.ht_indexer_api import (
     positive_seconds,
 )
 from ht_queue_service.queue_settings import QueueSettings
-from ht_utils.ht_env_config import HtEnvConfig
+from ht_utils.ht_env_config import ht_env_config
 from ht_utils.ht_logger import get_ht_logger
 from pydantic import ValidationError
 from pydantic_settings import SettingsConfigDict
@@ -70,10 +70,8 @@ class IndexerServiceArguments:
 
         self.args = parser.parse_args()
 
-        env_config = HtEnvConfig()
-
         self.solr_api_full_text = HTSolrAPI(
-            env_config.solr_full_text_rw,
+            ht_env_config.solr_full_text_rw,
             read_timeout=self.args.solr_timeout,
             connect_timeout=self.args.solr_connect_timeout,
         )

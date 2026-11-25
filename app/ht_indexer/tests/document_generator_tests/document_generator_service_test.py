@@ -143,7 +143,6 @@ class TestDocumentGeneratorService:
         MySQL error must not produce a document with missing data. The message is rejected (not
         acked, not published) and the error is logged with the ht_id. Only the file-dependent
         steps (zip check, OCR text, full record) are stubbed."""
-        monkeypatch.setenv("SDR_DIR", "/tmp/sdr1/obj")  # HtDocument reads it to find the zip
         db_conn = Mock()
         db_conn.query_mysql.side_effect = sqlalchemy.exc.SQLAlchemyError("mysql down")
         service = _make_service_with_mocks(db_conn)

@@ -14,19 +14,19 @@ x-env-common: &env_common
     SOLR_FULL_TEXT_RO_USERNAME: admin
     SOLR_FULL_TEXT_RO_PASSWORD: solrRocks
     SOLR_FULL_TEXT_RW_URL: http://solr-lss-dev:8983/solr/core-x/
-    SOLR_FULL_TEXT_Rw_USERNAME: admin
+    SOLR_FULL_TEXT_RW_USERNAME: admin
     SOLR_FULL_TEXT_RW_PASSWORD: solrRocks
     MYSQL_HT_RO_HOST: mysql-sdr
     MYSQL_HT_RO_USERNAME: mdp-admin
     MYSQL_HT_RO_PASSWORD: mdp-admin
     MYSQL_HT_RO_DATABASE: ht
+    SDR_DIR: /sdr1/obj
 
 # Environment variables specific to the indexer services
 x-env-indexer: &env_indexer
     RABBITMQ_HT_INDEXER_HOST: rabbitmq
     RABBITMQ_HT_INDEXER_USERNAME: guest
     RABBITMQ_HT_INDEXER_PASSWORD: guest
-    SDR_DIR: /sdr1/obj
 
 x-ht-indexer-vols: &ht_indexer_vols
     - ../tmp:/tmp

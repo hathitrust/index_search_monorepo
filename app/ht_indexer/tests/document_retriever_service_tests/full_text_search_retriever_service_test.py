@@ -29,10 +29,11 @@ from document_retriever_service.retriever_services_utils import RetrieverService
 from ht_indexer_api.ht_indexer_api import DEFAULT_READ_TIMEOUT_SECONDS, HTSolrAPI
 from ht_queue_service.queue_producer import PublishConnectionError
 from ht_queue_service.queue_settings import QueueSettings
-from ht_utils.ht_env_config import SolrConnectionParameters
+from ht_utils.ht_env_config import SolrConnectionParameters, ht_env_config
 from ht_utils.ht_logger import get_ht_logger
 from ht_utils.query_maker import make_solr_term_query
 from ht_utils.testing import assert_log_entry, capture_logs
+from pydantic import SecretStr
 
 logger = get_ht_logger(name=__name__)
 
@@ -269,8 +270,8 @@ class TestFullTextRetrieverService:
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         # Arrange
-        monkeypatch.setenv("SOLR_CATALOG_RO_USERNAME", "catalog-user")
-        monkeypatch.setenv("SOLR_CATALOG_RO_PASSWORD", "catalog-pass")
+        monkeypatch.setattr(ht_env_config.solr_catalog_ro, "username", "catalog-user")
+        monkeypatch.setattr(ht_env_config.solr_catalog_ro, "password", SecretStr("catalog-pass"))
 
         # Act
         args = RetrieverServiceArguments(argparse.ArgumentParser(), argv=[])

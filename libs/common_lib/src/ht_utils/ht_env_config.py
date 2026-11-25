@@ -1,7 +1,10 @@
 from typing import Annotated
 
+from dotenv import load_dotenv
 from pydantic import AfterValidator, BaseModel, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+load_dotenv()
 
 
 class SolrConnectionParameters(BaseModel):
@@ -33,11 +36,13 @@ class HtEnvConfig(BaseSettings):
     )
 
     log_level: str = "INFO"
-    sdr_dir: str | None = None
+    sdr_dir: str
 
-    # TODO: Raise something more useful if these aren't set?
     mysql_ht_ro: MysqlConnectionParameters
 
     solr_catalog_ro: SolrConnectionParameters
     solr_full_text_ro: SolrConnectionParameters
     solr_full_text_rw: SolrConnectionParameters
+
+
+ht_env_config = HtEnvConfig()
