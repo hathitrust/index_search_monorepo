@@ -5,7 +5,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import sqlalchemy.exc
-from ht_utils.ht_env_config import HtEnvConfigMissingError
 from ht_utils.ht_mysql import HtMysql, get_mysql_conn
 from ht_utils.testing import capture_logs
 from sqlalchemy import create_engine
@@ -21,15 +20,6 @@ def reset_ht_mysql_singleton() -> Generator[None]:
     yield
     HtMysql._engine = None
     HtMysql._engine_config = None
-
-
-@pytest.fixture(autouse=True)
-def mysql_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
-    """It runs automatically before every test in this file, so it sets the
-    required MySQL credentials for get_mysql_conn(); tests exercising the
-    missing-credential path delete them explicitly."""
-    monkeypatch.setenv("MYSQL_HT_RO_USERNAME", "test-user")
-    monkeypatch.setenv("MYSQL_HT_RO_PASSWORD", "test-pass")
 
 
 class TestHtMysql:
@@ -174,37 +164,3 @@ class TestHtMysql:
         conn.execute.return_value = [row]
 
         assert ht_mysql.query_mysql("SELECT member_id FROM t") == [{"member_id": "umich"}]
-
-
-class TestGetMysqlConnRequiredCredentials:
-    def test_get_mysql_conn_raises_when_mysql_user_missing(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        monkeypatch.delenv(
-            "MYSQL_HT_RO_USERNAME", raising=False
-        )  # undoes what mysql_credentials fixture just set
-
-        with pytest.raises(HtEnvConfigMissingError, match="MYSQL_HT_RO_USERNAME"):
-            get_mysql_conn()
-
-    def test_get_mysql_conn_raises_when_mysql_pass_missing(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        monkeypatch.delenv(
-            "MYSQL_HT_RO_PASSWORD", raising=False
-        )  # undoes what mysql_credentials fixture just set
-
-        with pytest.raises(HtEnvConfigMissingError, match="MYSQL_HT_RO_PASSWORD"):
-            get_mysql_conn()
-
-    def test_get_mysql_conn_raises_when_mysql_user_is_empty_string(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """An explicitly empty value must be treated the same as unset, not passed
-        through as a valid (blank) credential."""
-        monkeypatch.setenv(
-            "MYSQL_HT_RO_USERNAME", ""
-        )  # undoes what mysql_credentials fixture just set to am empty string
-
-        with pytest.raises(HtEnvConfigMissingError, match="MYSQL_HT_RO_USERNAME"):
-            get_mysql_conn()

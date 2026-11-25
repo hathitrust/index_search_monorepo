@@ -6,7 +6,7 @@ from argparse import ArgumentParser
 import pandas as pd
 from ht_full_text_search.ht_full_text_searcher import HTFullTextSearcher
 from ht_search.ht_query.ht_full_text_query import HTFullTextQuery
-from ht_utils.ht_env_config import HtEnvConfig
+from ht_utils.ht_env_config import ht_env_config
 from ht_utils.ht_logger import get_ht_logger
 
 logger = get_ht_logger(name=__name__)
@@ -84,11 +84,6 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    env_config = HtEnvConfig()
-    solr_url = env_config.full_text_solr_ro_url
-    solr_user = env_config.solr_user
-    solr_password = env_config.solr_password
-
     fl = args.fl
     use_shards = False  # By default is False
 
@@ -117,11 +112,9 @@ if __name__ == "__main__":
 
         # Create the search object
         ht_full_search = HTFullTextSearcher(
-            solr_url=solr_url,
+            solr_conn_params=ht_env_config.solr_full_text_ro,
             ht_search_query=Q,
             environment=args.env,
-            user=solr_user,
-            password=solr_password,
         )
 
         total_found = 0

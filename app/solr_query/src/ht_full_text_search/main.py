@@ -10,7 +10,7 @@ from fastapi.responses import StreamingResponse
 from ht_search.config_files import config_files_path
 from ht_search.config_files.solr_data_sample import SOLR_OUTPUT_SAMPLE
 from ht_search.export_all_results import SolrExporter
-from ht_utils.ht_env_config import HtEnvConfig
+from ht_utils.ht_env_config import ht_env_config
 from ht_utils.ht_logger import get_ht_logger
 
 exporter_api = {}
@@ -20,7 +20,6 @@ logger = get_ht_logger(name=__name__)
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--env", default=os.environ.get("HT_ENVIRONMENT", "dev"))
-    parser.add_argument("--solr_url", help="Solr url", default=None)
 
     args = parser.parse_args()
 
@@ -31,11 +30,7 @@ def main():
         """
         logger.info("Connecting with Solr server")
 
-        env_config = HtEnvConfig()
-        solr_url = env_config.full_text_solr_ro_url
-        exporter_api["obj"] = SolrExporter(
-            solr_url, args.env, user=env_config.solr_user, password=env_config.solr_password
-        )
+        exporter_api["obj"] = SolrExporter(ht_env_config.solr_full_text_ro, args.env)
         yield
 
         # Add some logic here to close the connection

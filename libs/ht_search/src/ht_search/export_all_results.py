@@ -7,7 +7,7 @@ from typing import Any
 
 import requests
 import yaml
-from ht_utils.ht_env_config import HtEnvConfig
+from ht_utils.ht_env_config import SolrConnectionParameters, ht_env_config
 from ht_utils.text_processor import first_value, list_values
 from requests.auth import HTTPBasicAuth
 
@@ -110,11 +110,9 @@ class SolrResult:
 class SolrExporter:
     DEFAULT_BATCH_SIZE = 500
 
-    def __init__(
-        self, solr_url: str, env: str, user: str | None = None, password: str | None = None
-    ):
+    def __init__(self, solr_conn_params: SolrConnectionParameters, env: str):
         """Initialize the SolrExporter class
-        :param solr_url: str, Solr URL
+        :param solr_conn_params: Solr url, username & password
         :param env: str, environment. It could be dev or prod
         """
 
@@ -122,10 +120,23 @@ class SolrExporter:
         # SolrExporter should be re-implemented following the design of ht_query/ht_query.py, ht_search/ht_search.py
         # We should create an exporter as part of this structure and we should create separate classes to manage the
         # Catalog and FullText Solr clusters.
-        self.solr_url = f"{solr_url.rstrip('/')}/query"
+        self.solr_url = f"{solr_conn_params.url.rstrip('/')}/query"
         self.environment = env
         self.headers = {"Content-Type": "application/json"}
-        self.auth = HTTPBasicAuth(user, password) if user and password else None
+
+        # TODO move to SolrConnectionParams
+        self.auth: HTTPBasicAuth | None
+        if (
+            solr_conn_params.username is not None
+            and solr_conn_params.username
+            and solr_conn_params.password is not None
+            and solr_conn_params.password
+        ):
+            self.auth = HTTPBasicAuth(
+                solr_conn_params.username, solr_conn_params.password.get_secret_value()
+            )
+        else:
+            self.auth = None
 
     def send_query(self, params: dict[str, Any]) -> requests.Response:
         """Send the query to Solr
@@ -253,13 +264,9 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    env_config = HtEnvConfig()
-
     solr_exporter = SolrExporter(
-        env_config.full_text_solr_ro_url,
+        ht_env_config.solr_full_text_ro,
         args.env,
-        user=env_config.solr_user,
-        password=env_config.solr_password,
     )
 
     # importlib.resources.files() is typed as Traversable, which typeshed doesn't declare as

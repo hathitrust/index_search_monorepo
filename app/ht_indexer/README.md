@@ -103,9 +103,11 @@ In your workdir:
 
 1. Clone the repository:
 
-   ```git clone git@github.com:hathitrust/ht_indexer.git```
-2. Go to the folder ``cd ht_indexer``
+```bash
+git clone git@github.com:hathitrust/ht_indexer.git
+```
 
+2. Go to the folder: `cd ht_indexer`
 
 3. Run the services
 
@@ -575,39 +577,18 @@ The numbers don't always add up to `requested`:
 
 ## Tests
 
-In the working directory,
+Running tests specifically for the `ht_indexer` component under docker:
 
-* Create the image
+```bash
+APP_NAME="ht-indexer" make test
+```
 
-```docker build -t document_generator .```
-
-* Run document_retriever_service container and test it
-
-```docker compose up document-retriever -d```
-
-```docker compose exec document-retriever python -m pytest document_retriever_service catalog_metadata ht_utils ```
-
-* Run document_generator_service container and test it
-
-```docker compose up document-generator -d```
-
-```docker compose exec document-generator python -m pytest document_generator ht_document ht_queue_service ht_utils```
-
-* Run document_indexer_service container and test it
-
-Solr server required authentication, so you should set up the environment variables SOLR_USER and SOLR_PASSWORD before
-starting the container. All the users (solr, admin and fulltext) use the same solr password (solrRocks)
-
-export SOLR_USER=admin
-export SOLR_PASSWORD=solrRocks
-
-The document retriever does not use SOLR_USER / SOLR_PASSWORD. It accesses the Catalog Solr (CATALOG_SOLR_RO_URL)
-with the optional SOLR_CATALOG_RO_USERNAME / SOLR_CATALOG_RO_PASSWORD. Leave both unset while the Catalog Solr does
-not require authentication.
-
-```docker compose up document-indexer -d```
-
-```docker compose exec document-indexer python -m pytest document_indexer_service ht_indexer_api ht_queue_service```
+Or running directly (but with dependent services running under docker for integration tests)
+```bash
+make sync
+make up-tests
+uv run pytest app/ht_indexer
+```
 
 ## Hosting
 

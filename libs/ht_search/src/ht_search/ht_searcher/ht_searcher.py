@@ -3,6 +3,7 @@ from collections.abc import Generator
 from typing import Any, cast
 
 import requests
+from ht_utils.ht_env_config import SolrConnectionParameters
 from ht_utils.ht_logger import get_ht_logger
 from requests.auth import HTTPBasicAuth
 
@@ -40,19 +41,30 @@ class HTSearcher:
 
     def __init__(
         self,
-        solr_url: str | None = None,
+        solr_conn_params: SolrConnectionParameters,
         ht_search_query: HTSearchQuery | None = None,
         environment: str = "dev",
-        user: str | None = None,
-        password: str | None = None,
     ):
-        self.solr_url = solr_url
         self.environment = environment  # Not sure if we need it right now
         self.query_maker = ht_search_query
-        self.auth = HTTPBasicAuth(user, password) if user and password else None
 
         # TODO HTTP request string and JSON object. We should transform the query string into a JSON object
         self.headers = {"Content-type": "application/json"}
+
+        self.solr_url = solr_conn_params.url
+        # TODO move to SolrConnectionParams
+        self.auth: HTTPBasicAuth | None
+        if (
+            solr_conn_params.username is not None
+            and solr_conn_params.username
+            and solr_conn_params.password is not None
+            and solr_conn_params.password
+        ):
+            self.auth = HTTPBasicAuth(
+                solr_conn_params.username, solr_conn_params.password.get_secret_value()
+            )
+        else:
+            self.auth = None
 
     def send_query(self, params: dict[str, Any]) -> requests.Response:
 

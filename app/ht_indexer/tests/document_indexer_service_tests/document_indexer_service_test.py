@@ -7,6 +7,7 @@ import pytest
 import requests
 from document_indexer_service.document_indexer_service import DocumentIndexerQueueService
 from ht_indexer_api.ht_indexer_api import HTSolrAPI
+from ht_utils.ht_env_config import SolrConnectionParameters
 from ht_utils.ht_logger import get_ht_logger
 from ht_utils.testing import assert_log_entry, capture_logs, find_log_entry
 
@@ -35,7 +36,7 @@ class FakeHTSolrAPI(HTSolrAPI):
         *answers: int | Exception,
         bad_document: Callable[[dict[str, Any]], bool] | None = None,
     ) -> None:
-        super().__init__("http://fake-solr:8983/solr/core-x/")
+        super().__init__(SolrConnectionParameters(url="http://fake-solr:8983/solr/core-x/"))
         self.answers: list[int | Exception] = list(answers) or [200]
         self.bad_document = bad_document
         self.requests: list[list[dict[str, Any]]] = []
@@ -231,7 +232,7 @@ def test_process_batch_with_the_real_solr_client_keeps_messages_when_solr_answer
     503 would be acked and the messages lost."""
     answer = requests.Response()
     answer.status_code = 503
-    service, channel = _make_service(HTSolrAPI("http://solr/"))
+    service, channel = _make_service(HTSolrAPI(SolrConnectionParameters(url="http://solr/")))
 
     with patch("ht_indexer_api.ht_indexer_api.requests.post", return_value=answer):
         result = service.process_batch(_batch(), [10, 11])

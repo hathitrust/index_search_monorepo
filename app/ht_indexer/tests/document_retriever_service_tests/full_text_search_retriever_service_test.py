@@ -29,9 +29,11 @@ from document_retriever_service.retriever_services_utils import RetrieverService
 from ht_indexer_api.ht_indexer_api import DEFAULT_READ_TIMEOUT_SECONDS, HTSolrAPI
 from ht_queue_service.queue_producer import PublishConnectionError
 from ht_queue_service.queue_settings import QueueSettings
+from ht_utils.ht_env_config import SolrConnectionParameters, ht_env_config
 from ht_utils.ht_logger import get_ht_logger
 from ht_utils.query_maker import make_solr_term_query
 from ht_utils.testing import assert_log_entry, capture_logs
+from pydantic import SecretStr
 
 logger = get_ht_logger(name=__name__)
 
@@ -100,22 +102,30 @@ def _fail_metadata_of(fail_on: str) -> contextlib.AbstractContextManager[Any]:
 @pytest.fixture
 def queue_settings() -> QueueSettings:
 
-    settings = QueueTestSettings()
-    settings.queue_name = "test_full_text_search_retriever_service"
-    settings.batch_size = 1
-    settings.requeue_message = False
+    return QueueTestSettings(
+        queue_name="test_full_text_search_retriever_service", batch_size=1, requeue_message=False
+    )
 
-    return settings
+
+def solr_conn_params() -> SolrConnectionParameters:
+    """Mock solr connection parameters when we just need a value, but aren't going to connect"""
+    return SolrConnectionParameters(
+        url="http://solr", username="solr_user", password="solr_password"
+    )
 
 
 @pytest.fixture
 def get_catalog_retriever_service_solr_fake_solr_url() -> HTSolrAPI:
-    return HTSolrAPI(FAKE_CATALOG_URL, "solr_user", "solr_password")
+    return HTSolrAPI(
+        SolrConnectionParameters(
+            url=FAKE_CATALOG_URL, username="solr_user", password="solr_password"
+        )
+    )
 
 
 @pytest.fixture
-def solr_client(solr_catalog_url: str) -> HTSolrAPI:
-    return HTSolrAPI(solr_catalog_url, "solr_user", "solr_password")
+def solr_client() -> HTSolrAPI:
+    return HTSolrAPI(solr_conn_params())
 
 
 @pytest.fixture
@@ -132,9 +142,9 @@ def get_document_retriever_service(
     """
     return FullTextSearchRetrieverQueueService(
         queue_settings,
-        solr_catalog_url,
-        "solr_user",
-        "solr_password",
+        SolrConnectionParameters(
+            url=solr_catalog_url, username="solr_user", password="solr_password"
+        ),
         get_retriever_service_solr_parameters,
     )
 
@@ -260,14 +270,18 @@ class TestFullTextRetrieverService:
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         # Arrange
-        monkeypatch.setenv("SOLR_CATALOG_RO_USERNAME", "catalog-user")
-        monkeypatch.setenv("SOLR_CATALOG_RO_PASSWORD", "catalog-pass")
+        monkeypatch.setattr(ht_env_config.solr_catalog_ro, "username", "catalog-user")
+        monkeypatch.setattr(ht_env_config.solr_catalog_ro, "password", SecretStr("catalog-pass"))
 
         # Act
         args = RetrieverServiceArguments(argparse.ArgumentParser(), argv=[])
 
         # Assert
-        assert (args.solr_user, args.solr_password) == ("catalog-user", "catalog-pass")
+        assert args.solr_catalog_conn_params.password is not None
+        assert (
+            args.solr_catalog_conn_params.username,
+            args.solr_catalog_conn_params.password.get_secret_value(),
+        ) == ("catalog-user", "catalog-pass")
 
     def test_retriever_arguments_solr_timeout_defaults_to_the_htsolrapi_default(self) -> None:
         args = RetrieverServiceArguments(argparse.ArgumentParser(), argv=[])
@@ -282,8 +296,9 @@ class TestFullTextRetrieverService:
         assert args.solr_timeout == 300.5
 
     def test_service_gives_the_solr_timeout_to_the_catalog_client(self) -> None:
+        solr_params = solr_conn_params()
         service = FullTextSearchRetrieverQueueService(
-            MagicMock(), "http://solr", "solr_user", "solr_password", {}, solr_timeout=300
+            MagicMock(), solr_params, {}, solr_timeout=300
         )
         with (
             patch.object(FullTextSearchRetrieverQueueService, "get_queue_producer"),
@@ -291,9 +306,7 @@ class TestFullTextRetrieverService:
         ):
             service.full_text_search_retriever_service([], "item")
 
-        mock_solr_api.assert_called_once_with(
-            "http://solr", "solr_user", "solr_password", read_timeout=300
-        )
+        mock_solr_api.assert_called_once_with(solr_params, read_timeout=300)
 
     @pytest.mark.integration
     def test_full_text_search_retriever_service(
@@ -316,9 +329,9 @@ class TestFullTextRetrieverService:
 
         document_retriever_service_obj = FullTextSearchRetrieverQueueService(
             queue_settings,
-            solr_catalog_url,
-            "solr_user",
-            "solr_password",
+            SolrConnectionParameters(
+                url=solr_catalog_url, username="solr_user", password="solr_password"
+            ),
             get_retriever_service_solr_parameters,
         )
 
@@ -397,7 +410,8 @@ class TestFullTextRetrieverService:
         query = make_solr_term_query(list_documents, by_field="item")
 
         broken_solr_service = FullTextSearchRetrieverQueueService(
-            solr_host=FAKE_CATALOG_URL,
+            queue_settings=MagicMock(),
+            solr_conn_params=SolrConnectionParameters(url=FAKE_CATALOG_URL),
             solr_retriever_query_params=get_retriever_service_solr_parameters,
         )
 
@@ -418,7 +432,8 @@ class TestFullTextRetrieverService:
     ) -> None:
         """Use case: solr_host with trailing and without slash is handled correctly"""
         service = FullTextSearchRetrieverQueueService(
-            solr_host=solr_host,
+            queue_settings=MagicMock(),
+            solr_conn_params=SolrConnectionParameters(url=solr_host),
             solr_retriever_query_params={},
         )
         solr_retriever = MagicMock()
@@ -579,9 +594,7 @@ class TestRetrieverLoopMissingHtIdsCheck:
     # checks when the loop runs the "not found in Catalog" check.
     @staticmethod
     def _run_loop(by_field: str) -> MagicMock:
-        service = FullTextSearchRetrieverQueueService(
-            MagicMock(), "http://solr", "solr_user", "solr_password", {}
-        )
+        service = FullTextSearchRetrieverQueueService(MagicMock(), solr_conn_params(), {})
         response = MagicMock()
         response.content = json.dumps({"response": {"docs": []}}).encode("utf-8")
         with (
@@ -699,7 +712,9 @@ class TestRetrieverPublishCounts:
 
     def test_full_text_search_retriever_service_two_chunks_returns_summed_counts(self) -> None:
         service = FullTextSearchRetrieverQueueService(
-            MagicMock(), "http://solr", "solr_user", "solr_password", {}
+            MagicMock(),
+            solr_conn_params(),
+            {},
         )
         # Patch the retrieve_documents_from_solr method to return a mock response with no documents
         response = MagicMock()
@@ -735,9 +750,7 @@ class TestRetrieverPublishCounts:
     ) -> None:
         """Chunk 1 is published, chunk 2 loses the connection: chunk 3 must not query Solr, and
         its ids are counted as unprocessed along with the rest of chunk 2."""
-        service = FullTextSearchRetrieverQueueService(
-            MagicMock(), "http://solr", "solr_user", "solr_password", {}
-        )
+        service = FullTextSearchRetrieverQueueService(MagicMock(), solr_conn_params(), {})
         response = MagicMock()
         response.content = json.dumps({"response": {"docs": []}}).encode("utf-8")
         with (
@@ -775,9 +788,7 @@ class TestRetrieverPublishCounts:
         self,
     ) -> None:
         # mdp.2's metadata failed and mdp.3 is not in Catalog: neither is published, both counted.
-        service = FullTextSearchRetrieverQueueService(
-            MagicMock(), "http://solr", "solr_user", "solr_password", {}
-        )
+        service = FullTextSearchRetrieverQueueService(MagicMock(), solr_conn_params(), {})
         response = MagicMock()
         response.content = json.dumps({"response": {"docs": []}}).encode("utf-8")
         with (
@@ -816,9 +827,7 @@ class TestRetrieverSolrTimeout:
 
     @staticmethod
     def _service() -> FullTextSearchRetrieverQueueService:
-        return FullTextSearchRetrieverQueueService(
-            MagicMock(), "http://solr", "solr_user", "solr_password", {"q": "*:*"}
-        )
+        return FullTextSearchRetrieverQueueService(MagicMock(), solr_conn_params(), {"q": "*:*"})
 
     def test_retrieve_documents_from_solr_timeout_is_not_swallowed(self) -> None:
         solr_retriever = MagicMock()

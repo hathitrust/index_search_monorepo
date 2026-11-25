@@ -6,7 +6,7 @@ import tempfile
 
 from ht_indexer_api.ht_indexer_api import DEFAULT_READ_TIMEOUT_SECONDS, positive_seconds
 from ht_queue_service.queue_settings import QueueSettings
-from ht_utils.ht_env_config import HtEnvConfig
+from ht_utils.ht_env_config import ht_env_config
 from ht_utils.ht_logger import get_ht_logger
 from ht_utils.ht_utils import comma_separated_list
 from pydantic import ValidationError
@@ -77,11 +77,7 @@ class RetrieverServiceArguments:
             logger.error(f"Invalid queue configuration: {e}")
             sys.exit(1)
 
-        env_config = HtEnvConfig()
-        self.solr_host = env_config.catalog_solr_ro_url
-        # The catalog Solr has its own optional credentials; the full-text SOLR_USER/SOLR_PASSWORD don't apply here
-        self.solr_user = env_config.solr_catalog_ro_username
-        self.solr_password = env_config.solr_catalog_ro_password
+        self.solr_catalog_conn_params = ht_env_config.solr_catalog_ro
 
         self.solr_retriever_query_params = {"q": "*:*", "rows": SOLR_TOTAL_ROWS, "wt": "json"}
 

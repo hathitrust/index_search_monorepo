@@ -11,6 +11,7 @@ from typing import Any
 
 from ht_indexer_api.ht_indexer_api import DEFAULT_READ_TIMEOUT_SECONDS
 from ht_queue_service.queue_settings import QueueSettings
+from ht_utils.ht_env_config import SolrConnectionParameters
 from ht_utils.ht_logger import get_ht_logger
 
 from document_retriever_service.full_text_search_retriever_service import (
@@ -104,9 +105,7 @@ def log_summary(summary: ByFileSummary) -> None:
 def retrieve_documents_by_file(
     queue_settings: QueueSettings,
     query_field: str,
-    solr_host: str | None,
-    solr_user: str | None,
-    solr_password: str | None,
+    solr_conn_params: SolrConnectionParameters,
     solr_retriever_query_params: dict[str, Any],
     input_documents_file: str | Path,
     status_file: str | Path,
@@ -119,9 +118,7 @@ def retrieve_documents_by_file(
 
     :param queue_settings: The object with the queue parameters
     :param query_field: The field to use in the query
-    :param solr_host: The host of the Solr server
-    :param solr_user: The user of the Solr server
-    :param solr_password: The password of the Solr server
+    :param solr_conn_params: URL, username, and password for solr
     :param solr_retriever_query_params: The query parameters to use in the Solr query
     :param input_documents_file: The file containing the list of documents to process
     :param status_file: The file to store the status of the documents
@@ -137,9 +134,7 @@ def retrieve_documents_by_file(
 
     document_retriever_service = FullTextSearchRetrieverQueueService(
         queue_settings,
-        solr_host,
-        solr_user,
-        solr_password,
+        solr_conn_params,
         solr_retriever_query_params,
         solr_timeout,
     )
@@ -228,9 +223,7 @@ def main() -> None:
     summary = retrieve_documents_by_file(
         init_args_obj.queue_settings,
         init_args_obj.query_field,
-        init_args_obj.solr_host,
-        init_args_obj.solr_user,
-        init_args_obj.solr_password,
+        init_args_obj.solr_catalog_conn_params,
         init_args_obj.solr_retriever_query_params,
         init_args_obj.input_documents_file,
         init_args_obj.status_file,

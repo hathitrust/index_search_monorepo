@@ -12,9 +12,7 @@ from ht_utils.testing import assert_log_entry, capture_logs
 
 def _run_main(monkeypatch: pytest.MonkeyPatch, *extra: str) -> MagicMock:
     """Run main() with the indexing loop replaced; return the HTSolrAPI it built."""
-    monkeypatch.setattr(
-        sys, "argv", ["indexer", "--solr_indexing_api", "http://solr-lss-dev:8983/solr/", *extra]
-    )
+    monkeypatch.setattr(sys, "argv", ["indexer", *extra])
     with patch.object(document_indexer_local_service, "DocumentIndexerLocalService") as service:
         document_indexer_local_service.main()
     solr_api: MagicMock = service.call_args.args[0]

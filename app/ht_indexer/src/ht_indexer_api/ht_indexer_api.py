@@ -5,6 +5,7 @@ from typing import Any
 
 import orjson
 import requests
+from ht_utils.ht_env_config import SolrConnectionParameters
 from ht_utils.ht_logger import get_ht_logger
 from requests.auth import HTTPBasicAuth
 
@@ -37,16 +38,12 @@ def positive_seconds(value: str) -> float:
 class HTSolrAPI:
     def __init__(
         self,
-        url: str,
-        user: str | None = None,
-        password: str | None = None,
+        solr_params: SolrConnectionParameters,
         read_timeout: float = DEFAULT_READ_TIMEOUT_SECONDS,
         connect_timeout: float = DEFAULT_CONNECT_TIMEOUT_SECONDS,
     ):
         """
-        :param url: The Solr URL
-        :param user: Solr user, for basic authentication
-        :param password: Solr password, for basic authentication
+        :param solr_params: The Solr connection parameters, including URL and optionally user and password
         :param read_timeout: Seconds to wait for Solr to send data before the request fails
         with a requests.exceptions.Timeout. Applies to every request to Solr.
         :param connect_timeout: Seconds to wait for Solr to accept the connection
@@ -54,8 +51,13 @@ class HTSolrAPI:
         """
         validate_timeout_seconds("read_timeout", read_timeout)
         validate_timeout_seconds("connect_timeout", connect_timeout)
-        self.url = url
-        self.auth = HTTPBasicAuth(user, password) if user and password else None
+        self.url = solr_params.url
+        self.auth: HTTPBasicAuth | None
+        if solr_params.username and solr_params.password:
+            self.auth = HTTPBasicAuth(solr_params.username, solr_params.password.get_secret_value())
+        else:
+            self.auth = None
+
         self.timeout = (connect_timeout, read_timeout)
 
     def get_solr_status(self) -> requests.Response:

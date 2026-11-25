@@ -1,76 +1,16 @@
-import json
 import os
 import time
 from argparse import ArgumentParser
 from statistics import mean, median
 
-import requests
 from ht_search.export_all_results import SolrExporter
-from ht_utils.ht_env_config import HtEnvConfig
+from ht_utils.ht_env_config import ht_env_config
 from ht_utils.ht_logger import get_ht_logger
-from requests.auth import HTTPBasicAuth
 
 current = os.path.dirname(os.path.abspath(__file__))
 parent = os.path.dirname(current)
 
 logger = get_ht_logger(name=__name__)
-
-
-def send_solr_query(
-    solr_base_url: str,
-    query: dict = None,
-    user: str = None,
-    password: str = None,
-    response_times: list = None,
-    error_count: int = 0,
-    total_queries: int = 0,
-) -> None:
-    """
-    Send a query to Solr and measure the response time.
-    :param total_queries:
-    :param error_count:
-    :param response_times:
-    :param password:
-    :param user:
-    :param query:
-    :param solr_base_url:
-    :return:
-    """
-
-    try:
-        # Construct Solr query URL
-        url = f"{solr_base_url}/select"
-
-        # Record start time
-        start_time = time.time()
-
-        auth = HTTPBasicAuth(user, password) if user and password else None
-
-        # Send query request
-        response = requests.get(url, params=query, timeout=10, auth=auth)
-        output = json.loads(response.content)
-
-        for result in output["response"]["docs"]:
-            logger.info(result)
-
-        # Record end time
-        end_time = time.time()
-
-        # Calculate response time
-        response_time = end_time - start_time
-        response_times.append(response_time)
-
-        # Check for errors
-        if response.status_code != 200:
-            logger.info(f"Error: Received status code {response.status_code}")
-            error_count += 1
-        else:
-            logger.info(f"Query successful. Response time: {response_time:.3f} seconds")
-    except Exception as e:
-        logger.error(f"Error: {e}")
-        error_count += 1
-    finally:
-        total_queries += 1
 
 
 def print_metrics(response_times: list, error_count: int, total_queries: int) -> None:
@@ -91,7 +31,6 @@ def main():
 
     parser = ArgumentParser()
     parser.add_argument("--env", default=os.environ.get("HT_ENVIRONMENT", "dev"))
-    parser.add_argument("--collection_name", help="Name of the collection", default=None)
     parser.add_argument("--cluster_name", help="It can be catalog or fulltext", required=True)
 
     args = parser.parse_args()
@@ -106,22 +45,16 @@ def main():
     logger.info("Starting Solr Query Performance Test...")
     start_time = time.time()
 
-    env_config = HtEnvConfig()
     # Default parameters are for full-text search
-    solr_host = env_config.full_text_solr_ro_url
+    solr_params = ht_env_config.solr_full_text_ro
     config_files = "full_text_search"
     conf_query = "ocr"
 
     # Overwrite default parameter for Catalog search
     if args.cluster_name == "catalog":
-        solr_host = env_config.catalog_solr_ro_url
+        solr_params = ht_env_config.solr_catalog_ro
         config_files = "catalog_search"
         conf_query = "titleonly"
-
-    if args.solr_host:
-        solr_base_url = f"{args.solr_host}/solr/{args.collection_name}"
-    else:
-        solr_base_url = f"{solr_host}/solr/{args.collection_name}"
 
     while time.time() - start_time < test_duration:
         # TODO: Generate a random Solr query using different kind of queries and parameters
@@ -134,9 +67,7 @@ def main():
         )
 
         query = "health"
-        solr_exporter = SolrExporter(
-            solr_base_url, args.env, user=env_config.solr_user, password=env_config.solr_password
-        )
+        solr_exporter = SolrExporter(solr_params, args.env)
         # '"good"'
         for x in solr_exporter.run_query_term_cursor(
             query, query_config_file_path, conf_query=conf_query
