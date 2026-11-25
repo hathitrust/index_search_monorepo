@@ -11,6 +11,7 @@ from pika.adapters.blocking_connection import BlockingChannel
 from ht_queue_service.channel_creator import ChannelCreator
 from ht_queue_service.queue_manager import QueueManager
 from ht_queue_service.queue_settings import QueueSettings
+from ht_queue_service.queue_connection import QueueConnection
 
 logger = get_ht_logger(name=__name__)
 
@@ -65,12 +66,13 @@ class QueueProducer:
           Oversized messages raise `MessageTooLargeError` before any publish attempt.
     """
 
-    def __init__(self, queue_settings: QueueSettings) -> None:
+    def __init__(self, queue_settings: QueueSettings, queue_connection: QueueConnection) -> None:
         """
         Initialize the producer and ensure the queue infrastructure is ready.
 
         :param queue_settings: queue configuration object containing queue_name, exchange_name,
         exchange_type, durable, routing_key, and queue_arguments.
+        :param queue_connection: Pre-established QueueConnection. If not provided, a new connection is created.
 
         Behaviour:
         - Build a ChannelCreator and opens an initial channel for the main thread.
@@ -83,10 +85,11 @@ class QueueProducer:
         # Define credentials (user/password) as environment variables
         # declaring the credentials needed for connection like host, port, username, password, exchange etc
 
+        self.queue_connection = queue_connection
+
         try:
             # Object to create channels
-            self.channel_creator = ChannelCreator(queue_settings)  # Factory to create channels
-            self.channel: BlockingChannel | None = self._open_channel()
+            self.channel = self._open_channel()
 
             # Thread-local storage for channels (for multi-threading support)
             self._thread_local = threading.local()
@@ -107,10 +110,10 @@ class QueueProducer:
         """Open a channel with publisher confirms turned on.
 
         :raises PublishConnectionError: when the channel cannot be opened or confirms cannot be
-            enabled. `ChannelCreator.get_channel` wraps pika errors in `RuntimeError`.
+            enabled. `QueueConnection` wraps pika errors in `RuntimeError`.
         """
         try:
-            channel = self.channel_creator.get_channel()
+            channel = self.queue_connection.channel()
         except RuntimeError as err:
             raise PublishConnectionError(f"Unable to establish a RabbitMQ channel: {err}") from err
         if channel is None:

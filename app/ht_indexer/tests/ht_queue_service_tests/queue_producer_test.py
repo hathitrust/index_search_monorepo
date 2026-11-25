@@ -2,18 +2,14 @@ import contextlib
 import json
 import threading
 import time
-from collections.abc import Callable, Generator
+from collections.abc import Callable
 from typing import Any
-from unittest.mock import PropertyMock, patch
+from unittest.mock import PropertyMock, create_autospec, patch
 
 import pika.exceptions
 import pytest
-from conftest import (
-    ConcreteQueueConsumer,
-    QueueTestSettings,
-    close_channel_and_connection,
-    ensure_queue_ready_and_purged,
-)
+from conftest import QueueTestSettings
+from ht_queue_service.queue_connection import QueueConnection
 from ht_queue_service.queue_manager import QueueManager
 from ht_queue_service.queue_producer import (
     MessageTooLargeError,
@@ -25,7 +21,7 @@ from ht_queue_service.queue_producer import (
 )
 from ht_utils.ht_logger import get_ht_logger
 from ht_utils.testing import assert_log_entry, capture_logs
-from pika.adapters.blocking_connection import BlockingChannel
+from pika.adapters.thread_safe_connection import Channel
 
 logger = get_ht_logger(name=__name__)
 
@@ -35,63 +31,54 @@ MESSAGE_SIZE = len(json.dumps(message).encode("utf-8"))
 
 
 @pytest.fixture
-def make_producer() -> Generator[Callable[..., QueueProducer]]:
-    producers: list[QueueProducer] = []
-
-    def _make(**overrides: Any) -> QueueProducer:  # Any: forwards arbitrary QueueParams overrides
-        producer = QueueProducer(QueueTestSettings(**overrides))
-        ensure_queue_ready_and_purged(producer)
-        producers.append(producer)
+def make_producer(
+    make_queue_connection: Callable[[QueueTestSettings], QueueConnection],
+) -> Callable[..., QueueProducer]:
+    def make(**overrides: Any) -> QueueProducer:  # Any: forwards arbitrary QueueParams overrides
+        settings = QueueTestSettings(**overrides)
+        connection = make_queue_connection(settings)
+        producer = QueueProducer(settings, queue_connection=connection)
+        assert producer.channel is not None
+        producer.channel.queue_purge(producer.queue_manager.queue_name)
         return producer
 
-    yield _make
-    for producer in producers:
-        print(f"cleaning up {producer}")
-        close_channel_and_connection(producer)
+    return make
 
 
 class TestQueueProducer:
     """Test the QueueProducer class"""
 
-    def test_queue_produce_one_message(self) -> None:
+    def test_producer_uses_given_queue_connection(self, queue_settings: QueueTestSettings) -> None:
+
+        # Use create_autospec to create a realistic mock of QueueConnection that will raise an error if any unexpected methods are called
+        # For this test, it ensures that connection.channel is available only after QueueConnection.channel() exists
+        connection = create_autospec(QueueConnection, instance=True)
+        channel = connection.channel.return_value
+
+        with patch("ht_queue_service.queue_producer.QueueManager.is_ready", return_value=True):
+            producer = QueueProducer(queue_settings, queue_connection=connection)
+
+        connection.channel.assert_called_once_with()
+        assert producer.channel is channel
+    
+    @pytest.mark.integration
+    def test_queue_produce_one_message(self, make_producer: Callable[..., QueueProducer]) -> None:
         """Test publishing a single message to the queue and consuming it to verify."""
 
-        producer_instance = QueueProducer(QueueTestSettings())
-        #        ensure_queue_ready_and_purged(producer_instance)
+        producer_instance = make_producer()
 
         producer_instance.publish_messages(message)
         assert producer_instance.channel is not None
-        producer_instance.channel.close()
+        method, _, body = producer_instance.channel.basic_get(
+            queue=producer_instance.queue_manager.queue_name, auto_ack=False
+        )
 
-        # Consume the message to ensure it was published correctly
-        consumer_instance = ConcreteQueueConsumer(QueueTestSettings())
+        assert method is not None
+        assert body is not None
+        assert json.loads(body) == message
+        producer_instance.channel.basic_ack(delivery_tag=method.delivery_tag)
 
-        list_message: list[dict[str, Any]] = []
-        assert consumer_instance.channel is not None
-        try:
-            for method_frame, _, body in consumer_instance.consume_dead_letter_messages(
-                consumer_instance.channel,
-                inactivity_timeout=5,
-                queue_name=consumer_instance.queue_manager.queue_name,
-            ):
-                if method_frame:
-                    output_message = json.loads(body.decode("utf-8"))
-                    list_message.append(output_message)
-                    assert consumer_instance.channel is not None
-                    consumer_instance.positive_acknowledge(
-                        consumer_instance.channel, method_frame.delivery_tag
-                    )
-                    assert len(list_message) == 1
-                    break
-                else:
-                    logger.warning(
-                        f"None method_frame in {consumer_instance.queue_manager.queue_name}... Stopping batch consumption."
-                    )
-                    break
-
-        finally:
-            consumer_instance.channel.close()
-
+    @pytest.mark.integration
     def test_publish_invalid_message_raises_type_error(
         self, make_producer: Callable[..., QueueProducer]
     ) -> None:
@@ -230,18 +217,18 @@ class FakeChannel:
 
 
 @pytest.fixture
-def make_fake_producer() -> Callable[..., tuple[QueueProducer, FakeChannel, Any]]:
-    """Build a QueueProducer whose channel is a FakeChannel. Returns (producer, channel, get_channel mock)."""
+def make_fake_producer(
+    queue_settings: QueueTestSettings,
+) -> Callable[..., tuple[QueueProducer, FakeChannel, Any]]:
+    """Build a producer with a fake channel and a mocked QueueConnection."""
 
     def _make(publish_error: Exception | None = None) -> tuple[QueueProducer, FakeChannel, Any]:
         channel = FakeChannel(publish_error)
-        with (
-            patch("ht_queue_service.queue_producer.ChannelCreator") as channel_creator,
-            patch.object(QueueManager, "is_ready", return_value=True),
-        ):
-            channel_creator.return_value.get_channel.return_value = channel
-            producer = QueueProducer(QueueTestSettings())
-        return producer, channel, channel_creator.return_value.get_channel
+        connection = create_autospec(QueueConnection, instance=True)
+        connection.channel.return_value = channel
+        with patch.object(QueueManager, "is_ready", return_value=True):
+            producer = QueueProducer(queue_settings, queue_connection=connection)
+        return producer, channel, connection.channel
 
     return _make
 
@@ -344,7 +331,7 @@ def test_thread_channel_is_dropped_after_a_failure_and_opened_again_next_time(
 def test_thread_channel_that_cannot_be_opened_raises_publish_connection_error(
     make_fake_producer: Callable[..., tuple[QueueProducer, FakeChannel, Any]],
 ) -> None:
-    """ChannelCreator.get_channel wraps pika errors in RuntimeError: callers must still get our type."""
+    """QueueConnection.channel wraps pika errors in RuntimeError: callers still get our type."""
     producer, _, get_channel = make_fake_producer()
     get_channel.side_effect = RuntimeError("Failed to create channel: boom")
     errors: list[Exception] = []
@@ -389,23 +376,24 @@ class TestProducerStartup:
     )
     def test_startup_failure_raises_publish_connection_error(
         self,
+        queue_settings: QueueTestSettings,
         channel_error: Exception | None,
         confirm_error: Exception | None,
         set_up_error: Exception | None,
     ) -> None:
         channel = FakeChannel(confirm_error=confirm_error)
+        connection = create_autospec(QueueConnection, instance=True)
         with (
-            patch("ht_queue_service.queue_producer.ChannelCreator") as channel_creator,
             patch.object(QueueManager, "is_ready", return_value=set_up_error is None),
             patch.object(QueueManager, "set_up_queue", side_effect=set_up_error),
         ):
-            get_channel = channel_creator.return_value.get_channel
+            get_channel = connection.channel
             if channel_error is not None:
                 get_channel.side_effect = channel_error
             else:
                 get_channel.return_value = channel
             with pytest.raises(PublishConnectionError) as raised:
-                QueueProducer(QueueTestSettings())
+                QueueProducer(queue_settings, queue_connection=connection)
 
         assert type(raised.value) is PublishConnectionError
         assert raised.value.__cause__ is not None
@@ -419,7 +407,7 @@ def test_publish_messages_lost_channel_raises_and_does_not_reconnect(
     original_channel = producer.channel
 
     with (
-        patch.object(BlockingChannel, "is_closed", new_callable=PropertyMock, return_value=True),
+        patch.object(Channel, "is_closed", new_callable=PropertyMock, return_value=True),
         pytest.raises(PublishConnectionError),
     ):
         producer.publish_messages(message)
@@ -441,5 +429,12 @@ def test_publish_messages_unroutable_raises_instead_of_losing_the_message(
         routing_key=manager.queue_name,
     )
 
-    with pytest.raises(PublishUnroutableError):
-        producer.publish_messages(message)
+    try:
+        with pytest.raises(PublishUnroutableError):
+            producer.publish_messages(message)
+    finally:
+        producer.channel.queue_bind(
+            queue=manager.queue_name,
+            exchange=manager.main_exchange_name,
+            routing_key=manager.queue_name,
+        )
